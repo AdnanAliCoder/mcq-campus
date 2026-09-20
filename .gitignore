@@ -1,0 +1,11 @@
+.sites-runtime/
+node_modules/
+*.tar.gz
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+db.sqlite3
+staticfiles/
+.venv/
