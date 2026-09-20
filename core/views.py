@@ -1,4 +1,5 @@
-import json, re
+import json, re, base64, io, mimetypes, zipfile
+from functools import lru_cache
 from datetime import timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
@@ -96,16 +97,67 @@ def commands(request):
         if e.__class__.__name__ in {'DoesNotExist','IntegrityError'}: return err('The requested record could not be updated.',422)
         raise
 
+@lru_cache(maxsize=1)
+def _frontend_bundle():
+    """Load the checked-in full frontend ZIP into memory as a deployment fallback."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    parts = [
+        root / 'deploy-bundle' / 'part-00.b64',
+        root / 'deploy-bundle' / 'part-01.b64',
+        root / 'deploy-bundle' / 'part-02.b64',
+        root / 'deploy-bundle' / 'rest.b64',
+    ]
+    if not all(p.exists() for p in parts):
+        return None
+    try:
+        encoded = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
+        raw = base64.b64decode(encoded, validate=True)
+        return raw
+    except Exception:
+        return None
+
+def _frontend_file_bytes(relative_path):
+    raw = _frontend_bundle()
+    if raw is None:
+        return None
+    name = 'frontend/' + str(relative_path).lstrip('/').replace('\\', '/')
+    if '..' in name.split('/'):
+        return None
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            return zf.read(name)
+    except (KeyError, zipfile.BadZipFile):
+        return None
+
+def frontend_asset(request, path):
+    """Serve restored frontend assets even on hosts that skip build.sh (e.g. some Vercel setups)."""
+    from pathlib import Path
+    local = Path(__file__).resolve().parents[1] / 'frontend' / 'assets' / path
+    if local.exists() and local.is_file():
+        data = local.read_bytes()
+    else:
+        data = _frontend_file_bytes('assets/' + path)
+    if data is None:
+        raise Http404
+    content_type = mimetypes.guess_type(path)[0] or 'application/octet-stream'
+    response = HttpResponse(data, content_type=content_type)
+    response['Cache-Control'] = 'public, max-age=3600'
+    return response
+
 def spa_index(request):
     # Serve the restored full frontend rather than the temporary compact
     # Django template shell. A <base> tag keeps relative asset URLs correct
     # even when Django's SPA catch-all handles a nested browser path.
     from pathlib import Path
     path = Path(__file__).resolve().parents[1] / 'frontend' / 'index.html'
-    if not path.exists():
-        raise Http404('Frontend is not available.')
-
-    html = path.read_text(encoding='utf-8')
+    if path.exists():
+        html = path.read_text(encoding='utf-8')
+    else:
+        bundled = _frontend_file_bytes('index.html')
+        if bundled is None:
+            raise Http404('Frontend is not available.')
+        html = bundled.decode('utf-8')
     if '<base ' not in html.lower():
         html = re.sub(r'<head>', '<head><base href="/">', html, count=1, flags=re.I)
 
