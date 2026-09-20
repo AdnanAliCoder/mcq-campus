@@ -1,4 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": null
+  "framework": null,
+  "buildCommand": "python restore_frontend.py",
+  "outputDirectory": "frontend"
 }
