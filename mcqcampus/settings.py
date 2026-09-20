@@ -1,10 +1,17 @@
 import os
 from pathlib import Path
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
 DEBUG = os.getenv('DEBUG', 'false').lower() in {'1','true','yes','on'}
+SECRET_KEY = os.getenv('SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Set SECRET_KEY before starting with DEBUG=false.')
+    SECRET_KEY = 'dev-only-change-me'
+if not DEBUG and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith(('dev-only-', 'change-me-'))):
+    raise ImproperlyConfigured('Production SECRET_KEY must be a strong random value of at least 50 characters.')
 ALLOWED_HOSTS = [x.strip() for x in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if x.strip()]
 render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 if render_host and render_host not in ALLOWED_HOSTS:
@@ -43,8 +50,15 @@ ASGI_APPLICATION='mcqcampus.asgi.application'
 def _db():
     url=os.getenv('DATABASE_URL','').strip()
     if not url:
+        if not DEBUG:
+            raise ImproperlyConfigured('Set DATABASE_URL to PostgreSQL; production cannot use temporary SQLite storage.')
         return {'ENGINE':'django.db.backends.sqlite3','NAME':BASE_DIR/'db.sqlite3'}
-    return dj_database_url.parse(url, conn_max_age=60, ssl_require=True)
+    config = dj_database_url.parse(url, conn_max_age=60, conn_health_checks=True, ssl_require=True)
+    if not DEBUG and config['ENGINE'] != 'django.db.backends.postgresql':
+        raise ImproperlyConfigured('Production DATABASE_URL must use PostgreSQL.')
+    if config['ENGINE'] == 'django.db.backends.postgresql':
+        config.setdefault('OPTIONS', {})['connect_timeout'] = 10
+    return config
 DATABASES={'default':_db()}
 
 AUTH_PASSWORD_VALIDATORS=[

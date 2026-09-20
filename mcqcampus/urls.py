@@ -1,8 +1,10 @@
 from django.contrib import admin
 from django.urls import include, path, re_path
 from core import views
+from core.health import healthz
 
 urlpatterns=[
+    path('healthz', healthz, name='healthz'),
     path('django-admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('robots.txt', views.robots_txt),
