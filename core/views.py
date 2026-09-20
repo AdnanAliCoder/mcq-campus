@@ -112,7 +112,8 @@ def _frontend_bundle():
         return None
     try:
         encoded = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
-        raw = base64.b64decode(encoded, validate=True)
+        encoded += '=' * (-len(encoded) % 4)
+        raw = base64.b64decode(encoded)
         return raw
     except Exception:
         return None
