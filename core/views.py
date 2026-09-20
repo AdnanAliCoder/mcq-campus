@@ -97,15 +97,43 @@ def commands(request):
         raise
 
 def spa_index(request):
+    # Serve the restored full frontend rather than the temporary compact
+    # Django template shell. A <base> tag keeps relative asset URLs correct
+    # even when Django's SPA catch-all handles a nested browser path.
+    from pathlib import Path
+    path = Path(__file__).resolve().parents[1] / 'frontend' / 'index.html'
+    if not path.exists():
+        raise Http404('Frontend is not available.')
+
+    html = path.read_text(encoding='utf-8')
+    if '<base ' not in html.lower():
+        html = re.sub(r'<head>', '<head><base href="/">', html, count=1, flags=re.I)
+
+    # Keep Analytics / AdSense controls owned by the Django super-admin
+    # settings while the visual frontend is served from the restored bundle.
     s = SiteSetting.get_solo()
-    user = user_dict(request.user, request.session) if request.user.is_authenticated else None
-    data = snapshot(request.user) if request.user.is_authenticated else None
-    return render(request, 'index.html', {
-        'settings': s,
-        'bootstrap': data,
-        'session_user': user,
-        'csrf_token_value': get_token(request),
-    })
+    inject = []
+    if getattr(s, 'analytics_enabled', False) and getattr(s, 'google_analytics_id', ''):
+        ga = str(s.google_analytics_id).strip()
+        if ga:
+            safe_ga = json.dumps(ga)
+            inject.append(
+                f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga}"></script>'
+                f'<script>window.dataLayer=window.dataLayer||[];'
+                f'function gtag(){{dataLayer.push(arguments)}};'
+                f'gtag("js",new Date());gtag("config",{safe_ga});</script>'
+            )
+    if getattr(s, 'adsense_enabled', False) and getattr(s, 'adsense_client_id', ''):
+        adsense = str(s.adsense_client_id).strip()
+        if adsense:
+            inject.append(
+                f'<script async crossorigin="anonymous" '
+                f'src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={adsense}"></script>'
+            )
+    if inject:
+        html = re.sub(r'</head>', ''.join(inject) + '</head>', html, count=1, flags=re.I)
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 def root_static_file(request, filename):
     allowed={'sitemap-index.xml','sitemap-pages.xml','sitemap-categories.xml','sitemap-papers.xml','sitemap-mcqs.xml','sitemap-resources.xml','sitemap-template.xml','routing-manifest.json'}
