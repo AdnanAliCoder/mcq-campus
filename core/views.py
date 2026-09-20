@@ -97,7 +97,15 @@ def commands(request):
         raise
 
 def spa_index(request):
-    s=SiteSetting.get_solo(); return render(request,'index.html',{'settings':s})
+    s = SiteSetting.get_solo()
+    user = user_dict(request.user, request.session) if request.user.is_authenticated else None
+    data = snapshot(request.user) if request.user.is_authenticated else None
+    return render(request, 'index.html', {
+        'settings': s,
+        'bootstrap': data,
+        'session_user': user,
+        'csrf_token_value': get_token(request),
+    })
 
 def root_static_file(request, filename):
     allowed={'sitemap-index.xml','sitemap-pages.xml','sitemap-categories.xml','sitemap-papers.xml','sitemap-mcqs.xml','sitemap-resources.xml','sitemap-template.xml','routing-manifest.json'}
