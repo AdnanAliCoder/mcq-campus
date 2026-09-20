@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: mcq-campus
+    runtime: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn mcqcampus.wsgi:application
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPERADMIN_EMAIL
+        sync: false
+      - key: SUPERADMIN_PASSWORD
+        sync: false
+      - key: SUPERADMIN_NAME
+        value: MCQ Campus Owner
