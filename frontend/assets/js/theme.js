@@ -1,0 +1,1 @@
+(function(){try{var saved=localStorage.getItem('mcq-theme')||'light';document.documentElement.setAttribute('data-theme',saved)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();
