@@ -162,11 +162,15 @@ def spa_index(request):
     if '<base ' not in html.lower():
         html = re.sub(r'<head>', '<head><base href="/">', html, count=1, flags=re.I)
 
-    # Keep Analytics / AdSense controls owned by the Django super-admin
-    # settings while the visual frontend is served from the restored bundle.
-    s = SiteSetting.get_solo()
+    # The public shell must still render before database migrations/seeding
+    # have completed on a fresh serverless deployment.
     inject = []
-    if getattr(s, 'analytics_enabled', False) and getattr(s, 'google_analytics_id', ''):
+    try:
+        s = SiteSetting.get_solo()
+    except Exception:
+        s = None
+
+    if s is not None and getattr(s, 'analytics_enabled', False) and getattr(s, 'google_analytics_id', ''):
         ga = str(s.google_analytics_id).strip()
         if ga:
             safe_ga = json.dumps(ga)
@@ -176,7 +180,7 @@ def spa_index(request):
                 f'function gtag(){{dataLayer.push(arguments)}};'
                 f'gtag("js",new Date());gtag("config",{safe_ga});</script>'
             )
-    if getattr(s, 'adsense_enabled', False) and getattr(s, 'adsense_client_id', ''):
+    if s is not None and getattr(s, 'adsense_enabled', False) and getattr(s, 'adsense_client_id', ''):
         adsense = str(s.adsense_client_id).strip()
         if adsense:
             inject.append(
