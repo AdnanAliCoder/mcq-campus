@@ -44,8 +44,21 @@ window.UI=(()=>{
  function footer(){return adPlacement('footer')+`<footer class="footer"><div class="container"><div class="footer-grid"><div>${brand()}<p>A focused place to practise, learn from your mistakes, and take the next step.</p></div><div><strong>Explore</strong>${link('categories','All categories')}${link('papers','Past papers')}${link('important','Important MCQs')}${link('posts','Posts')}${link('guides','Study guides')}</div><div><strong>MCQ Campus</strong>${link('about','About us')}${link('contact','Contact')}${link('dashboard','My learning')}${link('login','Account')}</div><div><strong>Information</strong>${link('privacy','Privacy policy')}${link('terms','Terms & conditions')}${link('disclaimer','Disclaimer')}${link('sitemap','Sitemap')}</div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} MCQ Campus. Keep learning.</span><span>Designed around your next right answer.</span></div></div></footer><nav class="bottom-nav" aria-label="Mobile navigation">${[['home','home','Home'],['categories','grid','Subjects'],['papers','paper','Papers'],['search','search','Search'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,App.route.path===p?'active':'')).join('')}</nav>`}
  const layout=(body,active='')=>header(active)+adPlacement('top_banner')+`<main id="main" tabindex="-1">${body}</main>`+footer();
  const loaderAsset='assets/images/mcq-loader.svg';
- const mcqLoader=(size='page',label='Loading MCQ Campus')=>`<span class="mcq-loader mcq-loader--${esc(size)}" role="status" aria-live="polite" aria-busy="true"><img src="${loaderAsset}" alt="" aria-hidden="true"><span class="sr-only">${esc(label)}</span></span>`;
- const skeleton=(count=3)=>`<div class="skeleton-loader" role="status" aria-live="polite" aria-busy="true"><span class="sr-only">Loading MCQ Campus</span>${Array.from({length:Math.max(1,Math.min(8,Number(count)||3))},()=>'<span class="skeleton skeleton-line"></span>').join('')}</div>`;
+ const mcqLoader=(size='page',label='Loading...')=>`<span class="mcq-loader mcq-loader--${esc(size)}" role="status" aria-live="polite" aria-busy="true"><img src="${loaderAsset}" alt="" aria-hidden="true"><span class="sr-only">${esc(label)}</span></span>`;
+ const skeleton=(count=3)=>`<div class="skeleton-loader" role="status" aria-live="polite" aria-busy="true"><span class="sr-only">Loading...</span>${Array.from({length:Math.max(1,Math.min(8,Number(count)||3))},()=>'<span class="skeleton skeleton-line"></span>').join('')}</div>`;
+ let pageDepth=0,pageTimer=null,pageShownAt=0;
+ function pageBusy(on){
+  const overlay=document.getElementById('app-loader');if(!overlay)return;
+  pageDepth=Math.max(0,pageDepth+(on?1:-1));
+  clearTimeout(pageTimer);pageTimer=null;
+  if(pageDepth>0){
+   const show=()=>{if(!pageDepth)return;overlay.classList.add('is-visible');overlay.setAttribute('aria-busy','true');overlay.setAttribute('aria-hidden','false');pageShownAt=performance.now();document.body?.classList.add('page-loading')};
+   if(overlay.classList.contains('is-visible'))show();else pageTimer=setTimeout(show,120);
+  }else{
+   const elapsed=pageShownAt?performance.now()-pageShownAt:999;
+   pageTimer=setTimeout(()=>{if(pageDepth)return;overlay.classList.remove('is-visible');overlay.setAttribute('aria-busy','false');overlay.setAttribute('aria-hidden','true');document.body?.classList.remove('page-loading');pageShownAt=0},Math.max(0,160-elapsed));
+  }
+ }
  let networkDepth=0,networkTimer=null;
  function networkBusy(on){
   networkDepth=Math.max(0,networkDepth+(on?1:-1));
@@ -70,6 +83,6 @@ window.UI=(()=>{
   button.innerHTML=`<span class="button-loader" aria-hidden="true"><img src="${loaderAsset}" alt=""></span><span>${esc(label)}</span>`;
   return ()=>{button.innerHTML=html;button.disabled=disabled;button.classList.remove('is-loading');button.removeAttribute('aria-busy')};
  }
- const loadingPage=(label='Loading MCQ Campus')=>`<main class="app-loader" id="main" role="status" aria-live="polite" aria-busy="true">${mcqLoader('page',label)}</main>`;
- return {esc,icon,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,pager,date,count,counter,card,toast,modal,download,entityIcon,userMenu,header,footer,layout,adPlacement,mcqLoader,skeleton,networkBusy,buttonBusy,loadingPage};
+ const loadingPage=(label='Loading...')=>`<div class="inline-page-loader" role="status" aria-live="polite" aria-busy="true">${mcqLoader('page',label)}</div>`;
+ return {esc,icon,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,pager,date,count,counter,card,toast,modal,download,entityIcon,userMenu,header,footer,layout,adPlacement,mcqLoader,skeleton,pageBusy,networkBusy,buttonBusy,loadingPage};
 })();
