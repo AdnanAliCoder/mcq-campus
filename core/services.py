@@ -26,6 +26,19 @@ def job_opening_schema_ready():
     required.update(field.remote_field.through._meta.db_table for field in JobOpening._meta.local_many_to_many)
     return required.issubset(tables)
 
+def ensure_job_opening_schema():
+    if job_opening_schema_ready(): return False
+    existing=set(connection.introspection.table_names())
+    main=JobOpening._meta.db_table
+    through=[field.remote_field.through for field in JobOpening._meta.local_many_to_many]
+    with connection.schema_editor() as editor:
+        if main not in existing:
+            editor.create_model(JobOpening)
+        else:
+            for model in through:
+                if model._meta.db_table not in existing: editor.create_model(model)
+    return True
+
 def snapshot(user):
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     settings=SiteSetting.get_solo()
@@ -192,7 +205,7 @@ def parse_optional_date(value):
 
 def save_job_opening(user,payload):
     require(is_admin(user) and has_perm(user,'manage_job_openings'))
-    if not job_opening_schema_ready(): raise ValueError('Current Jobs database schema is not initialized. Run python manage.py ensure_job_openings_schema once.')
+    ensure_job_opening_schema()
     fields,v,ctx,_=parse_fields(payload)
     rid=int(ctx.get('id') or 0) or None
     def multi(key):
