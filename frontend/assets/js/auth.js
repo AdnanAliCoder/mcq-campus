@@ -141,9 +141,12 @@ window.Auth=(()=>{
   try{
    const values=Object.fromEntries(new FormData(form));
    if(form.dataset.form==='mcq')Admin.syncDraft();
-   if(form.dataset.form==='contact'&&!user)await request('/contact',values);
-   else await command('form:'+form.dataset.form,{values,fields:[...new FormData(form)],context:{...form.dataset},draft:App.draft});
-   window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+   let result;
+   if(form.dataset.form==='contact'&&!user)result=await request('/contact',values);
+   else result=await command('form:'+form.dataset.form,{values,fields:[...new FormData(form)],context:{...form.dataset},draft:App.draft});
+   if(form.dataset.form.startsWith('bulk-')){App.bulkSummary=result;UI.toast(`Import finished: ${result.added||0} added, ${result.skipped||0} skipped, ${result.failed||0} failed.`);}
+   else UI.toast('Saved.');
+   window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();
   }catch(error){let box=form.querySelector('[data-command-error]');if(!box){box=document.createElement('p');box.dataset.commandError='';box.className='auth-error';box.setAttribute('role','alert');form.prepend(box);}box.textContent=error.message;}
   finally{restoreButton();}
  },true);
