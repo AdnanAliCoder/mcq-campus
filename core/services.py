@@ -1,5 +1,5 @@
 import hashlib, json, re, secrets
-from datetime import timedelta
+from datetime import timedelta, date
 from django.db import transaction, connection
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -84,7 +84,7 @@ def normalize_ids(v):
     if isinstance(v,list): vals=v
     else:
         try: vals=json.loads(v)
-        except Exception: vals=[v]
+        except Exception: vals=[x.strip() for x in str(v).split(',')] if ',' in str(v) else [v]
         if not isinstance(vals,list): vals=[vals]
     out=[]
     for x in vals:
@@ -205,7 +205,7 @@ def save_job_opportunity(user,payload):
     obj.total_vacancies=int(vacancies) if vacancies.isdigit() else None
     for key in ['advertisement_date','last_date']:
         raw=str(v.get(key) or '').strip()
-        setattr(obj,key,timezone.datetime.strptime(raw,'%Y-%m-%d').date() if raw else None)
+        setattr(obj,key,date.fromisoformat(raw) if raw else None)
     obj.published='published' in fields or str(v.get('published') or '').lower() in {'1','true','yes','on','published'}
     obj.updated_by=user; obj.save()
     obj.related_mcqs.set(MCQ.objects.filter(id__in=normalize_ids(v.get('related_mcq_ids'))))
