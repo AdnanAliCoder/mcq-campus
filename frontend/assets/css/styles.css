@@ -193,18 +193,20 @@
 
 /* Production loading system: one reusable MCQ Campus SVG loader at every scale. */
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-.app-loader{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;min-height:100vh;background:rgba(250,251,251,.975);opacity:1;visibility:visible;transition:opacity 180ms ease,visibility 180ms ease}
-.app-loader.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+.app-loader{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;min-height:100vh;background:rgba(248,251,250,.10);-webkit-backdrop-filter:blur(8px) saturate(.96);backdrop-filter:blur(8px) saturate(.96);opacity:0;visibility:hidden;pointer-events:none;transition:opacity 180ms ease,visibility 180ms ease}
+.app-loader.is-visible{opacity:1;visibility:visible;pointer-events:auto}
+.app-loader .mcq-loader{background:transparent!important;box-shadow:none!important;border:0!important}
+body.page-loading{overflow:hidden}
 .mcq-loader{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
 .mcq-loader img{display:block;width:100%;height:100%;object-fit:contain}
 .mcq-loader--page{width:clamp(150px,15vw,190px);height:clamp(150px,15vw,190px)}
 .mcq-loader--network{width:42px;height:42px}
-.network-loader{position:fixed;top:14px;right:14px;z-index:99998;display:grid;place-items:center;width:54px;height:54px;border:1px solid rgba(16,185,129,.16);border-radius:16px;background:rgba(255,255,255,.93);box-shadow:0 10px 32px rgba(18,43,37,.12);opacity:0;transform:translateY(-5px) scale(.96);transition:opacity 160ms ease,transform 160ms ease;pointer-events:none}
+.network-loader{position:fixed;top:14px;right:14px;z-index:99998;display:grid;place-items:center;width:54px;height:54px;border:1px solid rgba(16,185,129,.12);border-radius:16px;background:rgba(255,255,255,.32);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 10px 32px rgba(18,43,37,.08);opacity:0;transform:translateY(-5px) scale(.96);transition:opacity 160ms ease,transform 160ms ease;pointer-events:none}
 .network-loader.show{opacity:1;transform:none}
 .btn.is-loading{cursor:wait;opacity:.86;pointer-events:none}.button-loader{display:inline-flex;width:22px;height:22px;flex:0 0 22px;margin-right:7px}.button-loader img{display:block;width:100%;height:100%;object-fit:contain}
 .skeleton-loader{display:grid;gap:10px;width:100%}.skeleton-line{display:block;height:18px;border-radius:8px}.skeleton-line:nth-child(3n+2){width:82%}.skeleton-line:nth-child(3n+3){width:64%}
 .admin-primary-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.bulk-manager{max-width:900px}.bulk-manager textarea{min-height:260px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.ad-editor{max-width:900px}.ad-editor+.card{margin-top:22px}
-@media(prefers-color-scheme:dark){.app-loader{background:rgba(17,20,24,.975)}.network-loader{background:rgba(26,31,35,.96);border-color:rgba(16,185,129,.25)}}
+@media(prefers-color-scheme:dark){.app-loader{background:rgba(10,16,14,.13)}.network-loader{background:rgba(26,31,35,.74);border-color:rgba(16,185,129,.20)}}
 @media(max-width:850px){.admin-primary-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.mcq-loader--page{width:clamp(110px,34vw,140px);height:clamp(110px,34vw,140px)}.network-loader{top:10px;right:10px;width:48px;height:48px}.mcq-loader--network{width:36px;height:36px}}
 @media(max-width:520px){.admin-primary-metrics{grid-template-columns:1fr}}
