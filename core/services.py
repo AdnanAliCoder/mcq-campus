@@ -1,13 +1,13 @@
 import hashlib, json, re, secrets
 from datetime import timedelta
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.text import slugify
 from .models import *
 from .serializers import *
 
-PERMISSION_CATALOG=['add_mcq','edit_own_mcq','edit_any_mcq','delete_own_mcq','delete_any_mcq','review_mcq','approve_mcq','reject_mcq','bulk_import_mcqs','manage_categories','manage_subcategories','manage_child_categories','manage_papers','manage_jobs','manage_job_years','manage_guides','manage_posts','publish_posts','manage_seo','view_reports','resolve_reports','view_analytics','view_logs','manage_users','manage_admins','assign_roles','change_permissions','manage_settings','backup','restore_backup']
+PERMISSION_CATALOG=['add_mcq','edit_own_mcq','edit_any_mcq','delete_own_mcq','delete_any_mcq','review_mcq','approve_mcq','reject_mcq','bulk_import_mcqs','manage_categories','manage_subcategories','manage_child_categories','manage_papers','manage_jobs','manage_job_years','manage_guides','manage_posts','publish_posts','manage_job_opportunities','manage_seo','view_reports','resolve_reports','view_analytics','view_logs','manage_users','manage_admins','assign_roles','change_permissions','manage_settings','backup','restore_backup']
 ENTITY_MODELS={'categories':Category,'subcategories':Subcategory,'children':ChildCategory,'papers':Paper,'jobs':Job,'years':JobYear}
 ENTITY_PARENT={'subcategories':('category_id',Category),'children':('subcategory_id',Subcategory),'jobs':('paper_id',Paper),'years':('job_id',Job)}
 
@@ -19,6 +19,13 @@ def require(cond,msg='Your account does not have permission for this action.'):
 def log(u,action,detail=''): AuditLog.objects.create(user=u if getattr(u,'is_authenticated',False) else None,action=action,detail=str(detail)[:5000])
 
 def next_id(model): return (model.objects.order_by('-id').values_list('id',flat=True).first() or 0)+1
+
+def ensure_job_opportunity_schema():
+    table=JobOpportunity._meta.db_table
+    if table not in set(connection.introspection.table_names()):
+        with connection.schema_editor() as editor:
+            editor.create_model(JobOpportunity)
+
 
 def snapshot(user):
     authenticated=bool(user and getattr(user,'is_authenticated',False))
@@ -43,6 +50,8 @@ def snapshot(user):
     elif user_role(user)=='admin': users=[user_dict(user)]
     guides_q=Guide.objects.all() if is_admin(user) else Guide.objects.filter(published=True)
     posts_q=Post.objects.all() if is_admin(user) else Post.objects.filter(status='published')
+    ensure_job_opportunity_schema()
+    job_opportunities_q=JobOpportunity.objects.all() if is_admin(user) else JobOpportunity.objects.filter(published=True)
     now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
     if is_super(user): ads_q=AdPlacement.objects.all().order_by('-priority','id')
     data={
@@ -52,7 +61,7 @@ def snapshot(user):
         'contacts':[{'id':c.id,'name':c.name,'email':c.email,'message':c.message,'at':iso(c.created_at)} for c in ContactMessage.objects.order_by('-created_at')[:300]] if is_super(user) else [],
         'logs':[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in logs_q[:500]],
         'trash':[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':x.payload.get('mcqs',[]),'entities':x.payload.get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in TrashRecord.objects.order_by('-deleted_at')[:300]] if is_super(user) else [],
-        'posts':[post(x) for x in posts_q.order_by('-updated_at')],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')],
+        'posts':[post(x) for x in posts_q.order_by('-updated_at')],'jobOpportunities':[job_opportunity(x) for x in job_opportunities_q.prefetch_related('related_mcqs','related_categories','related_papers','related_guides','related_posts').order_by('-updated_at')],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')],
         'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'requireReview':True,'cleanRoutesEnabled':False,'analyticsEnabled':settings.analytics_enabled,'googleAnalyticsId':settings.google_analytics_id,'adsenseEnabled':settings.adsense_enabled,'adsenseClientId':settings.adsense_client_id},
         'content':{'about':settings.about,'contact':settings.contact},'seo':{'title':settings.seo_title,'description':settings.seo_description},
         'rolePermissions':{'admin':{'review':bool(settings.admin_permissions.get('review',False)),'import':bool(settings.admin_permissions.get('import',False)),'permissions':settings.admin_permissions.get('permissions',{})}},
@@ -176,6 +185,38 @@ def save_post(user,payload):
             label,url=[x.strip() for x in line.split('|',1)]; links.append({'label':label,'url':url})
     obj.links=links; obj.updated_by=user; obj.save(); log(user,'Saved post',obj.title); return {'id':obj.id}
 
+def save_job_opportunity(user,payload):
+    require(is_admin(user) and has_perm(user,'manage_job_opportunities'))
+    ensure_job_opportunity_schema()
+    fields,v,ctx,_=parse_fields(payload)
+    rid=int(ctx.get('id') or 0) or None
+    obj=JobOpportunity.objects.filter(pk=rid).first() if rid else JobOpportunity(created_by=user)
+    title=str(v.get('title') or '').strip()
+    organization=str(v.get('organization') or '').strip()
+    if not title or not organization: raise ValueError('Job title and organization are required.')
+    base_slug=slugify(str(v.get('slug') or title))[:130] or f'job-{timezone.now().timestamp():.0f}'
+    slug=base_slug; n=2
+    while JobOpportunity.objects.filter(slug=slug).exclude(pk=obj.pk).exists():
+        slug=f'{base_slug[:124]}-{n}'; n+=1
+    obj.title=title; obj.slug=slug; obj.organization=organization
+    for key in ['category','advertisement_number','location','qualification','experience_requirement','age_limit','gender','domicile','employment_type','advertisement_url','apply_url','recruiting_authority','syllabus','eligibility_details','important_instructions']:
+        setattr(obj,key,str(v.get(key) or '').strip())
+    vacancies=str(v.get('total_vacancies') or '').strip()
+    obj.total_vacancies=int(vacancies) if vacancies.isdigit() else None
+    for key in ['advertisement_date','last_date']:
+        raw=str(v.get(key) or '').strip()
+        setattr(obj,key,timezone.datetime.strptime(raw,'%Y-%m-%d').date() if raw else None)
+    obj.published='published' in fields or str(v.get('published') or '').lower() in {'1','true','yes','on','published'}
+    obj.updated_by=user; obj.save()
+    obj.related_mcqs.set(MCQ.objects.filter(id__in=normalize_ids(v.get('related_mcq_ids'))))
+    obj.related_categories.set(Category.objects.filter(id__in=normalize_ids(v.get('related_category_ids'))))
+    obj.related_papers.set(Paper.objects.filter(id__in=normalize_ids(v.get('related_paper_ids'))))
+    obj.related_guides.set(Guide.objects.filter(id__in=normalize_ids(v.get('related_guide_ids'))))
+    obj.related_posts.set(Post.objects.filter(id__in=normalize_ids(v.get('related_post_ids'))))
+    log(user,'Saved job opportunity',obj.title)
+    return {'id':obj.id,'slug':obj.slug}
+
+
 def extract_ga(value):
     m=re.search(r'\bG-[A-Z0-9]+\b',str(value or ''),re.I); return m.group(0).upper() if m else ''
 def extract_adsense(value):
@@ -235,6 +276,7 @@ def command(user,action,payload):
     if action=='form:user': return save_user(user,payload)
     if action=='form:guide': return save_guide(user,payload)
     if action=='form:post': return save_post(user,payload)
+    if action=='form:job-opportunity': return save_job_opportunity(user,payload)
     if action=='form:config': return save_config(user,payload)
     if action=='form:ad': return save_ad(user,payload)
     if action=='form:contact':
@@ -249,6 +291,10 @@ def command(user,action,payload):
         require(is_super(user)); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return obj.active
     if action=='action:ad-delete':
         require(is_super(user)); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return True
+    if action=='action:job-opportunity-toggle':
+        require(is_admin(user) and has_perm(user,'manage_job_opportunities')); ensure_job_opportunity_schema(); obj=JobOpportunity.objects.get(pk=int(payload.get('id'))); obj.published=not obj.published; obj.updated_by=user; obj.save(); log(user,'Toggled job opportunity',obj.title); return obj.published
+    if action=='action:job-opportunity-delete':
+        require(is_admin(user) and has_perm(user,'manage_job_opportunities')); ensure_job_opportunity_schema(); obj=JobOpportunity.objects.get(pk=int(payload.get('id'))); title=obj.title; obj.delete(); log(user,'Deleted job opportunity',title); return True
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'duplicates':0,'invalid':0,'failed':0}
         for row in payload.get('rows') or []:
