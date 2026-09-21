@@ -9,9 +9,9 @@ window.SEO=(()=>{
   if(base==='category')return `/categories/${s(get('categories',id))}/`;
   if(base==='subcategory'){const x=get('subcategories',id),c=get('categories',x?.category_id);return `/categories/${s(c)}/${s(x)}/`}
   if(base==='topic'){const x=get('children',id),sub=get('subcategories',x?.subcategory_id),c=get('categories',sub?.category_id);return `/categories/${s(c)}/${s(sub)}/${s(x)}/`}
-  if(base==='papers')return '/papers/'; if(base==='paper')return `/papers/${s(get('papers',id))}/`;
+  if(base==='papers')return '/past-papers/'; if(base==='paper')return `/past-papers/${s(get('papers',id))}/`;
   if(base==='job')return `/past-papers/jobs/${s(get('jobs',id))}/`; if(base==='jobs'){if(!id)return '/jobs/';const x=(MCQ.db.jobOpenings||[]).find(j=>String(j.slug)===String(id)||String(j.id)===String(id));return `/jobs/${x?.slug||slug(id)}/`} if(base==='year')return `/past-papers/${s(get('years',id))}/`;
-  if(base==='mcq'||base==='practice'){const q=get('mcqs',id);return `/mcqs/${s(q)}/`}
+  if(base==='important')return '/mcqs/important/'; if(base==='mcqs')return '/mcqs/'; if(base==='mcq'||base==='practice'){const q=get('mcqs',id);return `/mcqs/${s(q)}/`}
   if(base==='posts')return '/blog/'; if(base==='post')return `/blog/${s(get('posts',id))}/`;
   if(base==='guides')return '/guides/'; if(base==='guide')return `/guides/${s(get('guides',id))}/`;
   return `/${slug(base)}/`;
