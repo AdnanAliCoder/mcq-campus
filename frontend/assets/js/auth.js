@@ -130,7 +130,7 @@ window.Auth=(()=>{
   }catch(error){box.textContent=error.message;}finally{button.disabled=false;}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','job-opportunity','config']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
@@ -145,7 +145,7 @@ window.Auth=(()=>{
   finally{if(button)button.disabled=false;}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status']);
+ const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status','job-opportunity-toggle','job-opportunity-delete']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
