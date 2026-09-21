@@ -202,3 +202,6 @@ body.network-busy::before{content:"";position:fixed;z-index:9999;left:0;top:0;he
 @media(max-width:850px){.admin-primary-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.admin-primary-metrics{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){body.network-busy::before,.btn-spinner,.app-loading-icon{animation:none!important}}
+
+.site-ads{width:min(1180px,calc(100% - 32px));margin:18px auto}.site-ads:empty{display:none}.site-ads-footer{margin-bottom:0}.ad-unit{border:1px solid var(--line);border-radius:12px;background:#fff;min-height:70px;overflow:hidden}.custom-ad{display:flex;align-items:center;gap:16px;padding:12px 16px;color:inherit;text-decoration:none}.custom-ad:hover{border-color:#92cbb4;box-shadow:var(--shadow)}.custom-ad img{width:132px;height:70px;object-fit:cover;border-radius:8px}.sponsor-copy{min-width:0}.sponsor-copy strong{display:block;margin:3px 0}.sponsor-copy p{margin:3px 0;color:var(--muted);font-size:.84rem}.ad-label{display:block;text-transform:uppercase;letter-spacing:.09em;font-size:.62rem;color:var(--muted)}.adsense-unit{padding:10px}.site-ads-sidebar{width:100%;margin:0 0 18px}
+@media(max-width:600px){.custom-ad{align-items:flex-start}.custom-ad img{width:92px;height:62px}.site-ads{width:min(100% - 24px,1180px)}}
