@@ -1,0 +1,22 @@
+#global-loader {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(180px, 32vw, 260px);
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2147483647;
+  color: inherit;
+  text-align: center;
+}
+#global-loader[hidden], #global-loader video[hidden] { display: none !important; }
+#global-loader::backdrop { background: transparent; backdrop-filter: none; pointer-events: none; }
+#global-loader video { display: block; width: 100%; height: auto; background: transparent; }
+#global-loader .loader-fallback { font: inherit; }

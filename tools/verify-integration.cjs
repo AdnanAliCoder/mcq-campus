@@ -42,7 +42,7 @@ const context={console,URLSearchParams,Date,Intl,AbortSignal,setTimeout:()=>1,cl
 context.window=context;
 context.fetch=async url=>({status:200,ok:true,headers:{get:()=> 'application/json'},json:async()=>url.endsWith('/auth/session')?{user:null,csrfToken:'token'}:snapshot});
 vm.createContext(context);
-for(const name of ['service','importer','ui','public','admin','auth'])vm.runInContext(fs.readFileSync(path.join(frontend,'assets/js',name+'.js'),'utf8'),context,{filename:name+'.js'});
+for(const name of ['loading','service','importer','ui','public','admin','auth'])vm.runInContext(fs.readFileSync(path.join(frontend,'assets/js',name+'.js'),'utf8'),context,{filename:name+'.js'});
 
 (async()=>{
  await context.Auth.start();
@@ -59,3 +59,4 @@ for(const name of ['service','importer','ui','public','admin','auth'])vm.runInCo
  });
  console.log(`\n${count} frontend integration groups passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1});
+

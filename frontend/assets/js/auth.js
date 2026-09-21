@@ -43,11 +43,15 @@ window.Auth=(()=>{
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
- async function request(path,body){
+ async function request(path,body,options={}){
+  const end=options.global?Loading.begin(options.label||'Loading…'):()=>{};
+  try{return await requestJSON(path,body,options);}finally{end();}
+ }
+ async function requestJSON(path,body,options){
   let response;
   try{
-   response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(15000)});
-  }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
+   response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(options.timeout||15000)]):AbortSignal.timeout(options.timeout||15000)});
+  }catch(error){if(error.name==='AbortError')throw error;throw Error(error.name==='TimeoutError'?'The request timed out. Please check whether your change was saved before trying again.':'Unable to reach MCQ Campus. Check your connection and try again.');}
   if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
   const data=await response.json();
@@ -64,7 +68,7 @@ window.Auth=(()=>{
  }
  async function check(){
   if(checking)return checking;
-  const own=generation;
+  const own=generation,end=Loading.begin('Loading your workspace…');
   checking=(async()=>{
    try{
     const session=await request('/auth/session');
@@ -74,12 +78,12 @@ window.Auth=(()=>{
     if(own===generation)hydrate(snapshot,session.user||null);
    }catch{
     if(own===generation){clearPrivateState();try{const snapshot=await request('/bootstrap');hydrate(snapshot,null);}catch{}}
-   }finally{ready=true;checking=null;}
+   }finally{ready=true;checking=null;end();}
   })();
   return checking;
  }
  function guard(){
-  if(!ready){document.getElementById('app').innerHTML='<main class="session-check" role="status">Loading MCQ Campus…</main>';return false;}
+  if(!ready)return false;
   const current=route(),b=base();
   if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
   if(!user){const next=destination(current);history.replaceState(null,'','#/login'+(next?'?next='+encodeURIComponent(next):''));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
@@ -104,7 +108,7 @@ window.Auth=(()=>{
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
-  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
+  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload},{global:action==='form:mcq'||action==='form:review'||action==='action:import-confirm'||action==='action:save-import',label:action.includes('import')?'Importing…':'Saving…',timeout:action.includes('import')?120000:15000});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
   pendingCommands.set(key,task);try{return await task}finally{pendingCommands.delete(key)}
  }
  const originalAttempt=MCQ.attempt;
@@ -116,7 +120,9 @@ window.Auth=(()=>{
   const form=event.target.closest('form[data-form^="auth-"]');if(!form)return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
   const values=Object.fromEntries(new FormData(form)),type=form.dataset.form.slice(5),button=form.querySelector('[type=submit]'),box=form.querySelector('[data-auth-error]');
-  box.textContent='';button.disabled=true;
+  const release=Loading.lock(form,button,{login:'Signing in…',register:'Creating account…',reset:'Updating…'}[type]||'Sending…');if(!release)return;
+  const end=Loading.begin(type==='login'?'Signing in…':type==='register'?'Creating account…':'Updating account…');
+  box.textContent='';
   try{
    if(type==='reset'&&values.password!==values.confirm)throw Error('Passwords do not match.');
    const params=new URLSearchParams(route().split('?')[1]||'');
@@ -126,15 +132,16 @@ window.Auth=(()=>{
    if(type==='login'){
     csrf=data.csrfToken||csrf;const snapshot=await request('/bootstrap');hydrate(snapshot,data.user);ready=true;
     const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
-   }else{box.textContent=data.message||'Request completed.';form.reset();if(type==='reset'&&data.completed)setTimeout(()=>App.go('login'),800);}
-  }catch(error){box.textContent=error.message;}finally{button.disabled=false;}
+   }else{box.textContent=data.message||'Request completed.';form.reset();if(type==='reset'&&data.completed)App.go('login');}
+  }catch(error){box.textContent=error.message;}finally{end();release();}
  },true);
 
  const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
-  const button=form.querySelector('button[type=submit],button:not([type])');if(button)button.disabled=true;
+  const button=form.querySelector('button[type=submit],button:not([type])');
+  const release=Loading.lock(form,button,form.dataset.id?'Updating…':'Saving…');if(!release)return;
   try{
    const values=Object.fromEntries(new FormData(form));
    if(form.dataset.form==='mcq')Admin.syncDraft();
@@ -142,23 +149,26 @@ window.Auth=(()=>{
    else await command('form:'+form.dataset.form,{values,fields:[...new FormData(form)],context:{...form.dataset},draft:App.draft});
    window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }catch(error){let box=form.querySelector('[data-command-error]');if(!box){box=document.createElement('p');box.dataset.commandError='';box.className='auth-error';box.setAttribute('role','alert');form.prepend(box);}box.textContent=error.message;}
-  finally{if(button)button.disabled=false;}
+  finally{release();}
  },true);
 
  const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
+  const key='action:'+el.dataset.action+':'+(el.dataset.id||'');
+  const release=Loading.lock(key,el,el.dataset.action.includes('import')?'Importing…':el.dataset.action.includes('delete')?'Deleting…':'Updating…');if(!release)return;
   try{const result=await command('action:'+el.dataset.action,{...el.dataset,rows:App.importRows});if(el.dataset.action==='import-confirm')App.importSummary=result;document.getElementById('modal')?.close();App.render();}
-  catch(error){UI.toast(error.message);}
+  catch(error){UI.toast(error.message);}finally{release();}
  },true);
 
- async function switchRole(role){const data=await request('/auth/switch-role',{role});csrf=data.csrfToken||csrf;hydrate(data.snapshot,data.user);return data.user.activeRole;}
- async function logout(){try{await request('/auth/logout',{});}catch{}clearPrivateState();ready=false;await check();location.hash='#/login';App.render();}
- async function start(){await check();App.render();}
+ async function switchRole(role){const data=await request('/auth/switch-role',{role},{global:true,label:'Loading workspace…'});csrf=data.csrfToken||csrf;hydrate(data.snapshot,data.user);return data.user.activeRole;}
+ async function logout(){return Loading.run(async()=>{await request('/auth/logout',{});clearPrivateState();ready=false;await check();location.hash='#/login';App.render();},'Signing out…');}
+ async function start(){try{await check();App.render();}finally{Loading.finishInitial();}}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user){ready=false;App.render();check().then(()=>App.render());}});
  window.addEventListener('pageshow',event=>{if(event.persisted){ready=false;check().then(()=>App.render());}});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
  return {guard,view,start,logout,switchRole,request,command,destination,allowed,get user(){return user;}};
 })();
+
