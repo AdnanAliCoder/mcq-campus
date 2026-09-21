@@ -266,3 +266,32 @@
 @media(max-width:1100px){.footer-grid-professional{grid-template-columns:1.7fr repeat(2,1fr)}.footer-grid-professional>div:nth-child(4),.footer-grid-professional>div:nth-child(5){grid-column:auto}}
 @media(max-width:760px){.footer-grid-professional{grid-template-columns:1fr 1fr}.footer-grid-professional>.footer-brand-block{grid-column:1/-1}.footer-bottom-note{text-align:left;flex-basis:100%;order:3}}
 @media(max-width:520px){.footer-grid-professional{grid-template-columns:1fr 1fr;gap:22px 18px}.footer-column strong{margin-bottom:12px}.footer-grid a:not(.brand){margin-bottom:9px}.footer-bottom-links{width:100%;margin-top:4px}}
+
+
+/* Student platform navigation, MCQ hub and vacancy jobs — 2026-09-21 */
+.nav-new-badge{display:inline-flex;align-items:center;margin-left:4px;padding:2px 5px;border-radius:99px;background:#eaf7ef;color:var(--green-dark);font-size:.58rem;font-weight:800;line-height:1.2;vertical-align:middle}
+.mcq-hub{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 18px}
+.job-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.job-grid-home{grid-template-columns:repeat(3,minmax(0,1fr))}
+.job-card{display:flex;flex-direction:column;min-width:0}
+.job-card h2,.job-card h3{font-size:1.03rem;line-height:1.38;margin:14px 0 7px;overflow-wrap:anywhere}
+.job-org{font-weight:700;color:var(--ink);margin:0 0 5px}
+.job-deadline{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 0;margin:12px 0;font-size:.76rem}
+.job-deadline span{color:var(--muted)}.job-deadline strong{text-align:right}
+.job-card .card-foot{margin-top:auto}
+.latest-jobs-section{min-width:0}
+.job-detail{display:grid;gap:16px;max-width:1050px}
+.job-detail-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.job-detail-head h1{font-size:clamp(1.6rem,3vw,2.35rem);line-height:1.16;margin:12px 0 8px;overflow-wrap:anywhere}
+.job-primary-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.job-facts h2,.job-copy h2,.job-prep h2{margin-top:0}
+.job-facts-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+.job-facts-grid>div{display:grid;grid-template-columns:minmax(130px,.8fr) minmax(0,1.2fr);gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.job-facts-grid span{color:var(--muted);font-size:.76rem}.job-facts-grid strong{overflow-wrap:anywhere}
+.job-copy p{white-space:pre-line;line-height:1.7}
+.related-prep-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.related-prep-grid>div{min-width:0;border-top:1px solid var(--line);padding-top:14px}
+.related-prep-grid .empty{padding:18px 10px}
+.relation-editor{border:1px solid var(--line);border-radius:12px;padding:14px;margin:16px 0;background:#fafcfb}
+@media(max-width:960px){.job-grid,.job-grid-home{grid-template-columns:repeat(2,minmax(0,1fr))}.job-detail-head{flex-direction:column}.job-primary-actions{justify-content:flex-start}.job-facts-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.job-grid,.job-grid-home,.related-prep-grid{grid-template-columns:1fr}.job-facts-grid>div{grid-template-columns:1fr;gap:4px}.job-primary-actions{width:100%}.job-primary-actions .btn{flex:1 1 100%;text-align:center}.nav-new-badge{font-size:.55rem}.mcq-hub .btn{flex:1 1 calc(50% - 8px);text-align:center}.job-card{overflow:hidden}}
