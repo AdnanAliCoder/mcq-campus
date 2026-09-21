@@ -20,6 +20,12 @@ def log(u,action,detail=''): AuditLog.objects.create(user=u if getattr(u,'is_aut
 
 def next_id(model): return (model.objects.order_by('-id').values_list('id',flat=True).first() or 0)+1
 
+def job_opening_schema_ready():
+    tables=set(connection.introspection.table_names())
+    required={JobOpening._meta.db_table}
+    required.update(field.remote_field.through._meta.db_table for field in JobOpening._meta.local_many_to_many)
+    return required.issubset(tables)
+
 def snapshot(user):
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     settings=SiteSetting.get_solo()
@@ -43,7 +49,7 @@ def snapshot(user):
     elif user_role(user)=='admin': users=[user_dict(user)]
     guides_q=Guide.objects.all() if is_admin(user) else Guide.objects.filter(published=True)
     posts_q=Post.objects.all() if is_admin(user) else Post.objects.filter(status='published')
-    job_table_ready=JobOpening._meta.db_table in connection.introspection.table_names()
+    job_table_ready=job_opening_schema_ready()
     job_openings_q=(JobOpening.objects.all() if (is_admin(user) and has_perm(user,'manage_job_openings')) else JobOpening.objects.filter(status='published')) if job_table_ready else JobOpening.objects.none()
     now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
     if is_super(user): ads_q=AdPlacement.objects.all().order_by('-priority','id')
@@ -186,6 +192,7 @@ def parse_optional_date(value):
 
 def save_job_opening(user,payload):
     require(is_admin(user) and has_perm(user,'manage_job_openings'))
+    if not job_opening_schema_ready(): raise ValueError('Current Jobs database schema is not initialized. Run python manage.py ensure_job_openings_schema once.')
     fields,v,ctx,_=parse_fields(payload)
     rid=int(ctx.get('id') or 0) or None
     def multi(key):
