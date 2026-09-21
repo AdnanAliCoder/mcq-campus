@@ -34,7 +34,7 @@ window.Auth=(()=>{
   if(b==='super-admin')return user.roles?.includes('super-admin');
   if(!user.roles?.some(x=>['admin','super-admin'].includes(x)))return false;
   if(user.roles.includes('super-admin'))return true;
-  const permissions={categories:'manage_categories',subcategories:'manage_subcategories',children:'manage_child_categories',papers:'manage_papers',jobs:'manage_jobs',years:'manage_job_years',import:'bulk_import_mcqs',guides:'manage_guides',posts:'manage_posts',reports:'view_reports',analytics:'view_analytics',add:'add_mcq'};
+  const permissions={categories:'manage_categories',subcategories:'manage_subcategories',children:'manage_child_categories',papers:'manage_papers',jobs:'manage_jobs',years:'manage_job_years','job-openings':'manage_job_openings',import:'bulk_import_mcqs',guides:'manage_guides',posts:'manage_posts',reports:'view_reports',analytics:'view_analytics',add:'add_mcq'};
   if(['users','admins','roles','settings','backup','trash','content','seo','duplicates'].includes(section))return false;
   return !permissions[section]||(user.permissions||[]).includes(permissions[section]);
  }
@@ -130,7 +130,7 @@ window.Auth=(()=>{
   }catch(error){box.textContent=error.message;}finally{button.disabled=false;}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','job-opening','config']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
@@ -145,7 +145,7 @@ window.Auth=(()=>{
   finally{if(button)button.disabled=false;}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status']);
+ const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status','job-opening-delete-confirm']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
