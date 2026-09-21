@@ -190,3 +190,41 @@
 @media(max-width:900px){.discovery-grid,.sitemap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.discovery-grid,.sitemap-grid{grid-template-columns:1fr}.quality-list{grid-template-columns:1fr}.error-page{margin:25px auto;padding:28px 20px}}
 
 .permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 18px;margin:14px 0 18px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fafcfb}.permission-grid .check-line{margin:6px 0}@media(max-width:700px){.permission-grid{grid-template-columns:1fr}}
+
+
+/* Current Jobs: reuse MCQ Campus card language while keeping opportunity pages compact and mobile-safe. */
+.nav-new{display:inline-flex;align-items:center;margin-left:4px;padding:2px 5px;border-radius:999px;background:#e8f5ee;color:var(--green-dark);font-size:.58rem;font-weight:800;line-height:1;vertical-align:middle}
+.job-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.job-card{display:flex;flex-direction:column;min-width:0;min-height:205px}
+.job-card h3{font-size:1.05rem;line-height:1.4;margin:14px 0 7px;overflow-wrap:anywhere}
+.job-org{color:var(--muted);font-weight:650}
+.job-card-meta{display:grid;gap:7px;margin:12px 0 14px;font-size:.76rem;color:var(--muted)}
+.job-card-meta span{display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere}
+.job-card-meta .icon{width:14px;height:14px;flex:0 0 14px}
+.job-card .card-foot{margin-top:auto}
+.latest-jobs-home .section-head>div>p:last-child{max-width:620px;color:var(--muted)}
+.job-filters select{min-width:170px}
+.job-detail{max-width:1080px;margin:0 auto}
+.job-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:24px}
+.job-hero h1{font-size:clamp(1.65rem,3vw,2.35rem);line-height:1.18;margin:7px 0 8px;overflow-wrap:anywhere}
+.job-deadline{font-size:.82rem;color:var(--muted)}
+.job-primary-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;max-width:390px}
+.job-section{margin-top:18px}
+.job-section>p{white-space:pre-line;line-height:1.65}
+.job-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
+.job-facts>div{padding:12px 14px;border:1px solid var(--line);margin:-1px 0 0 -1px;min-width:0}
+.job-facts dt{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:750;margin-bottom:4px}
+.job-facts dd{margin:0;font-weight:600;white-space:pre-line;overflow-wrap:anywhere}
+.job-related-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.job-related-grid .question-row{padding:10px;margin-top:8px}
+.job-related-grid .question-row .card{box-shadow:none}
+.job-role-chips{margin-top:12px}
+.job-updated{margin-top:18px}
+.mcq-hub{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:-4px 0 18px}
+.job-opening-form{max-width:980px}
+.job-relation-editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.relation-field select[multiple]{min-height:145px;width:100%}
+.relation-field option{padding:5px 7px}
+@media(max-width:1050px){.job-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nav{gap:12px}.nav a{font-size:.76rem}}
+@media(max-width:760px){.job-grid,.job-related-grid,.job-facts,.job-relation-editor{grid-template-columns:1fr}.job-hero{flex-direction:column;padding:19px}.job-primary-actions{justify-content:flex-start;max-width:none;width:100%}.job-primary-actions .btn{max-width:100%}.job-filters select{width:100%;min-width:0}.nav-new{font-size:.55rem}.home-job-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.job-grid{grid-template-columns:1fr}.job-card{min-height:0}.job-hero h1{font-size:1.55rem}}
