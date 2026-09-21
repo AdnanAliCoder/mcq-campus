@@ -1,5 +1,5 @@
 import hashlib, json, re, secrets
-from datetime import timedelta
+from datetime import timedelta, date
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -7,7 +7,7 @@ from django.utils.text import slugify
 from .models import *
 from .serializers import *
 
-PERMISSION_CATALOG=['add_mcq','edit_own_mcq','edit_any_mcq','delete_own_mcq','delete_any_mcq','review_mcq','approve_mcq','reject_mcq','bulk_import_mcqs','manage_categories','manage_subcategories','manage_child_categories','manage_papers','manage_jobs','manage_job_years','manage_guides','manage_posts','publish_posts','manage_seo','view_reports','resolve_reports','view_analytics','view_logs','manage_users','manage_admins','assign_roles','change_permissions','manage_settings','backup','restore_backup']
+PERMISSION_CATALOG=['add_mcq','edit_own_mcq','edit_any_mcq','delete_own_mcq','delete_any_mcq','review_mcq','approve_mcq','reject_mcq','bulk_import_mcqs','manage_categories','manage_subcategories','manage_child_categories','manage_papers','manage_jobs','manage_job_years','manage_guides','manage_posts','publish_posts','manage_seo','view_reports','resolve_reports','view_analytics','view_logs','manage_users','manage_admins','assign_roles','change_permissions','manage_settings','manage_job_openings','backup','restore_backup']
 ENTITY_MODELS={'categories':Category,'subcategories':Subcategory,'children':ChildCategory,'papers':Paper,'jobs':Job,'years':JobYear}
 ENTITY_PARENT={'subcategories':('category_id',Category),'children':('subcategory_id',Subcategory),'jobs':('paper_id',Paper),'years':('job_id',Job)}
 
@@ -43,6 +43,7 @@ def snapshot(user):
     elif user_role(user)=='admin': users=[user_dict(user)]
     guides_q=Guide.objects.all() if is_admin(user) else Guide.objects.filter(published=True)
     posts_q=Post.objects.all() if is_admin(user) else Post.objects.filter(status='published')
+    job_openings_q=JobOpening.objects.all() if (is_admin(user) and has_perm(user,'manage_job_openings')) else JobOpening.objects.filter(status='published')
     now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
     if is_super(user): ads_q=AdPlacement.objects.all().order_by('-priority','id')
     data={
@@ -52,7 +53,7 @@ def snapshot(user):
         'contacts':[{'id':c.id,'name':c.name,'email':c.email,'message':c.message,'at':iso(c.created_at)} for c in ContactMessage.objects.order_by('-created_at')[:300]] if is_super(user) else [],
         'logs':[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in logs_q[:500]],
         'trash':[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':x.payload.get('mcqs',[]),'entities':x.payload.get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in TrashRecord.objects.order_by('-deleted_at')[:300]] if is_super(user) else [],
-        'posts':[post(x) for x in posts_q.order_by('-updated_at')],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')],
+        'posts':[post(x) for x in posts_q.order_by('-updated_at')],'jobOpenings':[job_opening(x) for x in job_openings_q.order_by('-created_at')],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')],
         'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'requireReview':True,'cleanRoutesEnabled':False,'analyticsEnabled':settings.analytics_enabled,'googleAnalyticsId':settings.google_analytics_id,'adsenseEnabled':settings.adsense_enabled,'adsenseClientId':settings.adsense_client_id},
         'content':{'about':settings.about,'contact':settings.contact},'seo':{'title':settings.seo_title,'description':settings.seo_description},
         'rolePermissions':{'admin':{'review':bool(settings.admin_permissions.get('review',False)),'import':bool(settings.admin_permissions.get('import',False)),'permissions':settings.admin_permissions.get('permissions',{})}},
@@ -176,6 +177,44 @@ def save_post(user,payload):
             label,url=[x.strip() for x in line.split('|',1)]; links.append({'label':label,'url':url})
     obj.links=links; obj.updated_by=user; obj.save(); log(user,'Saved post',obj.title); return {'id':obj.id}
 
+def parse_optional_date(value):
+    value=str(value or '').strip()
+    if not value: return None
+    try: return date.fromisoformat(value)
+    except ValueError: raise ValueError('Use YYYY-MM-DD for job dates.')
+
+def save_job_opening(user,payload):
+    require(is_admin(user) and has_perm(user,'manage_job_openings'))
+    _,v,ctx,_=parse_fields(payload)
+    rid=int(ctx.get('id') or 0) or None
+    obj=JobOpening.objects.filter(pk=rid).first() if rid else JobOpening(created_by=user)
+    title=str(v.get('title') or '').strip()
+    if not title: raise ValueError('Job title is required.')
+    slug=slugify(str(v.get('slug') or title))[:180] or f'job-{timezone.now().timestamp():.0f}'
+    dup=JobOpening.objects.filter(slug=slug)
+    if obj.pk: dup=dup.exclude(pk=obj.pk)
+    if dup.exists(): slug=f'{slug}-{obj.pk or int(timezone.now().timestamp())}'
+    obj.title=title; obj.slug=slug; obj.organization=str(v.get('organization') or '').strip()
+    obj.category=str(v.get('category') or '').strip(); obj.advertisement_number=str(v.get('advertisement_number') or '').strip()
+    vacancies=str(v.get('total_vacancies') or '').strip(); obj.total_vacancies=int(vacancies) if vacancies.isdigit() else None
+    obj.location=str(v.get('location') or '').strip(); obj.qualification=str(v.get('qualification') or '')
+    obj.experience_requirement=str(v.get('experience_requirement') or ''); obj.age_limit=str(v.get('age_limit') or '').strip()
+    obj.gender=str(v.get('gender') or '').strip(); obj.domicile=str(v.get('domicile') or '').strip()
+    obj.employment_type=str(v.get('employment_type') or '').strip(); obj.advertisement_date=parse_optional_date(v.get('advertisement_date'))
+    obj.last_date=parse_optional_date(v.get('last_date')); obj.official_advertisement=str(v.get('official_advertisement') or '').strip()
+    obj.official_apply_link=str(v.get('official_apply_link') or '').strip(); obj.recruiting_authority=str(v.get('recruiting_authority') or '').strip()
+    obj.syllabus=str(v.get('syllabus') or ''); obj.eligibility_details=str(v.get('eligibility_details') or '')
+    obj.important_instructions=str(v.get('important_instructions') or ''); obj.status=str(v.get('status') or 'draft')
+    if obj.status not in {'draft','published','archived'}: raise ValueError('Invalid job publication status.')
+    obj.updated_by=user; obj.save()
+    for field,model,key in [
+        ('related_mcqs',MCQ,'related_mcq_ids'),('related_categories',Category,'related_category_ids'),
+        ('related_papers',Paper,'related_paper_ids'),('related_guides',Guide,'related_guide_ids'),
+        ('related_posts',Post,'related_post_ids'),('related_jobs',Job,'related_job_ids')]:
+        ids=normalize_ids(v.get(key)); getattr(obj,field).set(model.objects.filter(pk__in=ids))
+    log(user,'Saved job opening',obj.title)
+    return {'id':obj.id,'slug':obj.slug}
+
 def extract_ga(value):
     m=re.search(r'\bG-[A-Z0-9]+\b',str(value or ''),re.I); return m.group(0).upper() if m else ''
 def extract_adsense(value):
@@ -235,6 +274,7 @@ def command(user,action,payload):
     if action=='form:user': return save_user(user,payload)
     if action=='form:guide': return save_guide(user,payload)
     if action=='form:post': return save_post(user,payload)
+    if action=='form:job-opening': return save_job_opening(user,payload)
     if action=='form:config': return save_config(user,payload)
     if action=='form:ad': return save_ad(user,payload)
     if action=='form:contact':
