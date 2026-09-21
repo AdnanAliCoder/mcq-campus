@@ -67,7 +67,7 @@ window.Auth=(()=>{
  }
  async function check(){
   if(checking)return checking;
-  const own=generation;
+  const own=generation;UI.pageBusy?.(true);
   checking=(async()=>{
    try{
     const session=await request('/auth/session');
@@ -77,12 +77,12 @@ window.Auth=(()=>{
     if(own===generation)hydrate(snapshot,session.user||null);
    }catch{
     if(own===generation){clearPrivateState();try{const snapshot=await request('/bootstrap');hydrate(snapshot,null);}catch{}}
-   }finally{ready=true;checking=null;}
+   }finally{ready=true;checking=null;UI.pageBusy?.(false);}
   })();
   return checking;
  }
  function guard(){
-  if(!ready){document.getElementById('app').innerHTML=UI.loadingPage('Checking your session…');return false;}
+  if(!ready){UI.pageBusy?.(true);return false;}
   const current=route(),b=base();
   if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
   if(!user){const next=destination(current);history.replaceState(null,'','#/login'+(next?'?next='+encodeURIComponent(next):''));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
