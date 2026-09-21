@@ -34,6 +34,18 @@ Push the project root to the connected GitHub repository. Vercel detects `manage
 
 For an already-populated Supabase database, deployment does not delete or replace records. If the database schema has never been initialized, run the documented Django setup commands once from a trusted environment before public use.
 
+## Current Jobs schema rollout
+
+The existing `core` app predates Django migration files, so this feature deliberately does **not** add a partial initial migration that could put an already-populated production database into an unsafe migration state.
+
+After deploying the code and before publishing current vacancies, run this once against the configured PostgreSQL/Supabase database:
+
+```bash
+python manage.py ensure_job_openings_schema
+```
+
+The command only creates the missing Current Jobs table and its relationship tables. It does not reset, delete, rename, or rewrite existing MCQs, categories, papers, past-paper jobs, guides, posts, users, or admin data. It is safe to run again; when the schema already exists it makes no changes.
+
 ## Local verification
 
 ```bash
