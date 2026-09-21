@@ -45,6 +45,38 @@ class Job(OwnedStampedModel):
 class JobYear(OwnedStampedModel):
     id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); job=models.ForeignKey(Job,on_delete=models.CASCADE,related_name='years'); icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
 
+class JobOpening(OwnedStampedModel):
+    STATUS_CHOICES=[('draft','Draft'),('published','Published'),('archived','Archived')]
+    title=models.CharField(max_length=255)
+    slug=models.SlugField(max_length=180,unique=True)
+    organization=models.CharField(max_length=255,blank=True)
+    category=models.CharField(max_length=120,blank=True)
+    advertisement_number=models.CharField(max_length=120,blank=True)
+    total_vacancies=models.PositiveIntegerField(null=True,blank=True)
+    location=models.CharField(max_length=255,blank=True)
+    qualification=models.TextField(blank=True)
+    experience_requirement=models.TextField(blank=True)
+    age_limit=models.CharField(max_length=120,blank=True)
+    gender=models.CharField(max_length=120,blank=True)
+    domicile=models.CharField(max_length=255,blank=True)
+    employment_type=models.CharField(max_length=120,blank=True)
+    advertisement_date=models.DateField(null=True,blank=True)
+    last_date=models.DateField(null=True,blank=True)
+    official_advertisement=models.URLField(blank=True)
+    official_apply_link=models.URLField(blank=True)
+    recruiting_authority=models.CharField(max_length=180,blank=True)
+    syllabus=models.TextField(blank=True)
+    eligibility_details=models.TextField(blank=True)
+    important_instructions=models.TextField(blank=True)
+    status=models.CharField(max_length=20,choices=STATUS_CHOICES,default='draft')
+    related_mcqs=models.ManyToManyField('MCQ',blank=True,related_name='job_openings')
+    related_categories=models.ManyToManyField(Category,blank=True,related_name='job_openings')
+    related_papers=models.ManyToManyField(Paper,blank=True,related_name='job_openings')
+    related_guides=models.ManyToManyField('Guide',blank=True,related_name='job_openings')
+    related_posts=models.ManyToManyField('Post',blank=True,related_name='job_openings')
+    related_jobs=models.ManyToManyField(Job,blank=True,related_name='job_openings')
+    def __str__(self): return self.title
+
 class MCQ(OwnedStampedModel):
     STATUS=[('pending','Pending'),('approved','Approved'),('rejected','Rejected')]
     id=models.BigIntegerField(primary_key=True)
