@@ -1,7 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin/
-Disallow: /super-admin/
-Disallow: /auth/
-Disallow: /user-dashboard/
-# Production backend should add an absolute Sitemap: https://YOUR-DOMAIN/sitemap.xml line.
