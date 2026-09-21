@@ -190,3 +190,15 @@
 @media(max-width:900px){.discovery-grid,.sitemap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.discovery-grid,.sitemap-grid{grid-template-columns:1fr}.quality-list{grid-template-columns:1fr}.error-page{margin:25px auto;padding:28px 20px}}
 
 .permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 18px;margin:14px 0 18px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fafcfb}.permission-grid .check-line{margin:6px 0}@media(max-width:700px){.permission-grid{grid-template-columns:1fr}}
+
+/* Production interaction feedback and management additions */
+body.network-busy::before{content:"";position:fixed;z-index:9999;left:0;top:0;height:3px;width:38%;background:var(--green);box-shadow:0 0 10px rgba(23,122,87,.25);animation:network-progress 1.05s ease-in-out infinite}
+@keyframes network-progress{0%{transform:translateX(-110%)}70%{transform:translateX(190%)}100%{transform:translateX(290%)}}
+.btn.is-loading{cursor:wait;opacity:.82;pointer-events:none}.btn-spinner{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:btn-spin .7s linear infinite;margin-right:8px;vertical-align:-2px}
+@keyframes btn-spin{to{transform:rotate(360deg)}}
+.app-loading-state{min-height:65vh;display:grid;place-items:center;align-content:center;gap:14px;color:var(--muted)}.app-loading-icon{width:58px;height:58px;object-fit:contain;animation:brand-lift 1.15s ease-in-out infinite}
+@keyframes brand-lift{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.025)}}
+.admin-primary-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.bulk-manager{max-width:900px}.bulk-manager textarea{min-height:260px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.ad-editor{max-width:900px}.ad-editor+.card{margin-top:22px}
+@media(max-width:850px){.admin-primary-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.admin-primary-metrics{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){body.network-busy::before,.btn-spinner,.app-loading-icon{animation:none!important}}
