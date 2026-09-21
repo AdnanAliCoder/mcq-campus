@@ -1,7 +1,9 @@
 import json
+from datetime import timedelta
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
-from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, profile_for
+from django.utils import timezone
+from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, JobOpportunity, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -74,6 +76,50 @@ class IntegrationTests(TestCase):
         self.assertEqual(self.post_json('/api/report',{'id':self.approved.id,'reason':'Check wording.'}).status_code,200)
         self.assertEqual(ContactMessage.objects.count(),1)
         self.assertEqual(Report.objects.count(),1)
+
+
+    def test_job_opportunity_is_private_until_published_and_status_is_computed(self):
+        job=JobOpportunity.objects.create(
+            title='PPSC Computer Operator 2026',
+            slug='ppsc-computer-operator-2026',
+            organization='Punjab Public Service Commission',
+            last_date=timezone.localdate()+timedelta(days=5),
+            published=False,
+            created_by=self.owner,
+        )
+        self.assertEqual(job.computed_status,'unpublished')
+        self.assertEqual(self.client.get('/api/bootstrap').json()['jobOpportunities'],[])
+        job.published=True
+        job.save(update_fields=['published'])
+        self.assertEqual(job.computed_status,'open')
+        public=self.client.get('/api/bootstrap').json()['jobOpportunities']
+        self.assertEqual([row['slug'] for row in public],['ppsc-computer-operator-2026'])
+
+    def test_super_admin_can_publish_job_with_preparation_relations(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        payload={
+            'action':'form:job-opportunity',
+            'payload':{
+                'values':{
+                    'title':'Computer Operator',
+                    'organization':'PPSC',
+                    'category':'PPSC Jobs',
+                    'last_date':str(timezone.localdate()+timedelta(days=2)),
+                    'related_mcq_ids':str(self.approved.id),
+                    'related_category_ids':str(self.category.id),
+                    'related_paper_ids':str(self.paper.id),
+                },
+                'fields':[['published','on']],
+                'context':{},
+            },
+        }
+        response=self.post_json('/api/commands',payload)
+        self.assertEqual(response.status_code,200)
+        row=response.json()['snapshot']['jobOpportunities'][0]
+        self.assertEqual(row['status'],'closing-soon')
+        self.assertEqual(row['related_mcq_ids'],[self.approved.id])
+        self.assertEqual(row['related_category_ids'],[self.category.id])
+        self.assertEqual(row['related_paper_ids'],[self.paper.id])
 
     def test_read_and_auth_flows_do_not_delete_existing_data(self):
         before=(Category.objects.count(),Paper.objects.count(),MCQ.objects.count())
