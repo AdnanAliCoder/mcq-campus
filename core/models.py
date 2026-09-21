@@ -77,6 +77,50 @@ class Guide(OwnedStampedModel):
 class Post(OwnedStampedModel):
     title=models.CharField(max_length=255); slug=models.SlugField(max_length=120,unique=True); excerpt=models.TextField(blank=True); body=models.TextField(blank=True); featured_image=models.URLField(blank=True); category=models.CharField(max_length=120,blank=True); seo_title=models.CharField(max_length=80,blank=True); seo_description=models.TextField(blank=True); links=models.JSONField(default=list,blank=True); status=models.CharField(max_length=20,default='draft')
 
+
+class JobOpportunity(OwnedStampedModel):
+    title=models.CharField(max_length=255)
+    slug=models.SlugField(max_length=140,unique=True)
+    organization=models.CharField(max_length=255)
+    category=models.CharField(max_length=120,blank=True)
+    advertisement_number=models.CharField(max_length=120,blank=True)
+    total_vacancies=models.PositiveIntegerField(null=True,blank=True)
+    location=models.CharField(max_length=255,blank=True)
+    qualification=models.TextField(blank=True)
+    experience_requirement=models.TextField(blank=True)
+    age_limit=models.CharField(max_length=160,blank=True)
+    gender=models.CharField(max_length=120,blank=True)
+    domicile=models.CharField(max_length=200,blank=True)
+    employment_type=models.CharField(max_length=120,blank=True)
+    advertisement_date=models.DateField(null=True,blank=True)
+    last_date=models.DateField(null=True,blank=True)
+    advertisement_url=models.URLField(blank=True)
+    apply_url=models.URLField(blank=True)
+    recruiting_authority=models.CharField(max_length=200,blank=True)
+    syllabus=models.TextField(blank=True)
+    eligibility_details=models.TextField(blank=True)
+    important_instructions=models.TextField(blank=True)
+    published=models.BooleanField(default=False)
+    related_mcqs=models.ManyToManyField(MCQ,blank=True,related_name='job_opportunities')
+    related_categories=models.ManyToManyField(Category,blank=True,related_name='job_opportunities')
+    related_papers=models.ManyToManyField(Paper,blank=True,related_name='job_opportunities')
+    related_guides=models.ManyToManyField(Guide,blank=True,related_name='job_opportunities')
+    related_posts=models.ManyToManyField(Post,blank=True,related_name='job_opportunities')
+
+    @property
+    def computed_status(self):
+        if not self.published:
+            return 'unpublished'
+        if not self.last_date:
+            return 'open'
+        today=timezone.localdate()
+        if self.last_date < today:
+            return 'closed'
+        if (self.last_date-today).days <= 3:
+            return 'closing-soon'
+        return 'open'
+
+
 class SiteSetting(models.Model):
     singleton=models.PositiveSmallIntegerField(primary_key=True,default=1,editable=False)
     site_name=models.CharField(max_length=120,default='MCQ Campus'); description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.'); country=models.CharField(max_length=80,default='Pakistan')
