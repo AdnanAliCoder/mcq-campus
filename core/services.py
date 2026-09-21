@@ -194,13 +194,98 @@ def save_config(user,payload):
         s.admin_permissions={'review':'review' in fields,'import':'import' in fields,'permissions':perms}
         enabled=[k for k,vv in perms.items() if vv]
         Profile.objects.filter(role='admin').update(permissions=enabled)
-    elif view=='monetization':
-        ga=extract_ga(v.get('google_analytics_code') or v.get('google_analytics_id')); ad=extract_adsense(v.get('adsense_code') or v.get('adsense_client_id'))
-        if (v.get('analytics_enabled') or 'analytics_enabled' in fields) and not ga: raise ValueError('Paste a valid Google Analytics snippet or G- measurement ID.')
-        if (v.get('adsense_enabled') or 'adsense_enabled' in fields) and not ad: raise ValueError('Paste a valid AdSense snippet or ca-pub client ID.')
-        s.google_analytics_id=ga; s.analytics_enabled='analytics_enabled' in fields; s.adsense_client_id=ad; s.adsense_enabled='adsense_enabled' in fields
+    elif view=='google-analytics':
+        ga=extract_ga(v.get('google_analytics_id') or v.get('google_analytics_code'))
+        if 'analytics_enabled' in fields and not ga: raise ValueError('Enter a valid Google Analytics measurement ID such as G-XXXXXXXXXX.')
+        s.google_analytics_id=ga; s.analytics_enabled='analytics_enabled' in fields
+    elif view=='adsense':
+        ad=extract_adsense(v.get('adsense_client_id') or v.get('adsense_code'))
+        if 'adsense_enabled' in fields and not ad: raise ValueError('Enter a valid AdSense client ID such as ca-pub-1234567890123456.')
+        s.adsense_client_id=ad; s.adsense_enabled='adsense_enabled' in fields
     else: raise ValueError('Unknown settings section.')
     s.updated_by=user; s.save(); log(user,'Updated site settings',view); return True
+
+def clean_name(value):
+    return re.sub(r'\s+',' ',str(value or '').strip())
+
+def normalized_name(value):
+    return clean_name(value).casefold()
+
+def resolve_parent(model,value):
+    raw=clean_name(value)
+    if not raw: return None
+    if raw.isdigit():
+        return model.objects.filter(pk=int(raw)).first()
+    target=normalized_name(raw)
+    return next((x for x in model.objects.all() if normalized_name(x.name)==target),None)
+
+def save_bulk_taxonomy(user,payload):
+    require(is_admin(user) and has_perm(user,'manage_categories'))
+    _,v,_,_=parse_fields(payload); raw=str(v.get('rows') or '')
+    lines=[x.strip() for x in raw.splitlines() if x.strip()]
+    result={'total':len(lines),'added':0,'skipped':0,'failed':0,'details':[]}
+    for number,line in enumerate(lines,1):
+        parts=[clean_name(x) for x in line.split('|')]
+        category_name=parts[0] if parts else ''; sub_name=parts[1] if len(parts)>1 else ''; child_name=parts[2] if len(parts)>2 else ''
+        if not category_name:
+            result['failed']+=1; result['details'].append({'row':number,'status':'failed','message':'Category name is required.'}); continue
+        try:
+            with transaction.atomic():
+                changed=False
+                category_obj=next((x for x in Category.objects.all() if normalized_name(x.name)==normalized_name(category_name)),None)
+                if not category_obj:
+                    category_obj=Category.objects.create(id=next_id(Category),name=category_name,icon='grid',active=True,created_by=user,updated_by=user); changed=True
+                if sub_name:
+                    sub_obj=next((x for x in Subcategory.objects.filter(category=category_obj) if normalized_name(x.name)==normalized_name(sub_name)),None)
+                    if not sub_obj:
+                        sub_obj=Subcategory.objects.create(id=next_id(Subcategory),name=sub_name,icon='grid',active=True,category=category_obj,created_by=user,updated_by=user); changed=True
+                    if child_name:
+                        child_obj=next((x for x in ChildCategory.objects.filter(subcategory=sub_obj) if normalized_name(x.name)==normalized_name(child_name)),None)
+                        if not child_obj:
+                            ChildCategory.objects.create(id=next_id(ChildCategory),name=child_name,icon='grid',active=True,subcategory=sub_obj,created_by=user,updated_by=user); changed=True
+                if changed:
+                    result['added']+=1; result['details'].append({'row':number,'status':'added','message':line})
+                else:
+                    result['skipped']+=1; result['details'].append({'row':number,'status':'skipped','message':'Already exists: '+line})
+        except Exception as exc:
+            result['failed']+=1; result['details'].append({'row':number,'status':'failed','message':str(exc)[:300]})
+    log(user,'Bulk category import',f"Added {result['added']}, skipped {result['skipped']}, failed {result['failed']}")
+    return result
+
+def save_bulk_entities(user,payload):
+    _,v,ctx,_=parse_fields(payload); typ=str(ctx.get('type') or '')
+    perms={'papers':'manage_papers','jobs':'manage_jobs','years':'manage_job_years'}
+    require(typ in perms,'Unsupported bulk type.'); require(is_admin(user) and has_perm(user,perms[typ]))
+    raw=str(v.get('rows') or ''); lines=[x.strip() for x in raw.splitlines() if x.strip()]
+    result={'total':len(lines),'added':0,'skipped':0,'failed':0,'details':[]}
+    model=ENTITY_MODELS[typ]
+    for number,line in enumerate(lines,1):
+        parts=[clean_name(x) for x in line.split('|')]
+        try:
+            with transaction.atomic():
+                if typ=='papers':
+                    name=parts[-1] if parts else ''; parent=None
+                else:
+                    if len(parts)<2: raise ValueError(('Paper' if typ=='jobs' else 'Job')+' ID or name and record name are required, separated by |.')
+                    parent_value,name=parts[0],parts[1]
+                    parent=resolve_parent(Paper if typ=='jobs' else Job,parent_value)
+                    if not parent: raise ValueError(('Paper' if typ=='jobs' else 'Job')+' not found: '+parent_value)
+                if not name: raise ValueError('Name is required.')
+                existing=list(model.objects.all())
+                if typ=='jobs': existing=[x for x in existing if x.paper_id==parent.id]
+                if typ=='years': existing=[x for x in existing if x.job_id==parent.id]
+                if any(normalized_name(x.name)==normalized_name(name) for x in existing):
+                    result['skipped']+=1; result['details'].append({'row':number,'status':'skipped','message':'Already exists: '+name}); continue
+                kwargs={'id':next_id(model),'name':name,'icon':'paper' if typ=='papers' else 'grid','active':True,'created_by':user,'updated_by':user}
+                if typ=='papers': kwargs['country']='Pakistan'
+                if typ=='jobs': kwargs['paper']=parent
+                if typ=='years': kwargs['job']=parent
+                model.objects.create(**kwargs)
+                result['added']+=1; result['details'].append({'row':number,'status':'added','message':name})
+        except Exception as exc:
+            result['failed']+=1; result['details'].append({'row':number,'status':'failed','message':str(exc)[:300]})
+    log(user,'Bulk '+typ+' import',f"Added {result['added']}, skipped {result['skipped']}, failed {result['failed']}")
+    return result
 
 def save_ad(user,payload):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=AdPlacement.objects.filter(pk=rid).first() if rid else AdPlacement(created_by=user)
@@ -237,6 +322,8 @@ def command(user,action,payload):
     if action=='form:post': return save_post(user,payload)
     if action=='form:config': return save_config(user,payload)
     if action=='form:ad': return save_ad(user,payload)
+    if action=='form:bulk-taxonomy': return save_bulk_taxonomy(user,payload)
+    if action=='form:bulk-entities': return save_bulk_entities(user,payload)
     if action=='form:contact':
         _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
     if action in {'form:profile','form:password-change'}:
