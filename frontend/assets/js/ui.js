@@ -54,7 +54,7 @@ window.UI=(()=>{
   if(networkDepth>0){
    if(!networkTimer&&!indicator)networkTimer=setTimeout(()=>{
     networkTimer=null;
-    if(!networkDepth||document.getElementById('mcq-network-loader'))return;
+    if(!networkDepth||document.getElementById('mcq-network-loader')||document.querySelector('.app-loader'))return;
     indicator=document.createElement('div');indicator.id='mcq-network-loader';indicator.className='network-loader';indicator.innerHTML=mcqLoader('network','Loading MCQ Campus');document.body.appendChild(indicator);
     requestAnimationFrame(()=>indicator.classList.add('show'));
    },180);
