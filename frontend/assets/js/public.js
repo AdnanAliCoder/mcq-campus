@@ -45,7 +45,7 @@ window.Public=(()=>{
     ${job.eligibility_details?`<section class="card job-copy"><h2>Eligibility Details</h2><p>${e(job.eligibility_details)}</p></section>`:''}
     ${job.syllabus?`<section class="card job-copy"><h2>Syllabus</h2><p>${e(job.syllabus)}</p></section>`:''}
     ${job.important_instructions?`<section class="card job-copy"><h2>Important Instructions</h2><p>${e(job.important_instructions)}</p></section>`:''}
-    <section class="card job-prep"><div class="section-head"><div><p class="eyebrow">PREPARE FOR THIS OPPORTUNITY</p><h2>Related preparation material</h2></div><div class="actions">${link(startPath,'Start Preparation','btn primary')}${relPapers[0]?link('paper/'+relPapers[0].id,'View Past Papers','btn'):link('papers','View Past Papers','btn')}</div></div>
+    <section class="card job-prep"><div class="section-head"><div><p class="eyebrow">PREPARE FOR THIS OPPORTUNITY</p><h2>Related preparation material</h2></div><div class="actions">${link(startPath,'Start Preparation','btn primary')}${link(startPath,'Practice Related MCQs','btn')}${relPapers[0]?link('paper/'+relPapers[0].id,'View Past Papers','btn'):link('papers','View Past Papers','btn')}</div></div>
      <div class="related-prep-grid">
       <div><h3>Related MCQs</h3>${relMcqs.length?relMcqs.slice(0,6).map((q,i)=>mini(q,i)).join(''):empty('No related MCQs available yet.')}</div>
       <div><h3>Categories</h3>${relCats.length?relCats.map(x=>link('category/'+x.id,e(x.name),'chip')).join(''):empty('No related categories found.')}</div>
