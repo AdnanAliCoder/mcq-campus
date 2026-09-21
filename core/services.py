@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
 from .models import *
 from .serializers import *
@@ -217,11 +218,16 @@ def resolve_parent(model,value):
     if raw.isdigit():
         return model.objects.filter(pk=int(raw)).first()
     target=normalized_name(raw)
-    return next((x for x in model.objects.all() if normalized_name(x.name)==target),None)
+    matches=[x for x in model.objects.all() if normalized_name(x.name)==target]
+    return matches[0] if len(matches)==1 else None
 
 def save_bulk_taxonomy(user,payload):
     require(is_admin(user) and has_perm(user,'manage_categories'))
     _,v,_,_=parse_fields(payload); raw=str(v.get('rows') or '')
+    if any(len([p for p in line.split('|') if clean_name(p)])>1 for line in raw.splitlines() if line.strip()):
+        require(has_perm(user,'manage_subcategories'),'Subcategory permission is required for hierarchy imports.')
+    if any(len([p for p in line.split('|') if clean_name(p)])>2 for line in raw.splitlines() if line.strip()):
+        require(has_perm(user,'manage_child_categories'),'Child-category permission is required for three-level hierarchy imports.')
     lines=[x.strip() for x in raw.splitlines() if x.strip()]
     result={'total':len(lines),'added':0,'skipped':0,'failed':0,'details':[]}
     for number,line in enumerate(lines,1):
@@ -289,9 +295,19 @@ def save_bulk_entities(user,payload):
 
 def save_ad(user,payload):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=AdPlacement.objects.filter(pk=rid).first() if rid else AdPlacement(created_by=user)
-    obj.name=str(v.get('name') or '').strip(); obj.provider=str(v.get('provider') or 'custom'); obj.placement=str(v.get('placement') or 'top_banner'); obj.title=str(v.get('title') or ''); obj.body=str(v.get('body') or ''); obj.image_url=str(v.get('image_url') or ''); obj.target_url=str(v.get('target_url') or ''); obj.adsense_slot=str(v.get('adsense_slot') or '').strip(); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
-    if not obj.name: raise ValueError('Ad name is required.')
+    provider=str(v.get('provider') or 'custom'); placement=str(v.get('placement') or 'top_banner')
+    require(provider in {'custom','adsense'},'Invalid advertisement provider.')
+    require(placement in {x[0] for x in AdPlacement.PLACEMENTS},'Invalid advertisement placement.')
+    obj.name=clean_name(v.get('name')); obj.provider=provider; obj.placement=placement; obj.title=clean_name(v.get('title')); obj.body=str(v.get('body') or '').strip(); obj.image_url=str(v.get('image_url') or '').strip(); obj.target_url=str(v.get('target_url') or '').strip(); obj.adsense_slot=clean_name(v.get('adsense_slot')); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
+    def parse_when(value):
+        dt=parse_datetime(str(value or '').strip())
+        if dt and timezone.is_naive(dt): dt=timezone.make_aware(dt)
+        return dt
+    obj.starts_at=parse_when(v.get('starts_at')); obj.ends_at=parse_when(v.get('ends_at'))
+    if not obj.name: raise ValueError('Advertisement name is required.')
     if obj.provider=='adsense' and not obj.adsense_slot: raise ValueError('AdSense slot ID is required.')
+    if obj.provider=='custom' and not (obj.title or obj.body or obj.image_url): raise ValueError('Add a title, description or banner image.')
+    if obj.starts_at and obj.ends_at and obj.ends_at<=obj.starts_at: raise ValueError('End date must be after the start date.')
     obj.save(); log(user,'Saved ad placement',obj.name); return {'id':obj.id}
 
 def command(user,action,payload):
