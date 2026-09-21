@@ -40,10 +40,12 @@
     .document{fill:url(#mcqPaper);stroke:#2c333b;stroke-width:3.2;stroke-linejoin:round;transform-box:fill-box;transform-origin:center bottom;animation:mcq-document-rise var(--loop) cubic-bezier(.22,.75,.28,1) infinite}
     .graduation-cap{fill:url(#mcqDark);transform-box:fill-box;transform-origin:center;animation:mcq-cap-enter var(--loop) cubic-bezier(.22,.8,.25,1) infinite}
     .tassel{fill:#2b3139;stroke:#2b3139;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;transform-box:fill-box;transform-origin:top center;animation:mcq-cap-enter var(--loop) cubic-bezier(.22,.8,.25,1) infinite}
-    .check-row-1,.check-row-2,.check-row-3{fill:none;stroke:#313841;stroke-linecap:round;stroke-linejoin:round;transform-box:fill-box;transform-origin:left center}
-    .check-row-1,.check-row-2,.check-row-3 circle{stroke-width:3.8}.check-row-1 line,.check-row-2 line,.check-row-3 line{stroke-width:4.6}
-    .check-row-1{animation:mcq-row-one var(--loop) ease infinite}.check-row-2{animation:mcq-row-two var(--loop) ease infinite}.check-row-3{animation:mcq-row-three var(--loop) ease infinite}
-    .completed-group{transform-box:fill-box;transform-origin:center;animation:mcq-green-pulse var(--loop) ease infinite}
+    .checklist-circles,.checklist-lines{fill:none;stroke:#313841;stroke-linecap:round;stroke-linejoin:round}
+    .checklist-circles circle{stroke-width:3.8;transform-box:fill-box;transform-origin:center}
+    .checklist-lines line{stroke-width:4.6;stroke-dasharray:24;stroke-dashoffset:24;transform-box:fill-box;transform-origin:left center}
+    .check-circle-1{animation:mcq-row-one var(--loop) ease infinite}.check-circle-2{animation:mcq-row-two var(--loop) ease infinite}.check-circle-3{animation:mcq-row-three var(--loop) ease infinite}
+    .check-line-1{animation:mcq-line-one var(--loop) ease infinite}.check-line-2{animation:mcq-line-two var(--loop) ease infinite}.check-line-3{animation:mcq-line-three var(--loop) ease infinite}
+    .completed-circle-layer,.completed-check-layer{transform-box:fill-box;transform-origin:center;animation:mcq-green-pulse var(--loop) ease infinite}
     .completed-circle{fill:#10b981;transform-box:fill-box;transform-origin:center;animation:mcq-complete-circle var(--loop) ease infinite}
     .completed-check{fill:none;stroke:white;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:28;stroke-dashoffset:28;animation:mcq-draw-check var(--loop) ease infinite}
     @keyframes mcq-ring-spin{to{transform:rotate(360deg)}}
@@ -55,13 +57,16 @@
     @keyframes mcq-row-one{0%,43%{opacity:.12;transform:translateX(-5px) scale(.96)}51%{opacity:1;transform:translateX(0) scale(1)}90%{opacity:1;transform:none}100%{opacity:.12;transform:translateX(-2px) scale(.98)}}
     @keyframes mcq-row-two{0%,47%{opacity:.12;transform:translateX(-5px) scale(.96)}55%{opacity:1;transform:translateX(0) scale(1)}90%{opacity:1;transform:none}100%{opacity:.12;transform:translateX(-2px) scale(.98)}}
     @keyframes mcq-row-three{0%,51%{opacity:.12;transform:translateX(-5px) scale(.96)}59%{opacity:1;transform:translateX(0) scale(1)}90%{opacity:1;transform:none}100%{opacity:.12;transform:translateX(-2px) scale(.98)}}
+    @keyframes mcq-line-one{0%,43%{opacity:.12;stroke-dashoffset:24}51%{opacity:1;stroke-dashoffset:0}90%{opacity:1;stroke-dashoffset:0}100%{opacity:.12;stroke-dashoffset:24}}
+    @keyframes mcq-line-two{0%,47%{opacity:.12;stroke-dashoffset:24}55%{opacity:1;stroke-dashoffset:0}90%{opacity:1;stroke-dashoffset:0}100%{opacity:.12;stroke-dashoffset:24}}
+    @keyframes mcq-line-three{0%,51%{opacity:.12;stroke-dashoffset:24}59%{opacity:1;stroke-dashoffset:0}90%{opacity:1;stroke-dashoffset:0}100%{opacity:.12;stroke-dashoffset:24}}
     @keyframes mcq-complete-circle{0%,60%{opacity:0;transform:scale(.68)}69%{opacity:1;transform:scale(1)}90%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.85)}}
     @keyframes mcq-draw-check{0%,67%{stroke-dashoffset:28;opacity:0}69%{opacity:1}76%{stroke-dashoffset:0;opacity:1}90%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:28;opacity:0}}
     @keyframes mcq-green-pulse{0%,75%{filter:drop-shadow(0 0 0 rgba(16,185,129,0))}81%{filter:drop-shadow(0 0 5px rgba(16,185,129,.3))}88%{filter:drop-shadow(0 0 2px rgba(16,185,129,.1))}100%{filter:none}}
     @media(prefers-reduced-motion:reduce){
       .logo-underlay{display:none}
-      .book-left,.book-right,.logo-body,.document,.graduation-cap,.tassel,.check-row-1,.check-row-2,.check-row-3,.completed-circle,.completed-check,.completed-group{animation:none!important;opacity:1!important;transform:none!important}
-      .completed-check{stroke-dashoffset:0!important}
+      .book-left,.book-right,.logo-body,.document,.graduation-cap,.tassel,.check-circle-1,.check-circle-2,.check-circle-3,.check-line-1,.check-line-2,.check-line-3,.completed-circle,.completed-check,.completed-circle-layer,.completed-check-layer{animation:none!important;opacity:1!important;transform:none!important}
+      .checklist-lines line,.completed-check{stroke-dashoffset:0!important}
       .loader-ring{animation-duration:2.4s}
     }
   </style>
@@ -114,21 +119,22 @@
       <path d="M133 107H141L144 122H130Z" stroke="none"/>
     </g>
 
-    <g class="check-row-1">
-      <circle cx="87" cy="103" r="7"/>
-      <line x1="103" y1="103" x2="121" y2="103"/>
-    </g>
-    <g class="check-row-2">
-      <circle cx="87" cy="121" r="7"/>
-      <line x1="103" y1="121" x2="121" y2="121"/>
-    </g>
-    <g class="check-row-3">
-      <circle cx="87" cy="139" r="7"/>
-      <line x1="103" y1="139" x2="121" y2="139"/>
+    <g class="checklist-circles">
+      <circle class="check-circle-1" cx="87" cy="103" r="7"/>
+      <circle class="check-circle-2" cx="87" cy="121" r="7"/>
+      <circle class="check-circle-3" cx="87" cy="139" r="7"/>
     </g>
 
-    <g class="completed-group">
+    <g class="checklist-lines">
+      <line class="check-line-1" x1="103" y1="103" x2="121" y2="103"/>
+      <line class="check-line-2" x1="103" y1="121" x2="121" y2="121"/>
+      <line class="check-line-3" x1="103" y1="139" x2="121" y2="139"/>
+    </g>
+
+    <g class="completed-circle-layer">
       <circle class="completed-circle" cx="87" cy="103" r="8.5"/>
+    </g>
+    <g class="completed-check-layer">
       <path class="completed-check" d="M82.5 103L86 106.5L92.5 99"/>
     </g>
   </g>
