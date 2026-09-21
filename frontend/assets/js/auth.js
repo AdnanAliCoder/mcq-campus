@@ -34,8 +34,8 @@ window.Auth=(()=>{
   if(b==='super-admin')return user.roles?.includes('super-admin');
   if(!user.roles?.some(x=>['admin','super-admin'].includes(x)))return false;
   if(user.roles.includes('super-admin'))return true;
-  const permissions={categories:'manage_categories',subcategories:'manage_subcategories',children:'manage_child_categories',papers:'manage_papers',jobs:'manage_jobs',years:'manage_job_years',import:'bulk_import_mcqs',guides:'manage_guides',posts:'manage_posts',reports:'view_reports',analytics:'view_analytics',add:'add_mcq'};
-  if(['users','admins','roles','settings','backup','trash','content','seo','duplicates'].includes(section))return false;
+  const permissions={categories:'manage_categories',subcategories:'manage_subcategories',children:'manage_child_categories',papers:'manage_papers',jobs:'manage_jobs',years:'manage_job_years',import:'bulk_import_mcqs','bulk-categories':'manage_categories','bulk-papers':'manage_papers','bulk-jobs':'manage_jobs','bulk-years':'manage_job_years',guides:'manage_guides',posts:'manage_posts',reports:'view_reports',analytics:'view_analytics',add:'add_mcq'};
+  if(['users','admins','roles','settings','backup','trash','content','seo','duplicates','google-analytics','adsense','custom-ads'].includes(section))return false;
   return !permissions[section]||(user.permissions||[]).includes(permissions[section]);
  }
  function clearPrivateState(){
@@ -44,15 +44,18 @@ window.Auth=(()=>{
   document.getElementById('modal')?.close();
  }
  async function request(path,body){
-  let response;
+  UI.networkBusy?.(true);
   try{
-   response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(15000)});
-  }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
-  if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
-  if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
-  const data=await response.json();
-  if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
-  return data;
+   let response;
+   try{
+    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(15000)});
+   }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
+   if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
+   if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
+   const data=await response.json();
+   if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
+   return data;
+  }finally{UI.networkBusy?.(false);}
  }
  function hydrate(snapshot,identity){
   user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
@@ -79,7 +82,7 @@ window.Auth=(()=>{
   return checking;
  }
  function guard(){
-  if(!ready){document.getElementById('app').innerHTML='<main class="session-check" role="status">Loading MCQ Campus…</main>';return false;}
+  if(!ready){document.getElementById('app').innerHTML=UI.loadingPage('Checking your session…');return false;}
   const current=route(),b=base();
   if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
   if(!user){const next=destination(current);history.replaceState(null,'','#/login'+(next?'?next='+encodeURIComponent(next):''));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
@@ -116,7 +119,7 @@ window.Auth=(()=>{
   const form=event.target.closest('form[data-form^="auth-"]');if(!form)return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
   const values=Object.fromEntries(new FormData(form)),type=form.dataset.form.slice(5),button=form.querySelector('[type=submit]'),box=form.querySelector('[data-auth-error]');
-  box.textContent='';button.disabled=true;
+  box.textContent='';const restoreButton=UI.buttonBusy(button,type==='login'?'Signing in…':type==='register'?'Creating account…':'Working…');
   try{
    if(type==='reset'&&values.password!==values.confirm)throw Error('Passwords do not match.');
    const params=new URLSearchParams(route().split('?')[1]||'');
@@ -127,14 +130,14 @@ window.Auth=(()=>{
     csrf=data.csrfToken||csrf;const snapshot=await request('/bootstrap');hydrate(snapshot,data.user);ready=true;
     const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
    }else{box.textContent=data.message||'Request completed.';form.reset();if(type==='reset'&&data.completed)setTimeout(()=>App.go('login'),800);}
-  }catch(error){box.textContent=error.message;}finally{button.disabled=false;}
+  }catch(error){box.textContent=error.message;}finally{restoreButton();}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','ad','bulk-taxonomy','bulk-entities']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
-  const button=form.querySelector('button[type=submit],button:not([type])');if(button)button.disabled=true;
+  const button=form.querySelector('button[type=submit],button:not([type])');const restoreButton=UI.buttonBusy(button,form.dataset.form.startsWith('bulk-')?'Importing…':'Saving…');
   try{
    const values=Object.fromEntries(new FormData(form));
    if(form.dataset.form==='mcq')Admin.syncDraft();
@@ -142,15 +145,15 @@ window.Auth=(()=>{
    else await command('form:'+form.dataset.form,{values,fields:[...new FormData(form)],context:{...form.dataset},draft:App.draft});
    window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }catch(error){let box=form.querySelector('[data-command-error]');if(!box){box=document.createElement('p');box.dataset.commandError='';box.className='auth-error';box.setAttribute('role','alert');form.prepend(box);}box.textContent=error.message;}
-  finally{if(button)button.disabled=false;}
+  finally{restoreButton();}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status']);
+ const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status','ad-toggle','ad-delete']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
-  event.preventDefault();event.stopImmediatePropagation();
+  event.preventDefault();event.stopImmediatePropagation();const restoreButton=UI.buttonBusy(el,el.dataset.action.includes('delete')?'Deleting…':'Working…');
   try{const result=await command('action:'+el.dataset.action,{...el.dataset,rows:App.importRows});if(el.dataset.action==='import-confirm')App.importSummary=result;document.getElementById('modal')?.close();App.render();}
-  catch(error){UI.toast(error.message);}
+  catch(error){UI.toast(error.message);}finally{restoreButton();}
  },true);
 
  async function switchRole(role){const data=await request('/auth/switch-role',{role});csrf=data.csrfToken||csrf;hydrate(data.snapshot,data.user);return data.user.activeRole;}
