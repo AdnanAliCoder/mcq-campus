@@ -29,6 +29,7 @@ App.quickTimer=McqCarousel.create({advance(){
  if(a==='home-quick-jump'){App.quickTimer.stop();App.quickAnswer=null;App.homeQuickIndex=Number(el.dataset.index||0);App.refreshQuick()}
  if(a==='home-quick-choose'){const q=MCQ.topMcqs()[App.homeQuickIndex];if(!q||q.id!==id||App.quickAnswer?.id===id)return;const choice=q['option'+el.dataset.option];if(!choice)return;await MCQ.attempt(id,choice);App.quickAnswer={id,choice};App.quickTimer.stop();App.refreshQuick()}
  if(a==='sidebar'){const n=document.getElementById('admin-sidebar');el.setAttribute('aria-expanded',String(n.classList.toggle('open')))}
+ if(a==='learner-sidebar-toggle'){const n=document.getElementById('learner-sidebar');if(n)n.classList.toggle('open')}
  if(a==='choose'){const q=MCQ.get('mcqs',id);if(!q)return;if(App.activeQuestionId&&App.activeQuestionId!==id)resetActiveQuestion(id);else App.activeQuestionId=id;if(App.answers[id])return;App.choices[id]=q['option'+el.dataset.option];await MCQ.attempt(id,App.choices[id]);App.answers[id]=true;refreshQuestion(id)}
  if(a==='bookmark'){const saved=await MCQ.toggleBookmark(id);refreshQuestion(id);UI.toast(saved?'Question saved to your revision list.':'Bookmark removed.')}
  if(a==='copy'||a==='share')await copyLink(id,a==='share');
