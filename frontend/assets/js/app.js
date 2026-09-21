@@ -54,6 +54,9 @@ App.quickTimer=McqCarousel.create({advance(){
  if(a==='user-new'||a==='user-edit')Admin.userModal(id||undefined);
  if(a==='guide-new'||a==='guide-edit')Admin.guideModal(id||undefined);
  if(a==='post-new'||a==='post-edit')Admin.postModal(id||undefined);
+ if(a==='job-opportunity-new'||a==='job-opportunity-edit')Admin.jobOpportunityModal(id||undefined);
+ if(a==='job-opportunity-delete-ask'){const job=(MCQ.db.jobOpportunities||[]).find(x=>+x.id===id);UI.modal('Delete job opportunity?',`<p>This will permanently delete <strong>${e(job?.title||'this job')}</strong>. Existing MCQs, categories, papers, guides and blog posts will not be deleted.</p>${btn('Delete job','job-opportunity-delete','danger',`data-id="${id}"`)} ${btn('Cancel','close','')}`)}
+
  if(a==='report-resolve'){MCQ.assert('system');const r=MCQ.get('reports',id);r.status='resolved';MCQ.log('Resolved report',String(id));MCQ.save();App.render();UI.toast('Report resolved.')}
  if(a==='import-template')template(el.dataset.ext);
  if(a==='import-report')UI.download('mcq-validation-report.json',JSON.stringify(App.importRows,null,2));
