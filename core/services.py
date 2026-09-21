@@ -1,6 +1,6 @@
 import hashlib, json, re, secrets
 from datetime import timedelta, date
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.text import slugify
@@ -43,7 +43,8 @@ def snapshot(user):
     elif user_role(user)=='admin': users=[user_dict(user)]
     guides_q=Guide.objects.all() if is_admin(user) else Guide.objects.filter(published=True)
     posts_q=Post.objects.all() if is_admin(user) else Post.objects.filter(status='published')
-    job_openings_q=JobOpening.objects.all() if (is_admin(user) and has_perm(user,'manage_job_openings')) else JobOpening.objects.filter(status='published')
+    job_table_ready=JobOpening._meta.db_table in connection.introspection.table_names()
+    job_openings_q=(JobOpening.objects.all() if (is_admin(user) and has_perm(user,'manage_job_openings')) else JobOpening.objects.filter(status='published')) if job_table_ready else JobOpening.objects.none()
     now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
     if is_super(user): ads_q=AdPlacement.objects.all().order_by('-priority','id')
     data={
@@ -185,8 +186,11 @@ def parse_optional_date(value):
 
 def save_job_opening(user,payload):
     require(is_admin(user) and has_perm(user,'manage_job_openings'))
-    _,v,ctx,_=parse_fields(payload)
+    fields,v,ctx,_=parse_fields(payload)
     rid=int(ctx.get('id') or 0) or None
+    def multi(key):
+        found=[value for name,value in payload.get('fields',[]) if name==key]
+        return found if found else v.get(key)
     obj=JobOpening.objects.filter(pk=rid).first() if rid else JobOpening(created_by=user)
     title=str(v.get('title') or '').strip()
     if not title: raise ValueError('Job title is required.')
@@ -211,7 +215,7 @@ def save_job_opening(user,payload):
         ('related_mcqs',MCQ,'related_mcq_ids'),('related_categories',Category,'related_category_ids'),
         ('related_papers',Paper,'related_paper_ids'),('related_guides',Guide,'related_guide_ids'),
         ('related_posts',Post,'related_post_ids'),('related_jobs',Job,'related_job_ids')]:
-        ids=normalize_ids(v.get(key)); getattr(obj,field).set(model.objects.filter(pk__in=ids))
+        ids=normalize_ids(multi(key)); getattr(obj,field).set(model.objects.filter(pk__in=ids))
     log(user,'Saved job opening',obj.title)
     return {'id':obj.id,'slug':obj.slug}
 
@@ -289,6 +293,8 @@ def command(user,action,payload):
         require(is_super(user)); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return obj.active
     if action=='action:ad-delete':
         require(is_super(user)); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return True
+    if action=='action:job-opening-delete-confirm':
+        require(is_admin(user) and has_perm(user,'manage_job_openings')); obj=JobOpening.objects.get(pk=int(payload.get('id'))); name=obj.title; obj.delete(); log(user,'Deleted job opening',name); return True
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'duplicates':0,'invalid':0,'failed':0}
         for row in payload.get('rows') or []:
