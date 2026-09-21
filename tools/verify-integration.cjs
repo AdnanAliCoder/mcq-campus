@@ -57,5 +57,17 @@ for(const name of ['service','importer','ui','public','admin','auth'])vm.runInCo
  test('Authentication screens use the supplied frontend layout',()=>{
   for(const route of ['login','register','forgot','reset','verify'])assert(context.Auth.view(route).includes('auth-layout'));
  });
+ test('Learner dashboard exposes preparation, mistakes, performance and history views',()=>{
+  const learner={id:7,name:'Test Learner',email:'learner@example.com',role:'user',roles:['user'],activeRole:'user',permissions:[],country:'Pakistan',avatar:''};
+  context.MCQ.hydrate({...snapshot,attempts:[{id:1,answer:'0.2',correct:false,at:'2026-09-21T08:00:00Z',by_id:7,by:'Test Learner'}],bookmarks:[1]},learner);
+  for(const view of ['overview','practice','important','mistakes','saved','papers','jobs','performance','history','notifications','profile','settings']){
+   const html=context.Public.dashboard(view);assert(html.includes('learner-dashboard-shell'),view);
+  }
+  const overview=context.Public.dashboard('overview');
+  assert(overview.includes('MCQs Attempted'));
+  assert(overview.includes('Review Mistakes'));
+  assert(context.Public.dashboard('mistakes').includes('Which value is correct?'));
+  assert(context.Public.dashboard('performance').includes('Category performance'));
+ });
  console.log(`\n${count} frontend integration groups passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1});
