@@ -82,7 +82,7 @@ window.Auth=(()=>{
   return checking;
  }
  function guard(){
-  if(!ready){UI.pageBusy?.(true);return false;}
+  if(!ready)return false;
   const current=route(),b=base();
   if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
   if(!user){const next=destination(current);history.replaceState(null,'','#/login'+(next?'?next='+encodeURIComponent(next):''));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
