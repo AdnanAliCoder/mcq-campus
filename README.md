@@ -38,13 +38,13 @@ For an already-populated Supabase database, deployment does not delete or replac
 
 The existing `core` app predates Django migration files, so this feature deliberately does **not** add a partial initial migration that could put an already-populated production database into an unsafe migration state.
 
-After deploying the code and before publishing current vacancies, run this once against the configured PostgreSQL/Supabase database:
+The Current Jobs schema is initialized automatically on the first authorized Job save. If you prefer to create it explicitly before editors begin using the feature, run:
 
 ```bash
 python manage.py ensure_job_openings_schema
 ```
 
-The command only creates the missing Current Jobs table and its relationship tables. It does not reset, delete, rename, or rewrite existing MCQs, categories, papers, past-paper jobs, guides, posts, users, or admin data. It is safe to run again; when the schema already exists it makes no changes.
+The command and first-save initializer only create missing Current Jobs tables and relationship tables. They do not reset, delete, rename, or rewrite existing MCQs, categories, papers, past-paper jobs, guides, Blog posts, users, or admin data. The command is safe to run again; when the schema already exists it makes no changes.
 
 ## Local verification
 
