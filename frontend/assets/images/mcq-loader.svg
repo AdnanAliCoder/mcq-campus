@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="mcqGreen" x1="48" y1="140" x2="151" y2="171" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0aa982"/>
+      <stop offset=".48" stop-color="#16c89b"/>
+      <stop offset="1" stop-color="#07936f"/>
+    </linearGradient>
+    <linearGradient id="mcqDark" x1="76" y1="59" x2="124" y2="149" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#303740"/>
+      <stop offset="1" stop-color="#20252d"/>
+    </linearGradient>
+    <linearGradient id="mcqPaper" x1="100" y1="82" x2="100" y2="149" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f6f8f8"/>
+    </linearGradient>
+    <filter id="mcqShadow" x="-35%" y="-35%" width="170%" height="180%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4.5" flood-color="#17202a" flood-opacity=".14"/>
+    </filter>
+    <filter id="mcqGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#10b981" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <style>
+    :root{--mcq-green:#10b981;--mcq-dark:#20252d;--mcq-muted:#dfe4e8;--loop:3s}
+    .loader-ring{transform-box:view-box;transform-origin:100px 100px;animation:mcq-ring-spin 1.25s linear infinite}
+    .ring-neutral{fill:none;stroke:#dfe4e8;stroke-width:5.2;stroke-linecap:round;stroke-dasharray:13 8 7 9 12 9 5 10}
+    .ring-green{fill:none;stroke:#10b981;stroke-width:5.2;stroke-linecap:round;stroke-dasharray:17 13 0 15 18 20 10 7;stroke-dashoffset:4;filter:url(#mcqGlow)}
+    .ring-dot{fill:#fff;stroke:#10b981;stroke-width:1.5;filter:url(#mcqGlow)}
+    .logo-core{filter:url(#mcqShadow)}
+    .logo-underlay{opacity:.22;filter:saturate(.15)}
+    .logo-underlay .u-dark{fill:#596168}.logo-underlay .u-light{fill:#e6e9ea;stroke:#596168;stroke-width:2.3}
+    .logo-underlay .u-line{fill:none;stroke:#596168;stroke-width:4.6;stroke-linecap:round}
+    .logo-underlay .u-book{fill:#83a99c}
+    .logo-underlay .u-circle{fill:none;stroke:#596168;stroke-width:3.7}
+    .logo-layer{transform-box:fill-box;transform-origin:center}
+    .book-left,.book-right{fill:url(#mcqGreen);opacity:.18;transform-box:fill-box;filter:url(#mcqGlow)}
+    .book-left{transform-origin:right center;animation:mcq-book-left var(--loop) cubic-bezier(.22,.75,.28,1) infinite}
+    .book-right{transform-origin:left center;animation:mcq-book-right var(--loop) cubic-bezier(.22,.75,.28,1) infinite}
+    .logo-body{fill:url(#mcqDark);transform-box:fill-box;transform-origin:center bottom;animation:mcq-body-rise var(--loop) cubic-bezier(.22,.75,.28,1) infinite}
+    .document{fill:url(#mcqPaper);stroke:#2c333b;stroke-width:3.2;stroke-linejoin:round;transform-box:fill-box;transform-origin:center bottom;animation:mcq-document-rise var(--loop) cubic-bezier(.22,.75,.28,1) infinite}
+    .graduation-cap{fill:url(#mcqDark);transform-box:fill-box;transform-origin:center;animation:mcq-cap-enter var(--loop) cubic-bezier(.22,.8,.25,1) infinite}
+    .tassel{fill:#2b3139;stroke:#2b3139;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;transform-box:fill-box;transform-origin:top center;animation:mcq-cap-enter var(--loop) cubic-bezier(.22,.8,.25,1) infinite}
+    .check-row-1,.check-row-2,.check-row-3{fill:none;stroke:#313841;stroke-linecap:round;stroke-linejoin:round;transform-box:fill-box;transform-origin:left center}
+    .check-row-1,.check-row-2,.check-row-3 circle{stroke-width:3.8}.check-row-1 line,.check-row-2 line,.check-row-3 line{stroke-width:4.6}
+    .check-row-1{animation:mcq-row-one var(--loop) ease infinite}.check-row-2{animation:mcq-row-two var(--loop) ease infinite}.check-row-3{animation:mcq-row-three var(--loop) ease infinite}
+    .completed-group{transform-box:fill-box;transform-origin:center;animation:mcq-green-pulse var(--loop) ease infinite}
+    .completed-circle{fill:#10b981;transform-box:fill-box;transform-origin:center;animation:mcq-complete-circle var(--loop) ease infinite}
+    .completed-check{fill:none;stroke:white;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:28;stroke-dashoffset:28;animation:mcq-draw-check var(--loop) ease infinite}
+    @keyframes mcq-ring-spin{to{transform:rotate(360deg)}}
+    @keyframes mcq-book-left{0%,5%{transform:scaleX(.04);opacity:.18}18%{transform:scaleX(1);opacity:1}90%{transform:scaleX(1);opacity:1}100%{transform:scaleX(.04);opacity:.18}}
+    @keyframes mcq-book-right{0%,5%{transform:scaleX(.04);opacity:.18}18%{transform:scaleX(1);opacity:1}90%{transform:scaleX(1);opacity:1}100%{transform:scaleX(.04);opacity:.18}}
+    @keyframes mcq-body-rise{0%,18%{transform:scaleY(.08);opacity:.16}31%{transform:scaleY(1);opacity:1}90%{transform:scaleY(1);opacity:1}100%{transform:scaleY(.08);opacity:.16}}
+    @keyframes mcq-document-rise{0%,23%{transform:scaleY(.08);opacity:.14}36%{transform:scaleY(1);opacity:1}90%{transform:scaleY(1);opacity:1}100%{transform:scaleY(.08);opacity:.14}}
+    @keyframes mcq-cap-enter{0%,33%{opacity:.16;transform:translateY(10px)}45%{opacity:1;transform:translateY(0)}90%{opacity:1;transform:translateY(0)}100%{opacity:.16;transform:translateY(5px)}}
+    @keyframes mcq-row-one{0%,43%{opacity:.12;transform:translateX(-5px) scale(.96)}51%{opacity:1;transform:translateX(0) scale(1)}90%{opacity:1;transform:none}100%{opacity:.12;transform:translateX(-2px) scale(.98)}}
+    @keyframes mcq-row-two{0%,47%{opacity:.12;transform:translateX(-5px) scale(.96)}55%{opacity:1;transform:translateX(0) scale(1)}90%{opacity:1;transform:none}100%{opacity:.12;transform:translateX(-2px) scale(.98)}}
+    @keyframes mcq-row-three{0%,51%{opacity:.12;transform:translateX(-5px) scale(.96)}59%{opacity:1;transform:translateX(0) scale(1)}90%{opacity:1;transform:none}100%{opacity:.12;transform:translateX(-2px) scale(.98)}}
+    @keyframes mcq-complete-circle{0%,60%{opacity:0;transform:scale(.68)}69%{opacity:1;transform:scale(1)}90%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.85)}}
+    @keyframes mcq-draw-check{0%,67%{stroke-dashoffset:28;opacity:0}69%{opacity:1}76%{stroke-dashoffset:0;opacity:1}90%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:28;opacity:0}}
+    @keyframes mcq-green-pulse{0%,75%{filter:drop-shadow(0 0 0 rgba(16,185,129,0))}81%{filter:drop-shadow(0 0 5px rgba(16,185,129,.3))}88%{filter:drop-shadow(0 0 2px rgba(16,185,129,.1))}100%{filter:none}}
+    @media(prefers-reduced-motion:reduce){
+      .logo-underlay{display:none}
+      .book-left,.book-right,.logo-body,.document,.graduation-cap,.tassel,.check-row-1,.check-row-2,.check-row-3,.completed-circle,.completed-check,.completed-group{animation:none!important;opacity:1!important;transform:none!important}
+      .completed-check{stroke-dashoffset:0!important}
+      .loader-ring{animation-duration:2.4s}
+    }
+  </style>
+
+  <g class="loader-ring">
+    <circle class="ring-neutral" cx="100" cy="100" r="80" pathLength="100"/>
+    <circle class="ring-green" cx="100" cy="100" r="80" pathLength="100"/>
+    <circle class="ring-dot" cx="100" cy="20" r="3.1"/>
+  </g>
+
+  <g class="logo-core">
+    <g class="logo-underlay">
+      <path class="u-book" d="M100 160C88 146 72 140 50 140V157C70 158 87 166 100 178Z"/>
+      <path class="u-book" d="M100 160C112 146 128 140 150 140V157C130 158 113 166 100 178Z"/>
+      <path class="u-dark" d="M70 88C64 92 61 97 61 103V140L78 149V90Z"/>
+      <path class="u-dark" d="M130 88C136 92 139 97 139 103V140L122 149V90Z"/>
+      <path class="u-light" d="M78 87Q100 77 122 87V143Q100 151 78 143Z"/>
+      <path class="u-dark" d="M100 49L145 70L100 92L55 70Z"/>
+      <path class="u-dark" d="M75 80Q100 67 125 80V92Q100 80 75 92Z"/>
+      <path class="u-line" d="M137 73V96"/>
+      <circle class="u-dark" cx="137" cy="101" r="5"/>
+      <path class="u-dark" d="M133 107H141L144 122H130Z"/>
+      <circle class="u-circle" cx="87" cy="103" r="7"/>
+      <circle class="u-circle" cx="87" cy="121" r="7"/>
+      <circle class="u-circle" cx="87" cy="139" r="7"/>
+      <path class="u-line" d="M103 103H121M103 121H121M103 139H121"/>
+    </g>
+
+    <g class="logo-layer">
+      <path class="book-left" d="M100 160C88 146 72 140 50 140V157C70 158 87 166 100 178Z"/>
+      <path class="book-right" d="M100 160C112 146 128 140 150 140V157C130 158 113 166 100 178Z"/>
+    </g>
+
+    <g class="logo-body">
+      <path d="M70 88C64 92 61 97 61 103V140L78 149V90Z"/>
+      <path d="M130 88C136 92 139 97 139 103V140L122 149V90Z"/>
+      <path d="M75 80Q100 67 125 80V94Q100 81 75 94Z"/>
+    </g>
+
+    <path class="document" d="M78 87Q100 77 122 87V143Q100 151 78 143Z"/>
+
+    <g class="graduation-cap">
+      <path d="M100 49L145 70L100 92L55 70Z"/>
+      <path d="M75 80Q100 67 125 80V92Q100 80 75 92Z"/>
+    </g>
+
+    <g class="tassel">
+      <path d="M137 72V96" fill="none"/>
+      <circle cx="137" cy="101" r="5" stroke="none"/>
+      <path d="M133 107H141L144 122H130Z" stroke="none"/>
+    </g>
+
+    <g class="check-row-1">
+      <circle cx="87" cy="103" r="7"/>
+      <line x1="103" y1="103" x2="121" y2="103"/>
+    </g>
+    <g class="check-row-2">
+      <circle cx="87" cy="121" r="7"/>
+      <line x1="103" y1="121" x2="121" y2="121"/>
+    </g>
+    <g class="check-row-3">
+      <circle cx="87" cy="139" r="7"/>
+      <line x1="103" y1="139" x2="121" y2="139"/>
+    </g>
+
+    <g class="completed-group">
+      <circle class="completed-circle" cx="87" cy="103" r="8.5"/>
+      <path class="completed-check" d="M82.5 103L86 106.5L92.5 99"/>
+    </g>
+  </g>
+</svg>
