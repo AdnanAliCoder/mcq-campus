@@ -1,0 +1,2 @@
+question,option1,option2,option3,option4,correct_answer,description,category_id,subcategory_ids,child_subcategory_ids,paper_id,job_ids,job_years_ids
+What is 10% of 500?,50,5,100,500,50,500 × 0.10 = 50.,10000,[20000],[30007],[32],[263],[851]

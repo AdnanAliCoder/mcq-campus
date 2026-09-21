@@ -1,0 +1,27 @@
+[
+  {
+    "question": "What is 10% of 500?",
+    "option1": "50",
+    "option2": "5",
+    "option3": "100",
+    "option4": "500",
+    "correct_answer": "50",
+    "description": "500 × 0.10 = 50.",
+    "category_id": 10000,
+    "subcategory_ids": [
+      20000
+    ],
+    "child_subcategory_ids": [
+      30007
+    ],
+    "paper_id": [
+      32
+    ],
+    "job_ids": [
+      263
+    ],
+    "job_years_ids": [
+      851
+    ]
+  }
+]

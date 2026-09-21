@@ -1,0 +1,366 @@
+{
+  "paper_endpoint_candidates": [
+    {
+      "endpoint": "/api/papers",
+      "status": 200,
+      "ok": true,
+      "type": "object",
+      "sample": {
+        "status": true,
+        "message": "Papers fetched successfully",
+        "data": [
+          {
+            "id": 90,
+            "name": "Anti Narcotics Force (ANF)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 89,
+            "name": "National Accountability Bureau (NAB)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 88,
+            "name": "GHQ Army Selection & Recruitment Directorate (Civilian Personnel Wing)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 87,
+            "name": "Departmental Recruitment Board of the Prime Minister’s Office (DRB)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 86,
+            "name": "Military Engineer Services (MES)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 85,
+            "name": "National Police Foundation – Testing & Assessment Service (NPF-TAS)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 84,
+            "name": "Universal Test Service (UTS)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 79,
+            "name": "Engineering College Admission Test (ECAT)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 78,
+            "name": "FIA - Federal Investigation Agency",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 77,
+            "name": "Pakistan Atomic Energy Commission (PAEC)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 76,
+            "name": "School Education Department (SED)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 74,
+            "name": "Ministry of National Health Services, Regulations & Coordination (MNHSRC)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 73,
+            "name": "Ministry of Inter Provincial Coordination (IPC)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 71,
+            "name": "Pakistan Agricultural Research Council (PARC)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 70,
+            "name": "Medical & Dental College Admission Test (MDCAT | MCAT)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 69,
+            "name": "Directorate General of Immigration & Passports (DGIP)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 68,
+            "name": "Directorate of Nursing Sindh Karachi (DNSK)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 67,
+            "name": "UBL (United Bank Limited)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 66,
+            "name": "National Transmission & Despatch Company (NTDC)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 63,
+            "name": "ATS - Allied Testing Service",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 60,
+            "name": "FBR - Federal Board of Revenue",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 59,
+            "name": "MOLJ - MINISTRY OF LAW",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 50,
+            "name": "MOD - MINISTRY OF DEFENCE",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 49,
+            "name": "Fair Testing Services (FTS)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 48,
+            "name": "Educational Testing and Evaluation Agency (ETEA)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 47,
+            "name": "CHILD PROTECTION BUREAU (CPWB)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 46,
+            "name": "FGEI - Federal Government Educational Institutions (Cantts/Garrisons",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 45,
+            "name": "SIBA Testing Service (STS)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 44,
+            "name": "Motorway Police",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 43,
+            "name": "Benazir Income Support Program (BISP)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 42,
+            "name": "Audit",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 41,
+            "name": "Punjab Police",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 40,
+            "name": "Punjab Highway Patrol (PHP)",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 39,
+            "name": "NADRA",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 37,
+            "name": "Education Testing Council by HEC",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 36,
+            "name": "Azad Jammu & Kashmir Public Service Commission",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 35,
+            "name": "BPSC – Balochistan Public Service Commission",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 34,
+            "name": "KPPSC – Khyber Pakhtunkhwa Public Service Commission",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 33,
+            "name": "SPSC – Sindh Public Service Commission",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 32,
+            "name": "PPSC – Punjab Public Service Commission",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 31,
+            "name": "CTSP – Career Testing Services Pakistan",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 30,
+            "name": "CTS – Candidate Testing Service",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 29,
+            "name": "PTS – Pakistan Testing Service",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 28,
+            "name": "OTS – Open Testing Service",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 27,
+            "name": "NTS – National Testing Service",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 26,
+            "name": "FPSC – Federal Public Service Commission",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 24,
+            "name": "ASF",
+            "country": "Pakistan",
+            "paper_icon": null
+          },
+          {
+            "id": 21,
+            "name": "Demo Paper India",
+            "country": "India",
+            "paper_icon": "https://campusfin.com/uploads/papers/1742755283.png"
+          },
+          {
+            "id": 20,
+            "name": "DemoPaper-Pakistan",
+            "country": "Pakistan",
+            "paper_icon": "https://campusfin.com/uploads/papers/1742755226.png"
+          }
+        ]
+      }
+    }
+  ],
+  "mcq_field_types": {
+    "mcq_id": 43051,
+    "fields": {
+      "subcategory_ids": {
+        "value": "[\"137\"]",
+        "javascript_type": "string",
+        "is_array": false,
+        "constructor": "String"
+      },
+      "child_subcategory_ids": {
+        "value": "[\"61\"]",
+        "javascript_type": "string",
+        "is_array": false,
+        "constructor": "String"
+      },
+      "job_ids": {
+        "value": "[\"192\"]",
+        "javascript_type": "string",
+        "is_array": false,
+        "constructor": "String"
+      },
+      "job_years_ids": {
+        "value": "[\"657\"]",
+        "javascript_type": "string",
+        "is_array": false,
+        "constructor": "String"
+      }
+    },
+    "full_sample": {
+      "id": 43051,
+      "category_id": 257,
+      "category_name": "🧠 Aptitude Mastery",
+      "subcategory_ids": "[\"137\"]",
+      "subcategory_name": "📏 Arithmetic Aptitude",
+      "child_subcategory_ids": "[\"61\"]",
+      "paper_id": "[\"24\"]",
+      "paper_name": "[\"ASF\"]",
+      "job_ids": "[\"192\"]",
+      "job_names": "[\"ASF Corporal\"]",
+      "job_years_ids": "[\"657\"]",
+      "job_years_names": [
+        "ASF Corporal Past Paper 20-12-2023 (Morning)"
+      ],
+      "jobyear_names": "[\"ASF Corporal Past Paper 20-12-2023 (Morning)\"]",
+      "job_years_count": 1,
+      "country": "Pakistan",
+      "question": "121 is how much above 100?",
+      "option1": "21",
+      "option2": "18",
+      "option3": "19",
+      "option4": "20",
+      "correct_answer": "21",
+      "description": "To find how much a number is above another number, subtract the smaller number from the larger number:\r\n121−100=21\r\nSo, 121 is 21 above 100.",
+      "updated_at": "2025-11-24 06:43:48"
+    }
+  }
+}

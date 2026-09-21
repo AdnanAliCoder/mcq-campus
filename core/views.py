@@ -1,5 +1,4 @@
-import json, re, base64, io, mimetypes, zipfile
-from functools import lru_cache
+import json, re
 from datetime import timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
@@ -45,7 +44,7 @@ def auth_register(request):
     if not d.get('terms'): return err('Accept the terms and privacy information.',422,{'terms':'Required.'})
     if '@' not in email or len(password)<8: return err('Check your email and password.',422)
     if User.objects.filter(email=email).exists(): return JsonResponse({'completed':True,'message':'If this email can be registered, further instructions will be sent.'})
-    u=User.objects.create_user(username=email,email=email,password=password,first_name=name); prof=profile_for(u); prof.role='user'; prof.email_verified=False; prof.save()
+    u=User.objects.create_user(username=email,email=email,password=password,first_name=name); prof=profile_for(u); prof.role='user'; prof.country=str(d.get('country') or 'Pakistan')[:80]; prof.email_verified=False; prof.save()
     raw=create_token(u,'verify',60*24); link=request.build_absolute_uri('/#/verify?token='+raw); send_mail('Verify your MCQ Campus email',f'Open this link to verify your account: {link}',None,[email],fail_silently=True)
     return JsonResponse({'completed':True,'message':'Account created. Check your email for the verification link.'})
 
@@ -80,9 +79,34 @@ def auth_resend_verification(request):
 @require_POST
 def auth_logout(request): logout(request); return JsonResponse({'completed':True})
 
+@require_POST
+def public_contact(request):
+    d=payload(request); message=str(d.get('message') or '').strip()
+    if not message: return err('Enter your message.',422)
+    ContactMessage.objects.create(user=request.user if request.user.is_authenticated else None,name=str(d.get('name') or '').strip(),email=str(d.get('email') or '').strip(),message=message)
+    return JsonResponse({'completed':True,'message':'Your message has been received.'})
+
+@require_POST
+def public_report(request):
+    d=payload(request); reason=str(d.get('reason') or '').strip()
+    try: mcq=MCQ.objects.get(pk=int(d.get('id') or 0),status='approved')
+    except (MCQ.DoesNotExist,TypeError,ValueError): return err('Question not available.',404)
+    if not reason: return err('Enter a report reason.',422)
+    Report.objects.create(user=request.user if request.user.is_authenticated else None,mcq=mcq,reason=reason)
+    return JsonResponse({'completed':True})
+
 @require_GET
-@login_required_json
 def bootstrap(request): return JsonResponse(snapshot(request.user),safe=True)
+
+@require_POST
+@login_required_json
+def auth_switch_role(request):
+    role=str(payload(request).get('role') or '')
+    available=user_dict(request.user,request.session).get('roles',[])
+    if role not in available: return err('This account does not have that workspace.',403)
+    request.session['active_role']=role
+    request.session.modified=True
+    return JsonResponse({'user':user_dict(request.user,request.session),'snapshot':snapshot(request.user),'csrfToken':get_token(request)})
 
 @require_POST
 @login_required_json
@@ -97,100 +121,9 @@ def commands(request):
         if e.__class__.__name__ in {'DoesNotExist','IntegrityError'}: return err('The requested record could not be updated.',422)
         raise
 
-@lru_cache(maxsize=1)
-def _frontend_bundle():
-    """Load the checked-in full frontend ZIP into memory as a deployment fallback."""
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[1]
-    parts = [
-        root / 'deploy-bundle' / 'part-00.b64',
-        root / 'deploy-bundle' / 'part-01.b64',
-        root / 'deploy-bundle' / 'part-02.b64',
-        root / 'deploy-bundle' / 'rest.b64',
-    ]
-    if not all(p.exists() for p in parts):
-        return None
-    try:
-        encoded = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
-        encoded += '=' * (-len(encoded) % 4)
-        raw = base64.b64decode(encoded)
-        return raw
-    except Exception:
-        return None
-
-def _frontend_file_bytes(relative_path):
-    raw = _frontend_bundle()
-    if raw is None:
-        return None
-    name = 'frontend/' + str(relative_path).lstrip('/').replace('\\', '/')
-    if '..' in name.split('/'):
-        return None
-    try:
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            return zf.read(name)
-    except (KeyError, zipfile.BadZipFile):
-        return None
-
-def frontend_asset(request, path):
-    """Serve restored frontend assets even on hosts that skip build.sh (e.g. some Vercel setups)."""
-    from pathlib import Path
-    local = Path(__file__).resolve().parents[1] / 'frontend' / 'assets' / path
-    if local.exists() and local.is_file():
-        data = local.read_bytes()
-    else:
-        data = _frontend_file_bytes('assets/' + path)
-    if data is None:
-        raise Http404
-    content_type = mimetypes.guess_type(path)[0] or 'application/octet-stream'
-    response = HttpResponse(data, content_type=content_type)
-    response['Cache-Control'] = 'public, max-age=3600'
-    return response
-
 def spa_index(request):
-    # Serve the restored full frontend rather than the temporary compact
-    # Django template shell. A <base> tag keeps relative asset URLs correct
-    # even when Django's SPA catch-all handles a nested browser path.
-    from pathlib import Path
-    path = Path(__file__).resolve().parents[1] / 'frontend' / 'index.html'
-    if path.exists():
-        html = path.read_text(encoding='utf-8')
-    else:
-        bundled = _frontend_file_bytes('index.html')
-        if bundled is None:
-            raise Http404('Frontend is not available.')
-        html = bundled.decode('utf-8')
-    if '<base ' not in html.lower():
-        html = re.sub(r'<head>', '<head><base href="/">', html, count=1, flags=re.I)
+    s=SiteSetting.get_solo(); return render(request,'index.html',{'settings':s})
 
-    # The public shell must still render before database migrations/seeding
-    # have completed on a fresh serverless deployment.
-    inject = []
-    try:
-        s = SiteSetting.get_solo()
-    except Exception:
-        s = None
-
-    if s is not None and getattr(s, 'analytics_enabled', False) and getattr(s, 'google_analytics_id', ''):
-        ga = str(s.google_analytics_id).strip()
-        if ga:
-            safe_ga = json.dumps(ga)
-            inject.append(
-                f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga}"></script>'
-                f'<script>window.dataLayer=window.dataLayer||[];'
-                f'function gtag(){{dataLayer.push(arguments)}};'
-                f'gtag("js",new Date());gtag("config",{safe_ga});</script>'
-            )
-    if s is not None and getattr(s, 'adsense_enabled', False) and getattr(s, 'adsense_client_id', ''):
-        adsense = str(s.adsense_client_id).strip()
-        if adsense:
-            inject.append(
-                f'<script async crossorigin="anonymous" '
-                f'src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={adsense}"></script>'
-            )
-    if inject:
-        html = re.sub(r'</head>', ''.join(inject) + '</head>', html, count=1, flags=re.I)
-
-    return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 def root_static_file(request, filename):
     allowed={'sitemap-index.xml','sitemap-pages.xml','sitemap-categories.xml','sitemap-papers.xml','sitemap-mcqs.xml','sitemap-resources.xml','sitemap-template.xml','routing-manifest.json'}
