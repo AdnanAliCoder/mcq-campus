@@ -23,3 +23,31 @@ def mcq(x):
 def guide(x): return {'id':x.id,'name':x.name,'tag':x.tag,'summary':x.summary,'body':x.body,'published':x.published,'created_at':iso(x.created_at),'updated_at':iso(x.updated_at),'created_by_id':x.created_by_id}
 def post(x): return {'id':x.id,'title':x.title,'slug':x.slug,'excerpt':x.excerpt,'body':x.body,'featured_image':x.featured_image,'category':x.category,'seo_title':x.seo_title,'seo_description':x.seo_description,'links':x.links or [],'status':x.status,'published':x.status=='published','created_at':iso(x.created_at),'updated_at':iso(x.updated_at),'created_by_id':x.created_by_id}
 def ad(x): return {'id':x.id,'name':x.name,'provider':x.provider,'placement':x.placement,'title':x.title,'body':x.body,'image_url':x.image_url,'target_url':x.target_url,'adsense_slot':x.adsense_slot,'active':x.active,'starts_at':iso(x.starts_at),'ends_at':iso(x.ends_at),'priority':x.priority,'created_at':iso(x.created_at),'updated_at':iso(x.updated_at)}
+
+
+def job_opening(x):
+    today=timezone.localdate()
+    if x.last_date:
+        days=(x.last_date-today).days
+        deadline_status='closed' if days<0 else 'closing-soon' if days<=7 else 'open'
+    else:
+        deadline_status='open'
+    return {
+        'id':x.id,'title':x.title,'slug':x.slug,'organization':x.organization,'category':x.category,
+        'advertisement_number':x.advertisement_number,'total_vacancies':x.total_vacancies,'location':x.location,
+        'qualification':x.qualification,'experience_requirement':x.experience_requirement,'age_limit':x.age_limit,
+        'gender':x.gender,'domicile':x.domicile,'employment_type':x.employment_type,
+        'advertisement_date':x.advertisement_date.isoformat() if x.advertisement_date else None,
+        'last_date':x.last_date.isoformat() if x.last_date else None,
+        'official_advertisement':x.official_advertisement,'official_apply_link':x.official_apply_link,
+        'recruiting_authority':x.recruiting_authority,'syllabus':x.syllabus,
+        'eligibility_details':x.eligibility_details,'important_instructions':x.important_instructions,
+        'status':x.status,'deadline_status':deadline_status,'published':x.status=='published',
+        'related_mcq_ids':list(x.related_mcqs.values_list('id',flat=True)),
+        'related_category_ids':list(x.related_categories.values_list('id',flat=True)),
+        'related_paper_ids':list(x.related_papers.values_list('id',flat=True)),
+        'related_guide_ids':list(x.related_guides.values_list('id',flat=True)),
+        'related_post_ids':list(x.related_posts.values_list('id',flat=True)),
+        'related_job_ids':list(x.related_jobs.values_list('id',flat=True)),
+        'created_at':iso(x.created_at),'updated_at':iso(x.updated_at),'created_by_id':x.created_by_id,
+    }
