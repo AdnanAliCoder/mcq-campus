@@ -2109,3 +2109,38 @@ dialog[open]::backdrop{animation:mcqBackdropIn var(--motion-base) ease both}
 .backend-loader[hidden]{display:none!important}
 .backend-loader video{width:clamp(72px,10vw,132px);height:auto;display:block;object-fit:contain;background:transparent;border:0;box-shadow:none}
 @media (max-width:640px){.backend-loader video{width:84px}}
+
+
+/* 2026-09-23 requested navigation/loading refinements. */
+.backend-loader{
+  background:transparent!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.backend-loader video{
+  width:clamp(216px,30vw,396px)!important;
+  max-width:min(72vw,396px)!important;
+  height:auto!important;
+  filter:none!important;
+  box-shadow:none!important;
+}
+body.backend-loading #app{
+  transform:scale(.975);
+  transform-origin:50% 0;
+  transition:transform 180ms ease;
+}
+body:not(.backend-loading) #app{
+  transform:scale(1);
+  transform-origin:50% 0;
+  transition:transform 180ms ease;
+}
+/* Four answer choices stack 4×1 on desktop as well as mobile. */
+.mcq-reference-options{
+  grid-template-columns:1fr!important;
+}
+@media(max-width:640px){
+  .backend-loader video{
+    width:252px!important;
+    max-width:74vw!important;
+  }
+}
