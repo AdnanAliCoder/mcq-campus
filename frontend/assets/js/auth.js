@@ -46,8 +46,16 @@ window.Auth=(()=>{
  let pendingRequests=0;
  function backendLoading(on){
   pendingRequests=Math.max(0,pendingRequests+(on?1:-1));
-  const loader=document.getElementById('backend-loader');
-  if(loader){loader.hidden=pendingRequests===0;loader.setAttribute('aria-hidden',pendingRequests===0?'true':'false');}
+  const active=pendingRequests>0,loader=document.getElementById('backend-loader');
+  document.body?.classList.toggle('backend-loading',active);
+  if(on){
+   document.getElementById('main-nav')?.classList.remove('open');
+   document.querySelector('[data-action="menu"]')?.setAttribute('aria-expanded','false');
+   document.getElementById('public-smart-sidebar')?.classList.remove('open');
+   document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');
+   document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');
+  }
+  if(loader){loader.hidden=!active;loader.setAttribute('aria-hidden',active?'false':'true');}
  }
  async function request(path,body){
   backendLoading(true);
