@@ -60,7 +60,7 @@ window.PublicLayout=(()=>{
    out.push(ad('sidebar_middle'));
    out.push(module('Keep Practising',linkList([['mcqs','Browse MCQs'],['tests','Take a Test'],['papers','Past Papers']])));
   } else if(kind==='legal'){
-   const cfg=MCQ.db.settings?.footer||{},pages=MCQ.db.content?.legalPages||{},visible=(k,t)=>cfg[t]!==false&&pages[k]?.published!==false;
+   const cfg=MCQ.db.settings?.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),visible=(k,t)=>cfg[t]!==false&&(coreHelpPages.has(k)||pages[k]?.published!==false);
    const items=[];if(visible('about','showAbout'))items.push(['about','About Us']);if(visible('contact','showContact'))items.push(['contact','Contact Us']);if(visible('privacy','showPrivacy'))items.push(['privacy','Privacy Policy']);if(visible('terms','showTerms'))items.push(['terms','Terms & Conditions']);if(visible('disclaimer','showDisclaimer'))items.push(['disclaimer','Disclaimer']);if(cfg.showCookiePolicy&&pages.cookies?.published!==false)items.push(['cookies','Cookie Policy']);if(cfg.showAdvertisingPolicy&&pages.advertising?.published!==false)items.push(['advertising','Advertising Policy']);
    out.push(module('Help & Legal',linkList(items)));
    out.push(module('Preparation',linkList([['mcqs','MCQs'],['papers','Past Papers'],['tests','Tests']])));
