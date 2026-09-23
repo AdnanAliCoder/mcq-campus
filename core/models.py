@@ -18,7 +18,9 @@ def profile_for(user):
     return p
 
 def user_role(user):
-    p=profile_for(user); return p.role if p else 'user'
+    if not user or not getattr(user,'is_authenticated',False): return 'user'
+    if user.is_superuser: return 'super-admin'
+    p=profile_for(user); return p.role if p else ('admin' if user.is_staff else 'user')
 def user_permissions(user):
     p=profile_for(user); return p.permissions or [] if p else []
 def user_name(user):
@@ -80,7 +82,7 @@ class Post(OwnedStampedModel):
 class SiteSetting(models.Model):
     singleton=models.PositiveSmallIntegerField(primary_key=True,default=1,editable=False)
     site_name=models.CharField(max_length=120,default='MCQ Campus'); description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.'); country=models.CharField(max_length=80,default='Pakistan')
-    about=models.TextField(default='MCQ Campus brings subject practice and past-paper navigation into one focused study space.'); contact=models.TextField(default='Use this form to contact the MCQ Campus team.')
+    about=models.TextField(default='',blank=True); contact=models.TextField(default='',blank=True)
     seo_title=models.CharField(max_length=160,default='MCQ Campus'); seo_description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.')
     admin_permissions=models.JSONField(default=dict,blank=True)
     google_analytics_id=models.CharField(max_length=40,blank=True); analytics_enabled=models.BooleanField(default=False)

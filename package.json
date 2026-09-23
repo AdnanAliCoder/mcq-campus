@@ -1,10 +1,10 @@
 {
-  "name": "mcq-campus-frontend",
+  "name": "mcq-campus",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "node tools/serve.cjs",
-    "start": "node tools/serve.cjs",
+    "dev": "python manage.py runserver",
+    "start": "python manage.py runserver",
     "test": "node tools/verify-integration.cjs"
   }
 }

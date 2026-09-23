@@ -1,6 +1,6 @@
 import json, re
 from datetime import timedelta
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.core.mail import send_mail
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.middleware.csrf import get_token
@@ -32,7 +32,11 @@ def auth_session(request):
 @require_POST
 def auth_login(request):
     d=payload(request); email=str(d.get('email') or '').strip().lower(); password=str(d.get('password') or '')
-    user=authenticate(request,username=email,password=password)
+    # Existing database accounts may have a username that differs from their email.
+    # Resolve by email first, then authenticate with Django's real username value.
+    candidate=User.objects.filter(email__iexact=email).order_by('-is_superuser','-is_staff','id').first()
+    login_name=candidate.get_username() if candidate else email
+    user=authenticate(request,username=login_name,password=password)
     if not user or not user.is_active: return err('Email or password is incorrect.',422)
     login(request,user); role=user_role(user); request.session['active_role']='super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user'; request.session.set_expiry(60*60*24*30 if d.get('remember') else 60*60*2)
     out=user_dict(user,request.session); out['expiresAt']=request.session.get_expiry_date().isoformat()
@@ -114,6 +118,8 @@ def commands(request):
     d=payload(request); action=d.get('action'); p=d.get('payload') or {}
     try:
         result=command(request.user,action,p)
+        if action in {'changePassword','form:password-change'}:
+            update_session_auth_hash(request,request.user)
         return JsonResponse({'result':result,'snapshot':snapshot(request.user),'user':user_dict(request.user,request.session)})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)

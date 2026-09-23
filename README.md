@@ -1,55 +1,67 @@
-# MCQ Campus — Django, Supabase and Vercel ready
+# MCQ Campus — Vercel + Supabase Deployment Package
 
-This project combines the complete MCQ Campus frontend with the existing Django authentication/API layer and Supabase PostgreSQL database connection.
+This package combines the final animated MCQ Campus frontend with the existing Django backend. It is prepared for **Vercel** deployment and the existing **Supabase PostgreSQL** database.
 
-## Included
+## What is included
 
-- Complete responsive MCQ Campus frontend supplied as the reference version
-- Public home, categories, papers, jobs, job years, MCQs, search, posts and guides
-- Protected learner, admin and super-admin workspaces
-- Django session authentication, CSRF protection and server-enforced permissions
-- Existing Supabase PostgreSQL data through `DATABASE_URL`
-- Learner progress, bookmarks, saved papers and reports
-- Admin MCQ, taxonomy, paper/job/year, user and content management
-- Vercel-compatible Django project structure
-- Render configuration retained as an optional alternative
+- Final HTML/CSS/JavaScript frontend with animations and transitions.
+- Django API, authentication, admin permissions and existing database models.
+- Supabase/PostgreSQL connection through `DATABASE_URL`.
+- Vercel Django configuration in `vercel.json` (no Render build file is included).
+- Same-origin session authentication for Learner, Admin and Super Admin accounts stored in the database.
+- `mcq-loader.mp4` as the backend-request loader.
+- Server-backed settings for footer, social links, legal pages, PDFs, Latest Jobs, ads/analytics and profile preferences without requiring a new database schema.
 
-## Environment variables
+## Intentionally removed
 
-Set these in Vercel Project Settings → Environment Variables:
+- Previous/obsolete frontend files.
+- Demo accounts, demo adapters and demo seed data.
+- Seed-import tooling and bundled sample-data folders.
+- Render deployment configuration.
+- Private `.env` credentials.
 
-- `DATABASE_URL` — Supabase session-pooler PostgreSQL URL
-- `SECRET_KEY` — long random Django secret
-- `DEBUG` — `false`
-- `SUPERADMIN_EMAIL` — existing owner email (used only by the management command)
-- `SUPERADMIN_PASSWORD` — owner password (used only by the management command)
-- `SUPERADMIN_NAME` — optional display name
-- `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` — only needed for a custom domain; Vercel-provided domains are detected automatically
+The package does **not** delete or replace any records already stored in Supabase. Existing database users, including an existing Super Admin, remain the source of truth for login.
 
-Never place the Supabase service-role key or database password in frontend JavaScript. This frontend uses same-origin Django endpoints; the database connection remains server-side.
+## Environment variables on Vercel
 
-## Vercel deployment
+Set these in **Vercel Project → Settings → Environment Variables**. Never commit the real values to Git.
 
-Push the project root to the connected GitHub repository. Vercel detects `manage.py`, reads `requirements.txt`, resolves the Django WSGI application and deploys it with the Python runtime. Do not use a frontend-only output directory and do not add a base64 restoration step.
+```text
+SECRET_KEY=<long random Django secret>
+DEBUG=false
+DATABASE_URL=<your Supabase Transaction Pooler connection string, port 6543>
+ALLOWED_HOSTS=<your custom domain if used>
+CSRF_TRUSTED_ORIGINS=https://<your-custom-domain>
+```
 
-For an already-populated Supabase database, deployment does not delete or replace records. If the database schema has never been initialized, run the documented Django setup commands once from a trusted environment before public use.
+Vercel's runtime host variables are also accepted automatically by `mcqcampus/settings.py`, so preview and production `*.vercel.app` hosts can be recognized without adding Render-specific settings.
+
+For Vercel, use Supabase **Connect → Transaction pooler** (`:6543`) rather than the direct IPv6 database URL. Django persistent connections are disabled and psycopg prepared statements are disabled for transaction-pooler compatibility.
+
+For email-based verification/password reset, configure the optional email variables shown in `.env.example`.
+
+## Existing Super Admin login
+
+The login form authenticates against Django's database-backed user table using the account email as the username. **No demo account is created by this package.** If your Supabase database already contains the Super Admin account and its password hash, use those existing credentials.
+
+`python manage.py ensure_superadmin` remains available only as an explicit maintenance command. It can create/update an owner from `SUPERADMIN_*` environment variables and can reset that account's password, so do not run it during routine deployment unless you intentionally want that behavior.
 
 ## Local verification
 
-```bash
+```sh
+python -m venv .venv
+# Windows PowerShell: .\.venv\Scripts\Activate.ps1
+# Linux/macOS: source .venv/bin/activate
 python -m pip install -r requirements.txt
 python manage.py check
-python manage.py migrate --run-syncdb
-python manage.py import_seed
 npm test
 python manage.py runserver
 ```
 
-Open `http://127.0.0.1:8000/`. Public pages work without signing in. Learner, admin and super-admin routes require an authenticated account with the matching database role.
+If `DATABASE_URL` is omitted locally, Django uses SQLite for development/testing. Do not run database initialization commands against the existing Supabase production database unless you know a schema change is required.
 
-## Data protection
+## Vercel deployment
 
-- No database tables or records are deleted during frontend integration.
-- Public API responses contain only approved MCQs and published content.
-- Pending/rejected MCQs, users, logs and administrative data remain role-protected.
-- Demo and super-admin credentials remain in the database/environment and are not embedded in frontend files.
+Deploy the **project root** — the folder containing `manage.py` and `vercel.json`. With Git integration, push this folder to the repository/branch connected to Vercel. Keep the Supabase connection string and Django secret only in Vercel Environment Variables.
+
+The included `build.sh` is a generic Django build helper and contains no Render-specific logic. The Vercel configuration itself is kept in `vercel.json`.

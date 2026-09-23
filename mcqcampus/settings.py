@@ -6,16 +6,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
 DEBUG = os.getenv('DEBUG', 'false').lower() in {'1','true','yes','on'}
 ALLOWED_HOSTS = [x.strip() for x in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if x.strip()]
-render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
-if render_host and render_host not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(render_host)
 vercel_hosts = [os.getenv(name,'').strip() for name in ('VERCEL_URL','VERCEL_BRANCH_URL','VERCEL_PROJECT_PRODUCTION_URL')]
 for host in vercel_hosts:
     if host and host not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(host)
 CSRF_TRUSTED_ORIGINS = [x.strip() for x in os.getenv('CSRF_TRUSTED_ORIGINS','').split(',') if x.strip()]
-if render_host:
-    CSRF_TRUSTED_ORIGINS.append(f'https://{render_host}')
 for host in vercel_hosts:
     origin=f'https://{host}' if host else ''
     if origin and origin not in CSRF_TRUSTED_ORIGINS:
@@ -52,8 +47,11 @@ def _db():
     url=os.getenv('DATABASE_URL','').strip()
     if not url:
         return {'ENGINE':'django.db.backends.sqlite3','NAME':BASE_DIR/'db.sqlite3'}
-    # Supabase shared session pooler works well for a normal long-running Django service.
-    return dj_database_url.parse(url, conn_max_age=60, ssl_require=True)
+    # Vercel is serverless: keep Django persistent connections disabled. For Supabase,
+    # use the Transaction Pooler connection string (port 6543) in DATABASE_URL.
+    cfg=dj_database_url.parse(url, conn_max_age=0, ssl_require=True)
+    cfg.setdefault('OPTIONS',{})['prepare_threshold']=None
+    return cfg
 DATABASES={'default':_db()}
 
 AUTH_PASSWORD_VALIDATORS=[

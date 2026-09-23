@@ -10,3 +10,13 @@ db.sqlite3
 staticfiles/
 .venv/
 dist/
+
+# Local tooling and generated archives
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+*.zip
+.DS_Store
+Thumbs.db

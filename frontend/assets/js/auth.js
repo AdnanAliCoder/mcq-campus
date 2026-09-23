@@ -43,16 +43,25 @@ window.Auth=(()=>{
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
+ let pendingRequests=0;
+ function backendLoading(on){
+  pendingRequests=Math.max(0,pendingRequests+(on?1:-1));
+  const loader=document.getElementById('backend-loader');
+  if(loader){loader.hidden=pendingRequests===0;loader.setAttribute('aria-hidden',pendingRequests===0?'true':'false');}
+ }
  async function request(path,body){
-  let response;
+  backendLoading(true);
   try{
-   response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(15000)});
-  }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
-  if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
-  if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
-  const data=await response.json();
-  if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
-  return data;
+   let response;
+   try{
+    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(20000)});
+   }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
+   if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
+   if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
+   const data=await response.json();
+   if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
+   return data;
+  }finally{backendLoading(false);}
  }
  function hydrate(snapshot,identity){
   user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
@@ -130,26 +139,36 @@ window.Auth=(()=>{
   }catch(error){box.textContent=error.message;}finally{button.disabled=false;}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
   const button=form.querySelector('button[type=submit],button:not([type])');if(button)button.disabled=true;
   try{
-   const values=Object.fromEntries(new FormData(form));
+   const fd=new FormData(form),values=Object.fromEntries(fd);
+   if(form.dataset.form==='profile')values.interests=fd.getAll('interests');
    if(form.dataset.form==='mcq')Admin.syncDraft();
    if(form.dataset.form==='contact'&&!user)await request('/contact',values);
-   else await command('form:'+form.dataset.form,{values,fields:[...new FormData(form)],context:{...form.dataset},draft:App.draft});
+   else await command('form:'+form.dataset.form,{values,fields:[...fd],context:{...form.dataset},draft:App.draft});
    window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }catch(error){let box=form.querySelector('[data-command-error]');if(!box){box=document.createElement('p');box.dataset.commandError='';box.className='auth-error';box.setAttribute('role','alert');form.prepend(box);}box.textContent=error.message;}
   finally{if(button)button.disabled=false;}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','trash-restore','report-resolve','restore-trash','import-confirm','save-import','delete-mcq','user-status']);
+ const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','trash-restore','report-resolve','restore-trash','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete','bulk-important']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
-  try{const result=await command('action:'+el.dataset.action,{...el.dataset,rows:App.importRows});if(el.dataset.action==='import-confirm')App.importSummary=result;document.getElementById('modal')?.close();App.render();}
+  try{
+   const extra={...el.dataset,rows:App.importRows};
+   if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
+   if(el.dataset.action==='bulk-important'){
+    if(el.dataset.target==='papers'){const paperIds=[...document.querySelectorAll('.entity-row-check[data-type="papers"]:checked')].map(x=>Number(x.value)).filter(Boolean);extra.ids=MCQ.db.mcqs.filter(q=>MCQ.ids(q.paper_id).some(id=>paperIds.includes(id))).map(q=>q.id);}
+    else extra.ids=[...document.querySelectorAll('.mcq-row-check:checked')].map(x=>Number(x.value)).filter(Boolean);
+    if(!extra.ids.length)throw Error('Select at least one matching MCQ.');
+   }
+   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm')App.importSummary=result;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+  }
   catch(error){UI.toast(error.message);}
  },true);
 
