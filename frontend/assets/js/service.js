@@ -4,11 +4,11 @@ window.MCQ = (() => {
  const clone=x=>JSON.parse(JSON.stringify(x));
  const emptyData=()=>({schemaVersion:8,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[]});
  const legalDefaults=()=>({
-  about:{title:'About MCQ Campus',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''},
-  contact:{title:'Contact Us',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''},
-  privacy:{title:'Privacy Policy',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''},
-  terms:{title:'Terms & Conditions',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''},
-  disclaimer:{title:'Disclaimer',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''},
+  about:{title:'About MCQ Campus',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
+  contact:{title:'Contact Us',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
+  privacy:{title:'Privacy Policy',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
+  terms:{title:'Terms & Conditions',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
+  disclaimer:{title:'Disclaimer',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
   cookies:{title:'Cookie Policy',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''},
   advertising:{title:'Advertising Policy',content:'',lastUpdated:'',published:false,seoTitle:'',metaDescription:''}
  });
