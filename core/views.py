@@ -35,9 +35,11 @@ def profile_api(name):
             start=time.perf_counter(); before=len(connection.queries)
             response=fn(request,*args,**kwargs)
             elapsed=(time.perf_counter()-start)*1000
-            queries=max(0,len(connection.queries)-before)
+            recent=connection.queries[before:]
+            queries=len(recent)
+            db_ms=sum(float(q.get('time') or 0) for q in recent)*1000
             size=len(getattr(response,'content',b'') or b'')
-            logger.info('api_timing endpoint=%s total_ms=%.1f queries=%s bytes=%s',name,elapsed,queries,size)
+            logger.info('api_timing endpoint=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,elapsed,db_ms,queries,size)
             return response
         return wrapped
     return decorate
@@ -227,11 +229,12 @@ def admin_content(request):
 @login_required_json
 def auth_switch_role(request):
     role=str(payload(request).get('role') or '')
-    available=user_dict(request.user,request.session).get('roles',[])
-    if role not in available: return err('This account does not have that workspace.',403)
+    identity=user_dict(request.user,request.session)
+    if role not in identity.get('roles',[]): return err('This account does not have that workspace.',403)
     request.session['active_role']=role
     request.session.modified=True
-    return JsonResponse({'user':user_dict(request.user,request.session),'csrfToken':get_token(request)})
+    identity['activeRole']=role
+    return JsonResponse({'user':identity,'csrfToken':get_token(request)})
 
 @profile_api('commands')
 @require_POST
