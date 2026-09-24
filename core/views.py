@@ -131,6 +131,8 @@ def commands(request):
             update_session_auth_hash(request,request.user)
         response={'success':True,'result':result}
         if action in {'saveProfile','form:profile','form:user'}: response['user']=user_dict(request.user,request.session)
+        delta_actions={'attempt','toggleBookmark','savePaper','report','saveProfile','changePassword','form:profile','form:password-change','form:mcq','form:review','form:entity','form:user','form:guide','form:post','form:ad','action:report-resolve','action:user-status','action:ad-toggle','action:ad-delete','action:post-delete','action:bulk-important'}
+        if action not in delta_actions: response['refresh']='bootstrap'
         return JsonResponse(response)
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
