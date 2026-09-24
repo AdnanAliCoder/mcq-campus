@@ -109,7 +109,7 @@ window.Auth=(()=>{
   MCQ.setSession(user);
   clearTimeout(expiryTimer);
   if(user?.expiresAt&&Number.isFinite(Date.parse(user.expiresAt))){
-   expiryTimer=setTimeout(()=>{clearPrivateState();ready=false;check().then(()=>App.render())},Math.min(2147483647,Math.max(1000,Date.parse(user.expiresAt)-Date.now())));
+   expiryTimer=setTimeout(()=>{validateSession(true).then(()=>App.render())},Math.min(2147483647,Math.max(1000,Date.parse(user.expiresAt)-Date.now())));
   }
  }
  function hydrate(snapshot,identity){
@@ -225,7 +225,7 @@ window.Auth=(()=>{
    const endpoint=type==='verify'&&!values.token?'resend-verification':type;
    const data=await request('/auth/'+endpoint,values);
    if(type==='login'){
-    csrf=data.csrfToken||csrf;const snapshot=await request('/bootstrap');hydrate(snapshot,data.user);ready=true;
+    csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
     const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
    }else{box.textContent=data.message||'Request completed.';form.reset();if(type==='reset'&&data.completed)setTimeout(()=>App.go('login'),800);}
   }catch(error){box.textContent=error.message;}finally{restoreButton();}
@@ -269,6 +269,21 @@ window.Auth=(()=>{
   finally{restoreButton();}
  },true);
 
+ let lastSessionValidation=0;
+ async function validateSession(force=false){
+  if(!user)return null;
+  const now=Date.now();
+  if(!force&&now-lastSessionValidation<300000)return user;
+  lastSessionValidation=now;
+  try{
+   const session=await request('/auth/session');
+   csrf=session.csrfToken||csrf;
+   if(!session.user){clearPrivateState();ready=true;App.render();return null}
+   setIdentity({...user,...session.user});
+   return user;
+  }catch{return user}
+ }
+
  let majorTransition=null;
  async function switchRole(role){
   if(majorTransition)return majorTransition;
@@ -295,7 +310,7 @@ window.Auth=(()=>{
   backendLoading(true);
   majorTransition=(async()=>{
    try{
-    try{await request('/auth/logout',{});}catch{}
+    await request('/auth/logout',{});
     clearPrivateState();
     ready=true;
     location.hash='#/login';
@@ -308,8 +323,8 @@ window.Auth=(()=>{
   return majorTransition;
  }
  async function start(){await check();App.render();}
- document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user){ready=false;App.render();check().then(()=>App.render());}});
- window.addEventListener('pageshow',event=>{if(event.persisted){ready=false;check().then(()=>App.render());}});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
+ window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
  return {guard,view,start,logout,switchRole,request,command,destination,allowed,get user(){return user;}};
