@@ -203,18 +203,24 @@ def learner_dashboard_data(user):
 
 def admin_overview_data(user):
     require(is_admin(user))
-    qs=visible_mcqs(user)
+    if is_super(user):
+        qs=MCQ.objects.all()
+    else:
+        qs=MCQ.objects.filter(created_by=user)
     counts=qs.aggregate(
         total=Count('id'),
         pending=Count('id',filter=Q(status='pending')),
         approved=Count('id',filter=Q(status='approved')),
         rejected=Count('id',filter=Q(status='rejected')),
     )
-    data={'mcqs':counts,'openReports':0,'staff':0,'learners':0,'trash':0}
+    recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:6]]
+    data={'mcqs':counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'learners':0,'trash':0}
     if is_super(user):
         data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
         people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
         data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
+        staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
+        data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
     elif has_perm(user,'view_reports'):
         data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
     return data
