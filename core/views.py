@@ -3,7 +3,9 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.db import connection
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.middleware.csrf import get_token
 from django.shortcuts import render
@@ -13,7 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict
 from .services import (
-    snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page,
+    snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data,
 )
 
@@ -48,9 +50,57 @@ def payload(request):
     try: return json.loads(request.body.decode('utf-8') or '{}')
     except Exception: return {}
 def err(message,status=400,fields=None): return JsonResponse({'message':str(message),**({'fields':fields} if fields else {})},status=status)
+
+def _normalize_email(value):
+    email=str(value or '').strip().lower()
+    try: validate_email(email)
+    except ValidationError: raise ValueError('Enter a valid email address.')
+    return email
+
+def _client_ip(request):
+    forwarded=str(request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
+    return forwarded or str(request.META.get('REMOTE_ADDR') or 'unknown')
+
+def _rate_hash(kind,value):
+    import hashlib, hmac
+    return hmac.new(str(settings.SECRET_KEY).encode(),f'{kind}:{value}'.encode(),hashlib.sha256).hexdigest()
+
+def _rate_limited(kind,identities,limit,window_seconds):
+    if not getattr(settings,'AUTH_RATE_LIMIT_ENABLED',True): return False
+    since=timezone.now()-timedelta(seconds=window_seconds)
+    for value in identities:
+        digest=_rate_hash(kind,value)
+        if AuditLog.objects.filter(action='auth-rate:'+kind,detail=digest,created_at__gte=since).count()>=limit: return True
+    return False
+
+def _record_rate(kind,identities):
+    if not getattr(settings,'AUTH_RATE_LIMIT_ENABLED',True): return
+    for value in identities:
+        AuditLog.objects.create(action='auth-rate:'+kind,detail=_rate_hash(kind,value))
+
+def _send_auth_email(subject,body,email):
+    try:
+        send_mail(subject,body,None,[email],fail_silently=False)
+        return True
+    except Exception as exc:
+        logger.warning('auth_email_delivery_failed type=%s',exc.__class__.__name__)
+        return False
+
+def _verification_email(code):
+    minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
+    return f'MCQ Campus\n\nYour verification code is:\n\n{code}\n\nThis code expires in {minutes} minutes.\nIf you did not create this account, you can ignore this email.'
+
+def _reset_email(code):
+    minutes=getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10)
+    return f'MCQ Campus\n\nPassword reset code:\n\n{code}\n\nThis code expires in {minutes} minutes.\nIf you did not request a password reset, you can ignore this email.'
+
 def login_required_json(fn):
     def inner(request,*a,**kw):
         if not request.user.is_authenticated: return err('Your session has ended. Please sign in again.',401)
+        prof=profile_for(request.user)
+        if prof and not prof.email_verified:
+            logout(request)
+            return err('Email verification is required.',403,{'verificationRequired':True})
         return fn(request,*a,**kw)
     return inner
 
@@ -65,7 +115,12 @@ def auth_session(request):
 @require_POST
 def auth_login(request):
     started=time.perf_counter()
-    d=payload(request); email=str(d.get('email') or '').strip().lower(); password=str(d.get('password') or '')
+    d=payload(request)
+    try: email=_normalize_email(d.get('email'))
+    except ValueError: email=str(d.get('email') or '').strip().lower()
+    password=str(d.get('password') or '')
+    rate_ids=[f'email:{email}',f'ip:{_client_ip(request)}']
+    if _rate_limited('login',rate_ids,7,15*60): return err('Too many sign-in attempts. Please try again later.',429)
     phase=time.perf_counter()
     # Existing database accounts may have a username that differs from their email.
     # Resolve by email first, then authenticate with Django's real username value.
@@ -84,7 +139,11 @@ def auth_login(request):
     authenticate_ms=(time.perf_counter()-phase)*1000
     if not user or not user.is_active:
         if perf_enabled(): logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,(time.perf_counter()-started)*1000)
+        _record_rate('login',rate_ids)
         return err('Email or password is incorrect.',422)
+    prof=profile_for(user)
+    if prof and not prof.email_verified:
+        return err('Your email is not verified. Enter the verification code sent to your email.',403,{'verificationRequired':True,'email':email})
     phase=time.perf_counter()
     login(request,user)
     role=user_role(user)
@@ -100,41 +159,93 @@ def auth_login(request):
 
 @require_POST
 def auth_register(request):
-    d=payload(request); name=str(d.get('name') or '').strip(); email=str(d.get('email') or '').strip().lower(); password=str(d.get('password') or '')
+    d=payload(request); name=str(d.get('name') or '').strip(); password=str(d.get('password') or '')
     if not d.get('terms'): return err('Accept the terms and privacy information.',422,{'terms':'Required.'})
-    if '@' not in email or len(password)<8: return err('Check your email and password.',422)
-    if User.objects.filter(email=email).exists(): return JsonResponse({'completed':True,'message':'If this email can be registered, further instructions will be sent.'})
-    u=User.objects.create_user(username=email,email=email,password=password,first_name=name); prof=profile_for(u); prof.role='user'; prof.country=str(d.get('country') or 'Pakistan')[:80]; prof.email_verified=False; prof.save()
-    raw=create_token(u,'verify',60*24); link=request.build_absolute_uri('/#/verify?token='+raw); send_mail('Verify your MCQ Campus email',f'Open this link to verify your account: {link}',None,[email],fail_silently=True)
-    return JsonResponse({'completed':True,'message':'Account created. Check your email for the verification link.'})
+    try: email=_normalize_email(d.get('email'))
+    except ValueError as exc: return err(exc,422,{'email':str(exc)})
+    if _rate_limited('register',[f'ip:{_client_ip(request)}'],5,60*60): return err('Too many registration attempts. Please try again later.',429)
+    _record_rate('register',[f'ip:{_client_ip(request)}'])
+    if User.objects.filter(email__iexact=email).exists():
+        return JsonResponse({'completed':True,'message':'If this email can be registered, further instructions will be sent.'})
+    u=User(username=email,email=email,first_name=name,is_active=True,is_staff=False,is_superuser=False)
+    try: _validate_password(password,u)
+    except ValueError as exc: return err(exc,422,{'password':str(exc)})
+    u.set_password(password); u.save()
+    prof=profile_for(u); prof.role='user'; prof.permissions=[]; prof.country=str(d.get('country') or 'Pakistan')[:80]; prof.email_verified=False; prof.save()
+    code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
+    delivered=_send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+    if not delivered:
+        return err('Account created, but the verification email could not be delivered right now. Please use Resend code.',503,{'emailDelivery':'temporary'})
+    return JsonResponse({'completed':True,'verificationRequired':True,'email':email,'message':'Account created. Enter the 6-digit code sent to your email.'})
 
 @require_POST
 def auth_forgot(request):
-    email=str(payload(request).get('email') or '').strip().lower(); u=User.objects.filter(email=email,is_active=True).first()
+    d=payload(request)
+    try: email=_normalize_email(d.get('email'))
+    except ValueError: return JsonResponse({'completed':True,'message':'If an active account matches that email, a reset code has been sent.'})
+    ids=[f'email:{email}',f'ip:{_client_ip(request)}']
+    if _rate_limited('forgot',ids,5,60*60):
+        return JsonResponse({'completed':True,'message':'If an active account matches that email, a reset code has been sent.'})
+    _record_rate('forgot',ids)
+    u=User.objects.filter(email__iexact=email,is_active=True).first()
     if u:
-        raw=create_token(u,'reset',30); link=request.build_absolute_uri('/#/reset?token='+raw); send_mail('Reset your MCQ Campus password',f'Open this link to reset your password: {link}',None,[email],fail_silently=True)
-    return JsonResponse({'completed':True,'message':'If an active account matches that email, a reset link has been sent.'})
+        code=create_token(u,'reset',getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10))
+        _send_auth_email('MCQ Campus password reset code',_reset_email(code),email)
+    return JsonResponse({'completed':True,'message':'If an active account matches that email, a reset code has been sent.'})
 
 @require_POST
 def auth_reset(request):
-    d=payload(request); u=consume_token(d.get('token'),'reset')
-    if not u: return err('This password reset link is invalid or expired.',422)
-    p=str(d.get('password') or ''); c=str(d.get('confirm') or '')
-    if len(p)<8 or p!=c: return err('Passwords do not match or are too short.',422)
-    u.set_password(p); u.save(); return JsonResponse({'completed':True,'message':'Password updated. You can now sign in.'})
+    d=payload(request)
+    try: email=_normalize_email(d.get('email'))
+    except ValueError: return err('Invalid or expired reset code.',422)
+    ids=[f'email:{email}',f'ip:{_client_ip(request)}']
+    if _rate_limited('reset',ids,10,15*60): return err('Too many reset attempts. Please try again later.',429)
+    u=User.objects.filter(email__iexact=email,is_active=True).first()
+    if not u: _record_rate('reset',ids); return err('Invalid or expired reset code.',422)
+    code=d.get('code')
+    verified=consume_token(u,code,'reset',getattr(settings,'PASSWORD_RESET_MAX_ATTEMPTS',5))
+    if not verified: _record_rate('reset',ids); return err('Invalid or expired reset code.',422)
+    p=str(d.get('password') or ''); cfm=str(d.get('confirm') or '')
+    if p!=cfm: return err('Passwords do not match.',422,{'confirm':'Passwords do not match.'})
+    try: _validate_password(p,u)
+    except ValueError as exc: return err(exc,422,{'password':str(exc)})
+    u.set_password(p); u.save(update_fields=['password'])
+    OneTimeToken.objects.filter(user=u,purpose='reset',used_at__isnull=True).update(used_at=timezone.now())
+    return JsonResponse({'completed':True,'message':'Password updated. You can now sign in.'})
 
 @require_POST
 def auth_verify(request):
-    u=consume_token(payload(request).get('token'),'verify')
-    if not u: return err('This verification link is invalid or expired.',422)
-    prof=profile_for(u); prof.email_verified=True; prof.save(update_fields=['email_verified']); return JsonResponse({'completed':True,'message':'Email verified. You can now sign in.'})
+    d=payload(request)
+    try: email=_normalize_email(d.get('email'))
+    except ValueError: return err('Invalid or expired verification code.',422)
+    ids=[f'email:{email}',f'ip:{_client_ip(request)}']
+    if _rate_limited('verify',ids,15,15*60): return err('Too many verification attempts. Please try again later.',429)
+    u=User.objects.filter(email__iexact=email,is_active=True).first()
+    if not u: _record_rate('verify',ids); return err('Invalid or expired verification code.',422)
+    prof=profile_for(u)
+    if prof.email_verified: return JsonResponse({'completed':True,'message':'Email is already verified. You can sign in.'})
+    verified=consume_token(u,d.get('code'),'verify',getattr(settings,'EMAIL_VERIFICATION_MAX_ATTEMPTS',5))
+    if not verified: _record_rate('verify',ids); return err('Invalid or expired verification code.',422)
+    prof.email_verified=True; prof.save(update_fields=['email_verified'])
+    return JsonResponse({'completed':True,'message':'Email verified. You can now sign in.'})
 
 @require_POST
 def auth_resend_verification(request):
-    email=str(payload(request).get('email') or '').strip().lower(); u=User.objects.filter(email=email,is_active=True,profile__email_verified=False).first()
+    d=payload(request)
+    generic={'completed':True,'message':'If verification is required, a new code has been sent.'}
+    try: email=_normalize_email(d.get('email'))
+    except ValueError: return JsonResponse(generic)
+    ids=[f'email:{email}',f'ip:{_client_ip(request)}']
+    if _rate_limited('resend',ids,5,60*60): return JsonResponse(generic)
+    u=User.objects.filter(email__iexact=email,is_active=True,profile__email_verified=False).first()
     if u:
-        raw=create_token(u,'verify',60*24); link=request.build_absolute_uri('/#/verify?token='+raw); send_mail('Verify your MCQ Campus email',f'Open this link to verify your account: {link}',None,[email],fail_silently=True)
-    return JsonResponse({'completed':True,'message':'If verification is needed, a new email has been sent.'})
+        cooldown=getattr(settings,'EMAIL_VERIFICATION_RESEND_SECONDS',60)
+        latest=OneTimeToken.objects.filter(user=u,purpose='verify').order_by('-created_at').first()
+        if latest and (timezone.now()-latest.created_at).total_seconds()<cooldown: return JsonResponse(generic)
+        _record_rate('resend',ids)
+        code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
+        _send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+    return JsonResponse(generic)
 
 @profile_api('auth_logout')
 @require_POST
@@ -142,9 +253,15 @@ def auth_logout(request): logout(request); return JsonResponse({'completed':True
 
 @require_POST
 def public_contact(request):
-    d=payload(request); message=str(d.get('message') or '').strip()
+    d=payload(request); message=str(d.get('message') or '').strip(); ip=_client_ip(request)
+    if _rate_limited('contact',[f'ip:{ip}'],5,60*60): return err('Too many messages. Please try again later.',429)
     if not message: return err('Enter your message.',422)
-    ContactMessage.objects.create(user=request.user if request.user.is_authenticated else None,name=str(d.get('name') or '').strip(),email=str(d.get('email') or '').strip(),message=message)
+    email=str(d.get('email') or '').strip().lower()
+    if email:
+        try: email=_normalize_email(email)
+        except ValueError as exc: return err(exc,422,{'email':str(exc)})
+    _record_rate('contact',[f'ip:{ip}'])
+    ContactMessage.objects.create(user=request.user if request.user.is_authenticated else None,name=str(d.get('name') or '').strip(),email=email,message=message)
     return JsonResponse({'completed':True,'message':'Your message has been received.'})
 
 @require_POST
