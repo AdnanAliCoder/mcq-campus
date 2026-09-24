@@ -1,6 +1,8 @@
 import json
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, profile_for
 
 
@@ -116,6 +118,19 @@ class IntegrationTests(TestCase):
         bootstrap=self.client.get('/api/bootstrap').json()
         self.assertLessEqual(len(bootstrap['mcqs']),50)
         self.assertIn('mcqPage',bootstrap)
+
+    def test_hot_responses_stay_small_and_query_counts_bounded(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        with CaptureQueriesContext(connection) as switch_queries:
+            switched=self.post_json('/api/auth/switch-role',{'role':'admin'})
+        self.assertLess(len(switch_queries),15)
+        self.assertLess(len(switched.content),10000)
+        category_payload={'action':'form:entity','payload':{'fields':[['entity-active','on']], 'values':{'entity-name':'Fast Category','entity-icon':'grid','entity-country':'Pakistan'}, 'context':{'type':'categories'}}}
+        with CaptureQueriesContext(connection) as command_queries:
+            response=self.post_json('/api/commands',category_payload)
+        self.assertLess(len(command_queries),15)
+        self.assertLess(len(response.content),10000)
+        self.assertNotIn('snapshot',response.json())
 
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
