@@ -108,4 +108,11 @@ class TrashRecord(models.Model):
 
 class OneTimeToken(models.Model):
     PURPOSE=[('verify','Verify email'),('reset','Reset password')]
-    user=models.ForeignKey(User,on_delete=models.CASCADE); purpose=models.CharField(max_length=20,choices=PURPOSE); token_hash=models.CharField(max_length=64,unique=True); expires_at=models.DateTimeField(); used_at=models.DateTimeField(null=True,blank=True); created_at=models.DateTimeField(auto_now_add=True)
+    user=models.ForeignKey(User,on_delete=models.CASCADE)
+    purpose=models.CharField(max_length=20,choices=PURPOSE)
+    # Keep the existing production column name while exposing the safer OTP-specific name in code.
+    code_hash=models.CharField(max_length=64,unique=True,db_column='token_hash')
+    expires_at=models.DateTimeField()
+    used_at=models.DateTimeField(null=True,blank=True)
+    attempt_count=models.PositiveSmallIntegerField(default=0)
+    created_at=models.DateTimeField(auto_now_add=True)
