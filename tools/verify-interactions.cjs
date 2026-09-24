@@ -28,7 +28,7 @@ run('service.js');context.App={route:{path:'home',params:{}}};run('ui.js');run('
  console.log('PASS explicit blocking requests share the CSS overlay; failure restores focus and access');
  const start=context.Auth.start();respond(requests.shift(),{csrfToken:'test',user:{id:1,name:'Test',roles:['user']}});
  await new Promise(setImmediate);respond(requests.shift(),{});context.App.render=()=>{};await start;
- const answer=context.MCQ.attempt(1,'A');assert(!loader.open);const attemptReq=requests.shift();assert.equal(JSON.parse(attemptReq.options.body).action,'attempt');respond(attemptReq,{snapshot:{},result:true});await answer;
+ const answer=context.MCQ.attempt(1,'A');assert(!loader.open);const attemptReq=requests.shift();assert.equal(JSON.parse(attemptReq.options.body).action,'attempt');respond(attemptReq,{success:true,result:true});await answer;
  console.log('PASS signed-in answer persistence does not open loader');
  const p3=context.Auth.request('/modal',undefined,{loading:true});assert(loader.open);const shows=loader.shows;context.UI.modal('Add MCQ','<form></form>');assert(modal.open&&loader.open);assert.equal(loader.shows,shows+1);respond(requests.shift());await p3;
  console.log('PASS opening a form during loading re-promotes the loader');
