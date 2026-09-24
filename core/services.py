@@ -1,5 +1,10 @@
-import hashlib, json, re, secrets
+import hashlib, hmac, json, re, secrets
 from datetime import datetime, timedelta
+from django.conf import settings
+from django.contrib.auth import password_validation
+from django.contrib.sessions.models import Session
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import connection, transaction
 from django.db.models import Count, Q, Max, Window
 from django.utils import timezone
@@ -398,18 +403,50 @@ def save_entity(user,payload):
         fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.'); setattr(obj,fk,pid)
     obj.save(); log(user,f'Saved {typ}',name); return {'type':typ,'entity':_serialize_entity(typ,obj)}
 
+def _normalize_email(value):
+    email=str(value or '').strip().lower()
+    try: validate_email(email)
+    except ValidationError: raise ValueError('Enter a valid email address.')
+    return email
+
+def _validate_password(password,user=None):
+    try: password_validation.validate_password(str(password or ''),user=user)
+    except ValidationError as exc: raise ValueError(' '.join(exc.messages))
+
+def _active_super_admins(exclude_id=None):
+    qs=User.objects.filter(is_active=True,is_superuser=True)
+    if exclude_id: qs=qs.exclude(pk=exclude_id)
+    return qs.exists()
+
+def _invalidate_user_sessions(user_id):
+    for session in Session.objects.filter(expire_date__gte=timezone.now()).iterator():
+        try:
+            if str(session.get_decoded().get('_auth_user_id'))==str(user_id): session.delete()
+        except Exception:
+            continue
+
 def save_user(user,payload):
-    require(is_super(user)); fields,v,c,_=parse_fields(payload); uid=int(c.get('id') or 0) or None; email=str(v.get('email') or '').strip().lower(); name=str(v.get('name') or '').strip(); role=v.get('role') or 'user'; status=v.get('status') or 'active'
-    if not email or '@' not in email: raise ValueError('Valid email is required.')
+    require(is_super(user)); fields,v,c,_=parse_fields(payload); uid=int(c.get('id') or 0) or None
+    email=_normalize_email(v.get('email')); name=str(v.get('name') or '').strip(); role=v.get('role') or 'user'; status=v.get('status') or 'active'
     if role not in {'user','admin','super-admin'}: raise ValueError('Invalid role.')
-    obj=User.objects.filter(pk=uid).first() if uid else User.objects.filter(email=email).first()
-    if not obj: obj=User(email=email,username=email); obj.set_unusable_password()
+    obj=User.objects.filter(pk=uid).first() if uid else User.objects.filter(email__iexact=email).first()
+    creating=obj is None
+    if creating:
+        obj=User(email=email,username=email); obj.set_unusable_password()
+    old_role=user_role(obj) if not creating else 'user'; old_active=obj.is_active if not creating else False
+    if not creating and old_role=='super-admin' and (role!='super-admin' or status!='active'):
+        require(obj.pk!=user.pk,'You cannot demote or disable the Super Admin account you are currently using.')
+        require(_active_super_admins(exclude_id=obj.pk),'At least one active Super Admin must remain.')
+    duplicate=User.objects.exclude(pk=obj.pk).filter(email__iexact=email).exists() if obj.pk else User.objects.filter(email__iexact=email).exists()
+    require(not duplicate,'That email is already in use.')
     obj.email=email; obj.username=email; obj.first_name=name; obj.is_active=status=='active'; obj.is_staff=role in {'admin','super-admin'}; obj.is_superuser=role=='super-admin'; obj.save()
     prof=profile_for(obj); prof.role=role
     if role=='admin': prof.permissions=[p for p in PERMISSION_CATALOG if 'perm_'+p in fields]
     elif role=='super-admin': prof.permissions=list(PERMISSION_CATALOG)
     else: prof.permissions=[]
-    prof.save(); log(user,'Saved account',email); return {'user':user_admin_dict(obj)}
+    prof.save()
+    if old_active and not obj.is_active: _invalidate_user_sessions(obj.pk)
+    log(user,'Saved account',email); return {'user':user_admin_dict(obj)}
 
 def save_guide(user,payload):
     require(is_admin(user) and has_perm(user,'manage_guides')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Guide.objects.filter(pk=rid).first() if rid else Guide(created_by=user); obj.name=str(v.get('name') or '').strip(); obj.tag=str(v.get('tag') or 'STUDY SKILLS').strip(); obj.summary=str(v.get('summary') or ''); obj.body=str(v.get('body') or ''); obj.updated_by=user; obj.save(); log(user,'Saved guide',obj.name); return {'guide':guide(obj)}
@@ -517,7 +554,7 @@ def command(user,action,payload):
     if action=='saveProfile':
         vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
     if action=='changePassword':
-        vals=(payload.get('args') or [{}])[0] or {}; require(user.check_password(vals.get('current_password','')),'Current password is incorrect.'); new=vals.get('new_password',''); require(len(new)>=8 and new==vals.get('confirm_password'),'New passwords do not match or are too short.'); user.set_password(new); user.save(); return True
+        vals=(payload.get('args') or [{}])[0] or {}; require(user.check_password(vals.get('current_password','')),'Current password is incorrect.'); new=str(vals.get('new_password') or ''); require(new==vals.get('confirm_password'),'New passwords do not match.'); _validate_password(new,user); user.set_password(new); user.save(); return True
     if action=='form:mcq':
         obj=save_mcq(user,payload.get('draft') or {}); return {'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
     if action=='form:review':
@@ -536,7 +573,14 @@ def command(user,action,payload):
     if action=='action:report-resolve':
         require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); r=Report.objects.get(pk=rid); r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)}}
     if action=='action:user-status':
-        require(is_super(user)); target=User.objects.get(pk=int(payload.get('id'))); require(target.pk!=user.pk,'You cannot disable the account you are currently using.'); target.is_active=not target.is_active; target.save(); return {'user':user_dict(target)}
+        require(is_super(user)); target=User.objects.get(pk=int(payload.get('id')))
+        enabling=not target.is_active
+        if not enabling:
+            require(target.pk!=user.pk,'You cannot disable the account you are currently using.')
+            if user_role(target)=='super-admin': require(_active_super_admins(exclude_id=target.pk),'At least one active Super Admin must remain.')
+        target.is_active=enabling; target.save(update_fields=['is_active'])
+        if not enabling: _invalidate_user_sessions(target.pk)
+        return {'user':user_dict(target)}
     if action=='action:ad-toggle':
         require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return {'ad':ad(obj)}
     if action=='action:ad-delete':
@@ -569,10 +613,31 @@ def command(user,action,payload):
         return summary
     raise ValueError('Unsupported command.')
 
-def create_token(user,purpose,minutes=30):
-    raw=secrets.token_urlsafe(32); h=hashlib.sha256(raw.encode()).hexdigest(); OneTimeToken.objects.create(user=user,purpose=purpose,token_hash=h,expires_at=timezone.now()+timedelta(minutes=minutes)); return raw
+def _otp_hash(user,purpose,code):
+    key=str(settings.SECRET_KEY).encode('utf-8')
+    message=f'{user.pk}:{purpose}:{str(code)}'.encode('utf-8')
+    return hmac.new(key,message,hashlib.sha256).hexdigest()
 
-def consume_token(raw,purpose):
-    h=hashlib.sha256(str(raw).encode()).hexdigest(); obj=OneTimeToken.objects.select_related('user').filter(token_hash=h,purpose=purpose,used_at__isnull=True,expires_at__gt=timezone.now()).first()
-    if not obj: return None
-    obj.used_at=timezone.now(); obj.save(update_fields=['used_at']); return obj.user
+def create_token(user,purpose,minutes=10):
+    if purpose not in {'verify','reset'}: raise ValueError('Invalid token purpose.')
+    OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).update(used_at=timezone.now())
+    raw=f'{secrets.randbelow(1000000):06d}'
+    OneTimeToken.objects.create(user=user,purpose=purpose,code_hash=_otp_hash(user,purpose,raw),expires_at=timezone.now()+timedelta(minutes=minutes))
+    return raw
+
+def consume_token(user,raw,purpose,max_attempts=5):
+    if not user or purpose not in {'verify','reset'}: return None
+    code=str(raw or '').strip()
+    if not re.fullmatch(r'\d{6}',code): return None
+    obj=OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).order_by('-created_at').first()
+    if not obj or obj.expires_at<=timezone.now() or obj.attempt_count>=max_attempts: return None
+    if not hmac.compare_digest(obj.code_hash,_otp_hash(user,purpose,code)):
+        obj.attempt_count+=1
+        fields=['attempt_count']
+        if obj.attempt_count>=max_attempts:
+            obj.used_at=timezone.now(); fields.append('used_at')
+        obj.save(update_fields=fields)
+        return None
+    obj.used_at=timezone.now(); obj.save(update_fields=['used_at'])
+    OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).exclude(pk=obj.pk).update(used_at=timezone.now())
+    return obj.user
