@@ -109,9 +109,10 @@ window.Auth=(()=>{
   if(!user||!path)return false;
   let changed=false;
   const [workspace,section='overview']=String(path).split('?')[0].split('/');
-  if(!['admin','super-admin'].includes(workspace))return false;
   const wants=[];
-  if(section==='overview')wants.push('overview','users');
+  if(workspace==='dashboard'||workspace==='profile')wants.push('learner');
+  else if(!['admin','super-admin'].includes(workspace))return false;
+  if(section==='overview'&&['admin','super-admin'].includes(workspace))wants.push('overview','users');
   if(['users','admins','admin-records','settings'].includes(section))wants.push('users');
   if(section==='reports')wants.push('reports');
   if(section==='trash')wants.push('trash');
@@ -121,7 +122,13 @@ window.Auth=(()=>{
    if(loadingSections.has(key)){await loadingSections.get(key);continue}
    const task=(async()=>{
     try{
-     const data=await request('/admin/'+key);
+     const data=await request(key==='learner'?'/learner/dashboard':'/admin/'+key);
+     if(key==='learner'){
+      if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
+      if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
+      if(Array.isArray(data.savedPapers))MCQ.db.savedPapers=data.savedPapers;
+      if(data.user)setIdentity({...user,...data.user});
+     }
      if(key==='overview')MCQ.db.adminOverview=data||{};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
      if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
