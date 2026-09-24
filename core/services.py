@@ -133,9 +133,23 @@ def _client_site_state(settings):
       'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,
     }
 
+def _startup_site_state(settings):
+    site=_site_blob(settings)
+    footer=dict(site.get('footer') or {})
+    logo=str(footer.get('footerLogoUrl') or '')
+    if logo.startswith('data:'): footer['footerLogoUrl']=''
+    social={}
+    for key,value in (site.get('socialLinks') or {}).items():
+        if isinstance(value,dict): social[key]={'url':str(value.get('url') or ''),'enabled':bool(value.get('enabled',False)),'icon':str(value.get('icon') or key)}
+    contact=site.get('contact') or {}
+    return {
+      'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'mcqEntryCountry':site.get('mcqEntryCountry') or settings.country,'footer':footer,'socialLinks':social,'contact':contact},
+      'seo':{'title':settings.seo_title,'description':settings.seo_description},
+    }
+
 def startup_payload(user,session):
     settings=SiteSetting.get_solo()
-    return {'snapshot':{'schemaVersion':9,**_client_site_state(settings)},'user':user_identity_dict(user,session) if user and getattr(user,'is_authenticated',False) else None}
+    return {'snapshot':{'schemaVersion':9,**_startup_site_state(settings)},'user':user_identity_dict(user,session) if user and getattr(user,'is_authenticated',False) else None}
 
 def public_content_data():
     now=timezone.now()
@@ -145,6 +159,12 @@ def public_content_data():
       'guides':[guide(x) for x in Guide.objects.filter(published=True).order_by('-updated_at')[:50]],
       'ads':[_client_ad(x) for x in ads_q[:50]],
     }
+
+def public_resources_data():
+    settings=SiteSetting.get_solo()
+    state=_client_site_state(settings)
+    return {k:state[k] for k in ['settings','content','seo','rolePermissions','adSettings','pdfs','latestJobs','currentAffairsConfig']}
+
 
 def visible_mcqs(user):
     if is_super(user): return MCQ.objects.all()
@@ -170,7 +190,6 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
 
 def snapshot(user):
-    settings=SiteSetting.get_solo()
     cats=list(Category.objects.select_related('created_by','updated_by').all().order_by('id'))
     subs=list(Subcategory.objects.select_related('created_by','updated_by').all().order_by('id'))
     childs=list(ChildCategory.objects.select_related('created_by','updated_by').all().order_by('id'))
@@ -185,9 +204,6 @@ def snapshot(user):
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':20,'total':total,'hasNext':len(rows)<total},
-      'bookmarks':[],'savedPapers':[],'attempts':[],'recent':[],'reports':[],'contacts':[],'logs':[],'trash':[],
-      'posts':[],'users':[],'guides':[],'ads':[],'adminPerformance':[],'adminOverview':{},'tests':[],
-      **_client_site_state(settings),
     }
 
 def learner_dashboard_data(user):
