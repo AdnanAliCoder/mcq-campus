@@ -210,9 +210,10 @@ def learner_dashboard_data(user):
         'savedPapers':saved,
     }
 
-def admin_overview_data(user):
+def admin_overview_data(user,active_role=None):
     require(is_admin(user))
-    if is_super(user):
+    super_view=is_super(user) and active_role=='super-admin'
+    if super_view:
         qs=MCQ.objects.all()
     else:
         qs=MCQ.objects.filter(created_by=user)
@@ -224,7 +225,7 @@ def admin_overview_data(user):
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:6]]
     data={'mcqs':counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'learners':0,'trash':0}
-    if is_super(user):
+    if super_view:
         data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
         people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
         data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
