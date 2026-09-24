@@ -24,15 +24,18 @@ test('Final frontend and backend adapter load in the required order',()=>{
  assert(!html.includes('demo-adapter.js'));
 });
 
-test('Backend loader uses the supplied animation without an overlay background',()=>{
+test('Backend loader uses the supplied WebM in a top-layer dialog',()=>{
  assert(html.includes('id="backend-loader"'));
- assert(html.includes('assets/images/mcq-loader.mp4'));
- const loader=path.join(frontend,'assets/images/mcq-loader.mp4');
+ assert(html.includes('assets/images/Loading.webm'));
+ const loader=path.join(frontend,'assets/images/Loading.webm');
  assert(fs.existsSync(loader),'loader video missing');
  assert(fs.statSync(loader).size>100000,'loader video is empty or a placeholder');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
  assert(css.includes('.backend-loader'));
- assert(css.includes('background:transparent'));
+ assert(html.includes('<dialog id="backend-loader"'));
+ assert(css.includes('backdrop-filter:blur(7px)'));
+ assert(!css.includes('transform:scale(.975)'));
+ assert(!html.includes('Loading MCQ Campus…'));
 });
 
 const service=fs.readFileSync(path.join(frontend,'assets/js/service.js'),'utf8');
@@ -51,3 +54,4 @@ test('No demo data/adapters or Render configuration are packaged',()=>{
 });
 
 console.log(`\n${count} integration groups passed.`);
+

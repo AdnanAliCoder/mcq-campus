@@ -43,22 +43,48 @@ window.Auth=(()=>{
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
- let pendingRequests=0;
+ let pendingRequests=0,loadingFocus=null,scrollLock=null;
  function backendLoading(on){
+  const wasActive=pendingRequests>0;
   pendingRequests=Math.max(0,pendingRequests+(on?1:-1));
   const active=pendingRequests>0,loader=document.getElementById('backend-loader');
-  document.body?.classList.toggle('backend-loading',active);
-  if(on){
+  if(active===wasActive||!loader)return;
+  const root=document.documentElement;
+  if(active){
+   UI.closeDropdowns();
+   loadingFocus=document.activeElement;
+   scrollLock={overflow:root.style.overflow,padding:root.style.paddingRight,x:scrollX,y:scrollY};
+   // Keep the existing scrollbar gutter; fallback compensation is for older engines.
+   if(!CSS.supports('scrollbar-gutter: stable'))root.style.paddingRight=(parseFloat(getComputedStyle(root).paddingRight)+innerWidth-root.clientWidth)+'px';
+   root.style.overflow='hidden';
+   document.body.classList.add('backend-loading');
    document.getElementById('main-nav')?.classList.remove('open');
    document.querySelector('[data-action="menu"]')?.setAttribute('aria-expanded','false');
    document.getElementById('public-smart-sidebar')?.classList.remove('open');
    document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');
    document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');
+   // A modal dialog joins the browser top layer, above an already-open form dialog.
+   loader.showModal();
+   loader.focus({preventScroll:true});
+   loader.querySelector('video')?.play()?.catch(()=>{});
+  }else{
+   loader.close();
+   loader.querySelector('video')?.pause();
+   root.style.overflow=scrollLock.overflow;
+   root.style.paddingRight=scrollLock.padding;
+   document.body.classList.remove('backend-loading');
+   window.scrollTo({left:scrollLock.x,top:scrollLock.y,behavior:'instant'});
+   if(loadingFocus?.isConnected)loadingFocus.focus({preventScroll:true});
+   loadingFocus=null;scrollLock=null;
   }
-  if(loader){loader.hidden=!active;loader.setAttribute('aria-hidden',active?'false':'true');}
  }
- async function request(path,body){
-  backendLoading(true);
+ document.getElementById('backend-loader')?.addEventListener('cancel',event=>event.preventDefault());
+ // Capture before delegated actions, including keyboard shortcuts and touch scrolling.
+ for(const type of ['click','dblclick','pointerdown','keydown','keyup','submit','wheel','touchmove']){
+  document.addEventListener(type,event=>{if(!pendingRequests)return;event.preventDefault();event.stopImmediatePropagation();},{capture:true,passive:false});
+ }
+ async function request(path,body,{loading=true}={}){
+  if(loading)backendLoading(true);
   try{
    let response;
    try{
@@ -69,7 +95,7 @@ window.Auth=(()=>{
    const data=await response.json();
    if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
    return data;
-  }finally{backendLoading(false);}
+  }finally{if(loading)backendLoading(false);}
  }
  function hydrate(snapshot,identity){
   user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
@@ -96,7 +122,8 @@ window.Auth=(()=>{
   return checking;
  }
  function guard(){
-  if(!ready){document.getElementById('app').innerHTML='<main class="session-check" role="status">Loading MCQ Campus…</main>';return false;}
+  if(!ready){document.getElementById('app').setAttribute('aria-busy','true');return false;}
+  document.getElementById('app').removeAttribute('aria-busy');
   const current=route(),b=base();
   if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
   if(!user){const next=destination(current);history.replaceState(null,'','#/login'+(next?'?next='+encodeURIComponent(next):''));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
@@ -121,7 +148,7 @@ window.Auth=(()=>{
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
-  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
+  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload},{loading:action!=='attempt'});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
   pendingCommands.set(key,task);try{return await task}finally{pendingCommands.delete(key)}
  }
  const originalAttempt=MCQ.attempt;
@@ -189,3 +216,4 @@ window.Auth=(()=>{
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
  return {guard,view,start,logout,switchRole,request,command,destination,allowed,get user(){return user;}};
 })();
+

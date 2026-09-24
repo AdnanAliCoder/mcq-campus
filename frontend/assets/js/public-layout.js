@@ -2,7 +2,8 @@ window.PublicLayout=(()=>{
  const {esc:e,icon,link,btn,heading,crumbs}=UI;
  const clean=a=>String(a||'').trim();
  const module=(title,body,cls='')=>body?`<section class="card smart-sidebar-card ${cls}"><h3>${e(title)}</h3>${body}</section>`:'';
- const linkList=(items,cls='sidebar-link-list')=>`<div class="${cls}">${items.filter(Boolean).map(x=>Array.isArray(x)?link(x[0],e(x[1]),'smart-sidebar-link',x[2]||{}):x).join('')}</div>`;
+ const sidebarIcon=path=>({home:'home',category:'grid',categories:'grid',mcqs:'book',paper:'paper',papers:'paper',job:'briefcase',jobs:'briefcase',year:'clock',tests:'check',test:'check',guides:'book',guide:'book',posts:'edit',post:'edit',dashboard:'user',pdfs:'download','latest-jobs':'briefcase',settings:'settings'}[String(path).split('/')[0]]||'book');
+ const linkList=(items,cls='sidebar-link-list')=>`<div class="${cls}">${items.filter(Boolean).map(x=>Array.isArray(x)?link(x[0],icon(sidebarIcon(x[0]))+'<span>'+e(x[1])+'</span>','smart-sidebar-link',x[2]||{}):x).join('')}</div>`;
  const ad=slot=>UI.adSlot(slot);
  const activeParams=(omit=[])=>Object.fromEntries(Object.entries(App.route?.params||{}).filter(([k,v])=>v&&!omit.includes(k)));
  function categoryLinks(limit=6){return MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).slice(0,limit).map(x=>['mcqs',x.name,{...activeParams(['page','category']),category:x.id}]);}
@@ -17,7 +18,7 @@ window.PublicLayout=(()=>{
   const out=[],p=App.route?.params||{},cats=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy),papers=MCQ.db.papers.filter(x=>x.active!==false),jobs=MCQ.db.jobs.filter(x=>x.active!==false),years=MCQ.db.years.filter(x=>x.active!==false);
   out.push(ad('sidebar_top')||ad('sidebar_ad'));
   if(kind==='mcqs'){
-   const session=MCQ.db.session;if(session){const attempts=(MCQ.db.attempts||[]).filter(a=>!a.by_id||+a.by_id===+session.id),correct=attempts.filter(a=>a.correct).length,accuracy=attempts.length?Math.round(correct/attempts.length*100):0,saved=(MCQ.db.bookmarks||[]).length,daily=Number(session.daily_goal||25);const learning=`<div class="sidebar-learning-grid"><div><strong>${attempts.length}</strong><span>Attempted</span></div><div><strong>${accuracy}%</strong><span>Accuracy</span></div><div><strong>${saved}</strong><span>Saved</span></div><div><strong>${daily}</strong><span>Daily goal</span></div></div>${link('dashboard','Open My Learning','smart-sidebar-link')}`;out.push(module('My Learning',learning,'smart-learning-card'));}
+   const session=MCQ.db.session;if(session){const attempts=(MCQ.db.attempts||[]).filter(a=>!a.by_id||+a.by_id===+session.id),correct=attempts.filter(a=>a.correct).length,accuracy=attempts.length?Math.round(correct/attempts.length*100):0,saved=(MCQ.db.bookmarks||[]).length,daily=Number(session.daily_goal||25);const learning=`<div class="sidebar-learning-grid"><div><strong>${attempts.length}</strong><span>Attempted</span></div><div><strong>${accuracy}%</strong><span>Accuracy</span></div><div><strong>${saved}</strong><span>Saved</span></div><div><strong>${daily}</strong><span>Daily goal</span></div></div>${link('dashboard',icon('user')+'<span>Open My Learning</span>','smart-sidebar-link')}`;out.push(module('My Learning',learning,'smart-learning-card'));}
    out.push(module('Related Categories',linkList(categoryLinks(5))));
    out.push(ad('sidebar_middle'));
    out.push(module('Related Practice',linkList([...testLinks().slice(0,3),...paperLinks(3)])));
@@ -79,3 +80,4 @@ window.PublicLayout=(()=>{
  }
  return {page,smart,module,linkList,selectionBar,selectionStack};
 })();
+

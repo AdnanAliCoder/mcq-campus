@@ -58,8 +58,24 @@ window.UI=(()=>{
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
  }
  function toast(msg){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>e.classList.remove('show'),4200)}
+ // One delegated close policy for navigation menus and searchable pickers.
+ function closeDropdowns(except=null){
+  document.querySelectorAll('details.user-menu[open],details.dropdown[open],details[data-dropdown][open]').forEach(menu=>{if(menu!==except)menu.open=false});
+  document.querySelectorAll('.picker-results').forEach(panel=>{if(!except?.contains(panel))panel.classList.add('hidden')});
+  document.querySelectorAll('[data-picker-input]').forEach(input=>{if(!except?.contains(input))input.setAttribute('aria-expanded','false')});
+ }
+ document.addEventListener('click',event=>{
+  const menu=event.target.closest('details.user-menu,details.dropdown,details[data-dropdown],.picker');
+  const selected=event.target.closest('a[href],button[data-action],[role="menuitem"]');
+  closeDropdowns(selected?null:menu);
+ },true);
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'){
+  const menu=document.activeElement?.closest('details.user-menu[open],details.dropdown[open],details[data-dropdown][open]');
+  closeDropdowns();menu?.querySelector('summary')?.focus({preventScroll:true});
+ }},true);
+ window.addEventListener('hashchange',()=>closeDropdowns());
  let focusBefore;
- function modal(title,body){const d=document.getElementById('modal');focusBefore=document.activeElement;d.innerHTML=`<div class="dialog-content"><div class="dialog-head"><h2>${esc(title)}</h2>${btn(icon('close'),'close','ghost','aria-label="Close dialog"')}</div>${body}</div>`;if(!d.open)d.showModal();d.addEventListener('close',()=>focusBefore?.focus(),{once:true})}
+ function modal(title,body){const d=document.getElementById('modal');focusBefore=document.activeElement;d.innerHTML=`<div class="dialog-content"><div class="dialog-head"><h2>${esc(title)}</h2>${btn(icon('close'),'close','ghost','aria-label="Close dialog"')}</div>${body}</div>`;if(!d.open)d.showModal();const loader=document.getElementById('backend-loader');if(loader?.open){loader.close();loader.showModal();loader.focus({preventScroll:true})}d.addEventListener('close',()=>focusBefore?.focus(),{once:true})}
  function download(filename,text,type='application/json'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  function adSlot(placement){
   const cfg=MCQ.db.adSettings||{};if(cfg.enabled===false)return '';
@@ -71,7 +87,7 @@ window.UI=(()=>{
   return `<aside class="ad-slot ad-slot-${esc(placement)}" data-ad-slot="${esc(placement)}" aria-label="Sponsored advertisement">${safe(ad.destination_url)?`<a href="${esc(ad.destination_url)}" target="_blank" rel="sponsored noopener noreferrer">${body}</a>`:body}</aside>`
 }
  function userMenu(){const s=MCQ.db.session;if(!s)return link('login','Log in','btn primary header-login');const roles=s.roles||[s.role||'user'];const avatar=s.avatar?`<img src="${esc(s.avatar)}" alt="">`:`<span>${esc((s.name||'U').split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`;const switches=[];if(roles.includes('user'))switches.push(btn(icon('book')+' Learner dashboard','workspace-switch','user-menu-item user-menu-button',`data-role="user"`));if(roles.includes('admin'))switches.push(btn(icon('edit')+' Admin workspace','workspace-switch','user-menu-item user-menu-button',`data-role="admin"`));if(roles.includes('super-admin'))switches.push(btn(icon('shield')+' Super admin','workspace-switch','user-menu-item user-menu-button',`data-role="super-admin"`));return `<details class="user-menu"><summary class="header-user-avatar" aria-label="Open account menu">${avatar}</summary><div class="user-menu-panel"><div class="user-menu-head"><strong>${esc(s.name||'Account')}</strong><span>${esc(s.email||'')}</span></div>${switches.join('')}${link('dashboard/settings',icon('settings')+' Settings','user-menu-item')}${link('dashboard/downloads',icon('download')+' My Downloads','user-menu-item')}${btn(icon('logout')+' Log out','logout','user-menu-item user-menu-button')}</div></details>`} function header(active=''){
-  const current=(App.route?.path||'home').split('/')[0],is=p=>current===p||active===p;
+  const current=(App.route?.path||'home').split('/')[0],aliases={category:'categories',subcategory:'categories',topic:'categories',paper:'papers',year:'papers',job:'jobs-exams',jobs:'jobs-exams',practice:'mcqs',mcq:'mcqs',important:'mcqs',post:'posts',guide:'guides',test:'tests'},section=aliases[current]||current,is=p=>section===p;
   const main=[['home','Home','home'],['mcqs','MCQs','book'],['papers','Past Papers','paper'],['categories','Categories','grid'],['jobs-exams','Jobs','briefcase'],['pdfs','PDFs','download'],['tests','Tests','check'],['latest-jobs','Latest Jobs','briefcase'],['posts','Blog','edit']];
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
   const navHtml=main.map(([p,l,i])=>link(p,icon(i)+`<span>${esc(l)}</span>`,is(p)?'active':'')).join('');
@@ -90,5 +106,6 @@ window.UI=(()=>{
   return `<footer class="footer" aria-label="Site footer"><div class="container"><div class="footer-grid footer-grid-compact"><div class="footer-brand-block">${footerBrand}<p>${esc(description)}</p>${socialHtml?`<div class="footer-social" aria-label="MCQ Campus social media">${socialHtml}</div>`:''}${country}</div><div class="footer-column"><strong>Quick Links</strong>${link('mcqs','MCQs')}${link('papers','Past Papers')}${link('tests','Tests')}${link('pdfs','PDFs')}${link('latest-jobs','Latest Jobs')}</div><div class="footer-column"><strong>Help & Legal</strong>${help.map(([p,l])=>link(p,l)).join('')}</div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} ${esc(copy)}</span>${bottom.length?`<span class="footer-bottom-links">${bottom.join('')}</span>`:''}</div></div></footer><nav class="bottom-nav" aria-label="Mobile navigation">${[['home','home','Home'],['mcqs','book','MCQs'],['papers','paper','Papers'],['tests','check','Tests'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('')}</nav>`
 }
  const layout=(body,active='')=>header(active)+adSlot('header_ad')+`<main id="main" tabindex="-1">${body}</main>`+adSlot('footer_ad')+footer();
- return {esc,icon,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,card,toast,modal,download,entityIcon,adSlot,userMenu,header,footer,layout};
+ return {closeDropdowns,esc,icon,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,card,toast,modal,download,entityIcon,adSlot,userMenu,header,footer,layout};
 })();
+
