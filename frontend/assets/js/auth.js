@@ -111,7 +111,7 @@ window.Auth=(()=>{
   const [workspace,section='overview']=String(path).split('?')[0].split('/');
   if(!['admin','super-admin'].includes(workspace))return false;
   const wants=[];
-  if(section==='overview')wants.push('overview');
+  if(section==='overview')wants.push('overview','users');
   if(['users','admins','admin-records','settings'].includes(section))wants.push('users');
   if(section==='reports')wants.push('reports');
   if(section==='trash')wants.push('trash');
