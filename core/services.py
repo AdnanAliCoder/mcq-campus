@@ -1,7 +1,7 @@
 import hashlib, json, re, secrets
 from datetime import datetime, timedelta
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Max
 from django.utils import timezone
 from django.utils.text import slugify
 from .models import *
@@ -120,14 +120,34 @@ def _restore_trash(user,tr):
     name=tr.name; kind=tr.kind; tr.delete(); log(user,'Recovered '+kind,name); return True
 
 
+def visible_mcqs(user):
+    if is_super(user): return MCQ.objects.all()
+    if user_role(user)=='admin': return MCQ.objects.filter(Q(status='approved')|Q(created_by=user)|Q(submitted_by=user)).distinct()
+    return MCQ.objects.filter(status='approved')
+
+def mcq_page(user,page=1,page_size=50,filters=None):
+    filters=filters or {}; page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    qs=visible_mcqs(user)
+    if filters.get('status'): qs=qs.filter(status=str(filters['status']))
+    if filters.get('category'):
+        try: qs=qs.filter(category_id=int(filters['category']))
+        except (TypeError,ValueError): pass
+    if filters.get('search'): qs=qs.filter(question__icontains=str(filters['search']).strip())
+    # JSON membership filters are supported by PostgreSQL/Supabase. Keep them optional.
+    for key,field in [('paper','paper_ids'),('job','job_ids'),('year','job_year_ids')]:
+        if filters.get(key):
+            try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
+            except (TypeError,ValueError): pass
+    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
+    total=qs.count(); start=(page-1)*page_size
+    rows=[mcq(x) for x in qs[start:start+page_size]]
+    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
+
 def snapshot(user):
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     settings=SiteSetting.get_solo(); site=_site_blob(settings)
     cats=list(Category.objects.all().order_by('id')); subs=list(Subcategory.objects.all().order_by('id')); childs=list(ChildCategory.objects.all().order_by('id')); papers=list(Paper.objects.all().order_by('id')); jobs=list(Job.objects.all().order_by('id')); years=list(JobYear.objects.all().order_by('id'))
-    if is_super(user): mcqs_q=MCQ.objects.all()
-    elif user_role(user)=='admin': mcqs_q=MCQ.objects.filter(Q(status='approved')|Q(created_by=user)|Q(submitted_by=user)).distinct()
-    else: mcqs_q=MCQ.objects.filter(status='approved')
-    mcqs=list(mcqs_q.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id'))
+    mcq_data=mcq_page(user,1,50)
     own_attempts=list(Attempt.objects.filter(user=user).select_related('mcq').order_by('-created_at')[:500]) if authenticated else []
     own_bookmarks=list(Bookmark.objects.filter(user=user).values_list('mcq_id',flat=True)) if authenticated else []
     own_saved=list(SavedPaper.objects.filter(user=user).values_list('paper_id',flat=True)) if authenticated else []
@@ -138,7 +158,7 @@ def snapshot(user):
     report_q=Report.objects.select_related('user','mcq') if (is_super(user) or has_perm(user,'view_reports')) else Report.objects.filter(user=user).select_related('user','mcq') if authenticated else Report.objects.none()
     logs_q=AuditLog.objects.select_related('user').order_by('-created_at')
     if not is_super(user): logs_q=logs_q.filter(user=user) if authenticated else logs_q.none()
-    users=[user_dict(x) for x in User.objects.all().order_by('id')] if is_super(user) else ([user_dict(user)] if user_role(user)=='admin' else [])
+    users=[user_dict(x) for x in User.objects.select_related('profile').all().order_by('id')[:200]] if is_super(user) else ([user_dict(user)] if user_role(user)=='admin' else [])
     guides_q=Guide.objects.all() if is_admin(user) else Guide.objects.filter(published=True)
     posts_q=Post.objects.all() if is_admin(user) else Post.objects.filter(status='published')
     now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
@@ -146,7 +166,7 @@ def snapshot(user):
     footer=site.get('footer') or {}; social=site.get('socialLinks') or {}; contact_cfg=site.get('contact') or {}; legal=site.get('legalPages') or {}; ad_cfg=site.get('adSettings') or {}; current=site.get('currentAffairsConfig') or {}
     role_root=settings.admin_permissions if isinstance(settings.admin_permissions,dict) else {}; perms=role_root.get('permissions') or {}
     data={
-      'schemaVersion':8,'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],'mcqs':[mcq(x) for x in mcqs],
+      'schemaVersion':8,'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],'mcqs':mcq_data['items'],'mcqPage':{k:mcq_data[k] for k in ['page','pageSize','total','hasNext']},
       'bookmarks':own_bookmarks,'savedPapers':own_saved,'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in own_attempts],'recent':recent,
       'reports':[{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in report_q.order_by('-created_at')[:500]],
       'contacts':[{'id':c.id,'name':c.name,'email':c.email,'message':c.message,'at':iso(c.created_at)} for c in ContactMessage.objects.order_by('-created_at')[:300]] if is_super(user) else [],
@@ -161,11 +181,16 @@ def snapshot(user):
       'adSettings':{'enabled':ad_cfg.get('enabled',True),'adsenseClient':settings.adsense_client_id or ad_cfg.get('adsenseClient',''),'analyticsId':settings.google_analytics_id or ad_cfg.get('analyticsId',''),'slots':ad_cfg.get('slots') or {}},
     }
     if is_super(user):
-      perf=[]
-      for a in User.objects.filter(profile__role__in=['admin','super-admin']).order_by('id'):
-        created=MCQ.objects.filter(created_by=a).count(); pending=MCQ.objects.filter(created_by=a,status='pending').count(); approved=MCQ.objects.filter(created_by=a,status='approved').count(); rejected=MCQ.objects.filter(created_by=a,status='rejected').count(); reviewed=MCQ.objects.filter(reviewed_by=a).count(); actions=AuditLog.objects.filter(user=a).count(); last=AuditLog.objects.filter(user=a).order_by('-created_at').values_list('created_at',flat=True).first()
-        perf.append({'id':a.id,'name':user_name(a),'email':a.email,'role':user_role(a),'status':'active' if a.is_active else 'disabled','mcqs_created':created,'pending':pending,'approved':approved,'rejected':rejected,'reviewed':reviewed,'actions':actions,'last_activity':iso(last)})
-      data['adminPerformance']=perf
+      admins=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).annotate(
+        mcqs_created=Count('created_mcqs',distinct=True),
+        pending=Count('created_mcqs',filter=Q(created_mcqs__status='pending'),distinct=True),
+        approved=Count('created_mcqs',filter=Q(created_mcqs__status='approved'),distinct=True),
+        rejected=Count('created_mcqs',filter=Q(created_mcqs__status='rejected'),distinct=True),
+        reviewed=Count('reviewed_mcqs',distinct=True),
+        actions=Count('mcq_audit_logs',distinct=True),
+        last_activity=Max('mcq_audit_logs__created_at')
+      ).order_by('id')
+      data['adminPerformance']=[{'id':a.id,'name':user_name(a),'email':a.email,'role':user_role(a),'status':'active' if a.is_active else 'disabled','mcqs_created':a.mcqs_created,'pending':a.pending,'approved':a.approved,'rejected':a.rejected,'reviewed':a.reviewed,'actions':a.actions,'last_activity':iso(a.last_activity)} for a in admins]
     else: data['adminPerformance']=[]
     return data
 
@@ -256,7 +281,7 @@ def save_entity(user,payload):
     if typ=='papers': obj.country=str(values.get('entity-country') or 'Pakistan')[:80]
     if typ in ENTITY_PARENT:
         fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.'); setattr(obj,fk,pid)
-    obj.save(); log(user,f'Saved {typ}',name); return {'id':obj.id}
+    obj.save(); log(user,f'Saved {typ}',name); return {'type':typ,'entity':_serialize_entity(typ,obj)}
 
 def save_user(user,payload):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); uid=int(c.get('id') or 0) or None; email=str(v.get('email') or '').strip().lower(); name=str(v.get('name') or '').strip(); role=v.get('role') or 'user'; status=v.get('status') or 'active'
@@ -269,10 +294,10 @@ def save_user(user,payload):
     if role=='admin': prof.permissions=[p for p in PERMISSION_CATALOG if 'perm_'+p in fields]
     elif role=='super-admin': prof.permissions=list(PERMISSION_CATALOG)
     else: prof.permissions=[]
-    prof.save(); log(user,'Saved account',email); return {'id':obj.id}
+    prof.save(); log(user,'Saved account',email); return {'user':user_dict(obj)}
 
 def save_guide(user,payload):
-    require(is_admin(user) and has_perm(user,'manage_guides')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Guide.objects.filter(pk=rid).first() if rid else Guide(created_by=user); obj.name=str(v.get('name') or '').strip(); obj.tag=str(v.get('tag') or 'STUDY SKILLS').strip(); obj.summary=str(v.get('summary') or ''); obj.body=str(v.get('body') or ''); obj.updated_by=user; obj.save(); log(user,'Saved guide',obj.name); return {'id':obj.id}
+    require(is_admin(user) and has_perm(user,'manage_guides')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Guide.objects.filter(pk=rid).first() if rid else Guide(created_by=user); obj.name=str(v.get('name') or '').strip(); obj.tag=str(v.get('tag') or 'STUDY SKILLS').strip(); obj.summary=str(v.get('summary') or ''); obj.body=str(v.get('body') or ''); obj.updated_by=user; obj.save(); log(user,'Saved guide',obj.name); return {'guide':guide(obj)}
 
 def save_post(user,payload):
     require(is_admin(user) and has_perm(user,'manage_posts')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Post.objects.filter(pk=rid).first() if rid else Post(created_by=user)
@@ -284,7 +309,7 @@ def save_post(user,payload):
         if '|' in line:
             label,url=[x.strip() for x in line.split('|',1)]; links.append({'label':label,'url':url})
     if image_data.startswith('data:image/'): links.append({'label':'__featured_image_data','url':image_data})
-    obj.links=links; obj.updated_by=user; obj.save(); log(user,'Saved post',obj.title); return {'id':obj.id}
+    obj.links=links; obj.updated_by=user; obj.save(); log(user,'Saved post',obj.title); return {'post':post(obj)}
 
 def extract_ga(value):
     m=re.search(r'\bG-[A-Z0-9]+\b',str(value or ''),re.I); return m.group(0).upper() if m else ''
@@ -354,7 +379,7 @@ def save_ad(user,payload):
     obj.name=str(v.get('name') or '').strip(); obj.provider=str(v.get('provider') or 'custom'); obj.placement=str(v.get('placement') or 'top_banner'); obj.title=str(v.get('title') or ''); obj.body=str(v.get('body') or ''); obj.image_url=str(v.get('image_url') or ''); obj.target_url=str(v.get('target_url') or ''); obj.adsense_slot=str(v.get('adsense_slot') or '').strip(); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
     if not obj.name: raise ValueError('Ad name is required.')
     if obj.provider=='adsense' and not obj.adsense_slot: raise ValueError('AdSense slot ID is required.')
-    obj.save(); log(user,'Saved ad placement',obj.name); return {'id':obj.id}
+    obj.save(); log(user,'Saved ad placement',obj.name); return {'ad':ad(obj)}
 
 def command(user,action,payload):
     if action=='attempt':
@@ -370,14 +395,15 @@ def command(user,action,payload):
         if not created: obj.delete(); return False
         return True
     if action=='report':
-        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.'); Report.objects.create(user=user,mcq=MCQ.objects.get(pk=qid),reason=str(reason)); return True
+        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.'); r=Report.objects.create(user=user,mcq=MCQ.objects.get(pk=qid),reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
     if action=='saveProfile':
         vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_dict(user)
     if action=='changePassword':
         vals=(payload.get('args') or [{}])[0] or {}; require(user.check_password(vals.get('current_password','')),'Current password is incorrect.'); new=vals.get('new_password',''); require(len(new)>=8 and new==vals.get('confirm_password'),'New passwords do not match or are too short.'); user.set_password(new); user.save(); return True
-    if action=='form:mcq': return {'id':save_mcq(user,payload.get('draft') or {}).id}
+    if action=='form:mcq':
+        obj=save_mcq(user,payload.get('draft') or {}); return {'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
     if action=='form:review':
-        _,v,c,_=parse_fields(payload); review_mcqs(user,c.get('ids',''),c.get('status','pending'),v.get('reason','')); return True
+        _,v,c,_=parse_fields(payload); ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]; review_mcqs(user,c.get('ids',''),c.get('status','pending'),v.get('reason','')); rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by'); return {'mcqs':[mcq(x) for x in rows]}
     if action=='form:entity': return save_entity(user,payload)
     if action=='form:user': return save_user(user,payload)
     if action=='form:guide': return save_guide(user,payload)
@@ -390,15 +416,15 @@ def command(user,action,payload):
     if action in {'form:profile','form:password-change'}:
         _,v,_,_=parse_fields(payload); return command(user,'saveProfile' if action=='form:profile' else 'changePassword',{'args':[v]})
     if action=='action:report-resolve':
-        require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); r=Report.objects.get(pk=rid); r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return True
+        require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); r=Report.objects.get(pk=rid); r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)}}
     if action=='action:user-status':
-        require(is_super(user)); target=User.objects.get(pk=int(payload.get('id'))); require(target.pk!=user.pk,'You cannot disable the account you are currently using.'); target.is_active=not target.is_active; target.save(); return True
+        require(is_super(user)); target=User.objects.get(pk=int(payload.get('id'))); require(target.pk!=user.pk,'You cannot disable the account you are currently using.'); target.is_active=not target.is_active; target.save(); return {'user':user_dict(target)}
     if action=='action:ad-toggle':
-        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return obj.active
+        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return {'ad':ad(obj)}
     if action=='action:ad-delete':
-        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return True
+        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); rid=obj.id; name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return {'deleted':{'type':'ads','ids':[rid]}}
     if action=='action:post-delete':
-        require(is_super(user) or has_perm(user,'delete_posts')); obj=Post.objects.get(pk=int(payload.get('id'))); title=obj.title; obj.delete(); log(user,'Deleted post',title); return True
+        require(is_super(user) or has_perm(user,'delete_posts')); obj=Post.objects.get(pk=int(payload.get('id'))); rid=obj.id; title=obj.title; obj.delete(); log(user,'Deleted post',title); return {'deleted':{'type':'posts','ids':[rid]}}
     if action in {'action:pdf-delete','action:latest-job-delete','action:latest-job-toggle'}:
         form='pdfs' if action=='action:pdf-delete' else 'latestJobs'; perm='delete_pdfs' if form=='pdfs' else ('delete_latest_jobs' if action.endswith('delete') else 'manage_latest_jobs'); require(is_super(user) or has_perm(user,perm)); s=SiteSetting.get_solo(); blob=_site_blob(s); rows=list(blob.get(form) or []); rid=int(payload.get('id'))
         if action.endswith('toggle'):
@@ -407,12 +433,12 @@ def command(user,action,payload):
         else: rows=[x for x in rows if int(x.get('id',0))!=rid]
         blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return True
     if action=='action:bulk-important':
-        require(is_admin(user) and (has_perm(user,'edit_any_mcq') or is_super(user))); ids=[int(x) for x in payload.get('ids') or []]; MCQ.objects.filter(pk__in=ids).update(important=str(payload.get('value')).lower()=='true',updated_by=user); return len(ids)
+        require(is_admin(user) and (has_perm(user,'edit_any_mcq') or is_super(user))); ids=[int(x) for x in payload.get('ids') or []]; MCQ.objects.filter(pk__in=ids).update(important=str(payload.get('value')).lower()=='true',updated_by=user); return {'updated':{'type':'mcqs','ids':ids,'fields':{'important':str(payload.get('value')).lower()=='true'}}}
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
             if rid and ENTITY_MODELS.get(typ) and ENTITY_MODELS[typ].objects.filter(pk=int(rid)).exists(): _delete_entity(user,typ,int(rid)); count+=1
-        return count
+        return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
     if action in {'action:trash-restore','action:restore-trash'}: return _restore_trash(user,TrashRecord.objects.get(pk=int(payload.get('id'))))
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'duplicates':0,'invalid':0,'failed':0}
