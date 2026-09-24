@@ -248,7 +248,7 @@ def admin_users_data(user,page=1,page_size=50):
     page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
     qs=User.objects.select_related('profile').order_by('id')
     total=qs.count(); start=(page-1)*page_size
-    return {'items':[user_dict(x) for x in qs[start:start+page_size]],'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
+    return {'items':[user_admin_dict(x) for x in qs[start:start+page_size]],'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
 
 def admin_reports_data(user,page=1,page_size=50):
     require(is_super(user) or has_perm(user,'view_reports'))
@@ -385,7 +385,7 @@ def save_user(user,payload):
     if role=='admin': prof.permissions=[p for p in PERMISSION_CATALOG if 'perm_'+p in fields]
     elif role=='super-admin': prof.permissions=list(PERMISSION_CATALOG)
     else: prof.permissions=[]
-    prof.save(); log(user,'Saved account',email); return {'user':user_dict(obj)}
+    prof.save(); log(user,'Saved account',email); return {'user':user_admin_dict(obj)}
 
 def save_guide(user,payload):
     require(is_admin(user) and has_perm(user,'manage_guides')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Guide.objects.filter(pk=rid).first() if rid else Guide(created_by=user); obj.name=str(v.get('name') or '').strip(); obj.tag=str(v.get('tag') or 'STUDY SKILLS').strip(); obj.summary=str(v.get('summary') or ''); obj.body=str(v.get('body') or ''); obj.updated_by=user; obj.save(); log(user,'Saved guide',obj.name); return {'guide':guide(obj)}
