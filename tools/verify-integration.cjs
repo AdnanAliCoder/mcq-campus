@@ -71,6 +71,14 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(!logoutBlock.includes('await check()'),'logout must not re-bootstrap');
  assert(service.includes('function upsert(type,row)'));
  assert(service.includes('function remove(type,idsToRemove)'));
+ const loginBlock=auth.slice(auth.indexOf("if(type==='login')"),auth.indexOf("}else",auth.indexOf("if(type==='login')"))+5);
+ assert(!loginBlock.includes("request('/bootstrap')"),'login must not wait for bootstrap');
+ assert(auth.includes('async function validateSession(force=false)'));
+ assert(auth.includes('now-lastSessionValidation<300000'));
+ const visibilityBlock=auth.slice(auth.indexOf("document.addEventListener('visibilitychange'"),auth.indexOf("document.addEventListener('input'"));
+ assert(!visibilityBlock.includes('check()'),'tab restore must not run full check/bootstrap');
+ assert(auth.includes("request('/admin/'+key)"));
+ assert(auth.includes('ensureRouteData'));
 });
 
 test('No demo data/adapters or Render configuration are packaged',()=>{
