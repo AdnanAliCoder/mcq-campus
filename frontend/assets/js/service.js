@@ -2,7 +2,7 @@
    Authentication and persistent writes are handled by the server adapter. */
 window.MCQ = (() => {
  const clone=x=>JSON.parse(JSON.stringify(x));
- const emptyData=()=>({schemaVersion:8,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[]});
+ const emptyData=()=>({schemaVersion:9,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[]});
  const legalDefaults=()=>({
   about:{title:'About MCQ Campus',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
   contact:{title:'Contact Us',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
@@ -129,8 +129,22 @@ window.MCQ = (() => {
  function exportData(){assert('backup');return clone(db)}
  function reset(){throw Error('Local reset is disabled in production.');}
  function hydrate(snapshot,user){const seed=initial(),incoming=clone(snapshot||{}),pages=Object.fromEntries(Object.entries(seed.content.legalPages).map(([key,value])=>[key,{...value,...(incoming.content?.legalPages?.[key]||{})}]));db={...seed,...incoming,settings:{...seed.settings,...(incoming.settings||{}),footer:{...seed.settings.footer,...(incoming.settings?.footer||{})},socialLinks:{...seed.settings.socialLinks,...(incoming.settings?.socialLinks||{})},contact:{...seed.settings.contact,...(incoming.settings?.contact||{})}},content:{...seed.content,...(incoming.content||{}),legalPages:pages},seo:{...seed.seo,...(incoming.seo||{})},adSettings:{...seed.adSettings,...(incoming.adSettings||{}),slots:{...seed.adSettings.slots,...(incoming.adSettings?.slots||{})}},currentAffairsConfig:{...seed.currentAffairsConfig,...(incoming.currentAffairsConfig||{}),dailyIds:ids(incoming.currentAffairsConfig?.dailyIds||[]),monthlyIds:ids(incoming.currentAffairsConfig?.monthlyIds||[])},tests:Array.isArray(incoming.tests)?incoming.tests:seed.tests,pdfs:Array.isArray(incoming.pdfs)?incoming.pdfs:seed.pdfs,latestJobs:Array.isArray(incoming.latestJobs)?incoming.latestJobs:seed.latestJobs,session:clone(user)};topCache=null;}
+ function mergeCore(snapshot){
+  const incoming=clone(snapshot||{});
+  for(const key of ['categories','subcategories','children','papers','jobs','years','mcqs','posts','guides','ads','pdfs','latestJobs','tests']){
+   if(Array.isArray(incoming[key]))db[key]=incoming[key];
+  }
+  if(incoming.mcqPage)db.mcqPage=clone(incoming.mcqPage);
+  if(incoming.settings)db.settings={...db.settings,...incoming.settings,footer:{...db.settings.footer,...(incoming.settings.footer||{})},socialLinks:{...db.settings.socialLinks,...(incoming.settings.socialLinks||{})},contact:{...db.settings.contact,...(incoming.settings.contact||{})}};
+  if(incoming.content){const legal=Object.fromEntries(Object.entries(db.content.legalPages||{}).map(([key,value])=>[key,{...value,...(incoming.content?.legalPages?.[key]||{})}]));db.content={...db.content,...incoming.content,legalPages:legal}}
+  if(incoming.seo)db.seo={...db.seo,...incoming.seo};
+  if(incoming.rolePermissions)db.rolePermissions=clone(incoming.rolePermissions);
+  if(incoming.adSettings)db.adSettings={...db.adSettings,...incoming.adSettings,slots:{...db.adSettings.slots,...(incoming.adSettings.slots||{})}};
+  if(incoming.currentAffairsConfig)db.currentAffairsConfig={...db.currentAffairsConfig,...incoming.currentAffairsConfig,dailyIds:ids(incoming.currentAffairsConfig.dailyIds||[]),monthlyIds:ids(incoming.currentAffairsConfig.monthlyIds||[])};
+  topCache=null;persist();return db;
+ }
  function clearSession(){
   db.session=null;db.bookmarks=[];db.savedPapers=[];db.attempts=[];db.recent=[];db.reports=[];db.contacts=[];db.logs=[];db.trash=[];db.users=[];db.adminPerformance=[];db.adminOverview={};topCache=null;
  }
- return {hydrate,clearSession,upsert,remove,get db(){return db},clone,norm,slug,isImportant,isDevelopment,permissionCatalog,hasPermission,contentQuality,ids,get,managedRows,managedMcq,canEditMcq,canReviewMcq,canDeleteMcq,categoryCounts,role,allowed,assert,save,log,list,validate,saveMcq,review,parents,duplicate,saveEntity,deleteImpact,softDeleteEntity,restoreTrash,trashCounts,publicMcqs,topMcqs,setSession,loginByEmail,switchRole,saveProfile,changePassword,changes,logout(){db.session=null;persist()},toggleBookmark,attempt,recent,savePaper,report,exportData,reset};
+ return {hydrate,mergeCore,clearSession,upsert,remove,get db(){return db},clone,norm,slug,isImportant,isDevelopment,permissionCatalog,hasPermission,contentQuality,ids,get,managedRows,managedMcq,canEditMcq,canReviewMcq,canDeleteMcq,categoryCounts,role,allowed,assert,save,log,list,validate,saveMcq,review,parents,duplicate,saveEntity,deleteImpact,softDeleteEntity,restoreTrash,trashCounts,publicMcqs,topMcqs,setSession,loginByEmail,switchRole,saveProfile,changePassword,changes,logout(){db.session=null;persist()},toggleBookmark,attempt,recent,savePaper,report,exportData,reset};
 })();
