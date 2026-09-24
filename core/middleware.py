@@ -30,25 +30,30 @@ class PerformanceTimingMiddleware:
         if not enabled or not name:
             return self.get_response(request)
         started=time.perf_counter()
+        old_force_debug=connection.force_debug_cursor
+        connection.force_debug_cursor=True
         before=len(connection.queries)
         action=''
-        if request.path=='/api/commands':
-            try:
-                raw=json.loads(request.body.decode('utf-8') or '{}')
-                candidate=str(raw.get('action') or '')
-                if candidate and len(candidate)<=80 and all(ch.isalnum() or ch in ':_-' for ch in candidate):
-                    action=candidate
-            except Exception:
-                pass
-        response=self.get_response(request)
-        elapsed=(time.perf_counter()-started)*1000
-        recent=connection.queries[before:]
-        queries=len(recent)
-        db_ms=sum(float(q.get('time') or 0) for q in recent)*1000
-        try: size=len(response.content or b'')
-        except Exception: size=0
-        if action:
-            logger.info('request_timing endpoint=%s action=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,action,elapsed,db_ms,queries,size)
-        else:
-            logger.info('request_timing endpoint=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,elapsed,db_ms,queries,size)
-        return response
+        try:
+            if request.path=='/api/commands':
+                try:
+                    raw=json.loads(request.body.decode('utf-8') or '{}')
+                    candidate=str(raw.get('action') or '')
+                    if candidate and len(candidate)<=80 and all(ch.isalnum() or ch in ':_-' for ch in candidate):
+                        action=candidate
+                except Exception:
+                    pass
+            response=self.get_response(request)
+            elapsed=(time.perf_counter()-started)*1000
+            recent=connection.queries[before:]
+            queries=len(recent)
+            db_ms=sum(float(q.get('time') or 0) for q in recent)*1000
+            try: size=len(response.content or b'')
+            except Exception: size=0
+            if action:
+                logger.info('request_timing endpoint=%s action=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,action,elapsed,db_ms,queries,size)
+            else:
+                logger.info('request_timing endpoint=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,elapsed,db_ms,queries,size)
+            return response
+        finally:
+            connection.force_debug_cursor=old_force_debug
