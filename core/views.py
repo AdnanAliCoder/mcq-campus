@@ -107,6 +107,9 @@ def login_required_json(fn):
 @ensure_csrf_cookie
 @require_GET
 def auth_session(request):
+    if request.user.is_authenticated:
+        prof=profile_for(request.user)
+        if prof and not prof.email_verified: logout(request)
     user=user_dict(request.user,request.session) if request.user.is_authenticated else None
     if user and request.session.get_expiry_date(): user['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse({'user':user,'csrfToken':get_token(request)})
