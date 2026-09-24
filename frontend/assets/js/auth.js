@@ -114,6 +114,7 @@ window.Auth=(()=>{
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',wants=[];
   if(!authRoutes.has(workspace))wants.push('core');
   if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
+  if(['home','search','pdfs','latest-jobs','about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('resources');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
    if(workspace==='profile'||section==='settings')wants.push('profile');
@@ -126,6 +127,7 @@ window.Auth=(()=>{
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
    if(['posts','guides','ads'].includes(section))wants.push('content');
+   if(['settings','content','seo','roles','pdfs','latest-jobs','current-affairs','footer','legal','social','ads'].includes(section))wants.push('resources');
   }
   let changed=false;
   const load=async key=>{
@@ -137,12 +139,15 @@ window.Auth=(()=>{
      let endpoint='/admin/'+key;
      if(key==='core')endpoint='/bootstrap';
      else if(key==='public-content')endpoint='/public/content';
+     else if(key==='resources')endpoint='/public/resources';
      else if(key==='learner')endpoint='/learner/dashboard';
      else if(key==='profile')endpoint='/profile';
      else if(key==='workspace-mcqs')endpoint='/mcqs?page_size=50';
-     const data=await request(endpoint);
+     const own=generation,data=await request(endpoint);
+     if(!['core','public-content','resources'].includes(key)&&own!==generation)return;
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
+     if(key==='resources')MCQ.mergeCore(data);
      if(key==='learner'){
       if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
       if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
