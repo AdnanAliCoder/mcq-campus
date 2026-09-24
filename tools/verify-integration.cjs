@@ -71,7 +71,11 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(!logoutBlock.includes('await check()'),'logout must not re-bootstrap');
  assert(service.includes('function upsert(type,row)'));
  assert(service.includes('function remove(type,idsToRemove)'));
- const loginBlock=auth.slice(auth.indexOf("if(type==='login')"),auth.indexOf("}else",auth.indexOf("if(type==='login')"))+5);
+ const authSubmitStart=auth.indexOf("const data=await request('/auth/'+endpoint,values)");
+ const loginStart=auth.indexOf("if(type==='login')",authSubmitStart);
+ const loginEnd=auth.indexOf("}else",loginStart);
+ const loginBlock=auth.slice(loginStart,loginEnd);
+ assert(authSubmitStart>=0&&loginStart>=0&&loginEnd>loginStart);
  assert(!loginBlock.includes("request('/bootstrap')"),'login must not wait for bootstrap');
  assert(auth.includes('async function validateSession(force=false)'));
  assert(auth.includes('now-lastSessionValidation<300000'));
