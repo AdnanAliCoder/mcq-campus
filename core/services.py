@@ -140,7 +140,7 @@ def mcq_page(user,page=1,page_size=50,filters=None):
             except (TypeError,ValueError): pass
     qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
     total=qs.count(); start=(page-1)*page_size
-    rows=[mcq(x) for x in qs[start:start+page_size]]
+    rows=[mcq_list(x) for x in qs[start:start+page_size]]
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
 
 def snapshot(user):
@@ -148,7 +148,7 @@ def snapshot(user):
     settings=SiteSetting.get_solo(); site=_site_blob(settings)
     cats=list(Category.objects.all().order_by('id')); subs=list(Subcategory.objects.all().order_by('id')); childs=list(ChildCategory.objects.all().order_by('id')); papers=list(Paper.objects.all().order_by('id')); jobs=list(Job.objects.all().order_by('id')); years=list(JobYear.objects.all().order_by('id'))
     mcq_data=mcq_page(user,1,50)
-    own_attempts=list(Attempt.objects.filter(user=user).select_related('mcq').order_by('-created_at')[:500]) if authenticated else []
+    own_attempts=list(Attempt.objects.filter(user=user).select_related('mcq').order_by('-created_at')[:100]) if authenticated else []
     own_bookmarks=list(Bookmark.objects.filter(user=user).values_list('mcq_id',flat=True)) if authenticated else []
     own_saved=list(SavedPaper.objects.filter(user=user).values_list('paper_id',flat=True)) if authenticated else []
     recent=[]
@@ -168,11 +168,11 @@ def snapshot(user):
     data={
       'schemaVersion':8,'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],'mcqs':mcq_data['items'],'mcqPage':{k:mcq_data[k] for k in ['page','pageSize','total','hasNext']},
       'bookmarks':own_bookmarks,'savedPapers':own_saved,'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in own_attempts],'recent':recent,
-      'reports':[{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in report_q.order_by('-created_at')[:500]],
-      'contacts':[{'id':c.id,'name':c.name,'email':c.email,'message':c.message,'at':iso(c.created_at)} for c in ContactMessage.objects.order_by('-created_at')[:300]] if is_super(user) else [],
-      'logs':[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in logs_q[:500]],
-      'trash':[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in TrashRecord.objects.order_by('-deleted_at')[:300]] if is_super(user) else [],
-      'posts':[post(x) for x in posts_q.order_by('-updated_at')],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')],
+      'reports':[{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in report_q.order_by('-created_at')[:50]],
+      'contacts':[{'id':c.id,'name':c.name,'email':c.email,'message':c.message,'at':iso(c.created_at)} for c in ContactMessage.objects.order_by('-created_at')[:50]] if is_super(user) else [],
+      'logs':[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in logs_q[:50]],
+      'trash':[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in TrashRecord.objects.order_by('-deleted_at')[:50]] if is_super(user) else [],
+      'posts':[post(x) for x in posts_q.order_by('-updated_at')[:50]],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')[:50]],
       'pdfs':site.get('pdfs') or [],'tests':[],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,
       'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'mcqEntryCountry':site.get('mcqEntryCountry') or settings.country,'requireReview':True,'cleanRoutesEnabled':False,'analyticsEnabled':settings.analytics_enabled,'googleAnalyticsId':settings.google_analytics_id,'adsenseEnabled':settings.adsense_enabled,'adsenseClientId':settings.adsense_client_id,'footer':footer,'socialLinks':social,'contact':contact_cfg},
       'content':{'about':settings.about,'contact':settings.contact,'legalPages':legal},'seo':{'title':settings.seo_title,'description':settings.seo_description},
