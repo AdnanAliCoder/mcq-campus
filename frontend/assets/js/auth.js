@@ -121,6 +121,7 @@ window.Auth=(()=>{
   if(user&&['admin','super-admin'].includes(workspace)){
    if(section==='overview')wants.push('overview');
    if(['users','admins','admin-records'].includes(section))wants.push('users');
+   if(['all-mcqs','mcqs','edit','paper-mcqs'].includes(section))wants.push('workspace-mcqs');
    if(section==='reports')wants.push('reports');
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
@@ -138,6 +139,7 @@ window.Auth=(()=>{
      else if(key==='public-content')endpoint='/public/content';
      else if(key==='learner')endpoint='/learner/dashboard';
      else if(key==='profile')endpoint='/profile';
+     else if(key==='workspace-mcqs')endpoint='/mcqs?page_size=50';
      const data=await request(endpoint);
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
@@ -147,6 +149,10 @@ window.Auth=(()=>{
       if(Array.isArray(data.savedPapers))MCQ.db.savedPapers=data.savedPapers;
      }
      if(key==='profile'&&data.user)setIdentity({...user,...data.user});
+     if(key==='workspace-mcqs'){
+      if(Array.isArray(data.items))MCQ.db.mcqs=data.items;
+      MCQ.db.mcqPage={page:data.page,pageSize:data.pageSize,total:data.total,hasNext:data.hasNext};
+     }
      if(key==='overview')MCQ.db.adminOverview=data||{};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
      if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
