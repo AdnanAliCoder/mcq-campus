@@ -4,7 +4,8 @@ window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
- const loadedSections=new Set(),loadingSections=new Map();
+ const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
+ const SECTION_TTL=300000;
 
  function initialRoute(){
   if(location.hash)return;
@@ -40,7 +41,10 @@ window.Auth=(()=>{
   return !permissions[section]||(user.permissions||[]).includes(permissions[section]);
  }
  function clearPrivateState(){
-  generation++; clearTimeout(expiryTimer); user=null; csrf=''; loadedSections.clear();loadingSections.clear();MCQ.clearSession();
+  generation++; clearTimeout(expiryTimer); user=null; csrf='';
+  for(const key of [...loadedSections])if(!['core','public-content'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  for(const [key] of loadingSections)if(!['core','public-content'].includes(key))loadingSections.delete(key);
+  MCQ.clearSession();
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
@@ -106,45 +110,61 @@ window.Auth=(()=>{
   }finally{if(loading)backendLoading(false);}
  }
  async function ensureRouteData(path){
-  if(!user||!path)return false;
+  if(!path)return false;
+  const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',wants=[];
+  if(!authRoutes.has(workspace))wants.push('core');
+  if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
+  if(user&&(workspace==='dashboard'||workspace==='profile')){
+   wants.push('learner');
+   if(workspace==='profile'||section==='settings')wants.push('profile');
+  }
+  if(user&&['admin','super-admin'].includes(workspace)){
+   if(section==='overview')wants.push('overview');
+   if(['users','admins','admin-records'].includes(section))wants.push('users');
+   if(section==='reports')wants.push('reports');
+   if(section==='trash')wants.push('trash');
+   if(section==='logs')wants.push('logs');
+   if(['posts','guides','ads'].includes(section))wants.push('content');
+  }
   let changed=false;
-  const [workspace,section='overview']=String(path).split('?')[0].split('/');
-  const wants=[];
-  if(workspace==='dashboard'||workspace==='profile')wants.push('learner');
-  else if(!['admin','super-admin'].includes(workspace))return false;
-  if(section==='overview'&&['admin','super-admin'].includes(workspace))wants.push('overview','users');
-  if(['users','admins','admin-records','settings'].includes(section))wants.push('users');
-  if(section==='reports')wants.push('reports');
-  if(section==='trash')wants.push('trash');
-  if(['posts','ads'].includes(section))wants.push('content');
-  for(const key of wants){
-   if(loadedSections.has(key))continue;
-   if(loadingSections.has(key)){await loadingSections.get(key);continue}
+  const load=async key=>{
+   const fresh=loadedSections.has(key)&&Date.now()-(sectionLoadedAt.get(key)||0)<SECTION_TTL;
+   if(fresh)return false;
+   if(loadingSections.has(key)){await loadingSections.get(key);return false}
    const task=(async()=>{
     try{
-     const data=await request(key==='learner'?'/learner/dashboard':'/admin/'+key);
+     let endpoint='/admin/'+key;
+     if(key==='core')endpoint='/bootstrap';
+     else if(key==='public-content')endpoint='/public/content';
+     else if(key==='learner')endpoint='/learner/dashboard';
+     else if(key==='profile')endpoint='/profile';
+     const data=await request(endpoint);
+     if(key==='core')MCQ.mergeCore(data);
+     if(key==='public-content')MCQ.mergeCore(data);
      if(key==='learner'){
       if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
       if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
       if(Array.isArray(data.savedPapers))MCQ.db.savedPapers=data.savedPapers;
-      if(data.user)setIdentity({...user,...data.user});
      }
+     if(key==='profile'&&data.user)setIdentity({...user,...data.user});
      if(key==='overview')MCQ.db.adminOverview=data||{};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
      if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
      if(key==='trash')MCQ.db.trash=Array.isArray(data.items)?data.items:[];
+     if(key==='logs')MCQ.db.logs=Array.isArray(data.items)?data.items:[];
      if(key==='content'){
       if(Array.isArray(data.posts))MCQ.db.posts=data.posts;
       if(Array.isArray(data.guides))MCQ.db.guides=data.guides;
       if(Array.isArray(data.ads))MCQ.db.ads=data.ads;
      }
-     loadedSections.add(key);changed=true;
+     loadedSections.add(key);sectionLoadedAt.set(key,Date.now());changed=true;
     }catch(error){
-     if(error?.message)console.warn('Lazy admin data unavailable:',key);
+     if(error?.message)console.warn('Lazy route data unavailable:',key);
     }finally{loadingSections.delete(key)}
    })();
-   loadingSections.set(key,task);await task;
-  }
+   loadingSections.set(key,task);await task;return true;
+  };
+  await Promise.all([...new Set(wants)].map(load));
   return changed;
  }
  function setIdentity(identity){
@@ -165,13 +185,12 @@ window.Auth=(()=>{
   checking=(async()=>{
    backendLoading(true);
    try{
-    const session=await request('/auth/session');
+    const data=await request('/startup');
     if(own!==generation)return;
-    csrf=session.csrfToken||'';
-    const snapshot=await request('/bootstrap');
-    if(own===generation)hydrate(snapshot,session.user||null);
+    csrf=data.csrfToken||'';
+    hydrate(data.snapshot||{},data.user||null);
    }catch{
-    if(own===generation){clearPrivateState();try{const snapshot=await request('/bootstrap');hydrate(snapshot,null);}catch{}}
+    if(own===generation){clearPrivateState();hydrate({},null);}
    }finally{backendLoading(false);ready=true;checking=null;}
   })();
   return checking;
