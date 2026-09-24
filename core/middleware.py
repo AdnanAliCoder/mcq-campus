@@ -11,6 +11,12 @@ TRACKED={
     '/api/commands':'commands',
     '/api/bootstrap':'bootstrap',
     '/api/mcqs':'mcqs',
+    '/api/learner/dashboard':'learner_dashboard',
+    '/api/admin/overview':'admin_overview',
+    '/api/admin/users':'admin_users',
+    '/api/admin/reports':'admin_reports',
+    '/api/admin/trash':'admin_trash',
+    '/api/admin/content':'admin_content',
 }
 
 class PerformanceTimingMiddleware:
@@ -36,11 +42,13 @@ class PerformanceTimingMiddleware:
                 pass
         response=self.get_response(request)
         elapsed=(time.perf_counter()-started)*1000
-        queries=max(0,len(connection.queries)-before)
+        recent=connection.queries[before:]
+        queries=len(recent)
+        db_ms=sum(float(q.get('time') or 0) for q in recent)*1000
         try: size=len(response.content or b'')
         except Exception: size=0
         if action:
-            logger.info('request_timing endpoint=%s action=%s total_ms=%.1f queries=%s bytes=%s',name,action,elapsed,queries,size)
+            logger.info('request_timing endpoint=%s action=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,action,elapsed,db_ms,queries,size)
         else:
-            logger.info('request_timing endpoint=%s total_ms=%.1f queries=%s bytes=%s',name,elapsed,queries,size)
+            logger.info('request_timing endpoint=%s total_ms=%.1f db_ms=%.1f queries=%s bytes=%s',name,elapsed,db_ms,queries,size)
         return response
