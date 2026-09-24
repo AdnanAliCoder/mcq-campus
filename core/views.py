@@ -1,6 +1,8 @@
-import json, re
+import json, re, logging, time
 from datetime import timedelta
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.db import connection
 from django.core.mail import send_mail
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.middleware.csrf import get_token
@@ -11,6 +13,22 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import *
 from .serializers import user_dict
 from .services import snapshot, command, create_token, consume_token, mcq_page
+
+logger=logging.getLogger('mcqcampus.performance')
+
+def profile_api(name):
+    def decorate(fn):
+        def wrapped(request,*args,**kwargs):
+            if not settings.DEBUG: return fn(request,*args,**kwargs)
+            start=time.perf_counter(); before=len(connection.queries)
+            response=fn(request,*args,**kwargs)
+            elapsed=(time.perf_counter()-start)*1000
+            queries=max(0,len(connection.queries)-before)
+            size=len(getattr(response,'content',b'') or b'')
+            logger.info('api_timing endpoint=%s ms=%.1f queries=%s bytes=%s',name,elapsed,queries,size)
+            return response
+        return wrapped
+    return decorate
 
 def payload(request):
     try: return json.loads(request.body.decode('utf-8') or '{}')
@@ -29,6 +47,7 @@ def auth_session(request):
     if user and request.session.get_expiry_date(): user['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse({'user':user,'csrfToken':get_token(request)})
 
+@profile_api('auth_login')
 @require_POST
 def auth_login(request):
     d=payload(request); email=str(d.get('email') or '').strip().lower(); password=str(d.get('password') or '')
@@ -80,6 +99,7 @@ def auth_resend_verification(request):
         raw=create_token(u,'verify',60*24); link=request.build_absolute_uri('/#/verify?token='+raw); send_mail('Verify your MCQ Campus email',f'Open this link to verify your account: {link}',None,[email],fail_silently=True)
     return JsonResponse({'completed':True,'message':'If verification is needed, a new email has been sent.'})
 
+@profile_api('auth_logout')
 @require_POST
 def auth_logout(request): logout(request); return JsonResponse({'completed':True})
 
@@ -99,9 +119,11 @@ def public_report(request):
     Report.objects.create(user=request.user if request.user.is_authenticated else None,mcq=mcq,reason=reason)
     return JsonResponse({'completed':True})
 
+@profile_api('bootstrap')
 @require_GET
 def bootstrap(request): return JsonResponse(snapshot(request.user),safe=True)
 
+@profile_api('mcqs')
 @require_GET
 def mcqs(request):
     try:
@@ -111,6 +133,7 @@ def mcqs(request):
     filters={k:request.GET.get(k) for k in ['status','category','paper','job','year','search'] if request.GET.get(k)}
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
 
+@profile_api('auth_switch_role')
 @require_POST
 @login_required_json
 def auth_switch_role(request):
@@ -121,6 +144,7 @@ def auth_switch_role(request):
     request.session.modified=True
     return JsonResponse({'user':user_dict(request.user,request.session),'csrfToken':get_token(request)})
 
+@profile_api('commands')
 @require_POST
 @login_required_json
 def commands(request):
