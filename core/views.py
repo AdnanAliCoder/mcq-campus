@@ -299,7 +299,10 @@ def commands(request):
         raise
 
 def spa_index(request):
-    s=SiteSetting.get_solo(); return render(request,'index.html',{'settings':s})
+    fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
+    s=SiteSetting.objects.only(*fields).filter(pk=1).first()
+    if s is None: s=SiteSetting.objects.create(pk=1)
+    return render(request,'index.html',{'settings':s})
 
 
 def root_static_file(request, filename):
