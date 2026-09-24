@@ -14,7 +14,12 @@ class Profile(models.Model):
 
 def profile_for(user):
     if not user or not getattr(user,'is_authenticated',False): return None
-    p,_=Profile.objects.get_or_create(user=user,defaults={'role':'super-admin' if user.is_superuser else 'admin' if user.is_staff else 'user'})
+    cached=getattr(user,'_mcq_profile_cache',None)
+    if cached is not None: return cached
+    try: p=user.profile
+    except Profile.DoesNotExist:
+        p,_=Profile.objects.get_or_create(user=user,defaults={'role':'super-admin' if user.is_superuser else 'admin' if user.is_staff else 'user'})
+    user._mcq_profile_cache=p
     return p
 
 def user_role(user):
