@@ -61,6 +61,14 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("request('/auth/switch-role',{role})"));
  assert(auth.includes("request('/auth/logout',{})"));
  assert(auth.includes('backendLoading(true)'));
+ assert(auth.includes('applyCommandResult'));
+ assert(!auth.includes('if(!data.snapshot)'));
+ assert(auth.includes("if(data.refresh==='bootstrap')"));
+ assert(!auth.includes("hydrate(data.snapshot,data.user)"));
+ const logoutBlock=auth.slice(auth.indexOf('async function logout()'),auth.indexOf('async function start()'));
+ assert(!logoutBlock.includes('await check()'),'logout must not re-bootstrap');
+ assert(service.includes('function upsert(type,row)'));
+ assert(service.includes('function remove(type,idsToRemove)'));
 });
 
 test('No demo data/adapters or Render configuration are packaged',()=>{
