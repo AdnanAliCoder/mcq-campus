@@ -375,9 +375,9 @@ window.Auth=(()=>{
    try{
     const data=await request('/auth/switch-role',{role});
     csrf=data.csrfToken||csrf;
-    setIdentity({...user,...data.user});
+    setIdentity({...user,activeRole:data.activeRole||role});
     loadedSections.delete('overview');sectionLoadedAt.delete('overview');
-    return data.user.activeRole;
+    return data.activeRole||role;
    }finally{
     backendLoading(false);
     majorTransition=null;
