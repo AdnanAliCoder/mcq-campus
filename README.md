@@ -9,7 +9,7 @@ This package combines the final animated MCQ Campus frontend with the existing D
 - Supabase/PostgreSQL connection through `DATABASE_URL`.
 - Vercel Django configuration in `vercel.json` (no Render build file is included).
 - Same-origin session authentication for Learner, Admin and Super Admin accounts stored in the database.
-- `mcq-loader.mp4` as the backend-request loader.
+- Asset-free CSS loading UI: compact button spinners for normal writes and a minimal blocking overlay only for session verification / bulk import.
 - Server-backed settings for footer, social links, legal pages, PDFs, Latest Jobs, ads/analytics and profile preferences without requiring a new database schema.
 
 ## Intentionally removed
