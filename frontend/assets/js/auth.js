@@ -106,9 +106,10 @@ window.Auth=(()=>{
   }finally{if(loading)backendLoading(false);}
  }
  async function ensureRouteData(path){
-  if(!user||!path)return;
+  if(!user||!path)return false;
+  let changed=false;
   const [workspace,section='overview']=String(path).split('?')[0].split('/');
-  if(!['admin','super-admin'].includes(workspace))return;
+  if(!['admin','super-admin'].includes(workspace))return false;
   const wants=[];
   if(section==='overview')wants.push('overview');
   if(['users','admins','admin-records','settings'].includes(section))wants.push('users');
@@ -130,13 +131,14 @@ window.Auth=(()=>{
       if(Array.isArray(data.guides))MCQ.db.guides=data.guides;
       if(Array.isArray(data.ads))MCQ.db.ads=data.ads;
      }
-     loadedSections.add(key);
+     loadedSections.add(key);changed=true;
     }catch(error){
      if(error?.message)console.warn('Lazy admin data unavailable:',key);
     }finally{loadingSections.delete(key)}
    })();
    loadingSections.set(key,task);await task;
   }
+  return changed;
  }
  function setIdentity(identity){
   user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
