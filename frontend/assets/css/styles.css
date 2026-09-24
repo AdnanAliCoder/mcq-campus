@@ -2155,3 +2155,8 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
  .mcq-reference-actions>.spacer{display:none}
  .smart-sidebar-link>.icon{display:none}
 }
+
+
+/* Mobile auth header: guests see Login instead of the hamburger; signed-in users keep account + menu. */
+@media(max-width:600px){.header-actions .header-login{display:inline-flex!important}}
+@media(max-width:360px){.header-actions>.header-login{display:inline-flex!important}}
