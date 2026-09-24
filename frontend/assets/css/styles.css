@@ -2104,15 +2104,26 @@ dialog[open]::backdrop{animation:mcqBackdropIn var(--motion-base) ease both}
   .mcq-motion-enter,.mcq-motion-fade,dialog[open],dialog[open]::backdrop,#toast.show,.nav.open,.sidebar.open,.picker-results:not(.hidden),.option.selected,.option.correct,.bottom-nav a.active .icon{animation:none!important;opacity:1!important;transform:none!important}
 }
 
-/* Global request dialog: one persistent video, above native form dialogs. */
+/* Lightweight loading UI: no image/video assets and no layout-flow changes. */
 html{scrollbar-gutter:stable}
-#backend-loader.backend-loader{position:fixed;inset:0;z-index:2147483647;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;outline:none;overflow:hidden;background:rgba(246,248,247,.16);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);pointer-events:auto;touch-action:none;overscroll-behavior:none;animation:none!important;transform:none!important}
+#backend-loader.backend-loader.global-loading-overlay{position:fixed;inset:0;z-index:2147483647;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;outline:none;overflow:hidden;background:rgba(255,255,255,.25);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:auto;touch-action:none;overscroll-behavior:none;animation:none!important;transform:none!important;color:var(--green)}
 #backend-loader:not([open]){display:none!important}
 #backend-loader[open]{display:grid;place-items:center}
-#backend-loader::backdrop{background:transparent;backdrop-filter:none;animation:none}
-.backend-loader-circle{width:clamp(216px,30vw,396px);max-width:min(72vw,396px);aspect-ratio:1;border-radius:50%;overflow:hidden;clip-path:circle(50%);background:transparent}
-#backend-loader video{display:block;width:100%;height:100%;object-fit:cover;border:0;background:transparent}
+#backend-loader::backdrop{background:transparent;backdrop-filter:none}
+.app-loader-spinner{width:42px;height:42px;border:4px solid rgba(8,126,101,.16);border-top-color:currentColor;border-radius:50%;animation:app-loader-spin .7s linear infinite;will-change:transform}
+.button-loader-spinner{width:16px;height:16px;flex:0 0 16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:app-loader-spin .65s linear infinite}
+.btn[aria-busy="true"]{cursor:wait}
+@keyframes app-loader-spin{to{transform:rotate(360deg)}}
 body.backend-loading{overscroll-behavior:none}
+@media(prefers-color-scheme:dark){
+ #backend-loader.backend-loader.global-loading-overlay{background:rgba(11,25,22,.34);color:#8bddba}
+ .app-loader-spinner{border-color:rgba(139,221,186,.2);border-top-color:currentColor}
+}
+html[data-theme="dark"] #backend-loader.backend-loader.global-loading-overlay,body.dark #backend-loader.backend-loader.global-loading-overlay{background:rgba(11,25,22,.34);color:#8bddba}
+html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border-color:rgba(139,221,186,.2);border-top-color:currentColor}
+@media(prefers-reduced-motion:reduce){
+ .app-loader-spinner,.button-loader-spinner{animation-duration:1.2s!important}
+}
 /* No transform on #app: fixed navigation stays relative to the viewport. */
 .mcq-reference-options{grid-template-columns:1fr!important}
 .mcq-reference-actions{display:flex;flex-wrap:nowrap;align-items:center;gap:6px}
@@ -2126,7 +2137,6 @@ body.backend-loading{overscroll-behavior:none}
  .smart-sidebar-link>span{min-width:0;overflow-wrap:anywhere}
 }
 @media(max-width:640px){
- .backend-loader-circle{width:252px;max-width:74vw}
  .bottom-nav{position:fixed;inset:auto 0 0;width:auto;z-index:100;padding-bottom:max(9px,env(safe-area-inset-bottom))}
  body:has(.bottom-nav){padding-bottom:calc(72px + env(safe-area-inset-bottom))}
  .mcq-reference-actions>.btn.ghost{min-width:32px;min-height:36px}
