@@ -38,9 +38,9 @@ class IntegrationTests(TestCase):
         self.assertEqual(response.status_code,200)
         data=response.json()
         self.assertEqual([row['id'] for row in data['mcqs']],[self.approved.id])
-        self.assertEqual(data['users'],[])
-        self.assertEqual(data['logs'],[])
-        self.assertEqual(data['reports'],[])
+        self.assertNotIn('users',data)
+        self.assertNotIn('logs',data)
+        self.assertNotIn('reports',data)
 
     def test_protected_commands_require_login(self):
         response=self.post_json('/api/commands',{'action':'toggleBookmark','payload':{'args':[self.approved.id]}})
@@ -58,14 +58,14 @@ class IntegrationTests(TestCase):
         self.post_json('/api/auth/login',{'email':'admin@example.com','password':'AdminPass123'})
         admin_data=self.client.get('/api/bootstrap').json()
         self.assertEqual({row['id'] for row in admin_data['mcqs']},{1})
-        self.assertEqual(admin_data['users'],[])
+        self.assertNotIn('users',admin_data)
         admin_mcqs=self.client.get('/api/mcqs?page_size=50').json()
         self.assertEqual({row['id'] for row in admin_mcqs['items']},{1,2,3})
         self.client.logout()
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         owner_data=self.client.get('/api/bootstrap').json()
         self.assertEqual({row['id'] for row in owner_data['mcqs']},{1})
-        self.assertEqual(owner_data['users'],[])
+        self.assertNotIn('users',owner_data)
         users=self.client.get('/api/admin/users').json()
         self.assertEqual(len(users['items']),3)
         overview=self.client.get('/api/admin/overview').json()
@@ -142,8 +142,8 @@ class IntegrationTests(TestCase):
     def test_bootstrap_excludes_admin_only_collections(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         data=self.client.get('/api/bootstrap').json()
-        for key in ['users','reports','contacts','logs','trash','adminPerformance']:
-            self.assertEqual(data[key],[])
+        for key in ['users','reports','contacts','logs','trash','adminPerformance','posts','guides','ads','attempts','bookmarks','savedPapers']:
+            self.assertNotIn(key,data)
 
     def test_admin_data_is_lazy_and_permission_protected(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
@@ -190,6 +190,9 @@ class IntegrationTests(TestCase):
         self.assertEqual(login.status_code,200)
         self.assertLess(len(login.content),5000)
         self.assertNotIn('avatar',login.json()['user'])
+        authenticated_startup=self.client.get('/api/startup')
+        self.assertLess(len(authenticated_startup.content),10000)
+        self.assertNotIn('avatar',authenticated_startup.json()['user'])
         session=self.client.get('/api/auth/session')
         self.assertLess(len(session.content),5000)
         self.assertNotIn('avatar',session.json()['user'])
@@ -207,17 +210,18 @@ class IntegrationTests(TestCase):
         self.assertEqual(response.status_code,200)
         self.assertLessEqual(len(queries),10)
         data=response.json()
-        self.assertEqual(data['posts'],[])
-        self.assertEqual(data['guides'],[])
-        self.assertEqual(data['ads'],[])
-        self.assertEqual(data['attempts'],[])
-        self.assertEqual(data['bookmarks'],[])
+        for key in ['posts','guides','ads','attempts','bookmarks','savedPapers','pdfs','latestJobs']:
+            self.assertNotIn(key,data)
 
     def test_public_content_is_lazy(self):
         data=self.client.get('/api/public/content').json()
         self.assertIn('posts',data)
         self.assertIn('guides',data)
         self.assertIn('ads',data)
+        resources=self.client.get('/api/public/resources').json()
+        self.assertIn('pdfs',resources)
+        self.assertIn('latestJobs',resources)
+        self.assertIn('content',resources)
 
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
