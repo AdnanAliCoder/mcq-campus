@@ -147,7 +147,7 @@ def snapshot(user):
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     settings=SiteSetting.get_solo(); site=_site_blob(settings)
     cats=list(Category.objects.all().order_by('id')); subs=list(Subcategory.objects.all().order_by('id')); childs=list(ChildCategory.objects.all().order_by('id')); papers=list(Paper.objects.all().order_by('id')); jobs=list(Job.objects.all().order_by('id')); years=list(JobYear.objects.all().order_by('id'))
-    mcq_data=mcq_page(user,1,50)
+    mcq_data=mcq_page(user,1,50 if authenticated else 20)
     own_attempts=list(Attempt.objects.filter(user=user).select_related('mcq').order_by('-created_at')[:100]) if authenticated else []
     own_bookmarks=list(Bookmark.objects.filter(user=user).values_list('mcq_id',flat=True)) if authenticated else []
     own_saved=list(SavedPaper.objects.filter(user=user).values_list('paper_id',flat=True)) if authenticated else []
