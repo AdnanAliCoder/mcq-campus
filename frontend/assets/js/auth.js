@@ -104,13 +104,17 @@ window.Auth=(()=>{
    return data;
   }finally{if(loading)backendLoading(false);}
  }
- function hydrate(snapshot,identity){
+ function setIdentity(identity){
   user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
-  MCQ.hydrate(snapshot,user);
+  MCQ.setSession(user);
   clearTimeout(expiryTimer);
   if(user?.expiresAt&&Number.isFinite(Date.parse(user.expiresAt))){
    expiryTimer=setTimeout(()=>{clearPrivateState();ready=false;check().then(()=>App.render())},Math.min(2147483647,Math.max(1000,Date.parse(user.expiresAt)-Date.now())));
   }
+ }
+ function hydrate(snapshot,identity){
+  MCQ.hydrate(snapshot,null);
+  setIdentity(identity);
  }
  async function check(){
   if(checking)return checking;
@@ -153,10 +157,53 @@ window.Auth=(()=>{
  }
 
  const pendingCommands=new Map();
+ function applyCommandResult(action,result,payload){
+  const args=payload?.args||[];
+  if(action==='attempt'){
+   const [id,answer]=args,q=MCQ.get('mcqs',id);
+   MCQ.db.attempts.unshift({id:Number(id),answer,correct:!!result,at:new Date().toISOString(),by_id:user?.id||null,by:user?.name||'Unknown'});
+   MCQ.db.attempts=MCQ.db.attempts.slice(0,500);return;
+  }
+  if(action==='toggleBookmark'){
+   const id=Number(args[0]);MCQ.db.bookmarks=result?[...new Set([...MCQ.db.bookmarks,id])]:MCQ.db.bookmarks.filter(x=>Number(x)!==id);return;
+  }
+  if(action==='savePaper'){
+   const id=Number(args[0]);MCQ.db.savedPapers=result?[...new Set([...MCQ.db.savedPapers,id])]:MCQ.db.savedPapers.filter(x=>Number(x)!==id);return;
+  }
+  if(action==='saveProfile'||action==='form:profile'){
+   const next=result?.user||result;if(next?.id)setIdentity({...user,...next});return;
+  }
+  if(action==='report'&&result?.report){MCQ.upsert('reports',result.report);return}
+  if(action==='form:mcq'&&result?.mcq){MCQ.upsert('mcqs',result.mcq);return}
+  if(action==='form:review'&&Array.isArray(result?.mcqs)){result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));return}
+  if(action==='form:entity'&&result?.type&&result?.entity){MCQ.upsert(result.type,result.entity);return}
+  if(action==='form:user'&&result?.user){MCQ.upsert('users',result.user);if(Number(result.user.id)===Number(user?.id))setIdentity({...user,...result.user});return}
+  if(action==='form:guide'&&result?.guide){MCQ.upsert('guides',result.guide);return}
+  if(action==='form:post'&&result?.post){MCQ.upsert('posts',result.post);return}
+  if(action==='form:ad'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(action==='action:report-resolve'&&result?.report){MCQ.upsert('reports',result.report);return}
+  if(action==='action:user-status'&&result?.user){MCQ.upsert('users',result.user);return}
+  if(action==='action:ad-toggle'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(result?.deleted?.type){MCQ.remove(result.deleted.type,result.deleted.ids||[]);return}
+  if(action==='action:bulk-important'&&result?.updated?.type==='mcqs'){
+   const ids=new Set((result.updated.ids||[]).map(Number));for(const q of MCQ.db.mcqs)if(ids.has(Number(q.id)))Object.assign(q,result.updated.fields||{});
+  }
+ }
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
-  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm'});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
+  const task=(async()=>{
+   const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm'});
+   if(own!==generation)throw Error('The account changed. Please try again.');
+   if(data.user)setIdentity({...user,...data.user});
+   applyCommandResult(action,data.result,payload);
+   if(data.refresh==='bootstrap'){
+    const snapshot=await request('/bootstrap');
+    if(own!==generation)throw Error('The account changed. Please try again.');
+    hydrate(snapshot,user);
+   }
+   return data.result;
+  })();
   pendingCommands.set(key,task);try{return await task}finally{pendingCommands.delete(key)}
  }
  const originalAttempt=MCQ.attempt;
@@ -233,7 +280,7 @@ window.Auth=(()=>{
    try{
     const data=await request('/auth/switch-role',{role});
     csrf=data.csrfToken||csrf;
-    hydrate(data.snapshot,data.user);
+    setIdentity({...user,...data.user});
     return data.user.activeRole;
    }finally{
     backendLoading(false);
@@ -250,8 +297,7 @@ window.Auth=(()=>{
    try{
     try{await request('/auth/logout',{});}catch{}
     clearPrivateState();
-    ready=false;
-    await check();
+    ready=true;
     location.hash='#/login';
     App.render();
    }finally{
