@@ -27,22 +27,22 @@ window.Admin=(()=>{
  }
  function overview(){
   if(MCQ.role()==='admin')return personalOverview();
-  const d=MCQ.db,me=d.session||{},mine=d.mcqs.filter(q=>Number(q.created_by_id)===Number(me.id));
+  const d=MCQ.db,me=d.session||{},mine=d.mcqs.filter(q=>Number(q.created_by_id)===Number(me.id)),summary=d.adminOverview||{};
   const statusCount=(rows,status)=>status==='pending'?rows.filter(q=>q.status==='pending'||q.pending_update).length:rows.filter(q=>q.status===status&&!q.pending_update).length;
-  const pending=statusCount(d.mcqs,'pending'),approved=statusCount(d.mcqs,'approved'),rejected=statusCount(d.mcqs,'rejected');
-  const openReports=(d.reports||[]).filter(r=>!['resolved','closed'].includes(String(r.status||'').toLowerCase())).length;
-  const staff=d.users.filter(u=>['admin','super-admin'].includes(u.role)),learners=d.users.filter(u=>u.role==='user').length,trash=(d.trash||[]).length;
+  const pending=summary.mcqs?.pending??statusCount(d.mcqs,'pending'),approved=summary.mcqs?.approved??statusCount(d.mcqs,'approved'),rejected=summary.mcqs?.rejected??statusCount(d.mcqs,'rejected'),total=summary.mcqs?.total??d.mcqs.length;
+  const openReports=summary.openReports??(d.reports||[]).filter(r=>!['resolved','closed'].includes(String(r.status||'').toLowerCase())).length;
+  const staff=d.users.filter(u=>['admin','super-admin'].includes(u.role)),learners=summary.learners??d.users.filter(u=>u.role==='user').length,trash=summary.trash??(d.trash||[]).length,staffTotal=summary.staff??staff.length;
   const recent=[...d.mcqs].sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||''))).slice(0,5);
   const top=[
-   {title:'Website MCQs',value:d.mcqs.length,iconName:'book',tone:'primary',path:url('all-mcqs'),subtitle:'Complete collection'},
+   {title:'Website MCQs',value:total,iconName:'book',tone:'primary',path:url('all-mcqs'),subtitle:'Complete collection'},
    {title:'Review Queue',value:pending,iconName:'clock',tone:'info',path:url('all-mcqs'),params:{status:'pending'},subtitle:'Needs a decision'},
    {title:'Approved',value:approved,iconName:'check',tone:'success',path:url('all-mcqs'),params:{status:'approved'},subtitle:'Live-ready MCQs'},
    {title:'Open Reports',value:openReports,iconName:'flag',tone:openReports?'warning':'neutral',path:url('reports'),subtitle:'Content issues'}
   ];
   const mineTotal=mine.length,minePending=statusCount(mine,'pending'),mineApproved=statusCount(mine,'approved');
   const controlRows=[
-   [icon('book'),'Question Library',`${d.mcqs.length} total · ${pending} waiting`,url('all-mcqs')],
-   [icon('shield'),'Admin Records',`${staff.length} administrator account${staff.length===1?'':'s'}`,url('admin-records')],
+   [icon('book'),'Question Library',`${total} total · ${pending} waiting`,url('all-mcqs')],
+   [icon('shield'),'Admin Records',`${staffTotal} administrator account${staffTotal===1?'':'s'}`,url('admin-records')],
    [icon('paper'),'Papers & Jobs',`${d.papers.length} organizations · ${d.jobs.length} jobs · ${d.years.length} paper records`,url('papers')],
    [icon('settings'),'System Settings',`${learners} learners · ${trash} trash item${trash===1?'':'s'}`,url('settings')]
   ];
