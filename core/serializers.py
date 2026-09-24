@@ -4,18 +4,28 @@ from django.utils import timezone
 from .models import *
 
 def iso(value): return value.isoformat().replace('+00:00','Z') if value else None
-def user_dict(u,session=None):
-    p=profile_for(u); role=user_role(u); roles=['user']
-    if role in {'admin','super-admin'}: roles.append('admin')
-    if role=='super-admin': roles.append('super-admin')
-    active=(session or {}).get('active_role') or ('super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user')
-    if active not in roles: active=roles[-1]
+def _profile_extra(p):
     raw=str(p.avatar or '') if p else ''; extra={'avatar':raw}; prefix='__MCQ_PROFILE__:'
     if raw.startswith(prefix):
         try:
             parsed=json.loads(raw[len(prefix):]); extra=parsed if isinstance(parsed,dict) else {'avatar':''}
         except Exception: extra={'avatar':''}
-    return {'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':p.permissions or [],'country':p.country,'avatar':extra.get('avatar',''),'exam_goal':extra.get('exam_goal','PPSC'),'interests':extra.get('interests',[]),'daily_goal':extra.get('daily_goal',25),'testsTaken':extra.get('testsTaken',0),'lastTestSummary':extra.get('lastTestSummary'),'status':'active' if u.is_active else 'disabled','created_at':iso(u.date_joined),'updated_at':iso(u.last_login or u.date_joined),'expiresAt':iso(timezone.now()+timedelta(days=30))}
+    return extra
+
+def user_identity_dict(u,session=None):
+    p=profile_for(u); role=user_role(u); roles=['user']
+    if role in {'admin','super-admin'}: roles.append('admin')
+    if role=='super-admin': roles.append('super-admin')
+    active=(session or {}).get('active_role') or ('super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user')
+    if active not in roles: active=roles[-1]
+    return {'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':p.permissions or [],'country':p.country,'status':'active' if u.is_active else 'disabled','created_at':iso(u.date_joined),'updated_at':iso(u.last_login or u.date_joined)}
+
+def user_profile_dict(u,session=None):
+    base=user_identity_dict(u,session); extra=_profile_extra(profile_for(u))
+    return {**base,'avatar':extra.get('avatar',''),'exam_goal':extra.get('exam_goal','PPSC'),'interests':extra.get('interests',[]),'daily_goal':extra.get('daily_goal',25),'testsTaken':extra.get('testsTaken',0),'lastTestSummary':extra.get('lastTestSummary')}
+
+# Backward-compatible name now deliberately stays lightweight for list/auth paths.
+def user_dict(u,session=None): return user_identity_dict(u,session)
 
 def entity_base(x):
     return {'id':x.id,'name':x.name,'icon':x.icon,'active':x.active,'created_at':iso(x.created_at),'updated_at':iso(x.updated_at),'created_by':user_name(x.created_by) if x.created_by else None,'created_by_id':x.created_by_id,'updated_by':user_name(x.updated_by) if x.updated_by else None,'updated_by_id':x.updated_by_id}
