@@ -16,7 +16,10 @@ def user_identity_dict(u,session=None):
     if role=='super-admin': roles.append('super-admin')
     active=(session or {}).get('active_role') or ('super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user')
     if active not in roles: active=roles[-1]
-    return {'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':p.permissions or [],'country':p.country,'status':'active' if u.is_active else 'disabled','created_at':iso(u.date_joined),'updated_at':iso(u.last_login or u.date_joined)}
+    return {'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':p.permissions or [],'country':p.country,'status':'active' if u.is_active else 'disabled'}
+
+def user_admin_dict(u,session=None):
+    return {**user_identity_dict(u,session),'created_at':iso(u.date_joined),'updated_at':iso(u.last_login or u.date_joined)}
 
 def user_profile_dict(u,session=None):
     base=user_identity_dict(u,session); extra=_profile_extra(profile_for(u))
