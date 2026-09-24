@@ -320,7 +320,7 @@ window.Auth=(()=>{
     box.textContent=data.message||'Request completed.';
    }
   }catch(error){
-   if(type==='login'&&error?.data?.fields?.verificationRequired){
+   if(type==='login'&&error?.fields?.verificationRequired){
     location.hash='#/verify?email='+encodeURIComponent(values.email||'');App.render();
    }else box.textContent=error.message;
   }finally{restoreButton();}
