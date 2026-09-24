@@ -27,16 +27,16 @@ test('Final frontend and backend adapter load in the required order',()=>{
 test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('class="app-loader-spinner"'));
- assert(!html.includes('Loading.webm'));
- const loader=path.join(frontend,'assets/images/Loading.webm');
- assert(!fs.existsSync(loader),'video loader should be removed');
+ assert(!html.includes('.webm'));
+ const mediaFiles=fs.readdirSync(path.join(frontend,'assets/images'));
+ assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
  assert(css.includes('.app-loader-spinner'));
  assert(css.includes('.button-loader-spinner'));
  assert(css.includes('@keyframes app-loader-spin'));
  assert(css.includes('position:fixed'));
  assert(css.includes('backdrop-filter:blur(5px)'));
- assert(!css.includes('#backend-loader video'));
+ assert(!html.includes('<video'));
 });
 
 const service=fs.readFileSync(path.join(frontend,'assets/js/service.js'),'utf8');
@@ -46,8 +46,9 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("credentials:'same-origin'"));
  assert(auth.includes("'/bootstrap'"));
  assert(auth.includes("'/commands'"));
- assert(auth.includes("{loading=false}"));
- assert(auth.includes("request('/auth/session',undefined,{loading:true})"));
+ assert(auth.includes('backendLoading(true)'));
+ assert(auth.includes('finally{backendLoading(false)'));
+ assert(auth.includes("async function request(path,body,{loading=false}={})"));
  assert(auth.includes('setButtonLoading'));
  assert(auth.includes("action==='action:import-confirm'"));
 });
