@@ -43,47 +43,54 @@ window.Auth=(()=>{
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
- let pendingRequests=0,loadingFocus=null,scrollLock=null;
+ let pendingRequests=0,loadingFocus=null;
  function backendLoading(on){
   const wasActive=pendingRequests>0;
   pendingRequests=Math.max(0,pendingRequests+(on?1:-1));
   const active=pendingRequests>0,loader=document.getElementById('backend-loader');
   if(active===wasActive||!loader)return;
-  const root=document.documentElement;
   if(active){
    UI.closeDropdowns();
    loadingFocus=document.activeElement;
-   scrollLock={overflow:root.style.overflow,padding:root.style.paddingRight,x:scrollX,y:scrollY};
-   // Keep the existing scrollbar gutter; fallback compensation is for older engines.
-   if(!CSS.supports('scrollbar-gutter: stable'))root.style.paddingRight=(parseFloat(getComputedStyle(root).paddingRight)+innerWidth-root.clientWidth)+'px';
-   root.style.overflow='hidden';
    document.body.classList.add('backend-loading');
    document.getElementById('main-nav')?.classList.remove('open');
    document.querySelector('[data-action="menu"]')?.setAttribute('aria-expanded','false');
    document.getElementById('public-smart-sidebar')?.classList.remove('open');
    document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');
    document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');
-   // A modal dialog joins the browser top layer, above an already-open form dialog.
-   loader.showModal();
+   if(!loader.open)loader.showModal();
    loader.focus({preventScroll:true});
-   loader.querySelector('video')?.play()?.catch(()=>{});
   }else{
-   loader.close();
-   loader.querySelector('video')?.pause();
-   root.style.overflow=scrollLock.overflow;
-   root.style.paddingRight=scrollLock.padding;
+   if(loader.open)loader.close();
    document.body.classList.remove('backend-loading');
-   window.scrollTo({left:scrollLock.x,top:scrollLock.y,behavior:'instant'});
    if(loadingFocus?.isConnected)loadingFocus.focus({preventScroll:true});
-   loadingFocus=null;scrollLock=null;
+   loadingFocus=null;
   }
  }
+ function setButtonLoading(button,label='Working...'){
+  if(!button)return ()=>{};
+  if(button.dataset.loading==='true')return ()=>{};
+  const original={html:button.innerHTML,disabled:button.disabled,minWidth:button.style.minWidth};
+  const width=button.getBoundingClientRect?.().width||0;
+  button.dataset.loading='true';
+  button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  if(width)button.style.minWidth=Math.ceil(width)+'px';
+  button.innerHTML='<span class="button-loader-spinner" aria-hidden="true"></span><span>'+label+'</span>';
+  return ()=>{
+   button.innerHTML=original.html;
+   button.disabled=original.disabled;
+   button.style.minWidth=original.minWidth;
+   button.removeAttribute('aria-busy');
+   delete button.dataset.loading;
+  };
+ }
  document.getElementById('backend-loader')?.addEventListener('cancel',event=>event.preventDefault());
- // Capture before delegated actions, including keyboard shortcuts and touch scrolling.
+ // Only explicit blocking operations use the global overlay.
  for(const type of ['click','dblclick','pointerdown','keydown','keyup','submit','wheel','touchmove']){
   document.addEventListener(type,event=>{if(!pendingRequests)return;event.preventDefault();event.stopImmediatePropagation();},{capture:true,passive:false});
  }
- async function request(path,body,{loading=true}={}){
+ async function request(path,body,{loading=false}={}){
   if(loading)backendLoading(true);
   try{
    let response;
@@ -110,7 +117,7 @@ window.Auth=(()=>{
   const own=generation;
   checking=(async()=>{
    try{
-    const session=await request('/auth/session');
+    const session=await request('/auth/session',undefined,{loading:true});
     if(own!==generation)return;
     csrf=session.csrfToken||'';
     const snapshot=await request('/bootstrap');
@@ -148,7 +155,7 @@ window.Auth=(()=>{
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
-  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload},{loading:action!=='attempt'});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
+  const task=(async()=>{const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm'});if(own!==generation)throw Error('The account changed. Please try again.');if(!data.snapshot)throw Error('The server did not confirm the update.');hydrate(data.snapshot,data.user||user);return data.result;})();
   pendingCommands.set(key,task);try{return await task}finally{pendingCommands.delete(key)}
  }
  const originalAttempt=MCQ.attempt;
@@ -160,7 +167,9 @@ window.Auth=(()=>{
   const form=event.target.closest('form[data-form^="auth-"]');if(!form)return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
   const values=Object.fromEntries(new FormData(form)),type=form.dataset.form.slice(5),button=form.querySelector('[type=submit]'),box=form.querySelector('[data-auth-error]');
-  box.textContent='';button.disabled=true;
+  box.textContent='';
+  const labels={login:'Signing in...',register:'Creating account...',forgot:'Sending...',reset:'Updating...',verify:'Verifying...'};
+  const restoreButton=setButtonLoading(button,labels[type]||'Working...');
   try{
    if(type==='reset'&&values.password!==values.confirm)throw Error('Passwords do not match.');
    const params=new URLSearchParams(route().split('?')[1]||'');
@@ -171,14 +180,15 @@ window.Auth=(()=>{
     csrf=data.csrfToken||csrf;const snapshot=await request('/bootstrap');hydrate(snapshot,data.user);ready=true;
     const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
    }else{box.textContent=data.message||'Request completed.';form.reset();if(type==='reset'&&data.completed)setTimeout(()=>App.go('login'),800);}
-  }catch(error){box.textContent=error.message;}finally{button.disabled=false;}
+  }catch(error){box.textContent=error.message;}finally{restoreButton();}
  },true);
 
  const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
-  const button=form.querySelector('button[type=submit],button:not([type])');if(button)button.disabled=true;
+  const button=form.querySelector('button[type=submit],button:not([type])');
+  const restoreButton=setButtonLoading(button,form.dataset.form==='mcq'?'Saving...':'Saving...');
   try{
    const fd=new FormData(form),values=Object.fromEntries(fd);
    if(form.dataset.form==='profile')values.interests=fd.getAll('interests');
@@ -187,13 +197,16 @@ window.Auth=(()=>{
    else await command('form:'+form.dataset.form,{values,fields:[...fd],context:{...form.dataset},draft:App.draft});
    window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }catch(error){let box=form.querySelector('[data-command-error]');if(!box){box=document.createElement('p');box.dataset.commandError='';box.className='auth-error';box.setAttribute('role','alert');form.prepend(box);}box.textContent=error.message;}
-  finally{if(button)button.disabled=false;}
+  finally{restoreButton();}
  },true);
 
  const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','trash-restore','report-resolve','restore-trash','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete','bulk-important']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
+  if(el.dataset.loading==='true')return;
+  const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...','bulk-important':'Updating...'};
+  const restoreButton=setButtonLoading(el,actionLabels[el.dataset.action]||'Working...');
   try{
    const extra={...el.dataset,rows:App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
@@ -205,6 +218,7 @@ window.Auth=(()=>{
    const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm')App.importSummary=result;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }
   catch(error){UI.toast(error.message);}
+  finally{restoreButton();}
  },true);
 
  async function switchRole(role){const data=await request('/auth/switch-role',{role});csrf=data.csrfToken||csrf;hydrate(data.snapshot,data.user);return data.user.activeRole;}
