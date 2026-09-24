@@ -281,12 +281,12 @@ def admin_content(request):
 @login_required_json
 def auth_switch_role(request):
     role=str(payload(request).get('role') or '')
-    identity=user_dict(request.user,request.session)
-    if role not in identity.get('roles',[]): return err('This account does not have that workspace.',403)
+    account_role=user_role(request.user)
+    available=['user']+(['admin'] if account_role in {'admin','super-admin'} else [])+(['super-admin'] if account_role=='super-admin' else [])
+    if role not in available: return err('This account does not have that workspace.',403)
     request.session['active_role']=role
     request.session.modified=True
-    identity['activeRole']=role
-    return JsonResponse({'user':identity,'csrfToken':get_token(request)})
+    return JsonResponse({'activeRole':role,'csrfToken':get_token(request)})
 
 @profile_api('commands')
 @require_POST
