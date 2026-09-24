@@ -49,8 +49,10 @@ const service=fs.readFileSync(path.join(frontend,'assets/js/service.js'),'utf8')
 const auth=fs.readFileSync(path.join(frontend,'assets/js/auth.js'),'utf8');
 test('Database API is authoritative for authentication and persistent writes',()=>{
  assert(service.includes('function hydrate(snapshot,user)'));
+ assert(service.includes('function mergeCore(snapshot)'));
  assert(auth.includes("credentials:'same-origin'"));
- assert(auth.includes("'/bootstrap'"));
+ assert(auth.includes("request('/startup')"));
+ assert(auth.includes("endpoint='/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
  assert(auth.includes('finally{backendLoading(false)'));
@@ -81,8 +83,26 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes('now-lastSessionValidation<300000'));
  const visibilityBlock=auth.slice(auth.indexOf("document.addEventListener('visibilitychange'"),auth.indexOf("document.addEventListener('input'"));
  assert(!visibilityBlock.includes('check()'),'tab restore must not run full check/bootstrap');
- assert(auth.includes("request('/admin/'+key)"));
+ assert(auth.includes("endpoint='/admin/'+key"));
+ assert(auth.includes("Promise.all([...new Set(wants)].map(load))"));
+ assert(!auth.includes("wants.push('overview','users')"),'overview must not preload users');
  assert(auth.includes('ensureRouteData'));
+});
+
+test('Auth/startup architecture avoids large repeated profile payloads',()=>{
+ const serializers=fs.readFileSync(path.join(root,'core/serializers.py'),'utf8');
+ const services=fs.readFileSync(path.join(root,'core/services.py'),'utf8');
+ assert(serializers.includes('def user_identity_dict'));
+ assert(serializers.includes('def user_profile_dict'));
+ assert(!serializers.slice(serializers.indexOf('def user_identity_dict'),serializers.indexOf('def user_profile_dict')).includes("'avatar'"));
+ const snapshot=services.slice(services.indexOf('def snapshot(user):'),services.indexOf('def learner_dashboard_data'));
+ assert(!snapshot.includes('Attempt.objects'));
+ assert(!snapshot.includes('Bookmark.objects'));
+ assert(!snapshot.includes('SavedPaper.objects'));
+ assert(!snapshot.includes('Post.objects'));
+ assert(!snapshot.includes('Guide.objects'));
+ assert(!snapshot.includes('AdPlacement.objects'));
+ assert(services.includes('def public_content_data'));
 });
 
 test('No demo data/adapters or Render configuration are packaged',()=>{
