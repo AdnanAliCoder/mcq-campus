@@ -338,7 +338,7 @@ class AuthSecurityTests(TestCase):
         self.assertEqual(valid.status_code,200)
         self.assertTrue(profile_for(user).email_verified if hasattr(user,'profile') else Profile.objects.get(user=user).email_verified)
         reused=self.post_json('/api/auth/verify',{'email':user.email,'code':code})
-        self.assertEqual(reused.status_code,200)  # already-verified response is safe and does not reuse the challenge
+        self.assertEqual(reused.status_code,422)
         token=OneTimeToken.objects.filter(user=user,purpose='verify').latest('created_at')
         self.assertIsNotNone(token.used_at)
 
