@@ -57,12 +57,16 @@ class IntegrationTests(TestCase):
         self.post_json('/api/auth/login',{'email':'admin@example.com','password':'AdminPass123'})
         admin_data=self.client.get('/api/bootstrap').json()
         self.assertEqual({row['id'] for row in admin_data['mcqs']},{1,2,3})
-        self.assertEqual(admin_data['users'][0]['id'],self.admin.id)
+        self.assertEqual(admin_data['users'],[])
         self.client.logout()
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         owner_data=self.client.get('/api/bootstrap').json()
         self.assertEqual({row['id'] for row in owner_data['mcqs']},{1,2,3})
-        self.assertEqual(len(owner_data['users']),3)
+        self.assertEqual(owner_data['users'],[])
+        users=self.client.get('/api/admin/users').json()
+        self.assertEqual(len(users['items']),3)
+        overview=self.client.get('/api/admin/overview').json()
+        self.assertEqual(overview['mcqs']['total'],3)
 
     def test_super_admin_can_switch_workspace_without_role_loss(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
@@ -131,6 +135,34 @@ class IntegrationTests(TestCase):
         self.assertLess(len(command_queries),15)
         self.assertLess(len(response.content),10000)
         self.assertNotIn('snapshot',response.json())
+
+    def test_bootstrap_excludes_admin_only_collections(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        data=self.client.get('/api/bootstrap').json()
+        for key in ['users','reports','contacts','logs','trash','adminPerformance']:
+            self.assertEqual(data[key],[])
+
+    def test_admin_data_is_lazy_and_permission_protected(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        self.assertEqual(self.client.get('/api/admin/users').status_code,200)
+        self.assertEqual(self.client.get('/api/admin/reports').status_code,200)
+        self.assertEqual(self.client.get('/api/admin/trash').status_code,200)
+        self.client.logout()
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        self.assertEqual(self.client.get('/api/admin/users').status_code,403)
+        self.assertEqual(self.client.get('/api/admin/trash').status_code,403)
+
+    @override_settings(PERFORMANCE_LOGGING=True)
+    def test_performance_health_is_super_admin_only(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        response=self.client.get('/api/health/performance')
+        self.assertEqual(response.status_code,200)
+        data=response.json()
+        self.assertIn('databaseMs',data)
+        self.assertIn(data['db_backend'],{'sqlite','postgresql'})
+        self.client.logout()
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        self.assertEqual(self.client.get('/api/health/performance').status_code,404)
 
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
