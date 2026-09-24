@@ -10,7 +10,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from .models import *
 from .serializers import user_dict
-from .services import snapshot, command, create_token, consume_token
+from .services import snapshot, command, create_token, consume_token, mcq_page
 
 def payload(request):
     try: return json.loads(request.body.decode('utf-8') or '{}')
@@ -102,6 +102,15 @@ def public_report(request):
 @require_GET
 def bootstrap(request): return JsonResponse(snapshot(request.user),safe=True)
 
+@require_GET
+def mcqs(request):
+    try:
+        page=int(request.GET.get('page') or 1); page_size=int(request.GET.get('page_size') or (50 if request.user.is_authenticated else 20))
+    except (TypeError,ValueError):
+        return err('Invalid pagination values.',422)
+    filters={k:request.GET.get(k) for k in ['status','category','paper','job','year','search'] if request.GET.get(k)}
+    return JsonResponse(mcq_page(request.user,page,page_size,filters))
+
 @require_POST
 @login_required_json
 def auth_switch_role(request):
@@ -110,7 +119,7 @@ def auth_switch_role(request):
     if role not in available: return err('This account does not have that workspace.',403)
     request.session['active_role']=role
     request.session.modified=True
-    return JsonResponse({'user':user_dict(request.user,request.session),'snapshot':snapshot(request.user),'csrfToken':get_token(request)})
+    return JsonResponse({'user':user_dict(request.user,request.session),'csrfToken':get_token(request)})
 
 @require_POST
 @login_required_json
@@ -120,7 +129,9 @@ def commands(request):
         result=command(request.user,action,p)
         if action in {'changePassword','form:password-change'}:
             update_session_auth_hash(request,request.user)
-        return JsonResponse({'result':result,'snapshot':snapshot(request.user),'user':user_dict(request.user,request.session)})
+        response={'success':True,'result':result}
+        if action in {'saveProfile','form:profile','form:user'}: response['user']=user_dict(request.user,request.session)
+        return JsonResponse(response)
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
     except Exception as e:
