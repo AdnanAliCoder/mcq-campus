@@ -33,7 +33,12 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
  assert(css.includes('.app-loader-spinner'));
  assert(css.includes('.button-loader-spinner'));
- assert(css.includes('@keyframes app-loader-spin'));
+ assert(css.includes('@keyframes mcq-loader-spin'));
+ assert(css.includes('animation-name:mcq-loader-spin'));
+ assert(css.includes('animation-iteration-count:infinite'));
+ assert(css.includes('.mcq-spinner'));
+ assert(css.includes('.global-spinner'));
+ assert(css.includes('.button-spinner'));
  assert(css.includes('position:fixed'));
  assert(css.includes('backdrop-filter:blur(5px)'));
  assert(!html.includes('<video'));
@@ -51,6 +56,11 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("async function request(path,body,{loading=false}={})"));
  assert(auth.includes('setButtonLoading'));
  assert(auth.includes("action==='action:import-confirm'"));
+ assert(auth.includes('let majorTransition=null'));
+ assert(auth.includes('UI.closeDropdowns();'));
+ assert(auth.includes("request('/auth/switch-role',{role})"));
+ assert(auth.includes("request('/auth/logout',{})"));
+ assert(auth.includes('backendLoading(true)'));
 });
 
 test('No demo data/adapters or Render configuration are packaged',()=>{
