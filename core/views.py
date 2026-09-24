@@ -14,7 +14,7 @@ from .models import *
 from .serializers import user_dict
 from .services import (
     snapshot, command, create_token, consume_token, mcq_page,
-    learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_content_data,
+    learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -214,6 +214,14 @@ def admin_reports(request):
 @login_required_json
 def admin_trash(request):
     try: return JsonResponse(admin_trash_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    except PermissionError as e: return err(e,403)
+    except (TypeError,ValueError): return err('Invalid pagination values.',422)
+
+@profile_api('admin_logs')
+@require_GET
+@login_required_json
+def admin_logs(request):
+    try: return JsonResponse(admin_logs_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
     except PermissionError as e: return err(e,403)
     except (TypeError,ValueError): return err('Invalid pagination values.',422)
 
