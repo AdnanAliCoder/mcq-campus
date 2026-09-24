@@ -75,8 +75,8 @@ class IntegrationTests(TestCase):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         switched=self.post_json('/api/auth/switch-role',{'role':'user'})
         self.assertEqual(switched.status_code,200)
-        self.assertEqual(switched.json()['user']['activeRole'],'user')
-        self.assertIn('super-admin',switched.json()['user']['roles'])
+        self.assertEqual(switched.json()['activeRole'],'user')
+        self.assertNotIn('user',switched.json())
 
     def test_switch_role_response_is_small_and_has_no_snapshot(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
@@ -84,7 +84,8 @@ class IntegrationTests(TestCase):
         self.assertEqual(response.status_code,200)
         data=response.json()
         self.assertNotIn('snapshot',data)
-        self.assertEqual(data['user']['activeRole'],'admin')
+        self.assertEqual(data['activeRole'],'admin')
+        self.assertNotIn('user',data)
 
     def test_command_response_is_delta_only(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
@@ -198,7 +199,8 @@ class IntegrationTests(TestCase):
         self.assertNotIn('avatar',session.json()['user'])
         switched=self.post_json('/api/auth/switch-role',{'role':'admin'})
         self.assertLess(len(switched.content),5000)
-        self.assertNotIn('avatar',switched.json()['user'])
+        self.assertEqual(switched.json()['activeRole'],'admin')
+        self.assertNotIn('user',switched.json())
         learner=self.client.get('/api/learner/dashboard')
         self.assertLess(len(learner.content),20000)
         profile_response=self.client.get('/api/profile')
@@ -219,9 +221,13 @@ class IntegrationTests(TestCase):
         self.assertIn('guides',data)
         self.assertIn('ads',data)
         resources=self.client.get('/api/public/resources').json()
-        self.assertIn('pdfs',resources)
-        self.assertIn('latestJobs',resources)
-        self.assertIn('content',resources)
+        self.assertIn('settings',resources)
+        self.assertNotIn('pdfs',resources)
+        catalog=self.client.get('/api/public/catalog').json()
+        self.assertIn('pdfs',catalog)
+        self.assertIn('latestJobs',catalog)
+        legal=self.client.get('/api/public/legal').json()
+        self.assertIn('content',legal)
 
     def test_empty_content_bootstrap_remains_well_formed(self):
         MCQ.objects.all().delete()
