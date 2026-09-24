@@ -3,13 +3,14 @@ from django.contrib.auth.models import User
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, profile_for
+from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, SiteSetting, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class IntegrationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        SiteSetting.objects.create(singleton=1)
         cls.category=Category.objects.create(id=100,name='Computing',icon='grid')
         cls.paper=Paper.objects.create(id=200,name='PPSC',icon='paper')
         cls.learner=User.objects.create_user(username='learner@example.com',email='learner@example.com',password='LearnerPass123',first_name='Learner')
@@ -56,12 +57,14 @@ class IntegrationTests(TestCase):
     def test_admin_and_super_admin_visibility(self):
         self.post_json('/api/auth/login',{'email':'admin@example.com','password':'AdminPass123'})
         admin_data=self.client.get('/api/bootstrap').json()
-        self.assertEqual({row['id'] for row in admin_data['mcqs']},{1,2,3})
+        self.assertEqual({row['id'] for row in admin_data['mcqs']},{1})
         self.assertEqual(admin_data['users'],[])
+        admin_mcqs=self.client.get('/api/mcqs?page_size=50').json()
+        self.assertEqual({row['id'] for row in admin_mcqs['items']},{1,2,3})
         self.client.logout()
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         owner_data=self.client.get('/api/bootstrap').json()
-        self.assertEqual({row['id'] for row in owner_data['mcqs']},{1,2,3})
+        self.assertEqual({row['id'] for row in owner_data['mcqs']},{1})
         self.assertEqual(owner_data['users'],[])
         users=self.client.get('/api/admin/users').json()
         self.assertEqual(len(users['items']),3)
@@ -175,6 +178,46 @@ class IntegrationTests(TestCase):
         self.assertNotIn('users',data)
         self.assertNotIn('logs',data)
         self.assertNotIn('trash',data)
+
+    def test_startup_and_auth_identity_payloads_exclude_large_avatar(self):
+        profile=profile_for(self.owner)
+        profile.avatar='data:image/png;base64,'+('A'*140000)
+        profile.save(update_fields=['avatar'])
+        startup=self.client.get('/api/startup')
+        self.assertEqual(startup.status_code,200)
+        self.assertLess(len(startup.content),5000)
+        login=self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        self.assertEqual(login.status_code,200)
+        self.assertLess(len(login.content),5000)
+        self.assertNotIn('avatar',login.json()['user'])
+        session=self.client.get('/api/auth/session')
+        self.assertLess(len(session.content),5000)
+        self.assertNotIn('avatar',session.json()['user'])
+        switched=self.post_json('/api/auth/switch-role',{'role':'admin'})
+        self.assertLess(len(switched.content),5000)
+        self.assertNotIn('avatar',switched.json()['user'])
+        learner=self.client.get('/api/learner/dashboard')
+        self.assertLess(len(learner.content),20000)
+        profile_response=self.client.get('/api/profile')
+        self.assertTrue(profile_response.json()['user']['avatar'].startswith('data:image/png;base64,'))
+
+    def test_public_bootstrap_query_count_is_bounded(self):
+        with CaptureQueriesContext(connection) as queries:
+            response=self.client.get('/api/bootstrap')
+        self.assertEqual(response.status_code,200)
+        self.assertLessEqual(len(queries),10)
+        data=response.json()
+        self.assertEqual(data['posts'],[])
+        self.assertEqual(data['guides'],[])
+        self.assertEqual(data['ads'],[])
+        self.assertEqual(data['attempts'],[])
+        self.assertEqual(data['bookmarks'],[])
+
+    def test_public_content_is_lazy(self):
+        data=self.client.get('/api/public/content').json()
+        self.assertIn('posts',data)
+        self.assertIn('guides',data)
+        self.assertIn('ads',data)
 
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
