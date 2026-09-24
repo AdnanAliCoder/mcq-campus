@@ -9,6 +9,8 @@ TRACKED={
     '/api/profile':'profile_detail',
     '/api/public/content':'public_content',
     '/api/public/resources':'public_resources',
+    '/api/public/catalog':'public_catalog',
+    '/api/public/legal':'public_legal',
     '/api/auth/login':'auth_login',
     '/api/auth/switch-role':'auth_switch_role',
     '/api/auth/logout':'auth_logout',
