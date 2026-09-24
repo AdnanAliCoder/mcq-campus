@@ -2110,10 +2110,16 @@ html{scrollbar-gutter:stable}
 #backend-loader:not([open]){display:none!important}
 #backend-loader[open]{display:grid;place-items:center}
 #backend-loader::backdrop{background:transparent;backdrop-filter:none}
-.app-loader-spinner{width:42px;height:42px;border:4px solid rgba(8,126,101,.16);border-top-color:currentColor;border-radius:50%;animation:app-loader-spin .7s linear infinite;will-change:transform}
-.button-loader-spinner{width:16px;height:16px;flex:0 0 16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:app-loader-spin .65s linear infinite}
+.mcq-spinner{display:inline-block;transform-origin:50% 50%;will-change:transform}
+.app-loader-spinner,.global-spinner{width:42px;height:42px;border:4px solid rgba(8,126,101,.16);border-top-color:currentColor;border-radius:50%;animation-name:mcq-loader-spin;animation-duration:.7s;animation-timing-function:linear;animation-iteration-count:infinite}
+.button-loader-spinner,.button-spinner{width:16px;height:16px;flex:0 0 16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation-name:mcq-loader-spin;animation-duration:.65s;animation-timing-function:linear;animation-iteration-count:infinite}
 .btn[aria-busy="true"]{cursor:wait}
-@keyframes app-loader-spin{to{transform:rotate(360deg)}}
+.btn[aria-busy="true"]>span:last-child{display:inline-block}
+.loading-button-content{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+@keyframes mcq-loader-spin{
+ from{transform:rotate(0deg)}
+ to{transform:rotate(360deg)}
+}
 body.backend-loading{overscroll-behavior:none}
 @media(prefers-color-scheme:dark){
  #backend-loader.backend-loader.global-loading-overlay{background:rgba(11,25,22,.34);color:#8bddba}
@@ -2122,7 +2128,13 @@ body.backend-loading{overscroll-behavior:none}
 html[data-theme="dark"] #backend-loader.backend-loader.global-loading-overlay,body.dark #backend-loader.backend-loader.global-loading-overlay{background:rgba(11,25,22,.34);color:#8bddba}
 html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border-color:rgba(139,221,186,.2);border-top-color:currentColor}
 @media(prefers-reduced-motion:reduce){
- .app-loader-spinner,.button-loader-spinner{animation-duration:1.2s!important}
+ /* Keep loading state unambiguous even though general motion is reduced. */
+ .mcq-spinner,.app-loader-spinner,.global-spinner,.button-loader-spinner,.button-spinner{
+  animation-name:mcq-loader-spin!important;
+  animation-duration:1.2s!important;
+  animation-timing-function:linear!important;
+  animation-iteration-count:infinite!important;
+ }
 }
 /* No transform on #app: fixed navigation stays relative to the viewport. */
 .mcq-reference-options{grid-template-columns:1fr!important}
