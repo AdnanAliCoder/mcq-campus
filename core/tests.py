@@ -174,7 +174,7 @@ class IntegrationTests(TestCase):
         self.assertIn('attempts',data)
         self.assertIn('bookmarks',data)
         self.assertIn('savedPapers',data)
-        self.assertIn('user',data)
+        self.assertNotIn('user',data)
         self.assertNotIn('users',data)
         self.assertNotIn('logs',data)
         self.assertNotIn('trash',data)
@@ -222,6 +222,17 @@ class IntegrationTests(TestCase):
         self.assertIn('pdfs',resources)
         self.assertIn('latestJobs',resources)
         self.assertIn('content',resources)
+
+    def test_empty_content_bootstrap_remains_well_formed(self):
+        MCQ.objects.all().delete()
+        Category.objects.all().delete()
+        Paper.objects.all().delete()
+        data=self.client.get('/api/bootstrap').json()
+        self.assertEqual(data['mcqs'],[])
+        self.assertEqual(data['categories'],[])
+        self.assertEqual(data['papers'],[])
+        self.assertEqual(data['mcqPage']['total'],0)
+        self.assertFalse(data['mcqPage']['hasNext'])
 
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
