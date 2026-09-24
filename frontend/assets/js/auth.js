@@ -225,14 +225,14 @@ window.Auth=(()=>{
 
  const field=(name,label,type='text',auto='',extra='')=>`<div class="field"><label for="${name}">${label}</label><input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required></div>`;
  function view(type){
-  const params=new URLSearchParams(route().split('?')[1]||''),token=params.get('token');
-  const titles={login:'Welcome back',register:'Your next chapter',forgot:'Forgot your password?',reset:'Choose a new password',verify:'Check your email'};
+  const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
+  const titles={login:'Welcome back',register:'Your next chapter',forgot:'Forgot your password?',reset:'Choose a new password',verify:'Email verification'};
   let form='';
   if(type==='login')form=`<p class="muted small">Sign in with your existing MCQ Campus account.</p><form data-form="auth-login">${field('email','Email address','email','email')}${field('password','Password','password','current-password')}<div class="actions" style="margin-bottom:20px"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span>${UI.link('forgot','Forgot password?','link')}</div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small" style="margin-top:18px">New here? ${UI.link('register','Create an account','link')}</p>`;
   if(type==='register')form=`<p class="small muted">Create your learner account.</p><form data-form="auth-register">${field('name','Full name','text','name')}${field('email','Email address','email','email')}${field('password','Password','password','new-password')}${UI.select('country','Country',[{id:'Pakistan',name:'Pakistan'},{id:'Other',name:'Other'}],'Pakistan',true)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')}</label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Create account</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
-  if(type==='forgot')form=`<p class="muted">Enter your account email and we will prepare a reset link.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Request reset link</button></form>`;
-  if(type==='reset')form=token?`<form data-form="auth-reset">${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`:`<div class="notice warning">Open the password-reset link sent to your email.</div>${UI.link('forgot','Request a new link','btn primary')}`;
-  if(type==='verify')form=token?`<p>Confirm your email address to finish registration.</p><form data-form="auth-verify"><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Verify email</button></form>`:`<p class="muted">Enter your email to request another verification link.</p><form data-form="auth-verify">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Resend verification</button></form>`;
+  if(type==='forgot')form=`<p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form>`;
+  if(type==='reset')form=`<p class="muted">Enter the reset code from your email and choose a new password.</p><form data-form="auth-reset">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
+  if(type==='verify')form=`<p class="muted">Enter the 6-digit code sent to your email.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;
   return UI.layout(`<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQ CAMPUS</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>${titles[type]}</h1>${form}</div></div></div>`);
  }
 
@@ -301,14 +301,41 @@ window.Auth=(()=>{
   try{
    if(type==='reset'&&values.password!==values.confirm)throw Error('Passwords do not match.');
    const params=new URLSearchParams(route().split('?')[1]||'');
-   if(['reset','verify'].includes(type))values.token=params.get('token')||'';
-   const endpoint=type==='verify'&&!values.token?'resend-verification':type;
-   const data=await request('/auth/'+endpoint,values);
+   const data=await request('/auth/'+type,values);
    if(type==='login'){
     csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
     const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
-   }else{box.textContent=data.message||'Request completed.';form.reset();if(type==='reset'&&data.completed)setTimeout(()=>App.go('login'),800);}
-  }catch(error){box.textContent=error.message;}finally{restoreButton();}
+   }else if(type==='register'&&data.verificationRequired){
+    location.hash='#/verify?email='+encodeURIComponent(data.email||values.email);App.render();
+   }else if(type==='forgot'){
+    box.textContent=data.message||'If an active account matches that email, a reset code has been sent.';
+    setTimeout(()=>{location.hash='#/reset?email='+encodeURIComponent(values.email||'');App.render();},700);
+   }else if(type==='verify'&&data.completed){
+    box.textContent=data.message||'Email verified. You can now sign in.';
+    setTimeout(()=>App.go('login'),700);
+   }else if(type==='reset'&&data.completed){
+    box.textContent=data.message||'Password updated. You can now sign in.';
+    setTimeout(()=>App.go('login'),700);
+   }else{
+    box.textContent=data.message||'Request completed.';
+   }
+  }catch(error){
+   if(type==='login'&&error?.data?.fields?.verificationRequired){
+    location.hash='#/verify?email='+encodeURIComponent(values.email||'');App.render();
+   }else box.textContent=error.message;
+  }finally{restoreButton();}
+ },true);
+
+ document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-auth-resend]');if(!button)return;
+  event.preventDefault();
+  const form=button.closest('form[data-form="auth-verify"]'),box=form?.querySelector('[data-auth-error]');
+  const email=form?.querySelector('[name="email"]')?.value||'';
+  if(!email){if(box)box.textContent='Enter your email address.';return;}
+  const restore=setButtonLoading(button,'Sending...');
+  try{const data=await request('/auth/resend-verification',{email});if(box)box.textContent=data.message||'If verification is required, a new code has been sent.';}
+  catch(error){if(box)box.textContent=error.message;}
+  finally{restore();}
  },true);
 
  const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
