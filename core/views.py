@@ -15,17 +15,26 @@ from .serializers import user_dict
 from .services import snapshot, command, create_token, consume_token, mcq_page
 
 logger=logging.getLogger('mcqcampus.performance')
+PERF_ENABLED=bool(settings.DEBUG or getattr(settings,'PERFORMANCE_LOGGING',False))
+
+def _db_diag():
+    cfg=connection.settings_dict
+    host=str(cfg.get('HOST') or '')
+    port=str(cfg.get('PORT') or '')
+    engine=str(cfg.get('ENGINE') or '')
+    host_type='pooler' if 'pooler' in host.lower() or port=='6543' else ('direct' if 'postgres' in engine else 'local')
+    return {'db_backend':'postgresql' if 'postgres' in engine else 'sqlite','db_host_type':host_type,'db_port':port or None}
 
 def profile_api(name):
     def decorate(fn):
         def wrapped(request,*args,**kwargs):
-            if not settings.DEBUG: return fn(request,*args,**kwargs)
+            if not PERF_ENABLED: return fn(request,*args,**kwargs)
             start=time.perf_counter(); before=len(connection.queries)
             response=fn(request,*args,**kwargs)
             elapsed=(time.perf_counter()-start)*1000
             queries=max(0,len(connection.queries)-before)
             size=len(getattr(response,'content',b'') or b'')
-            logger.info('api_timing endpoint=%s ms=%.1f queries=%s bytes=%s',name,elapsed,queries,size)
+            logger.info('api_timing endpoint=%s total_ms=%.1f queries=%s bytes=%s',name,elapsed,queries,size)
             return response
         return wrapped
     return decorate
@@ -50,15 +59,31 @@ def auth_session(request):
 @profile_api('auth_login')
 @require_POST
 def auth_login(request):
+    started=time.perf_counter()
     d=payload(request); email=str(d.get('email') or '').strip().lower(); password=str(d.get('password') or '')
+    phase=time.perf_counter()
     # Existing database accounts may have a username that differs from their email.
     # Resolve by email first, then authenticate with Django's real username value.
-    candidate=User.objects.filter(email__iexact=email).order_by('-is_superuser','-is_staff','id').first()
+    candidate=User.objects.select_related('profile').filter(email__iexact=email).order_by('-is_superuser','-is_staff','id').first()
+    lookup_ms=(time.perf_counter()-phase)*1000
     login_name=candidate.get_username() if candidate else email
+    phase=time.perf_counter()
     user=authenticate(request,username=login_name,password=password)
-    if not user or not user.is_active: return err('Email or password is incorrect.',422)
-    login(request,user); role=user_role(user); request.session['active_role']='super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user'; request.session.set_expiry(60*60*24*30 if d.get('remember') else 60*60*2)
+    authenticate_ms=(time.perf_counter()-phase)*1000
+    if not user or not user.is_active:
+        if PERF_ENABLED: logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,(time.perf_counter()-started)*1000)
+        return err('Email or password is incorrect.',422)
+    phase=time.perf_counter()
+    login(request,user)
+    role=user_role(user)
+    request.session['active_role']='super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user'
+    request.session.set_expiry(60*60*24*30 if d.get('remember') else 60*60*2)
+    session_prepare_ms=(time.perf_counter()-phase)*1000
+    phase=time.perf_counter()
     out=user_dict(user,request.session); out['expiresAt']=request.session.get_expiry_date().isoformat()
+    user_dict_ms=(time.perf_counter()-phase)*1000
+    if PERF_ENABLED:
+        logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f session_prepare_ms=%.1f user_dict_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,session_prepare_ms,user_dict_ms,(time.perf_counter()-started)*1000)
     return JsonResponse({'user':out,'csrfToken':get_token(request)})
 
 @require_POST
@@ -132,6 +157,22 @@ def mcqs(request):
         return err('Invalid pagination values.',422)
     filters={k:request.GET.get(k) for k in ['status','category','paper','job','year','search'] if request.GET.get(k)}
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
+
+@require_GET
+@login_required_json
+def performance_health(request):
+    if not PERF_ENABLED or not is_super(request.user): return err('Not available.',404)
+    started=time.perf_counter(); db_started=time.perf_counter(); ok=True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+    except Exception:
+        ok=False
+    database_ms=(time.perf_counter()-db_started)*1000
+    data={'appMs':round((time.perf_counter()-started)*1000,1),'databaseMs':round(database_ms,1),'databaseOk':ok,**_db_diag()}
+    logger.info('performance_health app_ms=%.1f database_ms=%.1f database_ok=%s db_backend=%s db_host_type=%s db_port=%s',data['appMs'],data['databaseMs'],ok,data['db_backend'],data['db_host_type'],data['db_port'])
+    return JsonResponse(data)
 
 @profile_api('auth_switch_role')
 @require_POST
