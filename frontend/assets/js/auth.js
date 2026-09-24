@@ -4,6 +4,7 @@ window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
+ const loadedSections=new Set(),loadingSections=new Map();
 
  function initialRoute(){
   if(location.hash)return;
@@ -39,7 +40,7 @@ window.Auth=(()=>{
   return !permissions[section]||(user.permissions||[]).includes(permissions[section]);
  }
  function clearPrivateState(){
-  generation++; clearTimeout(expiryTimer); user=null; csrf=''; MCQ.clearSession();
+  generation++; clearTimeout(expiryTimer); user=null; csrf=''; loadedSections.clear();loadingSections.clear();MCQ.clearSession();
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
@@ -103,6 +104,39 @@ window.Auth=(()=>{
    if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
    return data;
   }finally{if(loading)backendLoading(false);}
+ }
+ async function ensureRouteData(path){
+  if(!user||!path)return;
+  const [workspace,section='overview']=String(path).split('?')[0].split('/');
+  if(!['admin','super-admin'].includes(workspace))return;
+  const wants=[];
+  if(section==='overview')wants.push('overview');
+  if(['users','admins','admin-records','settings'].includes(section))wants.push('users');
+  if(section==='reports')wants.push('reports');
+  if(section==='trash')wants.push('trash');
+  if(['posts','ads'].includes(section))wants.push('content');
+  for(const key of wants){
+   if(loadedSections.has(key))continue;
+   if(loadingSections.has(key)){await loadingSections.get(key);continue}
+   const task=(async()=>{
+    try{
+     const data=await request('/admin/'+key);
+     if(key==='overview')MCQ.db.adminOverview=data||{};
+     if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
+     if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
+     if(key==='trash')MCQ.db.trash=Array.isArray(data.items)?data.items:[];
+     if(key==='content'){
+      if(Array.isArray(data.posts))MCQ.db.posts=data.posts;
+      if(Array.isArray(data.guides))MCQ.db.guides=data.guides;
+      if(Array.isArray(data.ads))MCQ.db.ads=data.ads;
+     }
+     loadedSections.add(key);
+    }catch(error){
+     if(error?.message)console.warn('Lazy admin data unavailable:',key);
+    }finally{loadingSections.delete(key)}
+   })();
+   loadingSections.set(key,task);await task;
+  }
  }
  function setIdentity(identity){
   user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
@@ -327,6 +361,6 @@ window.Auth=(()=>{
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
- return {guard,view,start,logout,switchRole,request,command,destination,allowed,get user(){return user;}};
+ return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,get user(){return user;}};
 })();
 
