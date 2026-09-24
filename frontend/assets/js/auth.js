@@ -42,8 +42,8 @@ window.Auth=(()=>{
  }
  function clearPrivateState(){
   generation++; clearTimeout(expiryTimer); user=null; csrf='';
-  for(const key of [...loadedSections])if(!['core','public-content'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
-  for(const [key] of loadingSections)if(!['core','public-content'].includes(key))loadingSections.delete(key);
+  for(const key of [...loadedSections])if(!['core','public-content','resources'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  for(const [key] of loadingSections)if(!['core','public-content','resources'].includes(key))loadingSections.delete(key);
   MCQ.clearSession();
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
@@ -368,6 +368,7 @@ window.Auth=(()=>{
     const data=await request('/auth/switch-role',{role});
     csrf=data.csrfToken||csrf;
     setIdentity({...user,...data.user});
+    loadedSections.delete('overview');sectionLoadedAt.delete('overview');
     return data.user.activeRole;
    }finally{
     backendLoading(false);
