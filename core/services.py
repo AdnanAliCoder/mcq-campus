@@ -155,24 +155,16 @@ def snapshot(user):
     for aid in [a.mcq_id for a in own_attempts]:
         if aid not in recent: recent.append(aid)
         if len(recent)>=15: break
-    report_q=Report.objects.select_related('user','mcq') if (is_super(user) or has_perm(user,'view_reports')) else Report.objects.filter(user=user).select_related('user','mcq') if authenticated else Report.objects.none()
-    logs_q=AuditLog.objects.select_related('user').order_by('-created_at')
-    if not is_super(user): logs_q=logs_q.filter(user=user) if authenticated else logs_q.none()
-    users=[user_dict(x) for x in User.objects.select_related('profile').all().order_by('id')[:200]] if is_super(user) else ([user_dict(user)] if user_role(user)=='admin' else [])
-    guides_q=Guide.objects.all() if is_admin(user) else Guide.objects.filter(published=True)
-    posts_q=Post.objects.all() if is_admin(user) else Post.objects.filter(status='published')
+    guides_q=Guide.objects.filter(published=True)
+    posts_q=Post.objects.filter(status='published')
     now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
-    if is_super(user): ads_q=AdPlacement.objects.all().order_by('-priority','id')
     footer=site.get('footer') or {}; social=site.get('socialLinks') or {}; contact_cfg=site.get('contact') or {}; legal=site.get('legalPages') or {}; ad_cfg=site.get('adSettings') or {}; current=site.get('currentAffairsConfig') or {}
     role_root=settings.admin_permissions if isinstance(settings.admin_permissions,dict) else {}; perms=role_root.get('permissions') or {}
     data={
       'schemaVersion':8,'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],'mcqs':mcq_data['items'],'mcqPage':{k:mcq_data[k] for k in ['page','pageSize','total','hasNext']},
       'bookmarks':own_bookmarks,'savedPapers':own_saved,'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in own_attempts],'recent':recent,
-      'reports':[{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in report_q.order_by('-created_at')[:50]],
-      'contacts':[{'id':c.id,'name':c.name,'email':c.email,'message':c.message,'at':iso(c.created_at)} for c in ContactMessage.objects.order_by('-created_at')[:50]] if is_super(user) else [],
-      'logs':[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in logs_q[:50]],
-      'trash':[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in TrashRecord.objects.order_by('-deleted_at')[:50]] if is_super(user) else [],
-      'posts':[post(x) for x in posts_q.order_by('-updated_at')[:50]],'users':users,'guides':[guide(x) for x in guides_q.order_by('-updated_at')[:50]],
+      'reports':[],'contacts':[],'logs':[],'trash':[],
+      'posts':[post(x) for x in posts_q.order_by('-updated_at')[:50]],'users':[],'guides':[guide(x) for x in guides_q.order_by('-updated_at')[:50]],
       'pdfs':site.get('pdfs') or [],'tests':[],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,
       'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'mcqEntryCountry':site.get('mcqEntryCountry') or settings.country,'requireReview':True,'cleanRoutesEnabled':False,'analyticsEnabled':settings.analytics_enabled,'googleAnalyticsId':settings.google_analytics_id,'adsenseEnabled':settings.adsense_enabled,'adsenseClientId':settings.adsense_client_id,'footer':footer,'socialLinks':social,'contact':contact_cfg},
       'content':{'about':settings.about,'contact':settings.contact,'legalPages':legal},'seo':{'title':settings.seo_title,'description':settings.seo_description},
@@ -180,19 +172,60 @@ def snapshot(user):
       'ads':[_client_ad(x) for x in ads_q],
       'adSettings':{'enabled':ad_cfg.get('enabled',True),'adsenseClient':settings.adsense_client_id or ad_cfg.get('adsenseClient',''),'analyticsId':settings.google_analytics_id or ad_cfg.get('analyticsId',''),'slots':ad_cfg.get('slots') or {}},
     }
-    if is_super(user):
-      admins=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).annotate(
-        mcqs_created=Count('created_mcqs',distinct=True),
-        pending=Count('created_mcqs',filter=Q(created_mcqs__status='pending'),distinct=True),
-        approved=Count('created_mcqs',filter=Q(created_mcqs__status='approved'),distinct=True),
-        rejected=Count('created_mcqs',filter=Q(created_mcqs__status='rejected'),distinct=True),
-        reviewed=Count('reviewed_mcqs',distinct=True),
-        actions=Count('mcq_audit_logs',distinct=True),
-        last_activity=Max('mcq_audit_logs__created_at')
-      ).order_by('id')
-      data['adminPerformance']=[{'id':a.id,'name':user_name(a),'email':a.email,'role':user_role(a),'status':'active' if a.is_active else 'disabled','mcqs_created':a.mcqs_created,'pending':a.pending,'approved':a.approved,'rejected':a.rejected,'reviewed':a.reviewed,'actions':a.actions,'last_activity':iso(a.last_activity)} for a in admins]
-    else: data['adminPerformance']=[]
+    data['adminPerformance']=[]
+    data['adminOverview']={}
     return data
+
+def admin_overview_data(user):
+    require(is_admin(user))
+    qs=visible_mcqs(user)
+    counts=qs.aggregate(
+        total=Count('id'),
+        pending=Count('id',filter=Q(status='pending')),
+        approved=Count('id',filter=Q(status='approved')),
+        rejected=Count('id',filter=Q(status='rejected')),
+    )
+    data={'mcqs':counts,'openReports':0,'staff':0,'learners':0,'trash':0}
+    if is_super(user):
+        data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
+        people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
+        data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
+    elif has_perm(user,'view_reports'):
+        data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
+    return data
+
+def admin_users_data(user,page=1,page_size=50):
+    require(is_super(user) or has_perm(user,'manage_users') or has_perm(user,'manage_admins'))
+    page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    qs=User.objects.select_related('profile').order_by('id')
+    total=qs.count(); start=(page-1)*page_size
+    return {'items':[user_dict(x) for x in qs[start:start+page_size]],'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
+
+def admin_reports_data(user,page=1,page_size=50):
+    require(is_super(user) or has_perm(user,'view_reports'))
+    page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    qs=Report.objects.select_related('user','mcq').order_by('-created_at')
+    total=qs.count(); start=(page-1)*page_size
+    reports=[{'id':r.id,'mcq_id':r.mcq_id,'question':r.mcq.question if r.mcq else '','reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in qs[start:start+page_size]]
+    contacts=[]
+    if is_super(user) and page==1:
+        contacts=[{'id':x.id,'name':x.name,'email':x.email,'message':x.message,'at':iso(x.created_at)} for x in ContactMessage.objects.order_by('-created_at')[:50]]
+    return {'items':reports,'contacts':contacts,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
+
+def admin_trash_data(user,page=1,page_size=50):
+    require(is_super(user))
+    page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    qs=TrashRecord.objects.select_related('deleted_by').order_by('-deleted_at')
+    total=qs.count(); start=(page-1)*page_size
+    items=[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in qs[start:start+page_size]]
+    return {'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
+
+def admin_content_data(user):
+    require(is_admin(user))
+    posts_q=Post.objects.all() if has_perm(user,'manage_posts') or is_super(user) else Post.objects.filter(status='published')
+    guides_q=Guide.objects.all() if has_perm(user,'manage_guides') or is_super(user) else Guide.objects.filter(published=True)
+    ads_q=AdPlacement.objects.all().order_by('-priority','id') if has_perm(user,'manage_ads') or is_super(user) else AdPlacement.objects.none()
+    return {'posts':[post(x) for x in posts_q.order_by('-updated_at')[:100]],'guides':[guide(x) for x in guides_q.order_by('-updated_at')[:100]],'ads':[_client_ad(x) for x in ads_q[:100]]}
 
 def parse_fields(payload):
     return {k:v for k,v in payload.get('fields',[])}, payload.get('values') or {}, payload.get('context') or {}, payload.get('draft') or {}
