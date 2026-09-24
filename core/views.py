@@ -18,7 +18,7 @@ from .services import (
 )
 
 logger=logging.getLogger('mcqcampus.performance')
-PERF_ENABLED=bool(settings.DEBUG or getattr(settings,'PERFORMANCE_LOGGING',False))
+def perf_enabled(): return bool(settings.DEBUG or getattr(settings,'PERFORMANCE_LOGGING',False))
 
 def _db_diag():
     cfg=connection.settings_dict
@@ -31,7 +31,7 @@ def _db_diag():
 def profile_api(name):
     def decorate(fn):
         def wrapped(request,*args,**kwargs):
-            if not PERF_ENABLED: return fn(request,*args,**kwargs)
+            if not perf_enabled(): return fn(request,*args,**kwargs)
             start=time.perf_counter(); before=len(connection.queries)
             response=fn(request,*args,**kwargs)
             elapsed=(time.perf_counter()-start)*1000
@@ -74,7 +74,7 @@ def auth_login(request):
     user=authenticate(request,username=login_name,password=password)
     authenticate_ms=(time.perf_counter()-phase)*1000
     if not user or not user.is_active:
-        if PERF_ENABLED: logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,(time.perf_counter()-started)*1000)
+        if perf_enabled(): logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,(time.perf_counter()-started)*1000)
         return err('Email or password is incorrect.',422)
     phase=time.perf_counter()
     login(request,user)
@@ -85,7 +85,7 @@ def auth_login(request):
     phase=time.perf_counter()
     out=user_dict(user,request.session); out['expiresAt']=request.session.get_expiry_date().isoformat()
     user_dict_ms=(time.perf_counter()-phase)*1000
-    if PERF_ENABLED:
+    if perf_enabled():
         logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f session_prepare_ms=%.1f user_dict_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,session_prepare_ms,user_dict_ms,(time.perf_counter()-started)*1000)
     return JsonResponse({'user':out,'csrfToken':get_token(request)})
 
@@ -164,7 +164,7 @@ def mcqs(request):
 @require_GET
 @login_required_json
 def performance_health(request):
-    if not PERF_ENABLED or not is_super(request.user): return err('Not available.',404)
+    if not perf_enabled() or not is_super(request.user): return err('Not available.',404)
     started=time.perf_counter(); db_started=time.perf_counter(); ok=True
     try:
         with connection.cursor() as cursor:
