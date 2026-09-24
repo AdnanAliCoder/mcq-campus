@@ -96,6 +96,15 @@ class IntegrationTests(TestCase):
         self.assertTrue(data['success'])
         self.assertTrue(data['result'])
 
+    def test_delete_entity_keeps_recovery_behavior(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        doomed=Category.objects.create(id=999,name='Delete Me',icon='grid')
+        MCQ.objects.create(id=999,question='Delete-linked?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=doomed,status='approved',created_by=self.owner,submitted_by=self.owner)
+        response=self.post_json('/api/commands',{'action':'action:entity-delete-confirm','payload':{'type':'categories','id':'999'}})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(Category.objects.filter(pk=999).exists())
+        self.assertFalse(MCQ.objects.filter(pk=999).exists())
+
     def test_category_and_paper_create_return_entities(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         category_payload={'action':'form:entity','payload':{'fields':[['entity-active','on']], 'values':{'entity-name':'Networks','entity-icon':'grid','entity-country':'Pakistan'}, 'context':{'type':'categories'}}}

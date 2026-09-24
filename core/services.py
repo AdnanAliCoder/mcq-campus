@@ -1,7 +1,7 @@
 import hashlib, json, re, secrets
 from datetime import datetime, timedelta
-from django.db import transaction
-from django.db.models import Count, Q, Max
+from django.db import connection, transaction
+from django.db.models import Count, Q, Max, Window
 from django.utils import timezone
 from django.utils.text import slugify
 from .models import *
@@ -70,8 +70,27 @@ def _entity_impact(typ,rid):
     elif typ=='papers':
         sets['jobs'].update(Job.objects.filter(paper_id=rid).values_list('id',flat=True)); sets['years'].update(JobYear.objects.filter(job_id__in=sets['jobs']).values_list('id',flat=True))
     elif typ=='jobs': sets['years'].update(JobYear.objects.filter(job_id=rid).values_list('id',flat=True))
+
+    # Production uses PostgreSQL/Supabase. Keep relationship matching in SQL there so
+    # deleting one taxonomy record never downloads/scans the entire MCQ table in Python.
+    if connection.vendor=='postgresql':
+        linked=Q()
+        if sets['categories']: linked|=Q(category_id__in=sets['categories'])
+        for field,key in [('subcategory_ids','subcategories'),('child_subcategory_ids','children'),('paper_ids','papers'),('job_ids','jobs'),('job_year_ids','years')]:
+            for value in sets[key]: linked|=Q(**{field+'__contains':[int(value)]})
+        matched=list(MCQ.objects.filter(linked).only(
+            'id','question','option1','option2','option3','option4','correct_answer','description','category_id',
+            'subcategory_ids','child_subcategory_ids','paper_ids','job_ids','job_year_ids','country','status',
+            'important','source','seo_description','rejection_reason','submission_type','pending_update','audit_history'
+        )) if linked.children else []
+        return sets,matched
+
+    # SQLite does not support JSONField contains lookups. This compatibility path is
+    # only for local/tests; restrict selected columns so even the fallback stays light.
     matched=[]
-    for q in MCQ.objects.all():
+    for q in MCQ.objects.only('id','category_id','subcategory_ids','child_subcategory_ids','paper_ids','job_ids','job_year_ids',
+                              'question','option1','option2','option3','option4','correct_answer','description','country','status',
+                              'important','source','seo_description','rejection_reason','submission_type','pending_update','audit_history'):
         linked=(q.category_id in sets['categories'] or bool(set(q.subcategory_ids or []) & sets['subcategories']) or bool(set(q.child_subcategory_ids or []) & sets['children']) or bool(set(q.paper_ids or []) & sets['papers']) or bool(set(q.job_ids or []) & sets['jobs']) or bool(set(q.job_year_ids or []) & sets['years']))
         if linked: matched.append(q)
     return sets,matched
@@ -91,7 +110,9 @@ def _serialize_mcq(x):
 def _delete_entity(user,typ,rid):
     require(is_super(user),'Only the Super Admin can permanently move taxonomy records to recovery.')
     model=ENTITY_MODELS.get(typ); require(model is not None,'Invalid entity.')
-    root=model.objects.get(pk=int(rid)); sets,mcqs=_entity_impact(typ,int(rid)); entities={}
+    root=model.objects.filter(pk=int(rid)).first()
+    if root is None: return None
+    sets,mcqs=_entity_impact(typ,int(rid)); entities={}
     for t,ids in sets.items(): entities[t]=[_serialize_entity(t,x) for x in ENTITY_MODELS[t].objects.filter(pk__in=ids)]
     mcq_rows=[_serialize_mcq(x) for x in mcqs]
     MCQ.objects.filter(pk__in=[x.id for x in mcqs]).delete()
@@ -185,9 +206,11 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         if filters.get(key):
             try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
             except (TypeError,ValueError): pass
-    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
-    total=qs.count(); start=(page-1)*page_size
-    rows=[mcq_list(x) for x in qs[start:start+page_size]]
+    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
+    start=(page-1)*page_size
+    objects=list(qs[start:start+page_size])
+    total=int(objects[0]._page_total) if objects else (qs.count() if page>1 else 0)
+    rows=[mcq_list(x) for x in objects]
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
 
 def snapshot(user):
@@ -197,9 +220,10 @@ def snapshot(user):
     papers=list(Paper.objects.select_related('created_by','updated_by').all().order_by('id'))
     jobs=list(Job.objects.select_related('created_by','updated_by').all().order_by('id'))
     years=list(JobYear.objects.select_related('created_by','updated_by').all().order_by('id'))
-    qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
-    total=qs.count()
-    rows=[mcq_list(x) for x in qs[:20]]
+    qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
+    objects=list(qs[:20])
+    total=int(objects[0]._page_total) if objects else 0
+    rows=[mcq_list(x) for x in objects]
     return {
       'schemaVersion':9,
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
@@ -528,7 +552,7 @@ def command(user,action,payload):
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
-            if rid and ENTITY_MODELS.get(typ) and ENTITY_MODELS[typ].objects.filter(pk=int(rid)).exists(): _delete_entity(user,typ,int(rid)); count+=1
+            if rid and ENTITY_MODELS.get(typ) and _delete_entity(user,typ,int(rid)) is not None: count+=1
         return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
     if action in {'action:trash-restore','action:restore-trash'}: return _restore_trash(user,TrashRecord.objects.get(pk=int(payload.get('id'))))
     if action=='action:import-confirm':
