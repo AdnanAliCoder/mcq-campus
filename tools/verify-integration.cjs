@@ -24,18 +24,19 @@ test('Final frontend and backend adapter load in the required order',()=>{
  assert(!html.includes('demo-adapter.js'));
 });
 
-test('Backend loader uses the supplied WebM in a top-layer dialog',()=>{
+test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
- assert(html.includes('assets/images/Loading.webm'));
+ assert(html.includes('class="app-loader-spinner"'));
+ assert(!html.includes('Loading.webm'));
  const loader=path.join(frontend,'assets/images/Loading.webm');
- assert(fs.existsSync(loader),'loader video missing');
- assert(fs.statSync(loader).size>100000,'loader video is empty or a placeholder');
+ assert(!fs.existsSync(loader),'video loader should be removed');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
- assert(css.includes('.backend-loader'));
- assert(html.includes('<dialog id="backend-loader"'));
- assert(css.includes('backdrop-filter:blur(7px)'));
- assert(!css.includes('transform:scale(.975)'));
- assert(!html.includes('Loading MCQ Campus…'));
+ assert(css.includes('.app-loader-spinner'));
+ assert(css.includes('.button-loader-spinner'));
+ assert(css.includes('@keyframes app-loader-spin'));
+ assert(css.includes('position:fixed'));
+ assert(css.includes('backdrop-filter:blur(5px)'));
+ assert(!css.includes('#backend-loader video'));
 });
 
 const service=fs.readFileSync(path.join(frontend,'assets/js/service.js'),'utf8');
@@ -45,7 +46,10 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("credentials:'same-origin'"));
  assert(auth.includes("'/bootstrap'"));
  assert(auth.includes("'/commands'"));
- assert(auth.includes('backendLoading(true)'));
+ assert(auth.includes("{loading=false}"));
+ assert(auth.includes("request('/auth/session',undefined,{loading:true})"));
+ assert(auth.includes('setButtonLoading'));
+ assert(auth.includes("action==='action:import-confirm'"));
 });
 
 test('No demo data/adapters or Render configuration are packaged',()=>{
