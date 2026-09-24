@@ -16,6 +16,7 @@ TRACKED={
     '/api/admin/users':'admin_users',
     '/api/admin/reports':'admin_reports',
     '/api/admin/trash':'admin_trash',
+    '/api/admin/logs':'admin_logs',
     '/api/admin/content':'admin_content',
 }
 
