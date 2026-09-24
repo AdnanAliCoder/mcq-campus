@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict
 from .services import (
-    snapshot, startup_payload, public_content_data, public_resources_data, command, create_token, consume_token, mcq_page,
+    snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data,
 )
 
@@ -174,6 +174,16 @@ def public_content(request):
 @require_GET
 def public_resources(request):
     return JsonResponse(public_resources_data())
+
+@profile_api('public_catalog')
+@require_GET
+def public_catalog(request):
+    return JsonResponse(public_catalog_data())
+
+@profile_api('public_legal')
+@require_GET
+def public_legal(request):
+    return JsonResponse(public_legal_data())
 
 @profile_api('profile_detail')
 @require_GET
