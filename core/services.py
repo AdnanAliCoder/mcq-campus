@@ -232,6 +232,15 @@ def admin_trash_data(user,page=1,page_size=50):
     items=[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in qs[start:start+page_size]]
     return {'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
 
+def admin_logs_data(user,page=1,page_size=50):
+    require(is_super(user) or has_perm(user,'view_logs'))
+    page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    qs=AuditLog.objects.select_related('user').order_by('-created_at')
+    if not is_super(user): qs=qs.filter(user=user)
+    total=qs.count(); start=(page-1)*page_size
+    items=[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in qs[start:start+page_size]]
+    return {'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
+
 def admin_content_data(user):
     require(is_admin(user))
     posts_q=Post.objects.all() if has_perm(user,'manage_posts') or is_super(user) else Post.objects.filter(status='published')
