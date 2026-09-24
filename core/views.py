@@ -223,7 +223,7 @@ def auth_verify(request):
     u=User.objects.filter(email__iexact=email,is_active=True).first()
     if not u: _record_rate('verify',ids); return err('Invalid or expired verification code.',422)
     prof=profile_for(u)
-    if prof.email_verified: return JsonResponse({'completed':True,'message':'Email is already verified. You can sign in.'})
+    if prof.email_verified: return err('Verification is already complete.',422)
     verified=consume_token(u,d.get('code'),'verify',getattr(settings,'EMAIL_VERIFICATION_MAX_ATTEMPTS',5))
     if not verified: _record_rate('verify',ids); return err('Invalid or expired verification code.',422)
     prof.email_verified=True; prof.save(update_fields=['email_verified'])
@@ -237,12 +237,12 @@ def auth_resend_verification(request):
     except ValueError: return JsonResponse(generic)
     ids=[f'email:{email}',f'ip:{_client_ip(request)}']
     if _rate_limited('resend',ids,5,60*60): return JsonResponse(generic)
+    _record_rate('resend',ids)
     u=User.objects.filter(email__iexact=email,is_active=True,profile__email_verified=False).first()
     if u:
         cooldown=getattr(settings,'EMAIL_VERIFICATION_RESEND_SECONDS',60)
         latest=OneTimeToken.objects.filter(user=u,purpose='verify').order_by('-created_at').first()
         if latest and (timezone.now()-latest.created_at).total_seconds()<cooldown: return JsonResponse(generic)
-        _record_rate('resend',ids)
         code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
         _send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
     return JsonResponse(generic)
