@@ -164,6 +164,18 @@ class IntegrationTests(TestCase):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         self.assertEqual(self.client.get('/api/health/performance').status_code,404)
 
+    def test_learner_dashboard_is_focused_and_authenticated(self):
+        self.assertEqual(self.client.get('/api/learner/dashboard').status_code,401)
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        data=self.client.get('/api/learner/dashboard').json()
+        self.assertIn('attempts',data)
+        self.assertIn('bookmarks',data)
+        self.assertIn('savedPapers',data)
+        self.assertIn('user',data)
+        self.assertNotIn('users',data)
+        self.assertNotIn('logs',data)
+        self.assertNotIn('trash',data)
+
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
         self.assertEqual(self.post_json('/api/report',{'id':self.approved.id,'reason':'Check wording.'}).status_code,200)
