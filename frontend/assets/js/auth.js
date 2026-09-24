@@ -116,15 +116,16 @@ window.Auth=(()=>{
   if(checking)return checking;
   const own=generation;
   checking=(async()=>{
+   backendLoading(true);
    try{
-    const session=await request('/auth/session',undefined,{loading:true});
+    const session=await request('/auth/session');
     if(own!==generation)return;
     csrf=session.csrfToken||'';
     const snapshot=await request('/bootstrap');
     if(own===generation)hydrate(snapshot,session.user||null);
    }catch{
     if(own===generation){clearPrivateState();try{const snapshot=await request('/bootstrap');hydrate(snapshot,null);}catch{}}
-   }finally{ready=true;checking=null;}
+   }finally{backendLoading(false);ready=true;checking=null;}
   })();
   return checking;
  }
