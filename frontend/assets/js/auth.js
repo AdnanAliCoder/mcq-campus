@@ -42,8 +42,8 @@ window.Auth=(()=>{
  }
  function clearPrivateState(){
   generation++; clearTimeout(expiryTimer); user=null; csrf='';
-  for(const key of [...loadedSections])if(!['core','public-content','resources'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
-  for(const [key] of loadingSections)if(!['core','public-content','resources'].includes(key))loadingSections.delete(key);
+  for(const key of [...loadedSections])if(!['core','public-content','resources','catalog','legal'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  for(const [key] of loadingSections)if(!['core','public-content','resources','catalog','legal'].includes(key))loadingSections.delete(key);
   MCQ.clearSession();
   if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
@@ -114,6 +114,8 @@ window.Auth=(()=>{
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',wants=[];
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
+  if(['pdfs','latest-jobs'].includes(workspace))wants.push('catalog');
+  if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
    if(workspace==='profile'||section==='settings')wants.push('profile');
@@ -126,7 +128,9 @@ window.Auth=(()=>{
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
    if(['posts','guides','ads'].includes(section))wants.push('content');
-   if(['settings','content','seo','roles','pdfs','latest-jobs','current-affairs','footer','legal','social','ads'].includes(section))wants.push('resources');
+   if(['settings','content','seo','roles','footer','social','ads'].includes(section))wants.push('resources');
+   if(['pdfs','latest-jobs','current-affairs'].includes(section))wants.push('catalog');
+   if(['content','legal'].includes(section))wants.push('legal');
   }
   let changed=false;
   const load=async key=>{
@@ -139,14 +143,18 @@ window.Auth=(()=>{
      if(key==='core')endpoint='/bootstrap';
      else if(key==='public-content')endpoint='/public/content';
      else if(key==='resources')endpoint='/public/resources';
+     else if(key==='catalog')endpoint='/public/catalog';
+     else if(key==='legal')endpoint='/public/legal';
      else if(key==='learner')endpoint='/learner/dashboard';
      else if(key==='profile')endpoint='/profile';
      else if(key==='workspace-mcqs')endpoint='/mcqs?page_size=50';
      const own=generation,data=await request(endpoint);
-     if(!['core','public-content','resources'].includes(key)&&own!==generation)return;
+     if(!['core','public-content','resources','catalog','legal'].includes(key)&&own!==generation)return;
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
      if(key==='resources')MCQ.mergeCore(data);
+     if(key==='catalog')MCQ.mergeCore(data);
+     if(key==='legal')MCQ.mergeCore(data);
      if(key==='learner'){
       if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
       if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
