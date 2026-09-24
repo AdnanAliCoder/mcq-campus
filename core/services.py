@@ -176,6 +176,18 @@ def snapshot(user):
     data['adminOverview']={}
     return data
 
+def learner_dashboard_data(user):
+    require(bool(user and getattr(user,'is_authenticated',False)))
+    attempts=list(Attempt.objects.filter(user=user).order_by('-created_at')[:100])
+    bookmarks=list(Bookmark.objects.filter(user=user).values_list('mcq_id',flat=True))
+    saved=list(SavedPaper.objects.filter(user=user).values_list('paper_id',flat=True))
+    return {
+        'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in attempts],
+        'bookmarks':bookmarks,
+        'savedPapers':saved,
+        'user':user_dict(user),
+    }
+
 def admin_overview_data(user):
     require(is_admin(user))
     qs=visible_mcqs(user)
