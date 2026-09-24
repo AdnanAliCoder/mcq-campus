@@ -17,11 +17,11 @@ class PerformanceTimingMiddleware:
     """Optional safe request timing around SessionMiddleware/AuthMiddleware too."""
     def __init__(self,get_response):
         self.get_response=get_response
-        self.enabled=bool(settings.DEBUG or getattr(settings,'PERFORMANCE_LOGGING',False))
 
     def __call__(self,request):
         name=TRACKED.get(request.path)
-        if not self.enabled or not name:
+        enabled=bool(settings.DEBUG or getattr(settings,'PERFORMANCE_LOGGING',False))
+        if not enabled or not name:
             return self.get_response(request)
         started=time.perf_counter()
         before=len(connection.queries)
