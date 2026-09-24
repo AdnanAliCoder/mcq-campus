@@ -120,6 +120,32 @@ def _restore_trash(user,tr):
     name=tr.name; kind=tr.kind; tr.delete(); log(user,'Recovered '+kind,name); return True
 
 
+def _client_site_state(settings):
+    site=_site_blob(settings)
+    footer=site.get('footer') or {}; social=site.get('socialLinks') or {}; contact_cfg=site.get('contact') or {}; legal=site.get('legalPages') or {}; ad_cfg=site.get('adSettings') or {}; current=site.get('currentAffairsConfig') or {}
+    role_root=settings.admin_permissions if isinstance(settings.admin_permissions,dict) else {}; perms=role_root.get('permissions') or {}
+    return {
+      'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'mcqEntryCountry':site.get('mcqEntryCountry') or settings.country,'requireReview':True,'cleanRoutesEnabled':False,'analyticsEnabled':settings.analytics_enabled,'googleAnalyticsId':settings.google_analytics_id,'adsenseEnabled':settings.adsense_enabled,'adsenseClientId':settings.adsense_client_id,'footer':footer,'socialLinks':social,'contact':contact_cfg},
+      'content':{'about':settings.about,'contact':settings.contact,'legalPages':legal},
+      'seo':{'title':settings.seo_title,'description':settings.seo_description},
+      'rolePermissions':{'admin':{'review':bool(role_root.get('review',False)),'import':bool(role_root.get('import',False)),'permissions':perms}},
+      'adSettings':{'enabled':ad_cfg.get('enabled',True),'adsenseClient':settings.adsense_client_id or ad_cfg.get('adsenseClient',''),'analyticsId':settings.google_analytics_id or ad_cfg.get('analyticsId',''),'slots':ad_cfg.get('slots') or {}},
+      'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,
+    }
+
+def startup_payload(user,session):
+    settings=SiteSetting.get_solo()
+    return {'snapshot':{'schemaVersion':9,**_client_site_state(settings)},'user':user_identity_dict(user,session) if user and getattr(user,'is_authenticated',False) else None}
+
+def public_content_data():
+    now=timezone.now()
+    ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
+    return {
+      'posts':[post(x) for x in Post.objects.filter(status='published').order_by('-updated_at')[:50]],
+      'guides':[guide(x) for x in Guide.objects.filter(published=True).order_by('-updated_at')[:50]],
+      'ads':[_client_ad(x) for x in ads_q[:50]],
+    }
+
 def visible_mcqs(user):
     if is_super(user): return MCQ.objects.all()
     if user_role(user)=='admin': return MCQ.objects.filter(Q(status='approved')|Q(created_by=user)|Q(submitted_by=user)).distinct()
@@ -144,37 +170,25 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
 
 def snapshot(user):
-    authenticated=bool(user and getattr(user,'is_authenticated',False))
-    settings=SiteSetting.get_solo(); site=_site_blob(settings)
-    cats=list(Category.objects.all().order_by('id')); subs=list(Subcategory.objects.all().order_by('id')); childs=list(ChildCategory.objects.all().order_by('id')); papers=list(Paper.objects.all().order_by('id')); jobs=list(Job.objects.all().order_by('id')); years=list(JobYear.objects.all().order_by('id'))
-    mcq_data=mcq_page(user,1,50 if authenticated else 20)
-    own_attempts=list(Attempt.objects.filter(user=user).select_related('mcq').order_by('-created_at')[:100]) if authenticated else []
-    own_bookmarks=list(Bookmark.objects.filter(user=user).values_list('mcq_id',flat=True)) if authenticated else []
-    own_saved=list(SavedPaper.objects.filter(user=user).values_list('paper_id',flat=True)) if authenticated else []
-    recent=[]
-    for aid in [a.mcq_id for a in own_attempts]:
-        if aid not in recent: recent.append(aid)
-        if len(recent)>=15: break
-    guides_q=Guide.objects.filter(published=True)
-    posts_q=Post.objects.filter(status='published')
-    now=timezone.now(); ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
-    footer=site.get('footer') or {}; social=site.get('socialLinks') or {}; contact_cfg=site.get('contact') or {}; legal=site.get('legalPages') or {}; ad_cfg=site.get('adSettings') or {}; current=site.get('currentAffairsConfig') or {}
-    role_root=settings.admin_permissions if isinstance(settings.admin_permissions,dict) else {}; perms=role_root.get('permissions') or {}
-    data={
-      'schemaVersion':8,'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],'mcqs':mcq_data['items'],'mcqPage':{k:mcq_data[k] for k in ['page','pageSize','total','hasNext']},
-      'bookmarks':own_bookmarks,'savedPapers':own_saved,'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in own_attempts],'recent':recent,
-      'reports':[],'contacts':[],'logs':[],'trash':[],
-      'posts':[post(x) for x in posts_q.order_by('-updated_at')[:50]],'users':[],'guides':[guide(x) for x in guides_q.order_by('-updated_at')[:50]],
-      'pdfs':site.get('pdfs') or [],'tests':[],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,
-      'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'mcqEntryCountry':site.get('mcqEntryCountry') or settings.country,'requireReview':True,'cleanRoutesEnabled':False,'analyticsEnabled':settings.analytics_enabled,'googleAnalyticsId':settings.google_analytics_id,'adsenseEnabled':settings.adsense_enabled,'adsenseClientId':settings.adsense_client_id,'footer':footer,'socialLinks':social,'contact':contact_cfg},
-      'content':{'about':settings.about,'contact':settings.contact,'legalPages':legal},'seo':{'title':settings.seo_title,'description':settings.seo_description},
-      'rolePermissions':{'admin':{'review':bool(role_root.get('review',False)),'import':bool(role_root.get('import',False)),'permissions':perms}},
-      'ads':[_client_ad(x) for x in ads_q],
-      'adSettings':{'enabled':ad_cfg.get('enabled',True),'adsenseClient':settings.adsense_client_id or ad_cfg.get('adsenseClient',''),'analyticsId':settings.google_analytics_id or ad_cfg.get('analyticsId',''),'slots':ad_cfg.get('slots') or {}},
+    settings=SiteSetting.get_solo()
+    cats=list(Category.objects.select_related('created_by','updated_by').all().order_by('id'))
+    subs=list(Subcategory.objects.select_related('created_by','updated_by').all().order_by('id'))
+    childs=list(ChildCategory.objects.select_related('created_by','updated_by').all().order_by('id'))
+    papers=list(Paper.objects.select_related('created_by','updated_by').all().order_by('id'))
+    jobs=list(Job.objects.select_related('created_by','updated_by').all().order_by('id'))
+    years=list(JobYear.objects.select_related('created_by','updated_by').all().order_by('id'))
+    qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
+    total=qs.count()
+    rows=[mcq_list(x) for x in qs[:20]]
+    return {
+      'schemaVersion':9,
+      'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
+      'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
+      'mcqs':rows,'mcqPage':{'page':1,'pageSize':20,'total':total,'hasNext':len(rows)<total},
+      'bookmarks':[],'savedPapers':[],'attempts':[],'recent':[],'reports':[],'contacts':[],'logs':[],'trash':[],
+      'posts':[],'users':[],'guides':[],'ads':[],'adminPerformance':[],'adminOverview':{},'tests':[],
+      **_client_site_state(settings),
     }
-    data['adminPerformance']=[]
-    data['adminOverview']={}
-    return data
 
 def learner_dashboard_data(user):
     require(bool(user and getattr(user,'is_authenticated',False)))
@@ -185,7 +199,6 @@ def learner_dashboard_data(user):
         'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in attempts],
         'bookmarks':bookmarks,
         'savedPapers':saved,
-        'user':user_dict(user),
     }
 
 def admin_overview_data(user):
@@ -451,7 +464,7 @@ def command(user,action,payload):
     if action=='report':
         qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.'); r=Report.objects.create(user=user,mcq=MCQ.objects.get(pk=qid),reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
     if action=='saveProfile':
-        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_dict(user)
+        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
     if action=='changePassword':
         vals=(payload.get('args') or [{}])[0] or {}; require(user.check_password(vals.get('current_password','')),'Current password is incorrect.'); new=vals.get('new_password',''); require(len(new)>=8 and new==vals.get('confirm_password'),'New passwords do not match or are too short.'); user.set_password(new); user.save(); return True
     if action=='form:mcq':
