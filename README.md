@@ -75,4 +75,4 @@ If `DATABASE_URL` is omitted locally, Django uses SQLite for development/testing
 
 Deploy the **project root** — the folder containing `manage.py` and `vercel.json`. With Git integration, push this folder to the repository/branch connected to Vercel. Keep the Supabase connection string and Django secret only in Vercel Environment Variables.
 
-The included `build.sh` is a generic Django build helper and contains no Render-specific logic. The Vercel configuration itself is kept in `vercel.json`.
+The current deployment configuration is `vercel.json`; no Render/Railway application-server configuration is required.
