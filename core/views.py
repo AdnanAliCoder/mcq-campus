@@ -224,7 +224,7 @@ def learner_dashboard(request):
 @require_GET
 @login_required_json
 def admin_overview(request):
-    try: return JsonResponse(admin_overview_data(request.user))
+    try: return JsonResponse(admin_overview_data(request.user,request.session.get('active_role')))
     except PermissionError as e: return err(e,403)
 
 @profile_api('admin_users')
