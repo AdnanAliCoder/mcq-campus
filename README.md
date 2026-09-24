@@ -40,6 +40,17 @@ For Vercel, use Supabase **Connect → Transaction pooler** (`:6543`) rather tha
 
 For email-based verification/password reset, configure the optional email variables shown in `.env.example`.
 
+
+## Performance diagnostics
+
+For temporary performance investigation, set `PERFORMANCE_LOGGING=true` in the relevant Vercel environment and redeploy. The application then logs only endpoint names, elapsed milliseconds, query counts when Django exposes them, response byte sizes, and safe login phase durations. It does **not** log passwords, cookies, CSRF/session tokens, request form values, `DATABASE_URL`, or database credentials.
+
+A Super Admin can use `GET /api/health/performance` while diagnostics are enabled to measure a simple `SELECT 1` round trip. Its response exposes only app/database milliseconds plus a coarse database backend/connection classification such as `postgresql / pooler / 6543`; it never exposes the database hostname, username, password, or connection URL.
+
+Use Supabase **Transaction Pooler** for Vercel serverless and verify the production `DATABASE_URL` in Vercel uses the pooler connection (normally port **6543**). The repository intentionally does not read or print the secret value. Keep `conn_max_age=0` and `prepare_threshold=None` for transaction-pooler compatibility.
+
+When diagnosing latency, compare the first request after inactivity with two immediate warm requests for `/api/auth/session`, login, role switch, logout, `form:entity`, bootstrap, and the paginated MCQ endpoint. This separates Vercel cold-start latency from persistent database/network latency.
+
 ## Existing Super Admin login
 
 The login form authenticates against Django's database-backed user table using the account email as the username. **No demo account is created by this package.** If your Supabase database already contains the Super Admin account and its password hash, use those existing credentials.
