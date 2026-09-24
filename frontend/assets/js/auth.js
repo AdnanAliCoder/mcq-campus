@@ -76,7 +76,7 @@ window.Auth=(()=>{
   button.disabled=true;
   button.setAttribute('aria-busy','true');
   if(width)button.style.minWidth=Math.ceil(width)+'px';
-  button.innerHTML='<span class="button-loader-spinner" aria-hidden="true"></span><span>'+label+'</span>';
+  button.innerHTML='<span class="mcq-spinner button-loader-spinner button-spinner" aria-hidden="true"></span><span>'+label+'</span>';
   return ()=>{
    button.innerHTML=original.html;
    button.disabled=original.disabled;
@@ -222,8 +222,45 @@ window.Auth=(()=>{
   finally{restoreButton();}
  },true);
 
- async function switchRole(role){const data=await request('/auth/switch-role',{role});csrf=data.csrfToken||csrf;hydrate(data.snapshot,data.user);return data.user.activeRole;}
- async function logout(){try{await request('/auth/logout',{});}catch{}clearPrivateState();ready=false;await check();location.hash='#/login';App.render();}
+ let majorTransition=null;
+ async function switchRole(role){
+  if(majorTransition)return majorTransition;
+  if(!user?.roles?.includes(role))throw Error('This account does not have that workspace.');
+  if(user.activeRole===role)return role;
+  UI.closeDropdowns();
+  backendLoading(true);
+  majorTransition=(async()=>{
+   try{
+    const data=await request('/auth/switch-role',{role});
+    csrf=data.csrfToken||csrf;
+    hydrate(data.snapshot,data.user);
+    return data.user.activeRole;
+   }finally{
+    backendLoading(false);
+    majorTransition=null;
+   }
+  })();
+  return majorTransition;
+ }
+ async function logout(){
+  if(majorTransition)return majorTransition;
+  UI.closeDropdowns();
+  backendLoading(true);
+  majorTransition=(async()=>{
+   try{
+    try{await request('/auth/logout',{});}catch{}
+    clearPrivateState();
+    ready=false;
+    await check();
+    location.hash='#/login';
+    App.render();
+   }finally{
+    backendLoading(false);
+    majorTransition=null;
+   }
+  })();
+  return majorTransition;
+ }
  async function start(){await check();App.render();}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user){ready=false;App.render();check().then(()=>App.render());}});
  window.addEventListener('pageshow',event=>{if(event.persisted){ready=false;check().then(()=>App.render());}});
