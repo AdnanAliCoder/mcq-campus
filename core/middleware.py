@@ -4,7 +4,10 @@ from django.db import connection
 
 logger=logging.getLogger('mcqcampus.performance')
 TRACKED={
+    '/api/startup':'startup',
     '/api/auth/session':'auth_session',
+    '/api/profile':'profile_detail',
+    '/api/public/content':'public_content',
     '/api/auth/login':'auth_login',
     '/api/auth/switch-role':'auth_switch_role',
     '/api/auth/logout':'auth_logout',
