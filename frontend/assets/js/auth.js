@@ -112,9 +112,8 @@ window.Auth=(()=>{
  async function ensureRouteData(path){
   if(!path)return false;
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',wants=[];
-  if(!authRoutes.has(workspace))wants.push('core');
+  if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
-  if(['home','search','pdfs','latest-jobs','about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('resources');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
    if(workspace==='profile'||section==='settings')wants.push('profile');
