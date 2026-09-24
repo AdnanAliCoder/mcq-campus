@@ -69,6 +69,54 @@ class IntegrationTests(TestCase):
         self.assertEqual(switched.json()['user']['activeRole'],'user')
         self.assertIn('super-admin',switched.json()['user']['roles'])
 
+    def test_switch_role_response_is_small_and_has_no_snapshot(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        response=self.post_json('/api/auth/switch-role',{'role':'admin'})
+        self.assertEqual(response.status_code,200)
+        data=response.json()
+        self.assertNotIn('snapshot',data)
+        self.assertEqual(data['user']['activeRole'],'admin')
+
+    def test_command_response_is_delta_only(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        response=self.post_json('/api/commands',{'action':'toggleBookmark','payload':{'args':[self.approved.id]}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()
+        self.assertNotIn('snapshot',data)
+        self.assertTrue(data['success'])
+        self.assertTrue(data['result'])
+
+    def test_category_and_paper_create_return_entities(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        category_payload={'action':'form:entity','payload':{'fields':[['entity-active','on']], 'values':{'entity-name':'Networks','entity-icon':'grid','entity-country':'Pakistan'}, 'context':{'type':'categories'}}}
+        category_response=self.post_json('/api/commands',category_payload)
+        self.assertEqual(category_response.status_code,200)
+        category_result=category_response.json()['result']
+        self.assertEqual(category_result['type'],'categories')
+        self.assertEqual(category_result['entity']['name'],'Networks')
+        paper_payload={'action':'form:entity','payload':{'fields':[['entity-active','on']], 'values':{'entity-name':'FPSC','entity-icon':'paper','entity-country':'Pakistan'}, 'context':{'type':'papers'}}}
+        paper_response=self.post_json('/api/commands',paper_payload)
+        self.assertEqual(paper_response.status_code,200)
+        paper_result=paper_response.json()['result']
+        self.assertEqual(paper_result['type'],'papers')
+        self.assertEqual(paper_result['entity']['name'],'FPSC')
+        self.assertNotIn('snapshot',paper_response.json())
+
+    def test_mcq_endpoint_is_paginated_and_bootstrap_is_bounded(self):
+        more=[MCQ(id=1000+i,question=f'Bulk question {i}?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',created_by=self.admin,submitted_by=self.admin) for i in range(60)]
+        MCQ.objects.bulk_create(more)
+        response=self.client.get('/api/mcqs?page=1&page_size=20')
+        self.assertEqual(response.status_code,200)
+        data=response.json()
+        self.assertEqual(len(data['items']),20)
+        self.assertEqual(data['pageSize'],20)
+        self.assertGreaterEqual(data['total'],61)
+        self.assertTrue(data['hasNext'])
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        bootstrap=self.client.get('/api/bootstrap').json()
+        self.assertLessEqual(len(bootstrap['mcqs']),50)
+        self.assertIn('mcqPage',bootstrap)
+
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
         self.assertEqual(self.post_json('/api/report',{'id':self.approved.id,'reason':'Check wording.'}).status_code,200)
