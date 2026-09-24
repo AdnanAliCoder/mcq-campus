@@ -26,7 +26,8 @@ test('Final frontend and backend adapter load in the required order',()=>{
 
 test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
- assert(html.includes('class="app-loader-spinner"'));
+ assert(html.includes('app-loader-spinner'));
+ assert(html.includes('global-spinner'));
  assert(!html.includes('.webm'));
  const mediaFiles=fs.readdirSync(path.join(frontend,'assets/images'));
  assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
@@ -53,7 +54,8 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
  assert(auth.includes('finally{backendLoading(false)'));
- assert(auth.includes("async function request(path,body,{loading=false}={})"));
+ assert(auth.includes("async function request(path,body,{loading=false,timeout=15000}={})"));
+ assert(auth.includes("timeout:action==='action:import-confirm'?60000:15000"));
  assert(auth.includes('setButtonLoading'));
  assert(auth.includes("action==='action:import-confirm'"));
  assert(auth.includes('let majorTransition=null'));
