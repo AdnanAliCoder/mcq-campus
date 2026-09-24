@@ -71,12 +71,16 @@ def auth_login(request):
     # Resolve by email first, then authenticate with Django's real username value.
     candidate=User.objects.select_related('profile').filter(email__iexact=email).order_by('-is_superuser','-is_staff','id').first()
     lookup_ms=(time.perf_counter()-phase)*1000
-    login_name=candidate.get_username() if candidate else email
     phase=time.perf_counter()
-    user=authenticate(request,username=login_name,password=password)
-    if user and candidate and user.pk==candidate.pk:
-        try: user._mcq_profile_cache=candidate.profile
-        except Profile.DoesNotExist: pass
+    if candidate:
+        user=candidate if candidate.check_password(password) and candidate.is_active else None
+        if user:
+            try: user._mcq_profile_cache=candidate.profile
+            except Profile.DoesNotExist: pass
+    else:
+        # Preserve Django's timing-hardening behavior for unknown accounts.
+        authenticate(request,username=email,password=password)
+        user=None
     authenticate_ms=(time.perf_counter()-phase)*1000
     if not user or not user.is_active:
         if perf_enabled(): logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,(time.perf_counter()-started)*1000)
