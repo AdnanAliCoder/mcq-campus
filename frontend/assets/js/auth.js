@@ -90,12 +90,12 @@ window.Auth=(()=>{
  for(const type of ['click','dblclick','pointerdown','keydown','keyup','submit','wheel','touchmove']){
   document.addEventListener(type,event=>{if(!pendingRequests)return;event.preventDefault();event.stopImmediatePropagation();},{capture:true,passive:false});
  }
- async function request(path,body,{loading=false}={}){
+ async function request(path,body,{loading=false,timeout=15000}={}){
   if(loading)backendLoading(true);
   try{
    let response;
    try{
-    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(20000)});
+    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(timeout)});
    }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
    if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
    if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
@@ -193,7 +193,7 @@ window.Auth=(()=>{
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
   const task=(async()=>{
-   const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm'});
+   const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm',timeout:action==='action:import-confirm'?60000:15000});
    if(own!==generation)throw Error('The account changed. Please try again.');
    if(data.user)setIdentity({...user,...data.user});
    applyCommandResult(action,data.result,payload);
