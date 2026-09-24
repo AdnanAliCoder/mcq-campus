@@ -11,9 +11,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from .models import *
-from .serializers import user_dict
+from .serializers import user_dict, user_identity_dict, user_profile_dict
 from .services import (
-    snapshot, command, create_token, consume_token, mcq_page,
+    snapshot, startup_payload, public_content_data, command, create_token, consume_token, mcq_page,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data,
 )
 
@@ -74,6 +74,9 @@ def auth_login(request):
     login_name=candidate.get_username() if candidate else email
     phase=time.perf_counter()
     user=authenticate(request,username=login_name,password=password)
+    if user and candidate and user.pk==candidate.pk:
+        try: user._mcq_profile_cache=candidate.profile
+        except Profile.DoesNotExist: pass
     authenticate_ms=(time.perf_counter()-phase)*1000
     if not user or not user.is_active:
         if perf_enabled(): logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,(time.perf_counter()-started)*1000)
@@ -149,6 +152,28 @@ def public_report(request):
     Report.objects.create(user=request.user if request.user.is_authenticated else None,mcq=mcq,reason=reason)
     return JsonResponse({'completed':True})
 
+@profile_api('startup')
+@require_GET
+def startup(request):
+    data=startup_payload(request.user,request.session)
+    data['csrfToken']=get_token(request)
+    if data.get('user') and request.session.get_expiry_date():
+        data['user']['expiresAt']=request.session.get_expiry_date().isoformat()
+    return JsonResponse(data)
+
+@profile_api('public_content')
+@require_GET
+def public_content(request):
+    return JsonResponse(public_content_data())
+
+@profile_api('profile_detail')
+@require_GET
+@login_required_json
+def profile_detail(request):
+    data=user_profile_dict(request.user,request.session)
+    if request.session.get_expiry_date(): data['expiresAt']=request.session.get_expiry_date().isoformat()
+    return JsonResponse({'user':data})
+
 @profile_api('bootstrap')
 @require_GET
 def bootstrap(request): return JsonResponse(snapshot(request.user),safe=True)
@@ -166,7 +191,7 @@ def mcqs(request):
 @require_GET
 @login_required_json
 def performance_health(request):
-    if not perf_enabled() or not is_super(request.user): return err('Not available.',404)
+    if not perf_enabled() or user_role(request.user)!='super-admin': return err('Not available.',404)
     started=time.perf_counter(); db_started=time.perf_counter(); ok=True
     try:
         with connection.cursor() as cursor:
