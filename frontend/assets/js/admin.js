@@ -17,12 +17,13 @@ window.Admin=(()=>{
  const metrics=()=>{const d=MCQ.db;const today=new Date().toISOString().slice(0,10),month=today.slice(0,7);return [[d.mcqs.length,'Total MCQs'],[d.mcqs.filter(x=>x.status==='pending').length,'Pending review'],[d.mcqs.filter(x=>x.status==='approved').length,'Approved MCQs'],[d.mcqs.filter(x=>x.status==='rejected').length,'Rejected MCQs'],[d.papers.length,'Papers'],[d.jobs.length,'Jobs'],[d.years.length,'Job years'],[MCQ.list('categories').length,'Categories'],[d.users.filter(x=>x.role==='user').length,'Learners'],[d.users.filter(x=>x.role!=='user').length,'Administrators'],[d.mcqs.filter(x=>x.created_at?.startsWith(today)).length,'Added today'],[d.mcqs.filter(x=>x.created_at?.startsWith(month)).length,'Added this month']]};
  function bars(type,field){const xs=MCQ.db[type].filter(x=>type!=='categories'||!x.legacy).map(x=>({...x,count:MCQ.db.mcqs.filter(q=>MCQ.ids(q[field]).includes(x.id)).length})).sort((a,b)=>b.count-a.count).slice(0,5);return xs.map(x=>`<div class="bar-row"><div class="row"><span>${e(x.name)}</span><span>${x.count}</span></div><div class="progress-track"><span style="width:${x.count/Math.max(1,xs[0].count)*100}%"></span></div></div>`).join('')}
  function personalOverview(){
-  const rows=MCQ.managedRows('mcqs');
-  const pending=rows.filter(q=>q.status==='pending'||q.pending_update).length;
-  const approved=rows.filter(q=>q.status==='approved'&&!q.pending_update).length;
-  const rejected=rows.filter(q=>q.status==='rejected'&&!q.pending_update).length;
-  const cards=[[rows.length,'My MCQs'],[pending,'My pending'],[approved,'My approved'],[rejected,'My rejected']];
-  const recent=[...rows].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,6);
+  const rows=MCQ.managedRows('mcqs'),summary=MCQ.db.adminOverview||{},counts=summary.mcqs||{};
+  const pending=counts.pending??rows.filter(q=>q.status==='pending'||q.pending_update).length;
+  const approved=counts.approved??rows.filter(q=>q.status==='approved'&&!q.pending_update).length;
+  const rejected=counts.rejected??rows.filter(q=>q.status==='rejected'&&!q.pending_update).length;
+  const total=counts.total??rows.length;
+  const cards=[[total,'My MCQs'],[pending,'My pending'],[approved,'My approved'],[rejected,'My rejected']];
+  const recent=Array.isArray(summary.recent)&&summary.recent.length?summary.recent:[...rows].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,6);
   return heading('My contribution','Your Question Library contains only the MCQs created by your account.',MCQ.allowed('add')?link(url('add'),icon('plus')+' Add MCQ','btn primary'):'')+`<div class="metric-grid">${cards.map(([n,l],i)=>UI.statCard({title:l,value:n,iconName:['book','clock','check','flag'][i],tone:['primary','info','success','danger'][i],path:url('mcqs'),params:i?{status:['','pending','approved','rejected'][i]}:{}})).join('')}</div><section><div class="section-head"><h2>My recent questions</h2>${link(url('mcqs'),'Open Question Library','link')}</div>${recent.length?table(recent,false):empty('No questions added yet','Questions created by your account will appear here.')}</section>`;
  }
  function overview(){
@@ -31,7 +32,7 @@ window.Admin=(()=>{
   const statusCount=(rows,status)=>status==='pending'?rows.filter(q=>q.status==='pending'||q.pending_update).length:rows.filter(q=>q.status===status&&!q.pending_update).length;
   const pending=summary.mcqs?.pending??statusCount(d.mcqs,'pending'),approved=summary.mcqs?.approved??statusCount(d.mcqs,'approved'),rejected=summary.mcqs?.rejected??statusCount(d.mcqs,'rejected'),total=summary.mcqs?.total??d.mcqs.length;
   const openReports=summary.openReports??(d.reports||[]).filter(r=>!['resolved','closed'].includes(String(r.status||'').toLowerCase())).length;
-  const staff=d.users.filter(u=>['admin','super-admin'].includes(u.role)),learners=summary.learners??d.users.filter(u=>u.role==='user').length,trash=summary.trash??(d.trash||[]).length,staffTotal=summary.staff??staff.length;
+  const staff=(d.users&&d.users.length?d.users.filter(u=>['admin','super-admin'].includes(u.role)):(summary.staffPreview||[])),learners=summary.learners??d.users.filter(u=>u.role==='user').length,trash=summary.trash??(d.trash||[]).length,staffTotal=summary.staff??staff.length;
   const recent=[...d.mcqs].sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||''))).slice(0,5);
   const top=[
    {title:'Website MCQs',value:total,iconName:'book',tone:'primary',path:url('all-mcqs'),subtitle:'Complete collection'},
