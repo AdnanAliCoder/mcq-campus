@@ -156,7 +156,15 @@ def public_content_data():
 def public_resources_data():
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
-    return {k:state[k] for k in ['settings','content','seo','rolePermissions','adSettings','pdfs','latestJobs','currentAffairsConfig']}
+    return {k:state[k] for k in ['settings','seo','rolePermissions','adSettings']}
+
+def public_catalog_data():
+    settings=SiteSetting.get_solo(); state=_client_site_state(settings)
+    return {k:state[k] for k in ['pdfs','latestJobs','currentAffairsConfig']}
+
+def public_legal_data():
+    settings=SiteSetting.get_solo(); state=_client_site_state(settings)
+    return {'content':state['content']}
 
 
 def visible_mcqs(user):
