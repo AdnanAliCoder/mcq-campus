@@ -2160,3 +2160,23 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
 /* Mobile auth header: guests see Login instead of the hamburger; signed-in users keep account + menu. */
 @media(max-width:600px){.header-actions .header-login{display:inline-flex!important}}
 @media(max-width:360px){.header-actions>.header-login{display:inline-flex!important}}
+
+
+/* Footer email + mobile footer alignment */
+.footer-email{display:inline-flex!important;align-items:center;gap:8px;margin-top:14px!important;margin-bottom:2px!important;color:var(--green)!important;font-weight:650;overflow-wrap:anywhere}
+.footer-email .icon{width:17px;height:17px}
+.footer-email:hover{color:var(--green-dark)!important}
+.footer-email-admin{display:grid;grid-template-columns:44px minmax(0,1fr) 130px;gap:14px;align-items:center;padding:0 0 16px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.footer-email-admin .field{margin:4px 0 2px}
+@media(max-width:760px){.footer-email-admin{grid-template-columns:40px minmax(0,1fr);align-items:start}.footer-email-admin>.settings-check{grid-column:2}}
+@media(max-width:520px){.footer-bottom{align-items:center!important;text-align:center!important}.footer-bottom>span{width:100%;text-align:center}.footer-bottom-links{display:flex;justify-content:center!important;align-items:center;flex-wrap:wrap;gap:12px}.footer-brand-block{text-align:center}.footer-brand-block .brand,.footer-email,.footer-social{justify-content:center;margin-left:auto!important;margin-right:auto!important}}
+
+/* Unified white + green decorative palette; semantic warnings/errors keep their own colors. */
+:root{--green:#087e65;--green-dark:#075b4c;--mint:#d9f3e8;--dark:#075b4c;--bg:#f7faf8;--line:#d7e6df}
+.tint-1,.tint-2,.tint-3,.tint-4,.tile-icon{background:#e7f5ef!important;color:var(--green)!important}
+.settings-hub-icon,.stat-card-icon.tone-info,.stat-card-icon.tone-primary,.stat-card-icon.tone-success{background:#e7f5ef!important;color:var(--green)!important}
+.sidebar,.auth-story,.prep-card{background:var(--green-dark)!important}
+.sidebar a.item.active{background:var(--green)!important;color:#fff!important}
+.sidebar a.item:hover{background:#0a6c59!important}
+.sidebar em,.auth-story .eyebrow,.hero-practice .eyebrow{color:#a9ead5!important}
+.dash-top,.card,.table-wrap,.footer,.header{background:#fff}

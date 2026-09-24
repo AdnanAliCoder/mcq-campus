@@ -462,6 +462,9 @@ def save_site_form(user,form,payload):
         require(is_super(user) or has_perm(user,'manage_social_links')); social={}
         for key in ['facebook','youtube','instagram','linkedin','x']:
             social[key]={'url':str(v.get(key+'_url') or ''),'icon':str(v.get(key+'_icon') or key),'iconData':str(v.get(key+'_icon_data') or ''),'enabled':key+'_enabled' in fields}
+        email=str(v.get('footer_email') or '').strip()
+        if email and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email): raise ValueError('Enter a valid footer email address.')
+        social['email']={'address':email,'enabled':'footer_email_enabled' in fields}
         blob['socialLinks']=social
     elif form=='legal-page':
         require(is_super(user) or has_perm(user,'manage_legal_pages')); key=str(c.get('page') or 'about'); require(key in {'about','contact','privacy','terms','disclaimer','cookies','advertising'},'Invalid page.'); pages=dict(blob.get('legalPages') or {}); content=str(v.get('content') or ''); title=str(v.get('title') or '').strip(); require(title and content,'Title and page content are required.'); pages[key]={'title':title,'content':content,'lastUpdated':str(v.get('lastUpdated') or timezone.now().date().isoformat()),'published':'published' in fields,'seoTitle':title[:80],'metaDescription':re.sub(r'[#*\-]+',' ',content).strip()[:155]}; blob['legalPages']=pages

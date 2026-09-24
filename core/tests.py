@@ -249,6 +249,16 @@ class IntegrationTests(TestCase):
         self.assertEqual(data['mcqPage']['total'],0)
         self.assertFalse(data['mcqPage']['hasNext'])
 
+    def test_social_footer_email_is_optional_and_persisted(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        payload={'action':'form:social-links','payload':{'fields':[['footer_email_enabled','on']], 'values':{'footer_email':'hello@example.com'}, 'context':{}}}
+        response=self.post_json('/api/commands',payload)
+        self.assertEqual(response.status_code,200)
+        settings=self.client.get('/api/public/resources').json()['settings']
+        self.assertEqual(settings['socialLinks']['email']['address'],'hello@example.com')
+        self.assertTrue(settings['socialLinks']['email']['enabled'])
+
+
     def test_public_contact_and_report(self):
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
         self.assertEqual(self.post_json('/api/report',{'id':self.approved.id,'reason':'Check wording.'}).status_code,200)
