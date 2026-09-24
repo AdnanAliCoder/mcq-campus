@@ -12,7 +12,10 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from .models import *
 from .serializers import user_dict
-from .services import snapshot, command, create_token, consume_token, mcq_page
+from .services import (
+    snapshot, command, create_token, consume_token, mcq_page,
+    admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_content_data,
+)
 
 logger=logging.getLogger('mcqcampus.performance')
 PERF_ENABLED=bool(settings.DEBUG or getattr(settings,'PERFORMANCE_LOGGING',False))
@@ -173,6 +176,44 @@ def performance_health(request):
     data={'appMs':round((time.perf_counter()-started)*1000,1),'databaseMs':round(database_ms,1),'databaseOk':ok,**_db_diag()}
     logger.info('performance_health app_ms=%.1f database_ms=%.1f database_ok=%s db_backend=%s db_host_type=%s db_port=%s',data['appMs'],data['databaseMs'],ok,data['db_backend'],data['db_host_type'],data['db_port'])
     return JsonResponse(data)
+
+@profile_api('admin_overview')
+@require_GET
+@login_required_json
+def admin_overview(request):
+    try: return JsonResponse(admin_overview_data(request.user))
+    except PermissionError as e: return err(e,403)
+
+@profile_api('admin_users')
+@require_GET
+@login_required_json
+def admin_users(request):
+    try: return JsonResponse(admin_users_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    except PermissionError as e: return err(e,403)
+    except (TypeError,ValueError): return err('Invalid pagination values.',422)
+
+@profile_api('admin_reports')
+@require_GET
+@login_required_json
+def admin_reports(request):
+    try: return JsonResponse(admin_reports_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    except PermissionError as e: return err(e,403)
+    except (TypeError,ValueError): return err('Invalid pagination values.',422)
+
+@profile_api('admin_trash')
+@require_GET
+@login_required_json
+def admin_trash(request):
+    try: return JsonResponse(admin_trash_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    except PermissionError as e: return err(e,403)
+    except (TypeError,ValueError): return err('Invalid pagination values.',422)
+
+@profile_api('admin_content')
+@require_GET
+@login_required_json
+def admin_content(request):
+    try: return JsonResponse(admin_content_data(request.user))
+    except PermissionError as e: return err(e,403)
 
 @profile_api('auth_switch_role')
 @require_POST
