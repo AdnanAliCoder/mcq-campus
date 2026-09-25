@@ -348,7 +348,7 @@ def save_mcq(user,draft):
     cid=validate_mcq_data(draft); qid=int(draft.get('id') or 0) or None
     existing=MCQ.objects.filter(pk=qid).first() if qid else None
     if existing:
-        require(is_super(user) or existing.created_by_id==user.id or has_perm(user,'edit_any_mcq'))
+        require(is_super(user) or (existing.created_by_id==user.id and existing.status!='approved'))
     dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip())
     if existing: dup=dup.exclude(pk=existing.pk)
     if dup.exists(): raise ValueError('A matching question already exists.')
@@ -493,7 +493,15 @@ def save_config(user,payload):
 
 def _parse_bulk_label(raw,default_icon='grid'):
     text=str(raw or '').strip()
-    m=re.match(r'^\{([^}]+)\}\s*(.+)
+    m=re.match(r'^\{([^}]+)\}\s*(.+)$',text)
+    if m: return m.group(2).strip(),m.group(1).strip()
+    m=re.match(r'^\[([^\]]+)\]\s*(.+)$',text)
+    if m: return m.group(2).strip(),m.group(1).strip()[:32]
+    bits=text.split(None,1)
+    if len(bits)==2 and any(ord(ch)>127 for ch in bits[0]): return bits[1].strip(),bits[0][:32]
+    return text,default_icon
+
+def save_site_form(user,form,payload):
     fields,v,c,_=parse_fields(payload); s=SiteSetting.get_solo(); blob=_site_blob(s); now=timezone.now().isoformat()
     if form=='footer-settings':
         require(is_super(user) or has_perm(user,'manage_footer')); old=blob.get('footer') or {}; footer=dict(old)
