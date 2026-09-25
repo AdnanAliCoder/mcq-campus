@@ -73,6 +73,7 @@ App.quickTimer=McqCarousel.create({advance(){
  if(a==='preview-draft'){Admin.syncDraft();const q=App.draft;UI.modal('Question preview',`<h3>${e(q.question||'Untitled question')}</h3><ol type="A">${[1,2,3,4].map(i=>`<li>${e(q['option'+i])}</li>`).join('')}</ol><p><strong>Correct answer:</strong> ${e(q.correct_answer||'Not selected')}</p><p>${e(q.description)}</p>`)}
  if(a==='entity-new'||a==='entity-edit')Admin.entityModal(el.dataset.type,id||undefined,el.dataset.parent?+el.dataset.parent:undefined);
  if(a==='bulk-hierarchy')Admin.bulkHierarchyModal();
+ if(a==='bulk-categories')Admin.bulkCategoriesModal();
  if(a==='use-entity'){close();App.go(Admin.url(el.dataset.type),{q:MCQ.get(el.dataset.type,id).name});UI.toast('Using existing record. No duplicate created.')}
  if(a==='user-new'||a==='user-edit')Admin.userModal(id||undefined);
  
