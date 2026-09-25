@@ -114,7 +114,7 @@ window.Auth=(()=>{
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',wants=[];
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
-  if(['pdfs','latest-jobs'].includes(workspace))wants.push('catalog');
+  if(['home','pdfs','latest-jobs'].includes(workspace))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -129,7 +129,7 @@ window.Auth=(()=>{
    if(section==='logs')wants.push('logs');
    if(['posts','guides','ads'].includes(section))wants.push('content');
    if(['settings','content','seo','roles','footer','social','ads'].includes(section))wants.push('resources');
-   if(['pdfs','latest-jobs','current-affairs'].includes(section))wants.push('catalog');
+   if(['pdfs','latest-jobs','current-affairs','pdfs-manager','latest-jobs-manager'].includes(section))wants.push('catalog');
    if(['content','legal'].includes(section))wants.push('legal');
   }
   let changed=false;
@@ -264,10 +264,10 @@ window.Auth=(()=>{
   if(action==='action:report-resolve'&&result?.report){MCQ.upsert('reports',result.report);return}
   if(action==='action:user-status'&&result?.user){MCQ.upsert('users',result.user);return}
   if(action==='action:ad-toggle'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(Array.isArray(result?.mcqs))result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));
+  if(Array.isArray(result?.pdfs))MCQ.db.pdfs=result.pdfs;
+  if(Array.isArray(result?.latestJobs))MCQ.db.latestJobs=result.latestJobs;
   if(result?.deleted?.type){MCQ.remove(result.deleted.type,result.deleted.ids||[]);return}
-  if(action==='action:bulk-important'&&result?.updated?.type==='mcqs'){
-   const ids=new Set((result.updated.ids||[]).map(Number));for(const q of MCQ.db.mcqs)if(ids.has(Number(q.id)))Object.assign(q,result.updated.fields||{});
-  }
  }
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
@@ -338,7 +338,7 @@ window.Auth=(()=>{
   finally{restore();}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','bulk-categories','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
@@ -355,22 +355,17 @@ window.Auth=(()=>{
   finally{restoreButton();}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','trash-restore','report-resolve','restore-trash','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete','bulk-important']);
+ const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','trash-restore','report-resolve','restore-trash','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
   if(el.dataset.loading==='true')return;
-  const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...','bulk-important':'Updating...'};
+  const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...'};
   const restoreButton=setButtonLoading(el,actionLabels[el.dataset.action]||'Working...');
   try{
    const extra={...el.dataset,rows:App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
-   if(el.dataset.action==='bulk-important'){
-    if(el.dataset.target==='papers'){const paperIds=[...document.querySelectorAll('.entity-row-check[data-type="papers"]:checked')].map(x=>Number(x.value)).filter(Boolean);extra.ids=MCQ.db.mcqs.filter(q=>MCQ.ids(q.paper_id).some(id=>paperIds.includes(id))).map(q=>q.id);}
-    else extra.ids=[...document.querySelectorAll('.mcq-row-check:checked')].map(x=>Number(x.value)).filter(Boolean);
-    if(!extra.ids.length)throw Error('Select at least one matching MCQ.');
-   }
-   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm')App.importSummary=result;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm')App.importSummary=result?.summary||result;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }
   catch(error){UI.toast(error.message);}
   finally{restoreButton();}
