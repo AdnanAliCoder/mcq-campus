@@ -783,8 +783,6 @@ def command(user,action,payload):
                 if int(x.get('id',0))==rid: x['published']=not bool(x.get('published',True)); x['updated_at']=timezone.now().isoformat()
         else: rows=[x for x in rows if int(x.get('id',0))!=rid]
         blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return True
-    if action=='action:bulk-important':
-        require(is_admin(user) and (has_perm(user,'edit_any_mcq') or is_super(user))); ids=[int(x) for x in payload.get('ids') or []]; MCQ.objects.filter(pk__in=ids).update(important=str(payload.get('value')).lower()=='true',updated_by=user); return {'updated':{'type':'mcqs','ids':ids,'fields':{'important':str(payload.get('value')).lower()=='true'}}}
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
