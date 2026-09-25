@@ -792,7 +792,7 @@
 .entity-showcase-card h3{margin:8px 0 5px!important;min-height:0!important;font-size:1.22rem;line-height:1.32;color:#142622;font-weight:780;letter-spacing:-.025em}
 .entity-showcase-card p{margin:0;color:#71807c;font-size:.9rem;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .entity-card-media{display:flex;align-items:center;justify-content:center}
-.entity-card-image{width:106px;height:106px;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:2px solid #dce9e4;box-shadow:0 5px 16px rgba(18,43,37,.08);color:var(--green);font-weight:800;font-size:1.2rem}
+.entity-card-image{width:106px;height:106px;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent;border:0;box-shadow:none;color:var(--green);font-weight:800;font-size:1.2rem}
 .entity-card-image .entity-icon-img{width:100%;height:100%;object-fit:contain;padding:4px;border-radius:50%}
 .entity-card-image>.icon{width:44px;height:44px}
 .entity-card-image .entity-emoji{font-size:2rem}
