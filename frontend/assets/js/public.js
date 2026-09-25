@@ -39,7 +39,7 @@ window.Public=(()=>{
   if(id){const parentType={paper:'papers',job:'jobs'}[type];parent=MCQ.get(parentType,id);if(!parent)return notFound();name=parent.name;const rel=MCQ.parents[collection];rows=rows.filter(x=>x[rel[1]]===+id);if(type==='paper')trail=[['Past Papers','papers']];if(type==='job'){const pa=MCQ.get('papers',parent.paper_id);trail=[['Past Papers','papers'],[pa.name,'paper/'+pa.id]]}}
   if(type==='papers'&&country)rows=rows.filter(x=>(x.country||MCQ.db.settings.country||'Pakistan')===country);
   if(type==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||MCQ.db.settings.country||'Pakistan')===country);
-  rows=[...rows].sort((a,b)=>a.name.localeCompare(b.name));const page=App.page(rows.length);
+  rows=[...rows].sort((a,b)=>a.name.localeCompare(b.name));let page=App.page(rows.length);
   const jobSummary='';
   let pre='';if(type==='categories'){
    pre=PublicLayout.selectionBar([{label:'All',path:'categories',params:{},active:!country},{label:'Pakistan',path:'categories',params:{country:'Pakistan'},active:country==='Pakistan'},{label:'India',path:'categories',params:{country:'India'},active:country==='India'}],'Category country');
@@ -52,8 +52,16 @@ window.Public=(()=>{
    const countries=[...new Set(['Pakistan','India',...MCQ.db.papers.filter(x=>x.active!==false).map(x=>x.country).filter(Boolean)])];
    const countryBar=PublicLayout.selectionBar([{label:'All',path:'papers',params:allPapersView?{view:'all'}:{},active:!country},...countries.map(c=>({label:c,path:'papers',params:{...(allPapersView?{view:'all'}:{}),country:c},active:country===c}))],'Past paper country');
    if(allPapersView){
-    rows=MCQ.db.years.filter(x=>x.active!==false).filter(x=>{if(!country)return true;const j=MCQ.get('jobs',x.job_id),pa=j&&MCQ.get('papers',j.paper_id);return (pa?.country||MCQ.db.settings.country||'Pakistan')===country}).sort((a,b)=>{const ja=MCQ.get('jobs',a.job_id),jb=MCQ.get('jobs',b.job_id);return String(ja?.name||'').localeCompare(String(jb?.name||''))||String(b.name||'').localeCompare(String(a.name||''))});
-    collection='years';name='All Past Papers';
+    const eligible=MCQ.db.years.filter(x=>x.active!==false).filter(x=>{const j=MCQ.get('jobs',x.job_id),pa=j&&MCQ.get('papers',j.paper_id);if(!j||j.active===false||!pa||pa.active===false)return false;if(!country)return true;return (pa.country||MCQ.db.settings.country||'Pakistan')===country});
+    // Round-robin by agency/paper: take one job-year from each agency in turn.
+    // Every eligible job-year remains in the result; agencies with many records continue
+    // appearing on later rounds instead of occupying one large consecutive block.
+    const agencyBuckets=new Map();
+    eligible.forEach(y=>{const j=MCQ.get('jobs',y.job_id),paperId=Number(j.paper_id)||0;if(!agencyBuckets.has(paperId))agencyBuckets.set(paperId,new Map());const jobBuckets=agencyBuckets.get(paperId),jobId=Number(y.job_id)||0;if(!jobBuckets.has(jobId))jobBuckets.set(jobId,[]);jobBuckets.get(jobId).push(y)});
+    const agencies=[...agencyBuckets.entries()].sort((a,b)=>{const pa=MCQ.get('papers',a[0]),pb=MCQ.get('papers',b[0]);return String(pa?.name||'').localeCompare(String(pb?.name||''))});
+    const agencyQueues=agencies.map(([,jobMap])=>{const jobs=[...jobMap.entries()].sort((a,b)=>String(MCQ.get('jobs',a[0])?.name||'').localeCompare(String(MCQ.get('jobs',b[0])?.name||''))).map(([,ys])=>ys.sort((a,b)=>String(b.name||'').localeCompare(String(a.name||''))));const queue=[];let more=true;while(more){more=false;for(const ys of jobs){if(ys.length){queue.push(ys.shift());more=true}}}return queue});
+    rows=[];let more=true;while(more){more=false;for(const queue of agencyQueues){if(queue.length){rows.push(queue.shift());more=true}}}
+    collection='years';name='All Past Papers';page=App.page(rows.length);
     pre=PublicLayout.selectionStack([{html:modeBar},{html:countryBar}]);
    }else{
     const visiblePapers=MCQ.db.papers.filter(x=>x.active!==false&&(!country||(x.country||MCQ.db.settings.country||'Pakistan')===country)).map(x=>({...x,_jobs:MCQ.db.jobs.filter(j=>j.active!==false&&j.paper_id===x.id).length})).filter(x=>x._jobs).sort((a,b)=>b._jobs-a._jobs||a.name.localeCompare(b.name)).slice(0,10);
