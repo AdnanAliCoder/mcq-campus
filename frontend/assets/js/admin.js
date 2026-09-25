@@ -229,5 +229,15 @@ window.Admin=(()=>{
   else body=empty('Page not found','This item is no longer part of the simplified Super Admin navigation.');
   return shell(body,names[view]||({'all-mcqs':'All MCQs','admin-records':'Admin Records','paper-mcqs':'Paper Collection',settings:'Settings','site-settings':'Website Settings','pdfs-manager':'PDF Resources','latest-jobs-manager':'Latest Jobs'}[view])||view.replace(/^./,x=>x.toUpperCase()))
  }
+ document.addEventListener('change',ev=>{
+  const input=ev.target;
+  if(!['category-bulk-file','hierarchy-file'].includes(input.id)||!input.files?.[0])return;
+  const file=input.files[0],form=input.closest('form'),hidden=form?.querySelector(input.id==='category-bulk-file'?'[name="categories"]':'[name="hierarchy"]'),label=form?.querySelector(input.id==='category-bulk-file'?'[data-category-file-name]':'[data-hierarchy-file-name]');
+  if(file.size>2*1024*1024){UI.toast('Choose a text file smaller than 2 MB.');input.value='';return}
+  const reader=new FileReader();
+  reader.onload=()=>{if(hidden)hidden.value=String(reader.result||'');if(label)label.textContent=file.name;};
+  reader.onerror=()=>UI.toast('Could not read that file.');
+  reader.readAsText(file);
+ });
  return {render,url,pickerDefs,picker,showPicker,pick,syncDraft,refreshPickers,entityModal,entityState,userModal,postModal,pdfModal,latestJobModal,bulkHierarchyModal,bulkCategoriesModal,loadFile,importPreview};
 })();
