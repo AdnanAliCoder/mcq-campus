@@ -860,16 +860,33 @@ def save_site_form(user,form,payload):
         rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows; blob['pdfs']=rows
     elif form=='latest-job':
         require(is_super(user) or has_perm(user,'manage_latest_jobs')); rows=list(blob.get('latestJobs') or []); rid=int(c.get('id') or 0); old=next((x for x in rows if int(x.get('id',0))==rid),None); paper_id=int(v.get('paper_id') or 0); require(Paper.objects.filter(pk=paper_id).exists(),'Choose a valid Organization / Paper.'); title=str(v.get('title') or '').strip(); last=str(v.get('last_date') or '').strip(); require(title and last,'Job Title and Last Date are required.'); new={'id':rid or max([int(x.get('id',0)) for x in rows]+[0])+1,'paper_id':paper_id,'title':title,'slug':slugify(title),'last_date':last,'apply_url':str(v.get('apply_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}; rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows; blob['latestJobs']=rows
+    elif form=='bulk-categories':
+        require(is_admin(user) and has_perm(user,'manage_categories')); count=0
+        for raw in str(v.get('categories') or '').splitlines():
+            line=raw.strip()
+            if not line: continue
+            name,ic=_parse_bulk_label(line,'grid')
+            if not name: continue
+            obj=Category.objects.filter(name__iexact=name).first()
+            if not obj: Category.objects.create(id=next_id(Category),name=name,icon=ic,created_by=user,updated_by=user)
+            elif ic!='grid' and obj.icon!=ic: obj.icon=ic; obj.updated_by=user; obj.save(update_fields=['icon','updated_by','updated_at'])
+            count+=1
+        log(user,'Bulk category import',f'{count} line(s) processed'); return {'processed':count}
     elif form=='bulk-hierarchy':
         require(is_admin(user) and has_perm(user,'manage_papers') and has_perm(user,'manage_jobs') and has_perm(user,'manage_job_years')); count=0
         for raw in str(v.get('hierarchy') or '').splitlines():
             parts=[x.strip() for x in re.split(r'\s*(?:\||>)\s*',raw.strip()) if x.strip()]
             if len(parts)!=3: continue
-            pn,jn,yn=parts; p=Paper.objects.filter(name__iexact=pn).first()
-            if not p: p=Paper.objects.create(id=next_id(Paper),name=pn,country=s.country,icon='paper',created_by=user,updated_by=user)
+            pn,pi=_parse_bulk_label(parts[0],'paper'); jn,ji=_parse_bulk_label(parts[1],'grid'); yn,yi=_parse_bulk_label(parts[2],'grid')
+            p=Paper.objects.filter(name__iexact=pn).first()
+            if not p: p=Paper.objects.create(id=next_id(Paper),name=pn,country=s.country,icon=pi,created_by=user,updated_by=user)
+            elif pi!='paper' and p.icon!=pi: p.icon=pi; p.updated_by=user; p.save(update_fields=['icon','updated_by','updated_at'])
             j=Job.objects.filter(paper=p,name__iexact=jn).first()
-            if not j: j=Job.objects.create(id=next_id(Job),paper=p,name=jn,icon='grid',created_by=user,updated_by=user)
-            if not JobYear.objects.filter(job=j,name__iexact=yn).exists(): JobYear.objects.create(id=next_id(JobYear),job=j,name=yn,icon='grid',created_by=user,updated_by=user)
+            if not j: j=Job.objects.create(id=next_id(Job),paper=p,name=jn,icon=ji,created_by=user,updated_by=user)
+            elif ji!='grid' and j.icon!=ji: j.icon=ji; j.updated_by=user; j.save(update_fields=['icon','updated_by','updated_at'])
+            y=JobYear.objects.filter(job=j,name__iexact=yn).first()
+            if not y: JobYear.objects.create(id=next_id(JobYear),job=j,name=yn,icon=yi,created_by=user,updated_by=user)
+            elif yi!='grid' and y.icon!=yi: y.icon=yi; y.updated_by=user; y.save(update_fields=['icon','updated_by','updated_at'])
             count+=1
         log(user,'Bulk hierarchy import',f'{count} line(s) processed'); return {'processed':count}
     else: raise ValueError('Unsupported site form.')
