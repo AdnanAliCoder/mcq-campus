@@ -19,7 +19,7 @@ ENTITY_PARENT={'subcategories':('category_id',Category),'children':('subcategory
 BASE_ADMIN_PERMISSIONS={'add_mcq','edit_own_mcq'}
 def is_super(u): return bool(u and u.is_authenticated and (user_role(u)=='super-admin' or 'super_admin_permission' in user_permissions(u)))
 def is_admin(u): return bool(u and u.is_authenticated and user_role(u) in {'admin','super-admin'})
-def has_perm(u,p): return is_super(u) or (user_role(u)=='admin' and p in BASE_ADMIN_PERMISSIONS) or p in user_permissions(u)
+def has_perm(u,p): return is_super(u) or (user_role(u)=='admin' and p in BASE_ADMIN_PERMISSIONS)
 def require(cond,msg='Your account does not have permission for this action.'):
     if not cond: raise PermissionError(msg)
 def log(u,action,detail=''): AuditLog.objects.create(user=u if getattr(u,'is_authenticated',False) else None,action=action,detail=str(detail)[:5000])
