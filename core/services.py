@@ -459,7 +459,7 @@ def save_post(user,payload):
     obj.title=str(v.get('title') or '').strip(); require(obj.title,'Post title is required.')
     obj.slug=slugify(str(v.get('slug') or obj.title))[:120] or f'post-{timezone.now().timestamp():.0f}'
     if Post.objects.exclude(pk=obj.pk).filter(slug=obj.slug).exists(): obj.slug=f'{obj.slug[:105]}-{int(timezone.now().timestamp())}'
-    obj.excerpt=str(v.get('excerpt') or ''); obj.body=str(v.get('body') or ''); image_data=str(v.get('featured_image_data') or ''); image_url=str(v.get('featured_image') or ''); obj.featured_image=image_url if image_url.startswith(('http://','https://')) else ''; obj.category=str(v.get('category') or ''); obj.seo_title=str(v.get('seo_title') or obj.title)[:80]; obj.seo_description=str(v.get('seo_description') or obj.excerpt)[:300]; obj.status=str(v.get('status') or 'draft'); links=[]
+    obj.body=str(v.get('body') or '').strip(); require(obj.body,'Blog content is required.'); obj.excerpt=re.sub(r'\s+',' ',obj.body).strip()[:180]; image_data=str(v.get('featured_image_data') or ''); image_url=str(v.get('featured_image') or ''); obj.featured_image=image_url if image_url.startswith(('http://','https://')) else ''; obj.category=obj.category or 'Exam preparation'; obj.seo_title=obj.title[:80]; obj.seo_description=obj.excerpt[:300]; obj.status='published'; links=[]
     for line in str(v.get('links') or '').splitlines():
         if '|' in line:
             label,url=[x.strip() for x in line.split('|',1)]; links.append({'label':label,'url':url})
