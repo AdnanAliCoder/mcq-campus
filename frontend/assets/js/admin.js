@@ -23,7 +23,7 @@ window.Admin=(()=>{
   const rejected=counts.rejected??rows.filter(q=>q.status==='rejected'&&!q.pending_update).length;
   const total=counts.total??rows.length;
   const cards=[[total,'My MCQs'],[pending,'My pending'],[approved,'My approved'],[rejected,'My rejected']];
-  const recent=Array.isArray(summary.recent)&&summary.recent.length?summary.recent:[...rows].sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,6);
+  const recent=(Array.isArray(summary.recent)&&summary.recent.length?summary.recent:rows).filter(q=>q.status!=='approved'||q.pending_update).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,6);
   return heading('My contribution','Your Question Library contains only the MCQs created by your account.',MCQ.allowed('add')?link(url('add'),icon('plus')+' Add MCQ','btn primary'):'')+`<div class="metric-grid">${cards.map(([n,l],i)=>UI.statCard({title:l,value:n,iconName:['book','clock','check','flag'][i],tone:['primary','info','success','danger'][i],path:url('mcqs'),params:i?{status:['','pending','approved','rejected'][i]}:{}})).join('')}</div><section><div class="section-head"><h2>My recent questions</h2>${link(url('mcqs'),'Open Question Library','link')}</div>${recent.length?table(recent,false):empty('No questions added yet','Questions created by your account will appear here.')}</section>`;
  }
  function overview(){
@@ -60,7 +60,7 @@ window.Admin=(()=>{
  function table(rows,bulk=true){return `<div class="table-wrap mobile-cards"><table><thead><tr>${bulk?'<th><input type="checkbox" data-action="select-all" aria-label="Select all visible rows"></th>':''}<th>Question</th><th>Submission</th><th>Submitted by</th><th>Category</th><th>Status</th><th>Created / updated (PKT)</th><th>Actions</th></tr></thead><tbody>${rows.map(q=>{const pu=q.pending_update;return `<tr>${bulk?`<td><input type="checkbox" class="row-check" value="${q.id}" aria-label="Select question ${q.id}"></td>`:''}<td data-label="Question"><strong>${e(pu?.proposed?.question||q.question)}</strong><div class="small muted">#${q.id}</div></td><td data-label="Submission">${submissionBadge(q)}</td><td data-label="Submitted by">${e(pu?.submitted_by||q.submitted_by||q.created_by||'—')}</td><td data-label="Category">${e(MCQ.get('categories',pu?.proposed?.category_id||q.category_id)?.name||'—')}</td><td data-label="Status">${badge(pu?'pending':q.status)}</td><td data-label="Created / updated">Created: ${UI.date(q.created_at)}<br>Updated: ${UI.date(q.updated_at)}<br><span class="small muted">By ${e(q.created_by||'Unknown')}</span></td><td><div class="table-actions">${btn('Read / review','view-mcq','sm',`data-id="${q.id}"`)}${MCQ.canEditMcq(q)?link(url('edit/'+q.id),'Edit','btn sm'):''}${MCQ.allowed('approve')&&(q.status!=='approved'||pu)?btn('Approve','review','sm',`data-id="${q.id}" data-status="approved"`):''}</div></td></tr>`}).join('')}</tbody></table></div>`}
  function mcqs(view){
   const global=view==='all-mcqs',p=App.route.params,actor=MCQ.db.session||{};
-  let rows=global?[...MCQ.db.mcqs]:MCQ.db.mcqs.filter(q=>Number(q.created_by_id)===Number(actor.id));
+  let rows=global?[...MCQ.db.mcqs]:MCQ.db.mcqs.filter(q=>Number(q.created_by_id)===Number(actor.id)&&(q.status!=='approved'||q.pending_update));
   const status=String(p.status||'');
   if(status==='pending')rows=rows.filter(q=>q.status==='pending'||q.pending_update);
   else if(['approved','rejected'].includes(status))rows=rows.filter(q=>q.status===status&&!q.pending_update);
