@@ -902,7 +902,11 @@ def command(user,action,payload):
     if action=='form:guide': return save_guide(user,payload)
     if action=='form:post': return save_post(user,payload)
     if action=='form:config': return save_config(user,payload)
-    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:pdf','form:latest-job','form:bulk-hierarchy'}: return save_site_form(user,action[5:],payload)
+    if action=='form:pdf':
+        save_site_form(user,'pdf',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
+    if action=='form:latest-job':
+        save_site_form(user,'latest-job',payload); return {'latestJobs':_site_blob(SiteSetting.get_solo()).get('latestJobs') or []}
+    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories'}: return save_site_form(user,action[5:],payload)
     if action=='form:ad': return save_ad(user,payload)
     if action=='form:contact':
         _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
@@ -931,9 +935,7 @@ def command(user,action,payload):
             for x in rows:
                 if int(x.get('id',0))==rid: x['published']=not bool(x.get('published',True)); x['updated_at']=timezone.now().isoformat()
         else: rows=[x for x in rows if int(x.get('id',0))!=rid]
-        blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return True
-    if action=='action:bulk-important':
-        require(is_admin(user) and (has_perm(user,'edit_any_mcq') or is_super(user))); ids=[int(x) for x in payload.get('ids') or []]; MCQ.objects.filter(pk__in=ids).update(important=str(payload.get('value')).lower()=='true',updated_by=user); return {'updated':{'type':'mcqs','ids':ids,'fields':{'important':str(payload.get('value')).lower()=='true'}}}
+        blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return {form:rows}
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
@@ -941,14 +943,16 @@ def command(user,action,payload):
         return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
     if action in {'action:trash-restore','action:restore-trash'}: return _restore_trash(user,TrashRecord.objects.get(pk=int(payload.get('id'))))
     if action=='action:import-confirm':
-        require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'duplicates':0,'invalid':0,'failed':0}
+        require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'duplicates':0,'invalid':0,'failed':0}; imported_ids=[]
         for row in payload.get('rows') or []:
             if row.get('status')!='valid' or not row.get('q'): continue
-            try: save_mcq(user,row['q']); summary['imported']+=1
+            try:
+                obj=save_mcq(user,row['q']); imported_ids.append(obj.pk); summary['imported']+=1
             except ValueError as e:
                 if 'already exists' in str(e).lower(): summary['duplicates']+=1
                 else: summary['failed']+=1
-        return summary
+        imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
+        return {'summary':summary,'mcqs':[mcq(x) for x in imported]}
     raise ValueError('Unsupported command.')
 
 def _otp_hash(user,purpose,code):
