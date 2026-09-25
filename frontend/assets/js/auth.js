@@ -365,7 +365,7 @@ window.Auth=(()=>{
   try{
    const extra={...el.dataset,rows:App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
-   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm')App.importSummary=result?.summary||result;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){App.importSummary=result?.summary||result;loadedSections.delete('overview');sectionLoadedAt.delete('overview');}document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }
   catch(error){UI.toast(error.message);}
   finally{restoreButton();}
