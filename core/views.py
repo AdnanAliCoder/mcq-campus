@@ -402,7 +402,7 @@ def admin_content(request):
 def auth_switch_role(request):
     role=str(payload(request).get('role') or '')
     account_role=user_role(request.user)
-    available=['user']+(['admin'] if account_role in {'admin','super-admin'} else [])+(['super-admin'] if account_role=='super-admin' else [])
+    available=['user']+(['admin'] if account_role in {'admin','super-admin'} else [])+(['super-admin'] if is_super(request.user) else [])
     if role not in available: return err('This account does not have that workspace.',403)
     request.session['active_role']=role
     request.session.modified=True
@@ -419,7 +419,7 @@ def commands(request):
             update_session_auth_hash(request,request.user)
         response={'success':True,'result':result}
         if action in {'saveProfile','form:profile','form:user'}: response['user']=user_dict(request.user,request.session)
-        delta_actions={'attempt','toggleBookmark','savePaper','report','saveProfile','changePassword','form:profile','form:password-change','form:mcq','form:review','form:entity','form:user','form:guide','form:post','form:ad','action:report-resolve','action:user-status','action:ad-toggle','action:ad-delete','action:post-delete','action:bulk-important'}
+        delta_actions={'attempt','toggleBookmark','savePaper','report','saveProfile','changePassword','form:profile','form:password-change','form:mcq','form:review','form:entity','form:user','form:guide','form:post','form:ad','form:pdf','form:latest-job','action:import-confirm','action:report-resolve','action:user-status','action:ad-toggle','action:ad-delete','action:post-delete','action:pdf-delete','action:latest-job-toggle','action:latest-job-delete'}
         if action not in delta_actions: response['refresh']='bootstrap'
         return JsonResponse(response)
     except PermissionError as e: return err(e,403)
