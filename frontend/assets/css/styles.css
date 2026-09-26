@@ -2180,3 +2180,5 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
 .sidebar a.item:hover{background:#0a6c59!important}
 .sidebar em,.auth-story .eyebrow,.hero-practice .eyebrow{color:#a9ead5!important}
 .dash-top,.card,.table-wrap,.footer,.header{background:#fff}
+
+.required-mark{color:#b42318;font-weight:700}
