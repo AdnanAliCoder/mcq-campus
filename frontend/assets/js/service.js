@@ -66,7 +66,7 @@ window.MCQ = (() => {
  function publicMcqs(){return db.mcqs.filter(x=>x.status==='approved')}
  // The supplied data has an editorial important flag, not global view/attempt metrics.
  // Cache the shortlist, and invalidate it on repository writes. Never rank by this browser's attempts.
- function isImportant(q){if(!q)return false;const jobs=new Set(ids(q.job_ids)),key=norm(q.question);if(key)for(const row of db.mcqs||[])if(row!==q&&norm(row.question)===key)for(const id of ids(row.job_ids))jobs.add(id);return jobs.size>=2}
+ function isImportant(q){if(!q)return false;const jobs=new Set(ids(q.job_ids));return jobs.size>=2}
  function topMcqs(){
   if(!topCache||Date.now()-topCache.at>=300000){
    const rows=publicMcqs().filter(q=>isImportant(q))
