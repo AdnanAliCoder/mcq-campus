@@ -383,7 +383,7 @@ def _merge_bulk_mcq_hierarchy(user,existing,draft):
         if merged!=current:
             setattr(existing,field,merged)
             changed.append(field)
-    important=len(set(existing.job_ids or []))>=2
+    important=len(set(existing.job_year_ids or []))>=2
     if existing.important!=important:
         existing.important=important
         changed.append('important')
@@ -404,7 +404,7 @@ def save_mcq(user,draft):
     if dup.exists(): raise ValueError('A matching question already exists.')
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
     job_ids=normalize_ids(draft.get('job_ids'))
-    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=normalize_ids(draft.get('paper_id')),job_ids=job_ids,job_year_ids=normalize_ids(draft.get('job_years_ids')),important=len(set(job_ids))>=2,country=str(draft.get('country') or 'Pakistan'))
+    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=normalize_ids(draft.get('paper_id')),job_ids=job_ids,job_year_ids=normalize_ids(draft.get('job_years_ids')),important=len(set(normalize_ids(draft.get('job_years_ids'))))>=2,country=str(draft.get('country') or 'Pakistan'))
     now=timezone.now()
     if existing and existing.status=='approved' and not is_super(user):
         proposed={**mcq(existing),**common,'category_id':cid,'paper_id':common['paper_ids'],'job_years_ids':common['job_year_ids'],'updated_at':iso(now),'updated_by':user_name(user),'updated_by_id':user.id}
@@ -437,7 +437,7 @@ def review_mcqs(user,ids,status,reason=''):
                 pu['approval_status']='correction'; pu['reason']=reason; q.pending_update=pu
         else:
             q.status=status; q.rejection_reason='' if status=='approved' else reason
-        q.important=len(set(q.job_ids or []))>=2
+        q.important=len(set(q.job_year_ids or []))>=2
         q.reviewed_by=user
         if status=='approved': q.approved_by=user
         hist=q.audit_history or []; hist.insert(0,{'type':q.submission_type,'reviewed_by':user_name(user),'reviewed_by_id':user.id,'reviewed_at':iso(timezone.now()),'approval_status':status,'reason':reason}); q.audit_history=hist[:100]
