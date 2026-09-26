@@ -1,8 +1,25 @@
 import json, logging, time
 from django.conf import settings
 from django.db import connection
+from django.http import HttpResponse
 
 logger=logging.getLogger('mcqcampus.performance')
+
+class CanonicalHostRedirectMiddleware:
+    """Permanently redirect only the default production Vercel hostname to the public domain."""
+    def __init__(self,get_response):
+        self.get_response=get_response
+
+    def __call__(self,request):
+        raw_host=str(request.META.get('HTTP_HOST') or '').split(':',1)[0].strip().lower()
+        source=str(getattr(settings,'VERCEL_DEFAULT_HOST','') or '').strip().lower()
+        target=str(getattr(settings,'PUBLIC_CANONICAL_HOST','') or '').strip().lower()
+        if source and target and raw_host==source:
+            response=HttpResponse(status=308)
+            response['Location']='https://'+target+request.get_full_path()
+            response['Cache-Control']='public, max-age=0, s-maxage=3600'
+            return response
+        return self.get_response(request)
 TRACKED={
     '/api/startup':'startup',
     '/api/auth/session':'auth_session',
