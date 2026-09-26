@@ -200,11 +200,23 @@ def visible_mcqs(user):
     return MCQ.objects.filter(status='approved')
 
 def mcq_page(user,page=1,page_size=50,filters=None):
-    filters=filters or {}; page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    filters=filters or {}; page=max(1,int(page or 1))
+    max_page_size=3000 if is_admin(user) else 100
+    page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=visible_mcqs(user)
+    if filters.get('owner')=='me' and user and getattr(user,'is_authenticated',False):
+        qs=qs.filter(created_by=user)
     if filters.get('status'): qs=qs.filter(status=str(filters['status']))
     if filters.get('category'):
         try: qs=qs.filter(category_id=int(filters['category']))
+        except (TypeError,ValueError): pass
+    if filters.get('author'):
+        try: qs=qs.filter(created_by_id=int(filters['author']))
+        except (TypeError,ValueError): pass
+    if filters.get('from'): qs=qs.filter(created_at__date__gte=str(filters['from']))
+    if filters.get('to'): qs=qs.filter(created_at__date__lte=str(filters['to']))
+    if filters.get('id'):
+        try: qs=qs.filter(pk=int(filters['id']))
         except (TypeError,ValueError): pass
     if filters.get('search'): qs=qs.filter(question__icontains=str(filters['search']).strip())
     # JSON membership filters are supported by PostgreSQL/Supabase. Keep them optional.
