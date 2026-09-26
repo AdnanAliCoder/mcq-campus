@@ -6,7 +6,7 @@ window.PublicLayout=(()=>{
  const linkList=(items,cls='sidebar-link-list')=>`<div class="${cls}">${items.filter(Boolean).map(x=>Array.isArray(x)?link(x[0],(x[3]||icon(sidebarIcon(x[0])))+'<span>'+e(x[1])+'</span>','smart-sidebar-link',x[2]||{}):x).join('')}</div>`;
  const ad=slot=>UI.adSlot(slot);
  const activeParams=(omit=[])=>Object.fromEntries(Object.entries(App.route?.params||{}).filter(([k,v])=>v&&!omit.includes(k)));
- function categoryLinks(limit=6){return MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).slice(0,limit).map(x=>['mcqs',x.name,{...activeParams(['page','category']),category:x.id}]);}
+ function categoryLinks(limit=6){return MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).slice(0,limit).map(x=>['mcqs',x.name,{...activeParams(['page','category']),category:x.id},`<span class="smart-sidebar-brand-icon">${UI.entityIcon(x,'grid')}</span>`]);}
  function paperLinks(limit=5){return MCQ.db.papers.filter(x=>x.active!==false).slice(0,limit).map(x=>['paper/'+x.id,x.name,{},`<span class="smart-sidebar-brand-icon">${UI.entityIcon(x,'paper')}</span>`]);}
  function testLinks(){return [['test/auto','Automatic 10-MCQ Test']];}
  function articleLinks(kind,limit=5){
