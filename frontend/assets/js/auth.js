@@ -223,16 +223,38 @@ window.Auth=(()=>{
   return true;
  }
 
- const field=(name,label,type='text',auto='',extra='')=>`<div class="field"><label for="${name}">${label}</label><input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required></div>`;
+ let verificationTimer=null;
+ const resendKey=email=>'mcq-verify-resend-until:'+String(email||'').toLowerCase();
+ const armVerificationTimer=(email,seconds=60)=>{
+  const until=Date.now()+Math.max(0,Number(seconds)||0)*1000;
+  try{sessionStorage.setItem(resendKey(email),String(until))}catch{}
+  syncVerificationTimer(email);
+ };
+ const syncVerificationTimer=email=>{
+  clearInterval(verificationTimer);
+  const tick=()=>{
+   const button=document.querySelector('[data-auth-resend]');
+   const label=document.querySelector('[data-auth-resend-timer]');
+   if(!button||!label)return;
+   let until=0;try{until=Number(sessionStorage.getItem(resendKey(email))||0)}catch{}
+   const left=Math.max(0,Math.ceil((until-Date.now())/1000));
+   button.disabled=left>0;
+   label.textContent=left>0?`Resend code in 00:${String(left).padStart(2,'0')}`:'You can request a new code now.';
+   if(left<=0){clearInterval(verificationTimer);verificationTimer=null}
+  };
+  tick();
+  verificationTimer=setInterval(tick,1000);
+ };
+ const field=(name,label,type='text',auto='',extra='',mark=false)=>`<div class="field"><label for="${name}">${label}${mark?' <span class="required-mark" aria-hidden="true">*</span>':''}</label><input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required></div>`;
  function view(type){
   const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
   const titles={login:'Welcome back',register:'Your next chapter',forgot:'Forgot your password?',reset:'Choose a new password',verify:'Email verification'};
   let form='';
   if(type==='login')form=`<p class="muted small">Sign in with your existing MCQ Campus account.</p><form data-form="auth-login">${field('email','Email address','email','email')}${field('password','Password','password','current-password')}<div class="actions" style="margin-bottom:20px"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span>${UI.link('forgot','Forgot password?','link')}</div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small" style="margin-top:18px">New here? ${UI.link('register','Create an account','link')}</p>`;
-  if(type==='register')form=`<p class="small muted">Create your learner account.</p><form data-form="auth-register">${field('name','Full name','text','name')}${field('email','Email address','email','email')}${field('password','Password','password','new-password')}${UI.select('country','Country',[{id:'Pakistan',name:'Pakistan'},{id:'Other',name:'Other'}],'Pakistan',true)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')}</label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Create account</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
+  if(type==='register')form=`<p class="small muted">Create your learner account. All fields marked * are required.</p><form data-form="auth-register">${field('first_name','First name','text','given-name','',true)}${field('last_name','Last name','text','family-name','',true)}${field('email','Email address','email','email','',true)}${field('password','Password','password','new-password','',true)}${field('confirm','Confirm password','password','new-password','',true)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')} <span class="required-mark" aria-hidden="true">*</span></label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send verification code</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
   if(type==='forgot')form=`<p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form>`;
   if(type==='reset')form=`<p class="muted">Enter the reset code from your email and choose a new password.</p><form data-form="auth-reset">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
-  if(type==='verify')form=`<p class="muted">Enter the 6-digit code sent to your email.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;
+  if(type==='verify'){form=`<p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify & create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;setTimeout(()=>syncVerificationTimer(emailParam),0)}
   return UI.layout(`<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQ CAMPUS</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>${titles[type]}</h1>${form}</div></div></div>`);
  }
 
@@ -299,14 +321,16 @@ window.Auth=(()=>{
   const labels={login:'Signing in...',register:'Creating account...',forgot:'Sending...',reset:'Updating...',verify:'Verifying...'};
   const restoreButton=setButtonLoading(button,labels[type]||'Working...');
   try{
-   if(type==='reset'&&values.password!==values.confirm)throw Error('Passwords do not match.');
+   if((type==='reset'||type==='register')&&values.password!==values.confirm)throw Error('Passwords do not match.');
    const params=new URLSearchParams(route().split('?')[1]||'');
    const data=await request('/auth/'+type,values);
    if(type==='login'){
     csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
     const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
    }else if(type==='register'&&data.verificationRequired){
-    location.hash='#/verify?email='+encodeURIComponent(data.email||values.email);App.render();
+    const verifyEmail=data.email||values.email;
+    armVerificationTimer(verifyEmail,data.resendAfter||60);
+    location.hash='#/verify?email='+encodeURIComponent(verifyEmail);App.render();
    }else if(type==='forgot'){
     box.textContent=data.message||'If an active account matches that email, a reset code has been sent.';
     setTimeout(()=>{location.hash='#/reset?email='+encodeURIComponent(values.email||'');App.render();},700);
@@ -333,7 +357,7 @@ window.Auth=(()=>{
   const email=form?.querySelector('[name="email"]')?.value||'';
   if(!email){if(box)box.textContent='Enter your email address.';return;}
   const restore=setButtonLoading(button,'Sending...');
-  try{const data=await request('/auth/resend-verification',{email});if(box)box.textContent=data.message||'If verification is required, a new code has been sent.';}
+  try{const data=await request('/auth/resend-verification',{email});armVerificationTimer(email,data.resendAfter||60);if(box)box.textContent=data.message||'If verification is required, a new code has been sent.';}
   catch(error){if(box)box.textContent=error.message;}
   finally{restore();}
  },true);
