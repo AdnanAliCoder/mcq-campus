@@ -175,6 +175,21 @@ class IntegrationTests(TestCase):
         self.assertLessEqual(len(bootstrap['mcqs']),50)
         self.assertIn('mcqPage',bootstrap)
 
+    def test_admin_mcq_endpoint_allows_large_page_sizes_and_owner_filter(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        response=self.client.get('/api/mcqs?page=1&page_size=500')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['pageSize'],500)
+        mine=self.client.get('/api/mcqs?page=1&page_size=500&owner=me').json()
+        self.assertTrue(all(row.get('created_by_id')==self.owner.id for row in mine['items']))
+
+    def test_mcq_endpoint_filters_pending_updates_as_pending(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        self.approved.pending_update={'proposed':{'question':self.approved.question},'changes':[]}
+        self.approved.save(update_fields=['pending_update'])
+        data=self.client.get('/api/mcqs?status=pending&page_size=500').json()
+        self.assertIn(self.approved.id,{row['id'] for row in data['items']})
+
     def test_hot_responses_stay_small_and_query_counts_bounded(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         with CaptureQueriesContext(connection) as switch_queries:
