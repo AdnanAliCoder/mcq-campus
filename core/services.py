@@ -653,14 +653,14 @@ def _otp_hash(user,purpose,code):
     return hmac.new(key,message,hashlib.sha256).hexdigest()
 
 def create_token(user,purpose,minutes=10):
-    if purpose not in {'verify','reset'}: raise ValueError('Invalid token purpose.')
+    if purpose not in {'verify','reset','change'}: raise ValueError('Invalid token purpose.')
     OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).update(used_at=timezone.now())
     raw=f'{secrets.randbelow(1000000):06d}'
     OneTimeToken.objects.create(user=user,purpose=purpose,code_hash=_otp_hash(user,purpose,raw),expires_at=timezone.now()+timedelta(minutes=minutes))
     return raw
 
 def consume_token(user,raw,purpose,max_attempts=5):
-    if not user or purpose not in {'verify','reset'}: return None
+    if not user or purpose not in {'verify','reset','change'}: return None
     code=str(raw or '').strip()
     if not re.fullmatch(r'\d{6}',code): return None
     obj=OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).order_by('-created_at').first()
