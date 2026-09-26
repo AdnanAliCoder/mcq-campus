@@ -119,7 +119,7 @@ class PendingSignup(models.Model):
     updated_at=models.DateTimeField(auto_now=True)
 
 class OneTimeToken(models.Model):
-    PURPOSE=[('verify','Verify email'),('reset','Reset password')]
+    PURPOSE=[('verify','Verify email'),('reset','Reset password'),('change','Change password')]
     user=models.ForeignKey(User,on_delete=models.CASCADE)
     purpose=models.CharField(max_length=20,choices=PURPOSE)
     # Keep the existing production column name while exposing the safer OTP-specific name in code.
