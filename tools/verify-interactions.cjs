@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..'),listeners={},windowListeners={},requests
 function element(){const classes=new Set();return {open:false,isConnected:true,style:{overflow:'',paddingRight:''},dataset:{},setAttribute(){},removeAttribute(){},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),contains:x=>classes.has(x)},addEventListener(){},focus(){document.activeElement=this},showModal(){this.open=true;this.shows=(this.shows||0)+1},close(){this.open=false},querySelector(){return null}}}
 const loader=element(),modal=element(),app=element(),focus=element();
 const document={activeElement:focus,body:element(),documentElement:element(),getElementById:id=>({'backend-loader':loader,modal,app}[id]||null),querySelector:()=>null,querySelectorAll:()=>[],addEventListener:(t,f,o)=>{(listeners[t]??=[]).push({f,capture:o===true||o?.capture})}};
-const context={console,document,location:{hash:'#/home',pathname:'/',search:''},history:{replaceState(){}},URLSearchParams,AbortSignal,setTimeout,clearTimeout,setInterval,clearInterval,scrollX:0,scrollY:240,innerWidth:1200,CSS:{supports:()=>true},getComputedStyle:()=>({paddingRight:'0'}),localStorage:{removeItem(){}},navigator:{},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject}))};
+const context={console,document,location:{hash:'',pathname:'/',search:'',origin:'https://www.mcqcampus.com'},history:{replaceState(){},pushState(){}},URLSearchParams,AbortSignal,setTimeout,clearTimeout,setInterval,clearInterval,scrollX:0,scrollY:240,innerWidth:1200,CSS:{supports:()=>true},getComputedStyle:()=>({paddingRight:'0'}),localStorage:{removeItem(){}},navigator:{},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject}))};
 context.window=context;context.addEventListener=(t,f)=>(windowListeners[t]??=[]).push(f);context.scrollTo=()=>{};vm.createContext(context);
 function run(file){vm.runInContext(fs.readFileSync(path.join(root,'frontend/assets/js',file),'utf8'),context,{filename:file})}
 function respond(req,data={}){req.resolve({ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>data})}
@@ -12,7 +12,7 @@ run('service.js');context.App={route:{path:'home',params:{}}};run('ui.js');run('
 (async()=>{
  for(const [route,expected] of [['categories','categories'],['category/1','categories'],['papers','papers'],['paper/1','papers'],['jobs-exams','jobs-exams'],['post/1','posts']]){
   context.App.route.path=route;
-  const html=context.UI.header('papers'),active=[...html.matchAll(/<a class="active" href="#\/([^"]+)"/g)].map(x=>x[1]);
+  const html=context.UI.header('papers'),active=[...html.matchAll(/<a class="active" href="\/([^"]*)"/g)].map(x=>x[1]);
   assert.deepEqual(active,[expected]);
  }
  console.log('PASS route-specific header selection ignores stale active hints');
