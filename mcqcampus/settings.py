@@ -6,6 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
 DEBUG = os.getenv('DEBUG', 'false').lower() in {'1','true','yes','on'}
 PERFORMANCE_LOGGING = os.getenv('PERFORMANCE_LOGGING', 'false').lower() in {'1','true','yes','on'}
+PUBLIC_CANONICAL_HOST = os.getenv('PUBLIC_CANONICAL_HOST','www.mcqcampus.com').strip().lower()
+PUBLIC_CANONICAL_ORIGIN = 'https://' + PUBLIC_CANONICAL_HOST
+VERCEL_DEFAULT_HOST = os.getenv('VERCEL_DEFAULT_HOST','mcq-campus.vercel.app').strip().lower()
 ALLOWED_HOSTS = [x.strip() for x in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if x.strip()]
 vercel_hosts = [os.getenv(name,'').strip() for name in ('VERCEL_URL','VERCEL_BRANCH_URL','VERCEL_PROJECT_PRODUCTION_URL')]
 for host in vercel_hosts:
@@ -23,6 +26,7 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'core.middleware.CanonicalHostRedirectMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'core.middleware.PerformanceTimingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
