@@ -113,7 +113,8 @@ window.Auth=(()=>{
  }
  async function ensureRouteData(path){
   if(!path)return false;
-  const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',wants=[];
+  const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
+  const routeParams=new URLSearchParams(location.search);
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','latest-jobs'].includes(workspace))wants.push('catalog');
@@ -125,6 +126,7 @@ window.Auth=(()=>{
   if(user&&['admin','super-admin'].includes(workspace)){
    if(section==='overview')wants.push('overview');
    if(['users','admins','admin-records'].includes(section))wants.push('users');
+   if(['add','edit','all-mcqs','mcqs','paper-mcqs','categories','papers','jobs','years','import'].includes(section))wants.push('core');
    if(['all-mcqs','mcqs','edit','paper-mcqs'].includes(section))wants.push('workspace-mcqs');
    if(section==='reports')wants.push('reports');
    if(section==='trash')wants.push('trash');
@@ -134,22 +136,36 @@ window.Auth=(()=>{
    if(['pdfs','latest-jobs','current-affairs','pdfs-manager','latest-jobs-manager'].includes(section))wants.push('catalog');
    if(['content','legal'].includes(section))wants.push('legal');
   }
+  const workspaceEndpoint=()=>{
+   const q=new URLSearchParams();
+   const requested=[10,20,50,100,500,1000,2000,3000].includes(Number(routeParams.get('limit')))?Number(routeParams.get('limit')):20;
+   q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
+   q.set('page_size',String(section==='edit'?1:section==='paper-mcqs'?Math.max(500,requested):requested));
+   for(const key of ['status','category','paper','job','year','author','from','to','search']){
+    const value=routeParams.get(key);if(value)q.set(key,value);
+   }
+   if(section==='mcqs')q.set('owner','me');
+   if(section==='edit'&&recordId)q.set('id',recordId);
+   if(section==='paper-mcqs'&&recordId)q.set('paper',recordId);
+   return '/mcqs?'+q.toString();
+  };
   let changed=false;
   const load=async key=>{
-   const fresh=loadedSections.has(key)&&Date.now()-(sectionLoadedAt.get(key)||0)<SECTION_TTL;
+   let endpoint='/admin/'+key;
+   if(key==='core')endpoint='/bootstrap';
+   else if(key==='public-content')endpoint='/public/content';
+   else if(key==='resources')endpoint='/public/resources';
+   else if(key==='catalog')endpoint='/public/catalog';
+   else if(key==='legal')endpoint='/public/legal';
+   else if(key==='learner')endpoint='/learner/dashboard';
+   else if(key==='profile')endpoint='/profile';
+   else if(key==='workspace-mcqs')endpoint=workspaceEndpoint();
+   const cacheKey=key==='workspace-mcqs'?key+'|'+endpoint:key;
+   const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
    if(fresh)return false;
-   if(loadingSections.has(key)){await loadingSections.get(key);return false}
+   if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return false}
    const task=(async()=>{
     try{
-     let endpoint='/admin/'+key;
-     if(key==='core')endpoint='/bootstrap';
-     else if(key==='public-content')endpoint='/public/content';
-     else if(key==='resources')endpoint='/public/resources';
-     else if(key==='catalog')endpoint='/public/catalog';
-     else if(key==='legal')endpoint='/public/legal';
-     else if(key==='learner')endpoint='/learner/dashboard';
-     else if(key==='profile')endpoint='/profile';
-     else if(key==='workspace-mcqs')endpoint='/mcqs?page_size=50';
      const own=generation,data=await request(endpoint);
      if(!['core','public-content','resources','catalog','legal'].includes(key)&&own!==generation)return;
      if(key==='core')MCQ.mergeCore(data);
@@ -165,7 +181,7 @@ window.Auth=(()=>{
      if(key==='profile'&&data.user)setIdentity({...user,...data.user});
      if(key==='workspace-mcqs'){
       if(Array.isArray(data.items))MCQ.db.mcqs=data.items;
-      MCQ.db.mcqPage={page:data.page,pageSize:data.pageSize,total:data.total,hasNext:data.hasNext};
+      MCQ.db.mcqPage={page:data.page,pageSize:data.pageSize,total:data.total,hasNext:data.hasNext,server:true,request:endpoint};
      }
      if(key==='overview')MCQ.db.adminOverview=data||{};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
@@ -177,14 +193,17 @@ window.Auth=(()=>{
       if(Array.isArray(data.guides))MCQ.db.guides=data.guides;
       if(Array.isArray(data.ads))MCQ.db.ads=data.ads;
      }
-     loadedSections.add(key);sectionLoadedAt.set(key,Date.now());changed=true;
+     loadedSections.add(cacheKey);sectionLoadedAt.set(cacheKey,Date.now());changed=true;
     }catch(error){
      if(error?.message)console.warn('Lazy route data unavailable:',key);
-    }finally{loadingSections.delete(key)}
+    }finally{loadingSections.delete(cacheKey)}
    })();
-   loadingSections.set(key,task);await task;return true;
+   loadingSections.set(cacheKey,task);await task;return true;
   };
-  await Promise.all([...new Set(wants)].map(load));
+  const unique=[...new Set(wants)];
+  if(unique.includes('core'))await load('core');
+  if(unique.includes('workspace-mcqs'))await load('workspace-mcqs');
+  await Promise.all(unique.filter(key=>!['core','workspace-mcqs'].includes(key)).map(load));
   return changed;
  }
  function setIdentity(identity){
@@ -294,6 +313,7 @@ window.Auth=(()=>{
   if(Array.isArray(result?.latestJobs))MCQ.db.latestJobs=result.latestJobs;
   if(result?.deleted?.type){MCQ.remove(result.deleted.type,result.deleted.ids||[]);return}
  }
+ function invalidateWorkspaceMcqs(){for(const key of [...loadedSections])if(String(key).startsWith('workspace-mcqs|')){loadedSections.delete(key);sectionLoadedAt.delete(key)}}
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
@@ -302,6 +322,7 @@ window.Auth=(()=>{
    if(own!==generation)throw Error('The account changed. Please try again.');
    if(data.user)setIdentity({...user,...data.user});
    applyCommandResult(action,data.result,payload);
+   if(['form:mcq','form:review','action:import-confirm'].includes(action))invalidateWorkspaceMcqs();
    if(data.refresh==='bootstrap'){
     const snapshot=await request('/bootstrap');
     if(own!==generation)throw Error('The account changed. Please try again.');
