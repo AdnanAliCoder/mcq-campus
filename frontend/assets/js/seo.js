@@ -2,7 +2,7 @@ window.SEO=(()=>{
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const slug=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,96)||'item';
  const site=()=>MCQ?.db?.settings?.siteName||'MCQ Campus';
- const CANONICAL_ORIGIN='https://www.mcqcampus.com';
+ const CANONICAL_ORIGIN='https://mcqcampus.com';
  const baseUrl=()=>CANONICAL_ORIGIN;
  function cleanPath(base,id){
   const get=(t,i)=>MCQ.get(t,i), s=x=>x?.slug||slug(x?.name||x?.title||x?.question||id);
@@ -21,7 +21,7 @@ window.SEO=(()=>{
  }
  function descriptor(base,id){
   const get=(t,i)=>MCQ.get(t,i), suffix=' | '+site(); let title=site(),description=MCQ.db.seo.description,robots='index,follow';
-  if(base==='home'){title='MCQ Campus — Practice MCQs, Past Papers & Exam Preparation';description='Practice MCQs, explore past papers, jobs, categories, PDFs, tests and important questions for competitive exam preparation.'}
+  if(base==='home'){title='MCQ Campus — Practice MCQs with Answers, Past Papers & Exam Preparation';description='Practice MCQs with answers and explanations, browse past papers, jobs, categories and exam preparation resources for Pakistan and India.'}
   if(base==='categories'){title='MCQ Categories'+suffix;description='Browse MCQ categories and practise approved questions with answers and explanations.'}
   if(base==='category'){const x=get('categories',id);title=(x?.name||'Category')+' MCQs'+suffix;description=`Practice ${x?.name||'category'} MCQs with answers and explanations.`}
   if(base==='subcategory'){const x=get('subcategories',id),c=get('categories',x?.category_id);title=(c?.name||'Category')+' MCQs'+suffix;description=`Practice ${c?.name||'category'} MCQs with answers and explanations.`}
