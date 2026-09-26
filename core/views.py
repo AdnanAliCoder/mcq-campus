@@ -1,7 +1,8 @@
-import json, re, logging, time
+import json, re, logging, time, hashlib, hmac, secrets
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.hashers import make_password
 from django.db import connection, transaction
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
@@ -56,6 +57,13 @@ def _normalize_email(value):
     try: validate_email(email)
     except ValidationError: raise ValueError('Enter a valid email address.')
     return email
+
+def _pending_code_hash(email,code):
+    key=str(settings.SECRET_KEY).encode('utf-8')
+    return hmac.new(key,f'{email}:{str(code)}'.encode('utf-8'),hashlib.sha256).hexdigest()
+
+def _new_signup_code():
+    return f'{secrets.randbelow(1000000):06d}'
 
 def _client_ip(request):
     forwarded=str(request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
@@ -162,27 +170,50 @@ def auth_login(request):
 
 @require_POST
 def auth_register(request):
-    d=payload(request); name=str(d.get('name') or '').strip(); password=str(d.get('password') or '')
+    d=payload(request)
+    first_name=str(d.get('first_name') or '').strip()
+    last_name=str(d.get('last_name') or '').strip()
+    password=str(d.get('password') or '')
+    confirm=str(d.get('confirm') or '')
+    if not first_name: return err('First name is required.',422,{'first_name':'Required.'})
+    if not last_name: return err('Last name is required.',422,{'last_name':'Required.'})
+    if password!=confirm: return err('Passwords do not match.',422,{'confirm':'Passwords do not match.'})
     if not d.get('terms'): return err('Accept the terms and privacy information.',422,{'terms':'Required.'})
     try: email=_normalize_email(d.get('email'))
     except ValueError as exc: return err(exc,422,{'email':str(exc)})
     if _rate_limited('register',[f'ip:{_client_ip(request)}'],5,60*60): return err('Too many registration attempts. Please try again later.',429)
     _record_rate('register',[f'ip:{_client_ip(request)}'])
     if User.objects.filter(email__iexact=email).exists():
-        return JsonResponse({'completed':True,'message':'If this email can be registered, further instructions will be sent.'})
-    u=User(username=email,email=email,first_name=name,is_active=True,is_staff=False,is_superuser=False)
-    try: _validate_password(password,u)
+        return err('An account with this email already exists. Please sign in.',422,{'email':'Already registered.'})
+    temp=User(username=email,email=email,first_name=first_name[:150],last_name=last_name[:150])
+    try: _validate_password(password,temp)
     except ValueError as exc: return err(exc,422,{'password':str(exc)})
-    # Keep account/profile/token creation atomic so a database/schema failure cannot
-    # leave a half-created unverified account with no usable verification code.
-    with transaction.atomic():
-        u.set_password(password); u.save()
-        prof=profile_for(u); prof.role='user'; prof.permissions=[]; prof.country=str(d.get('country') or 'Pakistan')[:80]; prof.email_verified=False; prof.save()
-        code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
+    code=_new_signup_code()
+    now=timezone.now()
+    expiry_minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
+    PendingSignup.objects.update_or_create(
+        email=email,
+        defaults={
+            'first_name':first_name[:150],
+            'last_name':last_name[:150],
+            'password_hash':make_password(password),
+            'code_hash':_pending_code_hash(email,code),
+            'expires_at':now+timedelta(minutes=expiry_minutes),
+            'attempt_count':0,
+            'last_sent_at':now,
+        },
+    )
     delivered=_send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
     if not delivered:
-        return err('Account created, but the verification email could not be delivered right now. Please use Resend code.',503,{'emailDelivery':'temporary'})
-    return JsonResponse({'completed':True,'verificationRequired':True,'email':email,'message':'Account created. Enter the 6-digit code sent to your email.'})
+        return err('Verification email could not be delivered right now. Please try Resend code shortly.',503,{'emailDelivery':'temporary'})
+    return JsonResponse({
+        'completed':True,
+        'verificationRequired':True,
+        'email':email,
+        'resendAfter':getattr(settings,'EMAIL_VERIFICATION_RESEND_SECONDS',60),
+        'expiresIn':expiry_minutes*60,
+        'message':'Enter the 6-digit code sent to your email. Your account will be created after verification.',
+    })
 
 @require_POST
 def auth_forgot(request):
@@ -226,11 +257,50 @@ def auth_verify(request):
     except ValueError: return err('Invalid or expired verification code.',422)
     ids=[f'email:{email}',f'ip:{_client_ip(request)}']
     if _rate_limited('verify',ids,15,15*60): return err('Too many verification attempts. Please try again later.',429)
+    code=str(d.get('code') or '').strip()
+    if not re.fullmatch(r'\d{6}',code):
+        _record_rate('verify',ids)
+        return err('Enter the valid 6-digit verification code.',422)
+    pending=PendingSignup.objects.filter(email__iexact=email).first()
+    if pending:
+        max_attempts=getattr(settings,'EMAIL_VERIFICATION_MAX_ATTEMPTS',5)
+        if pending.expires_at<=timezone.now() or pending.attempt_count>=max_attempts:
+            return err('Invalid or expired verification code. Request a new code.',422)
+        if not hmac.compare_digest(pending.code_hash,_pending_code_hash(email,code)):
+            pending.attempt_count+=1
+            pending.save(update_fields=['attempt_count','updated_at'])
+            _record_rate('verify',ids)
+            return err('Invalid or expired verification code.',422)
+        with transaction.atomic():
+            pending=PendingSignup.objects.select_for_update().get(pk=pending.pk)
+            if pending.expires_at<=timezone.now() or pending.attempt_count>=max_attempts:
+                return err('Invalid or expired verification code. Request a new code.',422)
+            if not hmac.compare_digest(pending.code_hash,_pending_code_hash(email,code)):
+                pending.attempt_count+=1
+                pending.save(update_fields=['attempt_count','updated_at'])
+                return err('Invalid or expired verification code.',422)
+            if User.objects.filter(email__iexact=email).exists():
+                pending.delete()
+                return err('An account with this email already exists. Please sign in.',422)
+            u=User(
+                username=email,email=email,
+                first_name=pending.first_name,last_name=pending.last_name,
+                password=pending.password_hash,
+                is_active=True,is_staff=False,is_superuser=False,
+            )
+            u.save()
+            prof=profile_for(u)
+            prof.role='user'; prof.permissions=[]; prof.email_verified=True
+            prof.save(update_fields=['role','permissions','email_verified'])
+            pending.delete()
+        return JsonResponse({'completed':True,'message':'Email verified and account created. You can now sign in.'})
+
+    # Backward compatibility for accounts created by the older verification flow.
     u=User.objects.filter(email__iexact=email,is_active=True).first()
     if not u: _record_rate('verify',ids); return err('Invalid or expired verification code.',422)
     prof=profile_for(u)
     if prof.email_verified: return err('Verification is already complete.',422)
-    verified=consume_token(u,d.get('code'),'verify',getattr(settings,'EMAIL_VERIFICATION_MAX_ATTEMPTS',5))
+    verified=consume_token(u,code,'verify',getattr(settings,'EMAIL_VERIFICATION_MAX_ATTEMPTS',5))
     if not verified: _record_rate('verify',ids); return err('Invalid or expired verification code.',422)
     prof.email_verified=True; prof.save(update_fields=['email_verified'])
     return JsonResponse({'completed':True,'message':'Email verified. You can now sign in.'})
@@ -238,12 +308,30 @@ def auth_verify(request):
 @require_POST
 def auth_resend_verification(request):
     d=payload(request)
-    generic={'completed':True,'message':'If verification is required, a new code has been sent.'}
+    generic={'completed':True,'message':'If verification is required, a new code has been sent.','resendAfter':getattr(settings,'EMAIL_VERIFICATION_RESEND_SECONDS',60)}
     try: email=_normalize_email(d.get('email'))
     except ValueError: return JsonResponse(generic)
     ids=[f'email:{email}',f'ip:{_client_ip(request)}']
     if _rate_limited('resend',ids,5,60*60): return JsonResponse(generic)
-    _record_rate('resend',ids)
+    pending=PendingSignup.objects.filter(email__iexact=email).first()
+    if pending:
+        cooldown=getattr(settings,'EMAIL_VERIFICATION_RESEND_SECONDS',60)
+        elapsed=(timezone.now()-pending.last_sent_at).total_seconds()
+        if elapsed<cooldown:
+            remaining=max(1,int(cooldown-elapsed+0.999))
+            return JsonResponse({**generic,'message':f'Please wait {remaining} seconds before requesting another code.','resendAfter':remaining})
+        code=_new_signup_code()
+        expiry_minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
+        delivered=_send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+        if delivered:
+            pending.code_hash=_pending_code_hash(email,code)
+            pending.expires_at=timezone.now()+timedelta(minutes=expiry_minutes)
+            pending.attempt_count=0
+            pending.last_sent_at=timezone.now()
+            pending.save(update_fields=['code_hash','expires_at','attempt_count','last_sent_at','updated_at'])
+        _record_rate('resend',ids)
+        return JsonResponse(generic)
+    # Backward compatibility for older unverified accounts.
     u=User.objects.filter(email__iexact=email,is_active=True,profile__email_verified=False).first()
     if u:
         cooldown=getattr(settings,'EMAIL_VERIFICATION_RESEND_SECONDS',60)
@@ -251,7 +339,9 @@ def auth_resend_verification(request):
         if latest and (timezone.now()-latest.created_at).total_seconds()<cooldown: return JsonResponse(generic)
         code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
         _send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+    _record_rate('resend',ids)
     return JsonResponse(generic)
+
 
 @profile_api('auth_logout')
 @require_POST
