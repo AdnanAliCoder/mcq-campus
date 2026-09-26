@@ -2186,3 +2186,14 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
 .dash-top,.card,.table-wrap,.footer,.header{background:#fff}
 
 .required-mark{color:#b42318;font-weight:700}
+
+
+/* 2026-09-26 mobile footer alignment + one-screen import approval */
+@media(max-width:600px){
+ .footer-brand-block,.footer-brand-block .brand,.footer-brand-block p,.footer-brand-block .footer-email,.footer-brand-block .footer-social{justify-content:flex-start!important;text-align:left!important;margin-left:0!important;margin-right:auto!important}
+ .footer-brand-block .brand{width:100%}
+ .footer-social{display:flex!important}
+ .footer-bottom-links{display:none!important}
+}
+.import-approval-panel{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}
+.import-approval-panel .section-head{margin-bottom:12px}
