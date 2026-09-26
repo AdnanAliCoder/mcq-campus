@@ -18,7 +18,7 @@ from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
-    learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, _bulk_duplicate_mcq,
+    learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
