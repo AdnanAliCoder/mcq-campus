@@ -30,8 +30,8 @@ window.PublicLayout=(()=>{
   } else if(kind==='papers'){
    const parent=ctx.parent,type=ctx.type,countries=[...new Set(['Pakistan','India',...papers.map(x=>x.country).filter(Boolean)])];
    let hierarchy=[];
-   if(type==='paper'&&parent)hierarchy=MCQ.db.jobs.filter(x=>x.active!==false&&x.paper_id===parent.id).slice(0,8).map(x=>['job/'+x.id,x.name]);
-   else if(type==='job'&&parent)hierarchy=years.filter(x=>x.job_id===parent.id).slice(0,8).map(x=>['year/'+x.id,x.name]);
+   if(type==='paper'&&parent)hierarchy=MCQ.db.jobs.filter(x=>x.active!==false&&x.paper_id===parent.id).slice(0,8).map(x=>['paper/'+parent.id+'/job/'+x.id,x.name]);
+   else if(type==='job'&&parent){const paper=MCQ.get('papers',parent.paper_id);hierarchy=years.filter(x=>x.job_id===parent.id).slice(0,8).map(x=>[paper?'paper/'+paper.id+'/job/'+parent.id+'/year/'+x.id:'year/'+x.id,x.name]);}
    else hierarchy=paperLinks(7);
    if(type==='paper'||type==='job')out.push(module(type==='paper'?'Jobs / Posts':'Years / Papers',linkList(hierarchy)));
    out.push(ad('paper_sidebar')||ad('sidebar_middle'));
@@ -57,7 +57,7 @@ window.PublicLayout=(()=>{
   } else if(kind==='mcq-detail'){
    const q=ctx.question,cat=q&&MCQ.get('categories',q.category_id),yrs=q?MCQ.ids(q.job_years_ids).map(id=>MCQ.get('years',id)).filter(Boolean):[];
    if(cat)out.push(module('Question Category',linkList([['category/'+cat.id,cat.name]])));
-   if(yrs.length)out.push(module('Related Past Papers',linkList(yrs.slice(0,7).map(x=>['year/'+x.id,x.name]))));
+   if(yrs.length)out.push(module('Related Past Papers',linkList(yrs.slice(0,7).map(x=>{const job=MCQ.get('jobs',x.job_id),paper=job&&MCQ.get('papers',job.paper_id);return [paper&&job?'paper/'+paper.id+'/job/'+job.id+'/year/'+x.id:'year/'+x.id,x.name]}))));
    out.push(ad('sidebar_middle'));
    out.push(module('Keep Practising',linkList([['mcqs','Browse MCQs'],['tests','Take a Test'],['papers','Past Papers']])));
   } else if(kind==='legal'){
