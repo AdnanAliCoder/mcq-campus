@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, PendingSignup, profile_for
+from .models import Category, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, PendingSignup, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -123,6 +123,42 @@ class IntegrationTests(TestCase):
         self.assertEqual(paper_result['type'],'papers')
         self.assertEqual(paper_result['entity']['name'],'FPSC')
         self.assertNotIn('snapshot',paper_response.json())
+
+    def test_bulk_import_merges_only_hierarchy_for_repeated_question(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        paper2=Paper.objects.create(id=201,name='FPSC',icon='paper')
+        job1=Job.objects.create(id=300,name='Assistant',paper=self.paper)
+        year1=JobYear.objects.create(id=400,name='2025',job=job1)
+        job2=Job.objects.create(id=301,name='Inspector',paper=paper2)
+        year2=JobYear.objects.create(id=401,name='2026',job=job2)
+        q=MCQ.objects.create(
+            id=50,question='Repeated hierarchy question?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Keep this description',category=self.category,status='approved',
+            paper_ids=[self.paper.id],job_ids=[job1.id],job_year_ids=[year1.id],
+            created_by=self.owner,submitted_by=self.owner,
+        )
+        row={'status':'merge','q':{
+            'question':q.question,'option1':'CHANGED','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'CHANGED','description':'Do not overwrite','category_id':self.category.id,
+            'paper_id':[paper2.id],'job_ids':[job2.id],'job_years_ids':[year2.id],
+        }}
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':[row]}})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['result']['summary']['merged'],1)
+        q.refresh_from_db()
+        self.assertEqual(q.option1,'A')
+        self.assertEqual(q.correct_answer,'A')
+        self.assertEqual(q.description,'Keep this description')
+        self.assertEqual(set(q.paper_ids),{self.paper.id,paper2.id})
+        self.assertEqual(set(q.job_ids),{job1.id,job2.id})
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertTrue(q.important)
+
+    def test_mcq_match_finds_database_question_for_single_add(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        response=self.client.get('/api/mcqs/match',{'question':'  Approved   question?  '})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['match']['id'],self.approved.id)
 
     def test_mcq_endpoint_is_paginated_and_bootstrap_is_bounded(self):
         more=[MCQ(id=1000+i,question=f'Bulk question {i}?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',created_by=self.admin,submitted_by=self.admin) for i in range(60)]
