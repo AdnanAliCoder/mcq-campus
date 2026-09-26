@@ -239,7 +239,8 @@ window.Auth=(()=>{
    let until=0;try{until=Number(sessionStorage.getItem(resendKey(email))||0)}catch{}
    const left=Math.max(0,Math.ceil((until-Date.now())/1000));
    button.disabled=left>0;
-   label.textContent=left>0?`Resend code in 00:${String(left).padStart(2,'0')}`:'You can request a new code now.';
+   const mins=Math.floor(left/60),secs=left%60;
+   label.textContent=left>0?`Resend code in ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`:'You can request a new code now.';
    if(left<=0){clearInterval(verificationTimer);verificationTimer=null}
   };
   tick();
