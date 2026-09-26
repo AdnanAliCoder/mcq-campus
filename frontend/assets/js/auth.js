@@ -47,7 +47,7 @@ window.Auth=(()=>{
   for(const key of [...loadedSections])if(!['core','public-content','resources','catalog','legal'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
   for(const [key] of loadingSections)if(!['core','public-content','resources','catalog','legal'].includes(key))loadingSections.delete(key);
   MCQ.clearSession();
-  if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.homeRandomIds=[];App.quickTimer?.stop();}
+  if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.importedIds=[];App.homeRandomIds=[];App.quickTimer?.stop();}
   document.getElementById('modal')?.close();
  }
  let pendingRequests=0,loadingFocus=null;
@@ -449,7 +449,7 @@ window.Auth=(()=>{
   try{
    const extra={...el.dataset,rows:App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
-   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){App.importSummary=result?.summary||result;loadedSections.delete('overview');sectionLoadedAt.delete('overview');}document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){App.importSummary=result?.summary||result;App.importedIds=(result?.mcqs||[]).map(x=>Number(x.id)).filter(Boolean);loadedSections.delete('overview');sectionLoadedAt.delete('overview');invalidateWorkspaceMcqs();}document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
   }
   catch(error){UI.toast(error.message);}
   finally{restoreButton();}
