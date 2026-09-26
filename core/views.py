@@ -2,7 +2,7 @@ import json, re, logging, time
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.db import connection
+from django.db import connection, transaction
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import validate_email
@@ -173,9 +173,12 @@ def auth_register(request):
     u=User(username=email,email=email,first_name=name,is_active=True,is_staff=False,is_superuser=False)
     try: _validate_password(password,u)
     except ValueError as exc: return err(exc,422,{'password':str(exc)})
-    u.set_password(password); u.save()
-    prof=profile_for(u); prof.role='user'; prof.permissions=[]; prof.country=str(d.get('country') or 'Pakistan')[:80]; prof.email_verified=False; prof.save()
-    code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
+    # Keep account/profile/token creation atomic so a database/schema failure cannot
+    # leave a half-created unverified account with no usable verification code.
+    with transaction.atomic():
+        u.set_password(password); u.save()
+        prof=profile_for(u); prof.role='user'; prof.permissions=[]; prof.country=str(d.get('country') or 'Pakistan')[:80]; prof.email_verified=False; prof.save()
+        code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
     delivered=_send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
     if not delivered:
         return err('Account created, but the verification email could not be delivered right now. Please use Resend code.',503,{'emailDelivery':'temporary'})
