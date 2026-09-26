@@ -6,17 +6,17 @@ window.SEO=(()=>{
  const baseUrl=()=>CANONICAL_ORIGIN;
  function cleanPath(base,id){
   const get=(t,i)=>MCQ.get(t,i), s=x=>x?.slug||slug(x?.name||x?.title||x?.question||id);
-  if(base==='home')return '/'; if(base==='categories')return '/categories/';
-  if(base==='category')return `/categories/${s(get('categories',id))}/`;
-  if(base==='subcategory'){const x=get('subcategories',id),c=get('categories',x?.category_id);return c?`/categories/${s(c)}/`:'/categories/'}
-  if(base==='topic'){const x=get('children',id),sub=get('subcategories',x?.subcategory_id),c=get('categories',sub?.category_id);return c?`/categories/${s(c)}/`:'/categories/'}
-  if(base==='mcqs')return '/mcqs/'; if(base==='papers')return '/past-papers/'; if(base==='paper')return `/past-papers/${s(get('papers',id))}/`;
-  if(base==='job')return `/jobs/${s(get('jobs',id))}/`; if(base==='year')return `/past-papers/${s(get('years',id))}/`;
-  if(base==='mcq'||base==='practice'){const q=get('mcqs',id);return `/mcqs/${s(q)}/`}
-  if(base==='tests')return '/tests/'; if(base==='test')return `/tests/${slug(id)}/`;
-  if(base==='jobs-exams')return '/jobs-exams/'; if(base==='pdfs')return '/pdfs/'; if(base==='latest-jobs')return '/latest-jobs/';
-  if(base==='posts')return '/blog/'; if(base==='post')return `/blog/${s(get('posts',id))}/`;
-  return `/${slug(base)}/`;
+  if(base==='home')return '/'; if(base==='categories')return '/categories';
+  if(base==='category')return `/category/${s(get('categories',id))}`;
+  if(base==='subcategory'){const x=get('subcategories',id),c=get('categories',x?.category_id);return c?`/category/${s(c)}`:'/categories'}
+  if(base==='topic'){const x=get('children',id),sub=get('subcategories',x?.subcategory_id),c=get('categories',sub?.category_id);return c?`/category/${s(c)}`:'/categories'}
+  if(base==='mcqs')return '/mcqs'; if(base==='papers')return '/papers'; if(base==='paper')return `/paper/${s(get('papers',id))}`;
+  if(base==='job')return `/job/${s(get('jobs',id))}`; if(base==='year')return `/year/${s(get('years',id))}`;
+  if(base==='mcq'||base==='practice'){const q=get('mcqs',id);return `/mcq/${s(q)}`}
+  if(base==='tests')return '/tests'; if(base==='test')return `/test/${slug(id)}`;
+  if(base==='jobs-exams')return '/jobs-exams'; if(base==='pdfs')return '/pdfs'; if(base==='latest-jobs')return '/latest-jobs';
+  if(base==='posts')return '/posts'; if(base==='post')return `/post/${s(get('posts',id))}`;
+  return `/${slug(base)}`;
  }
  function descriptor(base,id){
   const get=(t,i)=>MCQ.get(t,i), suffix=' | '+site(); let title=site(),description=MCQ.db.seo.description,robots='index,follow';
