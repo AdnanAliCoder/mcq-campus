@@ -672,7 +672,9 @@ def command(user,action,payload):
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0}; imported_ids=[]
         for row in payload.get('rows') or []:
-            if row.get('status')!='valid' or not row.get('q'): continue
+            if row.get('status')=='invalid' or not row.get('q'):
+                if row.get('status')=='invalid': summary['invalid']+=1
+                continue
             draft=row['q']
             try:
                 duplicate=_bulk_duplicate_mcq(draft.get('question'))
