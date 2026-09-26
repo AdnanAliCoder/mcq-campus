@@ -8,18 +8,20 @@ window.Auth=(()=>{
  const SECTION_TTL=300000;
 
  function initialRoute(){
-  if(location.hash)return;
+  if(location.hash){
+   const legacy=location.hash.replace(/^#\/?/,'');const [path,query='']=legacy.split('?'),params=Object.fromEntries(new URLSearchParams(query));history.replaceState(null,'',UI.href(path||'home',params));return;
+  }
   let path=location.pathname.replace(/^\/+|\/+$/g,'').replace(/index\.html$/,'').replace(/\.html$/,'');
   const aliases={
    'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset','auth/verify-email':'verify',
    'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','':''
   };
-  path=aliases[path]??path.replace(/^public\//,'');
-  if(path)history.replaceState(null,'','#/'+path+location.search);
+  const mapped=aliases[path]??path.replace(/^public\//,'');
+  if(mapped!==path)history.replaceState(null,'',UI.href(mapped||'home',Object.fromEntries(new URLSearchParams(location.search))));
  }
  initialRoute();
 
- const route=()=>location.hash.replace(/^#\/?/,'')||'home';
+ const route=()=>{const path=location.pathname.replace(/^\/+|\/+$/g,'')||'home';return path+location.search};
  const base=()=>route().split(/[/?]/)[0];
  const authError='Account services are unavailable. Please try again shortly.';
  function destination(value){
@@ -218,8 +220,8 @@ window.Auth=(()=>{
   document.getElementById('app').removeAttribute('aria-busy');
   const current=route(),b=base();
   if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
-  if(!user){const next=destination(current);history.replaceState(null,'','#/login'+(next?'?next='+encodeURIComponent(next):''));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
-  if(!allowed(current)){history.replaceState(null,'','#/'+landing());return false;}
+  if(!user){const next=destination(current);history.replaceState(null,'',UI.href('login',next?{next}:{}));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
+  if(!allowed(current)){history.replaceState(null,'',UI.href(landing()));return false;}
   return true;
  }
 
@@ -327,14 +329,14 @@ window.Auth=(()=>{
    const data=await request('/auth/'+type,values);
    if(type==='login'){
     csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
-    const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();location.hash='#/'+target;App.render();
+    const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();App.go(target);
    }else if(type==='register'&&data.verificationRequired){
     const verifyEmail=data.email||values.email;
     armVerificationTimer(verifyEmail,data.resendAfter||60);
-    location.hash='#/verify?email='+encodeURIComponent(verifyEmail);App.render();
+    App.go('verify',{email:verifyEmail});
    }else if(type==='forgot'){
     box.textContent=data.message||'If an active account matches that email, a reset code has been sent.';
-    setTimeout(()=>{location.hash='#/reset?email='+encodeURIComponent(values.email||'');App.render();},700);
+    setTimeout(()=>App.go('reset',{email:values.email||''}),700);
    }else if(type==='verify'&&data.completed){
     box.textContent=data.message||'Email verified. You can now sign in.';
     setTimeout(()=>App.go('login'),700);
@@ -346,7 +348,7 @@ window.Auth=(()=>{
    }
   }catch(error){
    if(type==='login'&&error?.fields?.verificationRequired){
-    location.hash='#/verify?email='+encodeURIComponent(values.email||'');App.render();
+    App.go('verify',{email:values.email||''});
    }else box.textContent=error.message;
   }finally{restoreButton();}
  },true);
@@ -477,8 +479,7 @@ window.Auth=(()=>{
     await request('/auth/logout',{});
     clearPrivateState();
     ready=true;
-    location.hash='#/login';
-    App.render();
+    App.go('login');
    }finally{
     backendLoading(false);
     majorTransition=null;
