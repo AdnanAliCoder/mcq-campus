@@ -206,13 +206,18 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     qs=visible_mcqs(user)
     if filters.get('owner')=='me' and user and getattr(user,'is_authenticated',False):
         qs=qs.filter(created_by=user)
-    if filters.get('status'): qs=qs.filter(status=str(filters['status']))
+    if filters.get('status'):
+        status=str(filters['status'])
+        if status=='pending': qs=qs.filter(Q(status='pending')|Q(pending_update__isnull=False)).distinct()
+        elif status in {'approved','rejected'}: qs=qs.filter(status=status,pending_update__isnull=True)
     if filters.get('category'):
         try: qs=qs.filter(category_id=int(filters['category']))
         except (TypeError,ValueError): pass
     if filters.get('author'):
-        try: qs=qs.filter(created_by_id=int(filters['author']))
-        except (TypeError,ValueError): pass
+        if str(filters['author'])=='unknown': qs=qs.filter(created_by__isnull=True)
+        else:
+            try: qs=qs.filter(created_by_id=int(filters['author']))
+            except (TypeError,ValueError): pass
     if filters.get('from'): qs=qs.filter(created_at__date__gte=str(filters['from']))
     if filters.get('to'): qs=qs.filter(created_at__date__lte=str(filters['to']))
     if filters.get('id'):
