@@ -404,7 +404,13 @@ def save_mcq(user,draft):
         require(is_super(user) or (existing.created_by_id==user.id and existing.status!='approved'))
     dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip())
     if existing: dup=dup.exclude(pk=existing.pk)
-    if dup.exists(): raise ValueError('A matching question already exists.')
+    duplicate=dup.first()
+    if duplicate:
+        # Manual entry follows the same rule as bulk import: one question record,
+        # with every Paper / Job / Job Year occurrence merged into its hierarchy.
+        # Never overwrite the canonical answer/explanation from a duplicate entry.
+        _merge_bulk_mcq_hierarchy(user,duplicate,draft)
+        return duplicate
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
     job_ids=normalize_ids(draft.get('job_ids'))
     common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=normalize_ids(draft.get('paper_id')),job_ids=job_ids,job_year_ids=normalize_ids(draft.get('job_years_ids')),important=len(set(normalize_ids(draft.get('job_ids'))))>=2,country=str(draft.get('country') or 'Pakistan'))
