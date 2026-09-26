@@ -12,6 +12,7 @@ from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.html import escape
+from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from .models import *
@@ -633,21 +634,83 @@ def commands(request):
         if e.__class__.__name__ in {'DoesNotExist','IntegrityError'}: return err('The requested record could not be updated.',422)
         raise
 
+SEO_ORIGIN='https://mcqcampus.com'
+
+def _seo_slug(value):
+    return slugify(str(value or ''))[:96] or 'item'
+
+def _xml_response(body):
+    return HttpResponse(body,content_type='application/xml; charset=utf-8')
+
+def _urlset(items):
+    rows=[]
+    for loc,lastmod in items:
+        lm=f'<lastmod>{lastmod.date().isoformat()}</lastmod>' if lastmod else ''
+        rows.append(f'<url><loc>{escape(loc)}</loc>{lm}</url>')
+    return '<?xml version="1.0" encoding="UTF-8"?>'+'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(rows)+'</urlset>'
+
+def sitemap_index(request):
+    names=['pages','categories','papers','mcqs','resources']
+    body='<?xml version="1.0" encoding="UTF-8"?>'+'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(f'<sitemap><loc>{SEO_ORIGIN}/sitemap-{name}.xml</loc></sitemap>' for name in names)+'</sitemapindex>'
+    return _xml_response(body)
+
+def sitemap_pages(request):
+    paths=['/','/mcqs','/categories','/papers','/jobs-exams','/pdfs','/latest-jobs','/posts','/about','/contact','/faq','/privacy','/terms','/disclaimer']
+    return _xml_response(_urlset([(SEO_ORIGIN+p,None) for p in paths]))
+
+def sitemap_categories(request):
+    rows=[(f'{SEO_ORIGIN}/category/{_seo_slug(x.name)}',x.updated_at) for x in Category.objects.filter(active=True).only('name','updated_at')]
+    return _xml_response(_urlset(rows))
+
+def sitemap_papers(request):
+    rows=[]
+    for p in Paper.objects.filter(active=True).only('name','updated_at'):
+        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}',p.updated_at))
+    jobs=Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','updated_at','paper__name')
+    for j in jobs:
+        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}',j.updated_at))
+    years=JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','updated_at','job__name','job__paper__name')
+    for y in years:
+        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}',y.updated_at))
+    return _xml_response(_urlset(rows))
+
+def sitemap_mcqs(request):
+    rows=[(f'{SEO_ORIGIN}/mcq/{_seo_slug(q.question)}',q.updated_at) for q in MCQ.objects.filter(status='approved').only('question','updated_at')]
+    return _xml_response(_urlset(rows))
+
+def sitemap_resources(request):
+    rows=[(f'{SEO_ORIGIN}/post/{p.slug}',p.updated_at) for p in Post.objects.filter(status='published').only('slug','updated_at')]
+    return _xml_response(_urlset(rows))
+
 def spa_index(request):
     fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
     s=SiteSetting.objects.only(*fields).filter(pk=1).first()
     if s is None: s=SiteSetting.objects.create(pk=1)
-    return render(request,'index.html',{'settings':s})
+    title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
+    description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
+    path=request.path.rstrip('/') or '/'
+    if path=='/':
+        title='MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
+        description='MCQ Campus offers practice MCQs with answers, past papers, job-wise exam preparation, categories and study resources for competitive exams.'
+    elif path.startswith('/mcq/'):
+        wanted=path.split('/mcq/',1)[1].strip('/')
+        for q in MCQ.objects.filter(status='approved').only('question','description','seo_description'):
+            if _seo_slug(q.question)==wanted:
+                title=f'{q.question[:70]} | MCQ Campus'
+                description=(q.seo_description or q.description or f'Practice this MCQ with the correct answer and explanation on MCQ Campus.')[:155]
+                break
+    canonical=SEO_ORIGIN+('/' if path=='/' else path)
+    return render(request,'index.html',{'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical})
 
 
 def root_static_file(request, filename):
-    allowed={'sitemap-index.xml','sitemap-pages.xml','sitemap-categories.xml','sitemap-papers.xml','sitemap-mcqs.xml','sitemap-resources.xml','sitemap-template.xml','routing-manifest.json'}
+    allowed={'routing-manifest.json'}
     if filename not in allowed: raise Http404
     from pathlib import Path
     path=Path(__file__).resolve().parents[1]/'frontend'/filename
     if not path.exists(): raise Http404
-    content_type='application/xml' if filename.endswith('.xml') else 'application/json'
-    return FileResponse(open(path,'rb'),content_type=content_type)
+    return FileResponse(open(path,'rb'),content_type='application/json')
 
 def robots_txt(request):
-    body='User-agent: *\nAllow: /\nSitemap: '+request.build_absolute_uri('/sitemap-index.xml')+'\n'; return HttpResponse(body,content_type='text/plain')
+    body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /super-admin/\nDisallow: /dashboard/\nDisallow: /profile/\nDisallow: /api/\nSitemap: '+SEO_ORIGIN+'/sitemap-index.xml\n'
+    return HttpResponse(body,content_type='text/plain; charset=utf-8')
