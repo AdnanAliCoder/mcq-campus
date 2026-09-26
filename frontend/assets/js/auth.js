@@ -363,6 +363,42 @@ window.Auth=(()=>{
   finally{restore();}
  },true);
 
+
+ function openPasswordChangeStart(){
+  const modal=document.getElementById('modal');if(!modal)return;
+  modal.innerHTML=`<div class="dialog-content"><div class="dialog-head"><div><p class="eyebrow">ACCOUNT SECURITY</p><h2>Change password</h2></div><button class="btn ghost sm" type="button" data-password-change-close>Close</button></div><p class="small muted">Enter your current password, then choose a new password. The new password must be different from your current password.</p><form data-password-change-step="start">${field('current_password','Current password','password','current-password','',true)}${field('new_password','New password','password','new-password','',true)}${field('confirm_password','Confirm new password','password','new-password','',true)}<p class="auth-error" role="alert" data-password-change-error></p><div class="actions"><button class="btn primary" type="submit">Send verification code</button></div></form></div>`;
+  if(!modal.open)modal.showModal();
+ }
+ function openPasswordChangeCode(message=''){
+  const modal=document.getElementById('modal');if(!modal)return;
+  modal.innerHTML=`<div class="dialog-content"><div class="dialog-head"><div><p class="eyebrow">EMAIL VERIFICATION</p><h2>Enter verification code</h2></div><button class="btn ghost sm" type="button" data-password-change-close>Close</button></div><p class="small muted">We sent a 6-digit code to your account email. Your password will not change until this code is verified.</p><form data-password-change-step="confirm">${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true)}<p class="small muted">Code expires in 10 minutes.</p><p class="auth-error" role="alert" data-password-change-error>${UI.esc(message)}</p><div class="actions"><button class="btn primary" type="submit">Verify & change password</button><button class="btn ghost" type="button" data-password-change-back>Back</button></div></form></div>`;
+  if(!modal.open)modal.showModal();
+ }
+ document.addEventListener('click',event=>{
+  if(event.target.closest('[data-password-change-open]')){event.preventDefault();openPasswordChangeStart();return}
+  if(event.target.closest('[data-password-change-close]')){event.preventDefault();document.getElementById('modal')?.close();return}
+  if(event.target.closest('[data-password-change-back]')){event.preventDefault();openPasswordChangeStart();return}
+ });
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-password-change-step]');if(!form)return;
+  event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
+  const box=form.querySelector('[data-password-change-error]'),button=form.querySelector('[type=submit]'),values=Object.fromEntries(new FormData(form));
+  if(box)box.textContent='';
+  const restore=setButtonLoading(button,form.dataset.passwordChangeStep==='start'?'Checking...':'Verifying...');
+  try{
+   if(form.dataset.passwordChangeStep==='start'){
+    if(values.new_password!==values.confirm_password)throw Error('New passwords do not match.');
+    const data=await request('/auth/password-change/start',values);
+    openPasswordChangeCode(data.message||'Verification code sent.');
+   }else{
+    const data=await request('/auth/password-change/confirm',{code:values.code});
+    document.getElementById('modal')?.close();
+    UI.toast(data.message||'Password changed successfully.');
+   }
+  }catch(error){if(box)box.textContent=error.message;}
+  finally{restore();}
+ },true);
+
  const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','bulk-categories','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
