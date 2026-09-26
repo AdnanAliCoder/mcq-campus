@@ -15,10 +15,10 @@ from django.utils.html import escape
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from .models import *
-from .serializers import user_dict, user_identity_dict, user_profile_dict
+from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
-    learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data,
+    learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, _bulk_duplicate_mcq,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -521,6 +521,16 @@ def mcqs(request):
         return err('Invalid pagination values.',422)
     filters={k:request.GET.get(k) for k in ['status','category','paper','job','year','search'] if request.GET.get(k)}
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
+
+@profile_api('mcq_match')
+@require_GET
+@login_required_json
+def mcq_match(request):
+    if not is_admin(request.user): return err('Administrator access is required.',403)
+    question=str(request.GET.get('question') or '').strip()
+    if len(question)<3: return JsonResponse({'match':None})
+    obj=_bulk_duplicate_mcq(question)
+    return JsonResponse({'match':mcq(obj) if obj else None})
 
 @require_GET
 @login_required_json
