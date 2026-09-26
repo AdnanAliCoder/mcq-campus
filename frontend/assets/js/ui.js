@@ -37,7 +37,7 @@ window.UI=(()=>{
  };
 
  const catIcons=['chart','globe','bolt','code','cpu','grid','cpu','science','chart','leaf'];
- const entityIcon=(x,fallback='grid')=>{const v=String(x?.icon||fallback).trim();if(/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(v)||/^https?:\/\//i.test(v))return `<img class="entity-icon-img" src="${esc(v)}" alt="">`;if(/^[a-z-]+$/i.test(v))return icon(v);return `<span class="entity-emoji" aria-hidden="true">${esc(v.slice(0,4))}</span>`};
+ const entityIcon=(x,fallback='grid')=>{const v=String(x?.icon||x?.paper_icon||fallback).trim();if(/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(v)||/^https?:\/\//i.test(v))return `<img class="entity-icon-img" src="${esc(v)}" alt="">`;if(/^[a-z-]+$/i.test(v))return icon(v);return `<span class="entity-emoji" aria-hidden="true">${esc(v.slice(0,4))}</span>`};
  function showcaseCard(path,x,{badgeText='',title='',subtitle='',meta='',fallback='grid'}={}){
   return link(path,`<div class="entity-card-media"><span class="entity-card-image">${entityIcon(x,fallback)}</span></div><div class="entity-card-body"><span class="entity-card-badge">${esc(badgeText)}</span><h3>${esc(title||x?.name||'')}</h3><p>${esc(subtitle)}</p><div class="entity-card-meta"><span>${icon('briefcase')} ${esc(meta)}</span></div></div><span class="entity-card-arrow" aria-hidden="true">${icon('arrow')}</span>`,'card clickable entity-showcase-card')
  }
