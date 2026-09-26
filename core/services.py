@@ -279,13 +279,16 @@ def admin_overview_data(user,active_role=None):
         rejected=Count('id',filter=Q(status='rejected')),
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:6]]
-    data={'mcqs':counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'learners':0,'trash':0}
+    mine_qs=MCQ.objects.filter(created_by=user)
+    mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')),approved=Count('id',filter=Q(status='approved')),rejected=Count('id',filter=Q(status='rejected')))
+    data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'learners':0,'trash':0}
     if super_view:
         data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
         people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
         data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
         staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
         data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
+        data['staffCounts']={str(row['created_by_id']):row['total'] for row in MCQ.objects.exclude(created_by_id__isnull=True).values('created_by_id').annotate(total=Count('id'))}
     elif has_perm(user,'view_reports'):
         data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
     return data
