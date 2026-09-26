@@ -5,12 +5,13 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.hashers import make_password
 from django.db import connection, transaction
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.utils import timezone
+from django.utils.html import escape
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from .models import *
@@ -86,21 +87,72 @@ def _record_rate(kind,identities):
     for value in identities:
         AuditLog.objects.create(action='auth-rate:'+kind,detail=_rate_hash(kind,value))
 
-def _send_auth_email(subject,body,email):
+def _email_shell(title,lead,content_html,footer):
+    return f"""<!doctype html>
+<html><body style="margin:0;background:#f4f8f6;font-family:Arial,sans-serif;color:#18352d">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f8f6;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#fff;border:1px solid #d7e6df;border-radius:16px;overflow:hidden">
+<tr><td style="background:#087e65;padding:24px 28px;color:#fff"><div style="font-size:13px;letter-spacing:.12em;font-weight:700">MCQ CAMPUS</div><div style="font-size:24px;font-weight:700;margin-top:8px">{escape(title)}</div></td></tr>
+<tr><td style="padding:28px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">{escape(lead)}</p>{content_html}<p style="margin:24px 0 0;color:#607268;font-size:13px;line-height:1.6">{escape(footer)}</p></td></tr>
+</table><p style="font-size:12px;color:#7a8d84;margin:14px 0 0">MCQ Campus · www.mcqcampus.com</p>
+</td></tr></table></body></html>"""
+
+def _send_auth_email(subject,body,email,html=None):
     try:
-        send_mail(subject,body,None,[email],fail_silently=False)
+        message=EmailMultiAlternatives(subject,body,None,[email])
+        if html: message.attach_alternative(html,'text/html')
+        message.send(fail_silently=False)
         return True
     except Exception as exc:
         logger.warning('auth_email_delivery_failed type=%s',exc.__class__.__name__)
         return False
 
+def _code_email(code,title,lead,minutes,footer):
+    body=f'MCQ Campus\n\n{lead}\n\nCode: {code}\n\nThis code expires in {minutes} minutes.\n{footer}'
+    code_html=escape(str(code))
+    html=_email_shell(
+        title,lead,
+        f'<div style="text-align:center;margin:24px 0"><div style="display:inline-block;background:#eef8f3;border:1px solid #b9ddce;border-radius:12px;padding:16px 24px;font-size:32px;letter-spacing:.22em;font-weight:800;color:#075b4c">{code_html}</div><div style="margin-top:10px;color:#607268;font-size:13px">Expires in {minutes} minutes</div></div>',
+        footer,
+    )
+    return body,html
+
 def _verification_email(code):
     minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
-    return f'MCQ Campus\n\nYour verification code is:\n\n{code}\n\nThis code expires in {minutes} minutes.\nIf you did not create this account, you can ignore this email.'
+    return _code_email(code,'Verify your email','Use this 6-digit code to finish creating your MCQ Campus account.',minutes,'Your account will not be created until this code is verified.')
 
 def _reset_email(code):
     minutes=getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10)
-    return f'MCQ Campus\n\nPassword reset code:\n\n{code}\n\nThis code expires in {minutes} minutes.\nIf you did not request a password reset, you can ignore this email.'
+    return _code_email(code,'Reset your password','Use this 6-digit code to reset your MCQ Campus password.',minutes,'If you did not request a password reset, you can ignore this email.')
+
+def _password_change_email(code):
+    minutes=getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10)
+    return _code_email(code,'Confirm password change','Use this 6-digit code to confirm your new password.',minutes,'Your password will remain unchanged until this code is verified.')
+
+def _welcome_email(user):
+    first=user.first_name or 'Learner'
+    body=(f'Welcome to MCQ Campus, {first}!\n\nYour account is verified and ready. '
+          'You can practise MCQs, explore past papers, take tests, save questions, review mistakes, '
+          'track progress, and prepare for jobs and competitive exams.\n\nhttps://www.mcqcampus.com')
+    html=_email_shell(
+        'Welcome to MCQ Campus',
+        f'Welcome, {first}! Your account has been verified successfully.',
+        '<p style="font-size:15px;line-height:1.7;margin:0 0 16px">You can now use MCQ Campus to:</p>'
+        '<ul style="padding-left:20px;line-height:1.9;color:#314d44">'
+        '<li>Practice MCQs with answers and explanations</li>'
+        '<li>Explore past papers and job-wise preparation</li>'
+        '<li>Take tests and review your results</li>'
+        '<li>Save questions and track your learning progress</li>'
+        '<li>Access PDFs, current affairs, guides and exam resources</li>'
+        '</ul>'
+        '<p style="margin:24px 0 0"><a href="https://www.mcqcampus.com" style="display:inline-block;background:#087e65;color:#fff;text-decoration:none;padding:12px 18px;border-radius:9px;font-weight:700">Open MCQ Campus</a></p>',
+        'We are glad to have you with us. Keep learning at your own pace.',
+    )
+    return body,html
+
+def _send_email_parts(subject,parts,email):
+    body,html=parts
+    return _send_auth_email(subject,body,email,html)
 
 def login_required_json(fn):
     def inner(request,*a,**kw):
@@ -203,7 +255,7 @@ def auth_register(request):
             'last_sent_at':now,
         },
     )
-    delivered=_send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+    delivered=_send_email_parts('Your MCQ Campus verification code',_verification_email(code),email)
     if not delivered:
         return err('Verification email could not be delivered right now. Please try Resend code shortly.',503,{'emailDelivery':'temporary'})
     return JsonResponse({
@@ -227,7 +279,7 @@ def auth_forgot(request):
     u=User.objects.filter(email__iexact=email,is_active=True).first()
     if u:
         code=create_token(u,'reset',getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10))
-        _send_auth_email('MCQ Campus password reset code',_reset_email(code),email)
+        _send_email_parts('MCQ Campus password reset code',_reset_email(code),email)
     return JsonResponse({'completed':True,'message':'If an active account matches that email, a reset code has been sent.'})
 
 @require_POST
@@ -293,6 +345,7 @@ def auth_verify(request):
             prof.role='user'; prof.permissions=[]; prof.email_verified=True
             prof.save(update_fields=['role','permissions','email_verified'])
             pending.delete()
+        _send_email_parts('Welcome to MCQ Campus',_welcome_email(u),u.email)
         return JsonResponse({'completed':True,'message':'Email verified and account created. You can now sign in.'})
 
     # Backward compatibility for accounts created by the older verification flow.
@@ -322,7 +375,7 @@ def auth_resend_verification(request):
             return JsonResponse({**generic,'message':f'Please wait {remaining} seconds before requesting another code.','resendAfter':remaining})
         code=_new_signup_code()
         expiry_minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
-        delivered=_send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+        delivered=_send_email_parts('Your MCQ Campus verification code',_verification_email(code),email)
         if delivered:
             pending.code_hash=_pending_code_hash(email,code)
             pending.expires_at=timezone.now()+timedelta(minutes=expiry_minutes)
@@ -338,10 +391,59 @@ def auth_resend_verification(request):
         latest=OneTimeToken.objects.filter(user=u,purpose='verify').order_by('-created_at').first()
         if latest and (timezone.now()-latest.created_at).total_seconds()<cooldown: return JsonResponse(generic)
         code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
-        _send_auth_email('Your MCQ Campus verification code',_verification_email(code),email)
+        _send_email_parts('Your MCQ Campus verification code',_verification_email(code),email)
     _record_rate('resend',ids)
     return JsonResponse(generic)
 
+
+@require_POST
+@login_required_json
+def auth_password_change_start(request):
+    d=payload(request)
+    current=str(d.get('current_password') or '')
+    new=str(d.get('new_password') or '')
+    confirm=str(d.get('confirm_password') or '')
+    if not request.user.check_password(current):
+        return err('Current password is incorrect.',422,{'current_password':'Incorrect password.'})
+    if not new or new!=confirm:
+        return err('New passwords do not match.',422,{'confirm_password':'Passwords must match.'})
+    if request.user.check_password(new):
+        return err('New password must be different from your current password.',422,{'new_password':'Choose a different password.'})
+    try: _validate_password(new,request.user)
+    except ValueError as exc: return err(exc,422,{'new_password':str(exc)})
+    ids=[f'user:{request.user.pk}',f'ip:{_client_ip(request)}']
+    if _rate_limited('password-change',ids,5,15*60):
+        return err('Too many password change attempts. Please try again later.',429)
+    _record_rate('password-change',ids)
+    code=create_token(request.user,'change',getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10))
+    request.session['pending_password_change_hash']=make_password(new)
+    request.session['pending_password_change_user']=request.user.pk
+    request.session.modified=True
+    if not _send_email_parts('Confirm your MCQ Campus password change',_password_change_email(code),request.user.email):
+        OneTimeToken.objects.filter(user=request.user,purpose='change',used_at__isnull=True).update(used_at=timezone.now())
+        request.session.pop('pending_password_change_hash',None)
+        request.session.pop('pending_password_change_user',None)
+        return err('We could not send the verification code right now. Please try again shortly.',503)
+    return JsonResponse({'completed':True,'verificationRequired':True,'resendAfter':60,'message':'A 6-digit verification code was sent to your email.'})
+
+@require_POST
+@login_required_json
+def auth_password_change_confirm(request):
+    code=str(payload(request).get('code') or '').strip()
+    if not re.fullmatch(r'\d{6}',code): return err('Enter the 6-digit verification code.',422)
+    if request.session.get('pending_password_change_user')!=request.user.pk:
+        return err('Start the password change process again.',422)
+    encoded=str(request.session.get('pending_password_change_hash') or '')
+    if not encoded:
+        return err('Start the password change process again.',422)
+    verified=consume_token(request.user,code,'change',getattr(settings,'PASSWORD_RESET_MAX_ATTEMPTS',5))
+    if not verified: return err('Invalid or expired verification code.',422)
+    request.user.password=encoded
+    request.user.save(update_fields=['password'])
+    request.session.pop('pending_password_change_hash',None)
+    request.session.pop('pending_password_change_user',None)
+    update_session_auth_hash(request,request.user)
+    return JsonResponse({'completed':True,'message':'Your password has been changed successfully.'})
 
 @profile_api('auth_logout')
 @require_POST
