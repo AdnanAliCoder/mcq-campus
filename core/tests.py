@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, profile_for
+from .models import Category, MCQ, Paper, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, PendingSignup, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -292,7 +292,7 @@ class AuthSecurityTests(TestCase):
         return match.group(1)
 
     def register(self,email='newlearner@example.com',password='StrongPass!246',**extra):
-        payload={'name':'New Learner','email':email,'password':password,'country':'Pakistan','terms':'on',**extra}
+        payload={'first_name':'New','last_name':'Learner','email':email,'password':password,'confirm':password,'terms':'on',**extra}
         return self.post_json('/api/auth/register',payload)
 
     def verified_user(self,email,role='user',is_staff=False,is_superuser=False):
@@ -310,56 +310,63 @@ class AuthSecurityTests(TestCase):
             'context':{'id':str(target.id)}
         }}
 
-    def test_signup_always_creates_learner_and_ignores_role_input(self):
+    def test_signup_is_pending_until_verified_and_creates_learner_only_after_otp(self):
         response=self.register(role='super-admin',is_superuser=True,is_staff=True)
         self.assertEqual(response.status_code,200)
+        self.assertTrue(response.json()['verificationRequired'])
+        self.assertFalse(User.objects.filter(email='newlearner@example.com').exists())
+        pending=PendingSignup.objects.get(email='newlearner@example.com')
+        self.assertEqual(pending.first_name,'New')
+        self.assertEqual(pending.last_name,'Learner')
+        code=self.code_from_last_email()
+        verified=self.post_json('/api/auth/verify',{'email':pending.email,'code':code})
+        self.assertEqual(verified.status_code,200)
+        self.assertFalse(PendingSignup.objects.filter(email=pending.email).exists())
         user=User.objects.get(email='newlearner@example.com')
         profile=profile_for(user)
         self.assertEqual(profile.role,'user')
-        self.assertFalse(profile.email_verified)
+        self.assertTrue(profile.email_verified)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
-        self.assertTrue(response.json()['verificationRequired'])
 
-    def test_unverified_user_cannot_login(self):
+    def test_pending_signup_cannot_login_before_verification(self):
         self.register()
+        self.assertFalse(User.objects.filter(email='newlearner@example.com').exists())
         response=self.login('newlearner@example.com')
-        self.assertEqual(response.status_code,403)
-        self.assertTrue(response.json()['fields']['verificationRequired'])
+        self.assertEqual(response.status_code,422)
         self.assertIsNone(self.client.get('/api/auth/session').json()['user'])
 
     def test_valid_wrong_expired_and_used_verification_codes(self):
         self.register()
-        user=User.objects.get(email='newlearner@example.com')
+        email='newlearner@example.com'
         code=self.code_from_last_email()
-        wrong=self.post_json('/api/auth/verify',{'email':user.email,'code':'000000' if code!='000000' else '999999'})
+        wrong=self.post_json('/api/auth/verify',{'email':email,'code':'000000' if code!='000000' else '999999'})
         self.assertEqual(wrong.status_code,422)
-        valid=self.post_json('/api/auth/verify',{'email':user.email,'code':code})
+        self.assertFalse(User.objects.filter(email=email).exists())
+        valid=self.post_json('/api/auth/verify',{'email':email,'code':code})
         self.assertEqual(valid.status_code,200)
-        self.assertTrue(profile_for(user).email_verified if hasattr(user,'profile') else Profile.objects.get(user=user).email_verified)
-        reused=self.post_json('/api/auth/verify',{'email':user.email,'code':code})
+        user=User.objects.get(email=email)
+        self.assertTrue(profile_for(user).email_verified)
+        reused=self.post_json('/api/auth/verify',{'email':email,'code':code})
         self.assertEqual(reused.status_code,422)
-        token=OneTimeToken.objects.filter(user=user,purpose='verify').latest('created_at')
-        self.assertIsNotNone(token.used_at)
 
-        other=self.verified_user('expired@example.com')
-        p=profile_for(other); p.email_verified=False; p.save(update_fields=['email_verified'])
-        from .services import create_token
-        expired_code=create_token(other,'verify',10)
-        OneTimeToken.objects.filter(user=other,purpose='verify').update(expires_at=timezone.now()-timedelta(seconds=1))
-        expired=self.post_json('/api/auth/verify',{'email':other.email,'code':expired_code})
+        self.register(email='expired@example.com')
+        expired_code=self.code_from_last_email()
+        PendingSignup.objects.filter(email='expired@example.com').update(expires_at=timezone.now()-timedelta(seconds=1))
+        expired=self.post_json('/api/auth/verify',{'email':'expired@example.com','code':expired_code})
         self.assertEqual(expired.status_code,422)
+        self.assertFalse(User.objects.filter(email='expired@example.com').exists())
 
     def test_resend_invalidates_previous_otp_and_cooldown(self):
         self.register()
-        user=User.objects.get(email='newlearner@example.com')
+        email='newlearner@example.com'
         first=self.code_from_last_email()
-        response=self.post_json('/api/auth/resend-verification',{'email':user.email})
+        response=self.post_json('/api/auth/resend-verification',{'email':email})
         self.assertEqual(response.status_code,200)
         second=self.code_from_last_email()
         self.assertNotEqual(first,second)
-        self.assertEqual(self.post_json('/api/auth/verify',{'email':user.email,'code':first}).status_code,422)
-        self.assertEqual(self.post_json('/api/auth/verify',{'email':user.email,'code':second}).status_code,200)
+        self.assertEqual(self.post_json('/api/auth/verify',{'email':email,'code':first}).status_code,422)
+        self.assertEqual(self.post_json('/api/auth/verify',{'email':email,'code':second}).status_code,200)
 
     @override_settings(EMAIL_VERIFICATION_RESEND_SECONDS=60)
     def test_resend_cooldown_works(self):
@@ -376,9 +383,17 @@ class AuthSecurityTests(TestCase):
         for _ in range(5):
             self.assertEqual(self.post_json('/api/auth/verify',{'email':'newlearner@example.com','code':wrong}).status_code,422)
         self.assertEqual(self.post_json('/api/auth/verify',{'email':'newlearner@example.com','code':code}).status_code,422)
-        token=OneTimeToken.objects.get(user__email='newlearner@example.com',purpose='verify')
-        self.assertEqual(token.attempt_count,5)
-        self.assertIsNotNone(token.used_at)
+        pending=PendingSignup.objects.get(email='newlearner@example.com')
+        self.assertEqual(pending.attempt_count,5)
+        self.assertFalse(User.objects.filter(email='newlearner@example.com').exists())
+
+    def test_signup_requires_names_and_matching_passwords(self):
+        missing=self.post_json('/api/auth/register',{'first_name':'','last_name':'Learner','email':'fields@example.com','password':'StrongPass!246','confirm':'StrongPass!246','terms':'on'})
+        self.assertEqual(missing.status_code,422)
+        mismatch=self.post_json('/api/auth/register',{'first_name':'New','last_name':'Learner','email':'fields@example.com','password':'StrongPass!246','confirm':'DifferentPass!246','terms':'on'})
+        self.assertEqual(mismatch.status_code,422)
+        self.assertFalse(User.objects.filter(email='fields@example.com').exists())
+        self.assertFalse(PendingSignup.objects.filter(email='fields@example.com').exists())
 
     def test_password_reset_otp_single_use_and_django_validators(self):
         user=self.verified_user('reset@example.com')
@@ -400,9 +415,9 @@ class AuthSecurityTests(TestCase):
         response=self.register()
         code=self.code_from_last_email()
         self.assertNotIn(code,response.content.decode())
-        token=OneTimeToken.objects.get(user__email='newlearner@example.com',purpose='verify')
-        self.assertNotEqual(token.code_hash,code)
-        self.assertNotIn(code,repr(token))
+        pending=PendingSignup.objects.get(email='newlearner@example.com')
+        self.assertNotEqual(pending.code_hash,code)
+        self.assertNotIn(code,repr(pending))
 
     def test_super_admin_promote_and_demote_preserve_content(self):
         owner=self.verified_user('owner2@example.com','super-admin',True,True)
