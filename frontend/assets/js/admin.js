@@ -28,7 +28,7 @@ window.Admin=(()=>{
  }
  function overview(){
   if(MCQ.role()==='admin')return personalOverview();
-  const d=MCQ.db,me=d.session||{},mine=d.mcqs.filter(q=>Number(q.created_by_id)===Number(me.id)),summary=d.adminOverview||{};
+  const d=MCQ.db,me=d.session||{},summary=d.adminOverview||{},mine=d.mcqs.filter(q=>Number(q.created_by_id)===Number(me.id));
   const statusCount=(rows,status)=>status==='pending'?rows.filter(q=>q.status==='pending'||q.pending_update).length:rows.filter(q=>q.status===status&&!q.pending_update).length;
   const pending=summary.mcqs?.pending??statusCount(d.mcqs,'pending'),approved=summary.mcqs?.approved??statusCount(d.mcqs,'approved'),rejected=summary.mcqs?.rejected??statusCount(d.mcqs,'rejected'),total=summary.mcqs?.total??d.mcqs.length;
   const openReports=summary.openReports??(d.reports||[]).filter(r=>!['resolved','closed'].includes(String(r.status||'').toLowerCase())).length;
@@ -40,7 +40,7 @@ window.Admin=(()=>{
    {title:'Approved',value:approved,iconName:'check',tone:'success',path:url('all-mcqs'),params:{status:'approved'},subtitle:'Live-ready MCQs'},
    {title:'Open Reports',value:openReports,iconName:'flag',tone:openReports?'warning':'neutral',path:url('reports'),subtitle:'Content issues'}
   ];
-  const mineTotal=mine.length,minePending=statusCount(mine,'pending'),mineApproved=statusCount(mine,'approved');
+  const mineTotal=summary.mine?.total??mine.length,minePending=summary.mine?.pending??statusCount(mine,'pending'),mineApproved=summary.mine?.approved??statusCount(mine,'approved');
   const controlRows=[
    [icon('book'),'Question Library',`${total} total · ${pending} waiting`,url('all-mcqs')],
    [icon('shield'),'Admin Records',`${staffTotal} administrator account${staffTotal===1?'':'s'}`,url('admin-records')],
@@ -51,7 +51,7 @@ window.Admin=(()=>{
    `<div class="metric-grid admin-primary-metrics overview-top-metrics">${top.map(x=>UI.statCard({...x,className:'overview-stat'})).join('')}</div>`+
    `<div class="overview-command-grid">`+
     `<section class="card overview-command-card"><div class="overview-card-head"><div><p class="eyebrow">MY COLLECTION</p><h2>${e(me.name||'Super Admin')}</h2></div>${link(url('mcqs'),'Open '+icon('arrow'),'link')}</div><div class="overview-mini-stats"><div><strong>${mineTotal}</strong><span>Added</span></div><div><strong>${minePending}</strong><span>Pending</span></div><div><strong>${mineApproved}</strong><span>Approved</span></div></div><p class="small muted">Only MCQs created by your Super Admin account are counted here.</p></section>`+
-    `<section class="card overview-command-card"><div class="overview-card-head"><div><p class="eyebrow">ADMIN OWNERSHIP</p><h2>Admin Records</h2></div>${link(url('admin-records'),'All records '+icon('arrow'),'link')}</div><div class="admin-record-mini">${staff.slice(0,4).map(u=>{const rows=d.mcqs.filter(q=>Number(q.created_by_id)===Number(u.id));return `<a href="${e(UI.href(url('all-mcqs'),{author:u.id}))}" class="admin-record-mini-row"><span><strong>${e(u.name)}</strong><small>${e(u.role==='super-admin'?'Super Admin':'Admin')}</small></span><b>${rows.length}</b></a>`}).join('')||'<p class="muted small">No administrator accounts.</p>'}</div></section>`+
+    `<section class="card overview-command-card"><div class="overview-card-head"><div><p class="eyebrow">ADMIN OWNERSHIP</p><h2>Admin Records</h2></div>${link(url('admin-records'),'All records '+icon('arrow'),'link')}</div><div class="admin-record-mini">${staff.slice(0,4).map(u=>{const rows=d.mcqs.filter(q=>Number(q.created_by_id)===Number(u.id)),count=(summary.staffCounts||{})[u.id]??rows.length;return `<a href="${e(UI.href(url('all-mcqs'),{author:u.id}))}" class="admin-record-mini-row"><span><strong>${e(u.name)}</strong><small>${e(u.role==='super-admin'?'Super Admin':'Admin')}</small></span><b>${count}</b></a>`}).join('')||'<p class="muted small">No administrator accounts.</p>'}</div></section>`+
    `</div>`+
    `<section class="overview-authority-section"><div class="section-head"><div><p class="eyebrow">CONTROL AREAS</p><h2>Super Admin authority map</h2><p class="small muted">Each area opens the existing management workflow instead of duplicating it on the overview.</p></div></div><div class="overview-authority-grid">${controlRows.map(([ic,title,desc,path])=>link(path,`<span class="overview-authority-icon">${ic}</span><span><strong>${e(title)}</strong><small>${e(desc)}</small></span>${icon('arrow')}`,'overview-authority-item')).join('')}</div></section>`+
    `<section class="overview-recent-section"><div class="section-head"><div><p class="eyebrow">LATEST SUBMISSIONS</p><h2>Recent website MCQs</h2></div>${link(url('all-mcqs'),'View all','link')}</div>${recent.length?table(recent,false):empty('No MCQs yet')}</section>`;
