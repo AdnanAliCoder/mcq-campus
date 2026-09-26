@@ -2,7 +2,8 @@ window.SEO=(()=>{
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const slug=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,96)||'item';
  const site=()=>MCQ?.db?.settings?.siteName||'MCQ Campus';
- const baseUrl=()=>{try{return location.origin&&location.origin!=='null'?location.origin:''}catch{return ''}};
+ const CANONICAL_ORIGIN='https://www.mcqcampus.com';
+ const baseUrl=()=>CANONICAL_ORIGIN;
  function cleanPath(base,id){
   const get=(t,i)=>MCQ.get(t,i), s=x=>x?.slug||slug(x?.name||x?.title||x?.question||id);
   if(base==='home')return '/'; if(base==='categories')return '/categories/';
