@@ -8,7 +8,6 @@ window.PublicLayout=(()=>{
  const activeParams=(omit=[])=>Object.fromEntries(Object.entries(App.route?.params||{}).filter(([k,v])=>v&&!omit.includes(k)));
  function categoryLinks(limit=6){return MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).slice(0,limit).map(x=>['mcqs',x.name,{...activeParams(['page','category']),category:x.id},`<span class="smart-sidebar-brand-icon">${UI.entityIcon(x,'grid')}</span>`]);}
  function paperLinks(limit=5){return MCQ.db.papers.filter(x=>x.active!==false).slice(0,limit).map(x=>['paper/'+x.id,x.name,{},`<span class="smart-sidebar-brand-icon">${UI.entityIcon(x,'paper')}</span>`]);}
- function testLinks(){return [['test/auto','Automatic 10-MCQ Test']];}
  function articleLinks(kind,limit=5){
   if(kind==='guides')return (MCQ.db.guides||[]).slice(-limit).reverse().map(x=>['guide/'+x.id,x.name]);
   if(kind==='posts')return (MCQ.db.posts||[]).filter(x=>x.published!==false).slice(0,limit).map(x=>['post/'+x.id,x.title]);
@@ -21,12 +20,12 @@ window.PublicLayout=(()=>{
    const session=MCQ.db.session;if(session){const attempts=(MCQ.db.attempts||[]).filter(a=>!a.by_id||+a.by_id===+session.id),correct=attempts.filter(a=>a.correct).length,accuracy=attempts.length?Math.round(correct/attempts.length*100):0,saved=(MCQ.db.bookmarks||[]).length,daily=Number(session.daily_goal||25);const learning=`<div class="sidebar-learning-grid"><div><strong>${attempts.length}</strong><span>Attempted</span></div><div><strong>${accuracy}%</strong><span>Accuracy</span></div><div><strong>${saved}</strong><span>Saved</span></div><div><strong>${daily}</strong><span>Daily goal</span></div></div>${link('dashboard',icon('user')+'<span>Open My Learning</span>','smart-sidebar-link')}`;out.push(module('My Learning',learning,'smart-learning-card'));}
    out.push(module('Related Categories',linkList(categoryLinks(5))));
    out.push(ad('sidebar_middle'));
-   out.push(module('Related Practice',linkList([...testLinks().slice(0,3),...paperLinks(3)])));
+   out.push(module('Related Past Papers',linkList(paperLinks(3))));
   } else if(kind==='category'){
    const record=ctx.record;
    out.push(module('Other Categories',linkList(cats.filter(x=>x.id!==record?.id).slice(0,7).map(x=>['category/'+x.id,x.name,{},`<span class="smart-sidebar-brand-icon">${UI.entityIcon(x,'grid')}</span>`]))));
    out.push(ad('sidebar_middle'));
-   out.push(module('Exam Preparation',linkList([...paperLinks(3),['tests','Browse Tests'],['pdfs','PDF Resources']])));
+   out.push(module('Exam Preparation',linkList([...paperLinks(3),['pdfs','PDF Resources']])));
   } else if(kind==='papers'){
    const parent=ctx.parent,type=ctx.type,countries=[...new Set(['Pakistan','India',...papers.map(x=>x.country).filter(Boolean)])];
    let hierarchy=[];
@@ -35,21 +34,17 @@ window.PublicLayout=(()=>{
    else hierarchy=paperLinks(7);
    if(type==='paper'||type==='job')out.push(module(type==='paper'?'Jobs / Posts':'Years / Papers',linkList(hierarchy)));
    out.push(ad('paper_sidebar')||ad('sidebar_middle'));
-   out.push(module('Related Resources',linkList([['tests','Past Paper Tests'],['mcqs','Related MCQs'],['pdfs','Related PDFs']])));
-  } else if(kind==='tests'){
-   out.push(module('Automatic Test',linkList(testLinks())));
-   out.push(ad('sidebar_middle'));
-   out.push(module('Practice Instead',linkList([['mcqs','Browse MCQs'],['papers','Past Papers']])));
+   out.push(module('Related Resources',linkList([['mcqs','Related MCQs'],['pdfs','Related PDFs']])));
   } else if(kind==='jobs'){
    out.push(ad('jobs_sidebar')||ad('sidebar_middle'));
-   out.push(module('Preparation',linkList([['mcqs','Related MCQs'],['papers','Past Papers'],['tests','Practice Tests']])));
+   out.push(module('Preparation',linkList([['mcqs','Related MCQs'],['papers','Past Papers']])));
   } else if(kind==='pdfs'){
    out.push(ad('pdf_sidebar')||ad('sidebar_middle'));
    out.push(module('Related Resources',linkList([['papers','Past Papers'],['posts','Blog'],['latest-jobs','Latest Jobs']])));
   } else if(kind==='articles'){
    const subtype=ctx.subtype||'posts';
    const recent=articleLinks(subtype,5);if(recent.length)out.push(module(subtype==='posts'?'Recent Blog Posts':'Recent Articles',linkList(recent)));
-   out.push(module('Preparation Links',linkList([['mcqs','Practice MCQs'],['tests','Take a Test'],['papers','Past Papers'],['latest-jobs','Latest Jobs']])));
+   out.push(module('Preparation Links',linkList([['mcqs','Practice MCQs'],['papers','Past Papers'],['latest-jobs','Latest Jobs']])));
    out.push(ad('article_inline')||ad('sidebar_middle'));
   } else if(kind==='search'){
    out.push(module('Popular Categories',linkList(categoryLinks(6))));
@@ -59,12 +54,12 @@ window.PublicLayout=(()=>{
    if(cat)out.push(module('Question Category',linkList([['category/'+cat.id,cat.name]])));
    if(yrs.length)out.push(module('Related Past Papers',linkList(yrs.slice(0,7).map(x=>{const job=MCQ.get('jobs',x.job_id),paper=job&&MCQ.get('papers',job.paper_id);return [paper&&job?'paper/'+paper.id+'/job/'+job.id+'/year/'+x.id:'year/'+x.id,x.name]}))));
    out.push(ad('sidebar_middle'));
-   out.push(module('Keep Practising',linkList([['mcqs','Browse MCQs'],['tests','Take a Test'],['papers','Past Papers']])));
+   out.push(module('Keep Practising',linkList([['mcqs','Browse MCQs'],['papers','Past Papers']])));
   } else if(kind==='legal'){
    const cfg=MCQ.db.settings?.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),visible=(k,t)=>cfg[t]!==false&&(coreHelpPages.has(k)||pages[k]?.published!==false);
    const items=[];if(visible('about','showAbout'))items.push(['about','About Us']);if(visible('contact','showContact'))items.push(['contact','Contact Us']);if(visible('privacy','showPrivacy'))items.push(['privacy','Privacy Policy']);if(visible('terms','showTerms'))items.push(['terms','Terms & Conditions']);if(visible('disclaimer','showDisclaimer'))items.push(['disclaimer','Disclaimer']);if(cfg.showCookiePolicy&&pages.cookies?.published!==false)items.push(['cookies','Cookie Policy']);if(cfg.showAdvertisingPolicy&&pages.advertising?.published!==false)items.push(['advertising','Advertising Policy']);
    out.push(module('Help & Legal',linkList(items)));
-   out.push(module('Preparation',linkList([['mcqs','MCQs'],['papers','Past Papers'],['tests','Tests']])));
+   out.push(module('Preparation',linkList([['mcqs','MCQs'],['papers','Past Papers']])));
   }
   out.push(ad('sidebar_bottom'));
   return out.filter(Boolean).join('');
