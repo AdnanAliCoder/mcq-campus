@@ -395,6 +395,49 @@ class AuthSecurityTests(TestCase):
         self.assertFalse(User.objects.filter(email='fields@example.com').exists())
         self.assertFalse(PendingSignup.objects.filter(email='fields@example.com').exists())
 
+    def test_verification_email_is_html_and_welcome_email_is_sent(self):
+        response=self.register()
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(User.objects.filter(email='newlearner@example.com').exists())
+        self.assertEqual(mail.outbox[-1].subject,'Your MCQ Campus verification code')
+        self.assertTrue(mail.outbox[-1].alternatives)
+        self.assertIn('Verify your email',mail.outbox[-1].alternatives[0].content)
+        code=self.code_from_last_email()
+        verified=self.post_json('/api/auth/verify',{'email':'newlearner@example.com','code':code})
+        self.assertEqual(verified.status_code,200)
+        self.assertTrue(User.objects.filter(email='newlearner@example.com').exists())
+        self.assertEqual(mail.outbox[-1].subject,'Welcome to MCQ Campus')
+        self.assertTrue(mail.outbox[-1].alternatives)
+        self.assertIn('Welcome to MCQ Campus',mail.outbox[-1].alternatives[0].content)
+
+    def test_password_change_requires_current_password_and_email_otp(self):
+        user=self.verified_user('securechange@example.com')
+        self.login(user.email)
+        wrong=self.post_json('/api/auth/password-change/start',{
+            'current_password':'WrongPass!999','new_password':'NewSecure!852','confirm_password':'NewSecure!852'
+        })
+        self.assertEqual(wrong.status_code,422)
+        same=self.post_json('/api/auth/password-change/start',{
+            'current_password':'StrongPass!246','new_password':'StrongPass!246','confirm_password':'StrongPass!246'
+        })
+        self.assertEqual(same.status_code,422)
+        started=self.post_json('/api/auth/password-change/start',{
+            'current_password':'StrongPass!246','new_password':'NewSecure!852','confirm_password':'NewSecure!852'
+        })
+        self.assertEqual(started.status_code,200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('StrongPass!246'))
+        self.assertFalse(user.check_password('NewSecure!852'))
+        self.assertEqual(mail.outbox[-1].subject,'Confirm your MCQ Campus password change')
+        code=self.code_from_last_email()
+        bad=self.post_json('/api/auth/password-change/confirm',{'code':'000000' if code!='000000' else '999999'})
+        self.assertEqual(bad.status_code,422)
+        confirmed=self.post_json('/api/auth/password-change/confirm',{'code':code})
+        self.assertEqual(confirmed.status_code,200)
+        user.refresh_from_db()
+        self.assertFalse(user.check_password('StrongPass!246'))
+        self.assertTrue(user.check_password('NewSecure!852'))
+
     def test_password_reset_otp_single_use_and_django_validators(self):
         user=self.verified_user('reset@example.com')
         forgot=self.post_json('/api/auth/forgot',{'email':user.email})
