@@ -106,6 +106,18 @@ class AdPlacement(OwnedStampedModel):
 class TrashRecord(models.Model):
     kind=models.CharField(max_length=50); name=models.CharField(max_length=255); payload=models.JSONField(default=dict); deleted_by=models.ForeignKey(User,null=True,blank=True,on_delete=models.SET_NULL); deleted_at=models.DateTimeField(auto_now_add=True)
 
+class PendingSignup(models.Model):
+    email=models.EmailField(unique=True)
+    first_name=models.CharField(max_length=150)
+    last_name=models.CharField(max_length=150)
+    password_hash=models.CharField(max_length=128)
+    code_hash=models.CharField(max_length=64)
+    expires_at=models.DateTimeField()
+    attempt_count=models.PositiveSmallIntegerField(default=0)
+    last_sent_at=models.DateTimeField(default=timezone.now)
+    created_at=models.DateTimeField(auto_now_add=True)
+    updated_at=models.DateTimeField(auto_now=True)
+
 class OneTimeToken(models.Model):
     PURPOSE=[('verify','Verify email'),('reset','Reset password')]
     user=models.ForeignKey(User,on_delete=models.CASCADE)
