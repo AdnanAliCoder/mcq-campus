@@ -24,7 +24,7 @@ window.PublicLayout=(()=>{
    out.push(module('Related Practice',linkList([...testLinks().slice(0,3),...paperLinks(3)])));
   } else if(kind==='category'){
    const record=ctx.record;
-   out.push(module('Other Categories',linkList(cats.filter(x=>x.id!==record?.id).slice(0,7).map(x=>['category/'+x.id,x.name]))));
+   out.push(module('Other Categories',linkList(cats.filter(x=>x.id!==record?.id).slice(0,7).map(x=>['category/'+x.id,x.name,{},`<span class="smart-sidebar-brand-icon">${UI.entityIcon(x,'grid')}</span>`]))));
    out.push(ad('sidebar_middle'));
    out.push(module('Exam Preparation',linkList([...paperLinks(3),['tests','Browse Tests'],['pdfs','PDF Resources']])));
   } else if(kind==='papers'){
