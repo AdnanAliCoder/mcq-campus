@@ -584,7 +584,7 @@ def command(user,action,payload):
     if action=='saveProfile':
         vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
     if action=='changePassword':
-        vals=(payload.get('args') or [{}])[0] or {}; require(user.check_password(vals.get('current_password','')),'Current password is incorrect.'); new=str(vals.get('new_password') or ''); require(new==vals.get('confirm_password'),'New passwords do not match.'); _validate_password(new,user); user.set_password(new); user.save(); return True
+        raise ValueError('Use the secure password change flow with email verification.')
     if action=='form:mcq':
         obj=save_mcq(user,payload.get('draft') or {}); return {'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
     if action=='form:review':
@@ -602,8 +602,10 @@ def command(user,action,payload):
     if action=='form:ad': return save_ad(user,payload)
     if action=='form:contact':
         _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
-    if action in {'form:profile','form:password-change'}:
-        _,v,_,_=parse_fields(payload); return command(user,'saveProfile' if action=='form:profile' else 'changePassword',{'args':[v]})
+    if action=='form:profile':
+        _,v,_,_=parse_fields(payload); return command(user,'saveProfile',{'args':[v]})
+    if action=='form:password-change':
+        raise ValueError('Use the secure password change flow with email verification.')
     if action=='action:report-resolve':
         require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); r=Report.objects.get(pk=rid); r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)}}
     if action=='action:user-status':
