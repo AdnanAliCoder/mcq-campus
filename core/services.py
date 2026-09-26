@@ -244,14 +244,14 @@ def snapshot(user):
     jobs=list(Job.objects.select_related('created_by','updated_by').all().order_by('id'))
     years=list(JobYear.objects.select_related('created_by','updated_by').all().order_by('id'))
     qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
-    objects=list(qs[:20])
+    objects=list(qs)
     total=int(objects[0]._page_total) if objects else 0
     rows=[mcq_list(x) for x in objects]
     return {
       'schemaVersion':9,
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
-      'mcqs':rows,'mcqPage':{'page':1,'pageSize':20,'total':total,'hasNext':len(rows)<total},
+      'mcqs':rows,'mcqPage':{'page':1,'pageSize':total or len(rows),'total':total,'hasNext':False},
     }
 
 def learner_dashboard_data(user):
@@ -383,7 +383,7 @@ def _merge_bulk_mcq_hierarchy(user,existing,draft):
         if merged!=current:
             setattr(existing,field,merged)
             changed.append(field)
-    important=len(set(existing.job_year_ids or []))>=2
+    important=len(set(existing.job_ids or []))>=2
     if existing.important!=important:
         existing.important=important
         changed.append('important')
@@ -404,7 +404,7 @@ def save_mcq(user,draft):
     if dup.exists(): raise ValueError('A matching question already exists.')
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
     job_ids=normalize_ids(draft.get('job_ids'))
-    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=normalize_ids(draft.get('paper_id')),job_ids=job_ids,job_year_ids=normalize_ids(draft.get('job_years_ids')),important=len(set(normalize_ids(draft.get('job_years_ids'))))>=2,country=str(draft.get('country') or 'Pakistan'))
+    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=normalize_ids(draft.get('paper_id')),job_ids=job_ids,job_year_ids=normalize_ids(draft.get('job_years_ids')),important=len(set(normalize_ids(draft.get('job_ids'))))>=2,country=str(draft.get('country') or 'Pakistan'))
     now=timezone.now()
     if existing and existing.status=='approved' and not is_super(user):
         proposed={**mcq(existing),**common,'category_id':cid,'paper_id':common['paper_ids'],'job_years_ids':common['job_year_ids'],'updated_at':iso(now),'updated_by':user_name(user),'updated_by_id':user.id}
@@ -437,7 +437,7 @@ def review_mcqs(user,ids,status,reason=''):
                 pu['approval_status']='correction'; pu['reason']=reason; q.pending_update=pu
         else:
             q.status=status; q.rejection_reason='' if status=='approved' else reason
-        q.important=len(set(q.job_year_ids or []))>=2
+        q.important=len(set(q.job_ids or []))>=2
         q.reviewed_by=user
         if status=='approved': q.approved_by=user
         hist=q.audit_history or []; hist.insert(0,{'type':q.submission_type,'reviewed_by':user_name(user),'reviewed_by_id':user.id,'reviewed_at':iso(timezone.now()),'approval_status':status,'reason':reason}); q.audit_history=hist[:100]
