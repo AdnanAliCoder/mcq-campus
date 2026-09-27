@@ -30,7 +30,14 @@ window.Public=(()=>{
  }
 
  function browse(type,id){
-  if(type==='subcategory'){const legacy=MCQ.get('subcategories',id);return legacy?browse('category',legacy.category_id):notFound()}
+  if(type==='subcategory'){
+   const sub=MCQ.get('subcategories',id);if(!sub)return notFound();const cat=MCQ.get('categories',sub.category_id);
+   let rows=MCQ.publicMcqs().filter(q=>MCQ.ids(q.subcategory_ids).some(x=>+x===+sub.id));const p=App.route.params,pageSize=10,page=App.page(rows.length,pageSize);
+   const children=MCQ.db.children.filter(x=>x.active!==false&&+x.subcategory_id===+sub.id).sort((a,b)=>a.name.localeCompare(b.name));
+   const pre=children.length?`<div class="section-head"><div><p class="eyebrow">TOPICS</p><h2>Explore ${e(sub.name)}</h2></div></div><div class="chips">${children.map(x=>link('topic/'+x.id,e(x.name),'chip')).join('')}</div>`:'';
+   const main=`<p class="small muted result-count">${rows.length} MCQs in ${e(sub.name)} · 10 per page</p>${rows.length?rows.slice((page-1)*pageSize,page*pageSize).map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty('No MCQs in this subcategory yet','Choose a related topic or browse the parent category.',cat?link('category/'+cat.id,'Browse '+e(cat.name),'btn primary'):link('categories','Browse categories','btn primary'))}${UI.pager(rows.length,page,pageSize,p,'subcategory/'+sub.id)}`;
+   return PublicLayout.page({trail:[['Categories','categories'],...(cat?[[cat.name,'category/'+cat.id]]:[]),[sub.name]],title:sub.name,desc:'Practice approved '+sub.name+' MCQs with answers and explanations.',pre,main,sidebar:PublicLayout.smart('category',{record:sub,type:'subcategory'}),active:'categories',sidebarLabel:'Related / Browse'});
+  }
   if(type==='category'){
    const cat=MCQ.get('categories',id);if(!cat)return notFound();let rows=MCQ.publicMcqs().filter(q=>+q.category_id===+cat.id);const p=App.route.params,pageSize=10,page=App.page(rows.length,pageSize);
    const main=`<p class="small muted result-count">${rows.length} MCQs in ${e(cat.name)} · 10 per page</p>${rows.length?rows.slice((page-1)*pageSize,page*pageSize).map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty('No MCQs in this category yet','Choose another category or browse all MCQs.',link('mcqs','Browse all MCQs','btn primary'))}${UI.pager(rows.length,page,pageSize,p,'category/'+cat.id)}`;
