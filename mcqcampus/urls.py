@@ -8,6 +8,7 @@ urlpatterns=[
     path('favicon.ico', views.favicon),
     path('site.webmanifest', views.site_manifest),
     path('robots.txt', views.robots_txt),
+    path('sitemap.xml', views.sitemap_index),
     path('sitemap-index.xml', views.sitemap_index),
     path('sitemap-pages.xml', views.sitemap_pages),
     path('sitemap-categories.xml', views.sitemap_categories),
