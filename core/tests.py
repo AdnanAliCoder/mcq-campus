@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, PendingSignup, profile_for
+from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, PendingSignup, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -27,6 +27,51 @@ class IntegrationTests(TestCase):
 
     def post_json(self,path,data):
         return self.client.post(path,data=json.dumps(data),content_type='application/json')
+
+    def test_seo_sitemap_index_exposes_hierarchy_sitemaps(self):
+        response=self.client.get('/sitemap.xml')
+        self.assertEqual(response.status_code,200)
+        body=response.content.decode()
+        self.assertIn('/sitemap-categories.xml',body)
+        self.assertIn('/sitemap-papers.xml',body)
+        self.assertIn('/sitemap-jobs.xml',body)
+        self.assertIn('/sitemap-years.xml',body)
+        self.assertIn('/sitemap-mcqs.xml',body)
+
+    def test_category_subcategory_topic_pages_have_unique_server_seo(self):
+        sub=Subcategory.objects.create(id=110,name='Operating Systems',category=self.category)
+        child=ChildCategory.objects.create(id=120,name='Process Management',subcategory=sub)
+        self.approved.subcategory_ids=[sub.id]
+        self.approved.child_subcategory_ids=[child.id]
+        self.approved.save(update_fields=['subcategory_ids','child_subcategory_ids'])
+        category=self.client.get('/category/computing').content.decode()
+        subpage=self.client.get('/subcategory/operating-systems').content.decode()
+        topic=self.client.get('/topic/process-management').content.decode()
+        self.assertIn('Computing MCQs with Answers',category)
+        self.assertIn('Operating Systems MCQs with Answers',subpage)
+        self.assertIn('Process Management MCQs with Answers',topic)
+        self.assertIn('/subcategory/operating-systems',self.client.get('/sitemap-categories.xml').content.decode())
+        self.assertIn('/topic/process-management',self.client.get('/sitemap-categories.xml').content.decode())
+
+    def test_paper_job_year_pages_have_distinct_search_titles_and_sitemaps(self):
+        job=Job.objects.create(id=300,name='Assistant',paper=self.paper)
+        year=JobYear.objects.create(id=400,name='2026',job=job)
+        self.approved.paper_ids=[self.paper.id]
+        self.approved.job_ids=[job.id]
+        self.approved.job_year_ids=[year.id]
+        self.approved.save(update_fields=['paper_ids','job_ids','job_year_ids'])
+        paper=self.client.get('/paper/ppsc').content.decode()
+        jobpage=self.client.get('/paper/ppsc/job/assistant').content.decode()
+        yearpage=self.client.get('/paper/ppsc/job/assistant/year/2026').content.decode()
+        self.assertIn('PPSC Past Papers, Jobs &amp; MCQs',paper)
+        self.assertIn('PPSC Assistant Past Papers &amp; MCQs',jobpage)
+        self.assertIn('PPSC Assistant 2026 Past Paper MCQs',yearpage)
+        self.assertIn('/paper/ppsc/job/assistant',self.client.get('/sitemap-jobs.xml').content.decode())
+        self.assertIn('/paper/ppsc/job/assistant/year/2026',self.client.get('/sitemap-years.xml').content.decode())
+
+    def test_private_routes_are_server_noindex(self):
+        body=self.client.get('/login').content.decode()
+        self.assertIn('name="robots" content="noindex,nofollow"',body)
 
     def test_complete_frontend_entry_loads(self):
         response=self.client.get('/')
