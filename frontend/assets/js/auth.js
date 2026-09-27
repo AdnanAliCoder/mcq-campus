@@ -508,7 +508,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){await check();App.render();}
+ async function start(){backendLoading(true);try{await check();await ensureRouteData(route());}finally{backendLoading(false)}App.render();}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
