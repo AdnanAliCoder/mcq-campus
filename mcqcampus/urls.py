@@ -13,6 +13,8 @@ urlpatterns=[
     path('sitemap-pages.xml', views.sitemap_pages),
     path('sitemap-categories.xml', views.sitemap_categories),
     path('sitemap-papers.xml', views.sitemap_papers),
+    path('sitemap-jobs.xml', views.sitemap_jobs),
+    path('sitemap-years.xml', views.sitemap_years),
     path('sitemap-mcqs.xml', views.sitemap_mcqs),
     path('sitemap-resources.xml', views.sitemap_resources),
     path('routing-manifest.json', views.root_static_file, {'filename':'routing-manifest.json'}),
