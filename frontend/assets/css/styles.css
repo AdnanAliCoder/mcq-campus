@@ -2110,7 +2110,7 @@ dialog[open]::backdrop{animation:mcqBackdropIn var(--motion-base) ease both}
 
 /* Lightweight loading UI: no image/video assets and no layout-flow changes. */
 html{scrollbar-gutter:stable}
-#backend-loader.backend-loader.global-loading-overlay{position:fixed;inset:0;z-index:2147483647;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;outline:none;overflow:hidden;background:rgba(255,255,255,.25);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:auto;touch-action:none;overscroll-behavior:none;animation:none!important;transform:none!important;color:var(--green)}
+#backend-loader.backend-loader.global-loading-overlay{position:fixed;inset:0;z-index:2147483647;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;outline:none;overflow:hidden;background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;pointer-events:auto;touch-action:none;overscroll-behavior:none;animation:none!important;transform:none!important;color:var(--green)}
 #backend-loader:not([open]){display:none!important}
 #backend-loader[open]{display:grid;place-items:center}
 #backend-loader::backdrop{background:transparent;backdrop-filter:none}
@@ -2126,7 +2126,7 @@ html{scrollbar-gutter:stable}
 }
 body.backend-loading{overscroll-behavior:none}
 @media(prefers-color-scheme:dark){
- #backend-loader.backend-loader.global-loading-overlay{background:rgba(11,25,22,.34);color:#8bddba}
+ #backend-loader.backend-loader.global-loading-overlay{background:#0b1916;color:#8bddba}
  .app-loader-spinner{border-color:rgba(139,221,186,.2);border-top-color:currentColor}
 }
 html[data-theme="dark"] #backend-loader.backend-loader.global-loading-overlay,body.dark #backend-loader.backend-loader.global-loading-overlay{background:rgba(11,25,22,.34);color:#8bddba}
