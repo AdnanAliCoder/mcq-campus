@@ -286,6 +286,7 @@ def snapshot(user):
       'schemaVersion':9,
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
+      'pinnedEntities':_pinned_entities(),
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':total or len(rows),'total':total,'hasNext':False},
     }
 
