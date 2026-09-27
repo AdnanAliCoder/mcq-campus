@@ -6,7 +6,7 @@ from django.http import HttpResponse
 logger=logging.getLogger('mcqcampus.performance')
 
 class CanonicalHostRedirectMiddleware:
-    """Permanently redirect only the default production Vercel hostname to the public domain."""
+    """Permanently redirect alternate production hosts to the configured canonical domain."""
     def __init__(self,get_response):
         self.get_response=get_response
 
@@ -14,7 +14,9 @@ class CanonicalHostRedirectMiddleware:
         raw_host=str(request.META.get('HTTP_HOST') or '').split(':',1)[0].strip().lower()
         source=str(getattr(settings,'VERCEL_DEFAULT_HOST','') or '').strip().lower()
         target=str(getattr(settings,'PUBLIC_CANONICAL_HOST','') or '').strip().lower()
-        if source and target and raw_host==source:
+        sibling=(target[4:] if target.startswith('www.') else 'www.'+target) if target else ''
+        redirect_hosts={h for h in (source,sibling) if h and h!=target}
+        if target and raw_host in redirect_hosts:
             response=HttpResponse(status=308)
             response['Location']='https://'+target+request.get_full_path()
             response['Cache-Control']='public, max-age=0, s-maxage=3600'
