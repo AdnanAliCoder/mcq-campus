@@ -689,25 +689,104 @@ def sitemap_resources(request):
     rows=[(f'{SEO_ORIGIN}/post/{p.slug}',p.updated_at) for p in Post.objects.filter(status='published').only('slug','updated_at')]
     return _xml_response(_urlset(rows))
 
-def spa_index(request):
-    fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
-    s=SiteSetting.objects.only(*fields).filter(pk=1).first()
-    if s is None: s=SiteSetting.objects.create(pk=1)
-    title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
-    description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
-    path=request.path.rstrip('/') or '/'
+def _seo_page_context(path, default_title, default_description):
+    """Build crawler-visible metadata and internal links without requiring JavaScript."""
+    title=default_title
+    description=default_description
+    heading='MCQ Campus'
+    intro='Practice MCQs with answers and explanations, explore past papers, jobs, categories and exam preparation resources.'
+    links=[
+        ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
+        ('Jobs & Exams','/jobs-exams'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
+        ('Exam Preparation Articles','/posts'),
+    ]
+
     if path=='/':
         title='MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
-        description='MCQ Campus offers practice MCQs with answers, past papers, job-wise exam preparation, categories and study resources for competitive exams.'
+        description='Practice MCQs with answers and explanations, browse past papers, jobs, categories and exam preparation resources for competitive exams.'
+        heading='Practice MCQs, Past Papers & Exam Preparation'
+    elif path=='/mcqs':
+        title='Practice MCQs with Answers & Explanations | MCQ Campus'
+        description='Practice approved MCQs with correct answers and explanations across categories, jobs and past papers.'
+        heading='Practice MCQs with Answers & Explanations'
+        links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:100]]
+    elif path=='/categories':
+        title='MCQ Categories | MCQ Campus'
+        description='Browse MCQ categories and practice questions with answers and explanations for competitive exam preparation.'
+        heading='MCQ Categories'
+        links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
+    elif path=='/papers':
+        title='Past Papers & MCQs with Answers | MCQ Campus'
+        description='Browse testing organizations and past papers, then practice related MCQs with answers and explanations.'
+        heading='Past Papers & MCQs'
+        links=[(p.name,f'/paper/{_seo_slug(p.name)}') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
+    elif path.startswith('/category/'):
+        wanted=path.split('/category/',1)[1].strip('/')
+        for x in Category.objects.filter(active=True).only('id','name'):
+            if _seo_slug(x.name)==wanted:
+                title=f'{x.name} MCQs with Answers | MCQ Campus'
+                description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
+                heading=f'{x.name} MCQs'
+                links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',category_id=x.id).only('question').order_by('-updated_at')[:100]]
+                break
+    elif path.startswith('/paper/'):
+        parts=[p for p in path.split('/') if p]
+        paper_slug=parts[1] if len(parts)>1 else ''
+        paper=None
+        for p in Paper.objects.filter(active=True).only('id','name'):
+            if _seo_slug(p.name)==paper_slug: paper=p; break
+        if paper:
+            title=f'{paper.name} Past Papers & MCQs | MCQ Campus'
+            description=f'Browse {paper.name} jobs, past papers and related MCQs with answers and explanations.'
+            heading=f'{paper.name} Past Papers'
+            links=[(j.name,f'/paper/{paper_slug}/job/{_seo_slug(j.name)}') for j in Job.objects.filter(active=True,paper_id=paper.id).only('name').order_by('name')]
+            if 'job' in parts:
+                ji=parts.index('job')
+                job_slug=parts[ji+1] if len(parts)>ji+1 else ''
+                job=None
+                for j in Job.objects.filter(active=True,paper_id=paper.id).only('id','name'):
+                    if _seo_slug(j.name)==job_slug: job=j; break
+                if job:
+                    title=f'{job.name} Past Papers & MCQs | MCQ Campus'
+                    description=f'Explore {job.name} past papers and practice related MCQs with answers and explanations.'
+                    heading=f'{job.name} Past Papers & MCQs'
+                    links=[(y.name,f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')]
+                    if 'year' in parts:
+                        yi=parts.index('year')
+                        year_slug=parts[yi+1] if len(parts)>yi+1 else ''
+                        year=None
+                        for y in JobYear.objects.filter(active=True,job_id=job.id).only('id','name'):
+                            if _seo_slug(y.name)==year_slug: year=y; break
+                        if year:
+                            title=f'{job.name} {year.name} MCQs | MCQ Campus'
+                            description=f'Practice MCQs from {job.name} {year.name} with answers and explanations.'
+                            heading=f'{job.name} — {year.name}'
+                            links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
     elif path.startswith('/mcq/'):
         wanted=path.split('/mcq/',1)[1].strip('/')
         for q in MCQ.objects.filter(status='approved').only('question','description','seo_description'):
             if _seo_slug(q.question)==wanted:
                 title=f'{q.question[:70]} | MCQ Campus'
-                description=(q.seo_description or q.description or f'Practice this MCQ with the correct answer and explanation on MCQ Campus.')[:155]
+                description=(q.seo_description or q.description or 'Practice this MCQ with the correct answer and explanation on MCQ Campus.')[:155]
+                heading=q.question
+                intro=description
+                links=[('More Practice MCQs','/mcqs'),('Browse Categories','/categories'),('Browse Past Papers','/papers')]
                 break
+    return title,description,heading,intro,links
+
+def spa_index(request):
+    fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
+    s=SiteSetting.objects.only(*fields).filter(pk=1).first()
+    if s is None: s=SiteSetting.objects.create(pk=1)
+    default_title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
+    default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
+    path=request.path.rstrip('/') or '/'
+    title,description,heading,intro,links=_seo_page_context(path,default_title,default_description)
     canonical=SEO_ORIGIN+('/' if path=='/' else path)
-    return render(request,'index.html',{'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical})
+    return render(request,'index.html',{
+        'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
+        'seo_heading':heading,'seo_intro':intro,'seo_links':links,
+    })
 
 
 def favicon(request):
