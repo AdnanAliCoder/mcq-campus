@@ -5,6 +5,8 @@ from core import views
 urlpatterns=[
     path('django-admin/', admin.site.urls),
     path('api/', include('core.urls')),
+    path('favicon.ico', views.favicon),
+    path('site.webmanifest', views.site_manifest),
     path('robots.txt', views.robots_txt),
     path('sitemap-index.xml', views.sitemap_index),
     path('sitemap-pages.xml', views.sitemap_pages),
