@@ -634,7 +634,7 @@ def commands(request):
         if e.__class__.__name__ in {'DoesNotExist','IntegrityError'}: return err('The requested record could not be updated.',422)
         raise
 
-SEO_ORIGIN='https://mcqcampus.com'
+SEO_ORIGIN=str(getattr(settings,'PUBLIC_CANONICAL_ORIGIN','https://www.mcqcampus.com')).rstrip('/')
 
 def _seo_slug(value):
     return slugify(str(value or ''))[:96] or 'item'
@@ -921,9 +921,11 @@ def spa_index(request):
     path=request.path.rstrip('/') or '/'
     title,description,heading,intro,links=_seo_page_context(path,default_title,default_description)
     canonical=SEO_ORIGIN+('/' if path=='/' else path)
+    private_prefixes=('/admin','/super-admin','/dashboard','/profile','/login','/register','/forgot','/reset','/verify','/search')
+    robots='noindex,nofollow' if path.startswith(private_prefixes) else 'index,follow'
     return render(request,'index.html',{
         'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
-        'seo_heading':heading,'seo_intro':intro,'seo_links':links,
+        'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_origin':SEO_ORIGIN,'seo_robots':robots,
         'seo_jsonld':_seo_jsonld(title,description,canonical,path),
     })
 
