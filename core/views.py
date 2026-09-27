@@ -639,8 +639,15 @@ SEO_ORIGIN='https://mcqcampus.com'
 def _seo_slug(value):
     return slugify(str(value or ''))[:96] or 'item'
 
+def _public_text_response(body, content_type):
+    response=HttpResponse(body,content_type=content_type)
+    # Keep crawler-facing discovery files cheap and independent of session state.
+    response['Cache-Control']='public, max-age=300, s-maxage=3600'
+    response['X-Robots-Tag']='noindex'
+    return response
+
 def _xml_response(body):
-    return HttpResponse(body,content_type='application/xml; charset=utf-8')
+    return _public_text_response(body,'application/xml; charset=utf-8')
 
 def _urlset(items):
     rows=[]
@@ -735,5 +742,5 @@ def root_static_file(request, filename):
     return FileResponse(open(path,'rb'),content_type='application/json')
 
 def robots_txt(request):
-    body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /super-admin/\nDisallow: /dashboard/\nDisallow: /profile/\nDisallow: /api/\nSitemap: '+SEO_ORIGIN+'/sitemap-index.xml\n'
-    return HttpResponse(body,content_type='text/plain; charset=utf-8')
+    body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /super-admin/\nDisallow: /dashboard/\nDisallow: /profile/\nDisallow: /api/\nSitemap: '+SEO_ORIGIN+'/sitemap.xml\n'
+    return _public_text_response(body,'text/plain; charset=utf-8')
