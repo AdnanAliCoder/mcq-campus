@@ -739,7 +739,9 @@ def _seo_page_context(path, default_title, default_description):
                 title=f'{x.name} MCQs with Answers | MCQ Campus'
                 description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
                 heading=f'{x.name} MCQs'
-                links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',category_id=x.id).only('question').order_by('-updated_at')[:100]]
+                sub_links=[(s.name,f'/subcategory/{_seo_slug(s.name)}') for s in Subcategory.objects.filter(active=True,category_id=x.id).only('name').order_by('name')]
+                mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',category_id=x.id).only('question').order_by('-updated_at')[:80]]
+                links=sub_links+mcq_links
                 break
     elif path.startswith('/subcategory/'):
         wanted=path.split('/subcategory/',1)[1].strip('/')
@@ -748,12 +750,12 @@ def _seo_page_context(path, default_title, default_description):
                 title=f'{x.name} MCQs with Answers | MCQ Campus'
                 description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
                 heading=f'{x.name} MCQs'
-                links=[
+                topic_links=[
                     (c.name,f'/topic/{_seo_slug(c.name)}')
                     for c in ChildCategory.objects.filter(active=True,subcategory_id=x.id).only('name').order_by('name')
                 ]
-                if not links:
-                    links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:100]]
+                mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:80]]
+                links=topic_links+mcq_links
                 break
     elif path.startswith('/topic/'):
         wanted=path.split('/topic/',1)[1].strip('/')
@@ -799,15 +801,77 @@ def _seo_page_context(path, default_title, default_description):
                             links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
     elif path.startswith('/mcq/'):
         wanted=path.split('/mcq/',1)[1].strip('/')
-        for q in MCQ.objects.filter(status='approved').only('question','description','seo_description'):
+        for q in MCQ.objects.filter(status='approved').only('question','description','seo_description','category_id','job_year_ids'):
             if _seo_slug(q.question)==wanted:
                 title=f'{q.question[:70]} | MCQ Campus'
                 description=(q.seo_description or q.description or 'Practice this MCQ with the correct answer and explanation on MCQ Campus.')[:155]
                 heading=q.question
                 intro=description
-                links=[('More Practice MCQs','/mcqs'),('Browse Categories','/categories'),('Browse Past Papers','/papers')]
+                links=[('More Practice MCQs','/mcqs')]
+                category=Category.objects.filter(pk=q.category_id,active=True).only('name').first()
+                if category: links.append((f'More {category.name} MCQs',f'/category/{_seo_slug(category.name)}'))
+                year_ids=[int(v) for v in (q.job_year_ids or []) if str(v).isdigit()]
+                if year_ids:
+                    years=JobYear.objects.filter(id__in=year_ids,active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','job__name','job__paper__name')[:12]
+                    links.extend((f'{y.job.name} {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in years)
+                links.extend([('Browse Categories','/categories'),('Browse Past Papers','/papers')])
                 break
     return title,description,heading,intro,links
+
+def _seo_breadcrumbs(path):
+    crumbs=[('Home','/')]
+    if path=='/': return crumbs
+    if path.startswith('/category/'):
+        slug=path.split('/category/',1)[1].strip('/')
+        row=next((x for x in Category.objects.filter(active=True).only('name') if _seo_slug(x.name)==slug),None)
+        return crumbs+[('Categories','/categories')]+([(row.name,path)] if row else [])
+    if path.startswith('/subcategory/'):
+        slug=path.split('/subcategory/',1)[1].strip('/')
+        row=next((x for x in Subcategory.objects.filter(active=True,category__active=True).select_related('category').only('name','category__name') if _seo_slug(x.name)==slug),None)
+        if row: return crumbs+[('Categories','/categories'),(row.category.name,f'/category/{_seo_slug(row.category.name)}'),(row.name,path)]
+    if path.startswith('/topic/'):
+        slug=path.split('/topic/',1)[1].strip('/')
+        row=next((x for x in ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).select_related('subcategory','subcategory__category').only('name','subcategory__name','subcategory__category__name') if _seo_slug(x.name)==slug),None)
+        if row: return crumbs+[('Categories','/categories'),(row.subcategory.category.name,f'/category/{_seo_slug(row.subcategory.category.name)}'),(row.subcategory.name,f'/subcategory/{_seo_slug(row.subcategory.name)}'),(row.name,path)]
+    if path.startswith('/paper/'):
+        parts=[p for p in path.split('/') if p]
+        paper=next((p for p in Paper.objects.filter(active=True).only('id','name') if len(parts)>1 and _seo_slug(p.name)==parts[1]),None)
+        out=crumbs+[('Past Papers','/papers')]
+        if paper:
+            out.append((paper.name,f'/paper/{_seo_slug(paper.name)}'))
+            if 'job' in parts:
+                ji=parts.index('job'); wanted=parts[ji+1] if len(parts)>ji+1 else ''
+                job=next((j for j in Job.objects.filter(active=True,paper_id=paper.id).only('id','name') if _seo_slug(j.name)==wanted),None)
+                if job:
+                    out.append((job.name,f'/paper/{_seo_slug(paper.name)}/job/{_seo_slug(job.name)}'))
+                    if 'year' in parts:
+                        yi=parts.index('year'); yw=parts[yi+1] if len(parts)>yi+1 else ''
+                        year=next((y for y in JobYear.objects.filter(active=True,job_id=job.id).only('name') if _seo_slug(y.name)==yw),None)
+                        if year: out.append((year.name,path))
+            return out
+    if path.startswith('/mcq/'):
+        slug=path.split('/mcq/',1)[1].strip('/')
+        q=next((q for q in MCQ.objects.filter(status='approved').only('question','category_id') if _seo_slug(q.question)==slug),None)
+        out=crumbs+[('MCQs','/mcqs')]
+        if q:
+            cat=Category.objects.filter(pk=q.category_id,active=True).only('name').first()
+            if cat: out.append((cat.name,f'/category/{_seo_slug(cat.name)}'))
+            out.append((q.question[:80],path))
+        return out
+    labels={'/categories':'Categories','/mcqs':'MCQs','/papers':'Past Papers','/jobs-exams':'Jobs & Exams','/pdfs':'PDFs','/latest-jobs':'Latest Jobs','/posts':'Blog'}
+    if path in labels: return crumbs+[(labels[path],path)]
+    return crumbs
+
+def _seo_jsonld(title,description,canonical,path):
+    graph=[
+        {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQ Campus','url':SEO_ORIGIN+'/','logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
+        {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQ Campus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en'},
+        {'@type':'WebPage','@id':canonical+'#webpage','url':canonical,'name':title,'description':description,'isPartOf':{'@id':SEO_ORIGIN+'/#website'}},
+    ]
+    crumbs=_seo_breadcrumbs(path)
+    if len(crumbs)>1:
+        graph.append({'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':i+1,'name':name,'item':SEO_ORIGIN+href} for i,(name,href) in enumerate(crumbs)]})
+    return json.dumps({'@context':'https://schema.org','@graph':graph},ensure_ascii=False,separators=(',',':')).replace('<','\\u003c')
 
 def spa_index(request):
     fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
@@ -821,6 +885,7 @@ def spa_index(request):
     return render(request,'index.html',{
         'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
         'seo_heading':heading,'seo_intro':intro,'seo_links':links,
+        'seo_jsonld':_seo_jsonld(title,description,canonical,path),
     })
 
 
