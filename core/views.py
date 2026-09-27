@@ -667,6 +667,10 @@ def sitemap_pages(request):
 
 def sitemap_categories(request):
     rows=[(f'{SEO_ORIGIN}/category/{_seo_slug(x.name)}',x.updated_at) for x in Category.objects.filter(active=True).only('name','updated_at')]
+    subs=Subcategory.objects.filter(active=True,category__active=True).only('name','updated_at')
+    rows.extend((f'{SEO_ORIGIN}/subcategory/{_seo_slug(x.name)}',x.updated_at) for x in subs)
+    children=ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).only('name','updated_at')
+    rows.extend((f'{SEO_ORIGIN}/topic/{_seo_slug(x.name)}',x.updated_at) for x in children)
     return _xml_response(_urlset(rows))
 
 def sitemap_papers(request):
@@ -720,6 +724,14 @@ def _seo_page_context(path, default_title, default_description):
         description='Browse testing organizations and past papers, then practice related MCQs with answers and explanations.'
         heading='Past Papers & MCQs'
         links=[(p.name,f'/paper/{_seo_slug(p.name)}') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
+    elif path=='/jobs-exams':
+        title='Jobs & Exams Preparation — Past Papers and MCQs | MCQ Campus'
+        description='Browse competitive exam jobs and prepare with job-wise past papers, repeated MCQs, answers and explanations.'
+        heading='Jobs & Exams Preparation'
+        links=[
+            (j.name,f'/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}')
+            for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')
+        ]
     elif path.startswith('/category/'):
         wanted=path.split('/category/',1)[1].strip('/')
         for x in Category.objects.filter(active=True).only('id','name'):
@@ -728,6 +740,29 @@ def _seo_page_context(path, default_title, default_description):
                 description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
                 heading=f'{x.name} MCQs'
                 links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',category_id=x.id).only('question').order_by('-updated_at')[:100]]
+                break
+    elif path.startswith('/subcategory/'):
+        wanted=path.split('/subcategory/',1)[1].strip('/')
+        for x in Subcategory.objects.filter(active=True,category__active=True).select_related('category').only('id','name','category__name'):
+            if _seo_slug(x.name)==wanted:
+                title=f'{x.name} MCQs with Answers | MCQ Campus'
+                description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
+                heading=f'{x.name} MCQs'
+                links=[
+                    (c.name,f'/topic/{_seo_slug(c.name)}')
+                    for c in ChildCategory.objects.filter(active=True,subcategory_id=x.id).only('name').order_by('name')
+                ]
+                if not links:
+                    links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:100]]
+                break
+    elif path.startswith('/topic/'):
+        wanted=path.split('/topic/',1)[1].strip('/')
+        for x in ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).select_related('subcategory','subcategory__category').only('id','name','subcategory__name','subcategory__category__name'):
+            if _seo_slug(x.name)==wanted:
+                title=f'{x.name} MCQs with Answers | MCQ Campus'
+                description=f'Practice {x.name} multiple choice questions with correct answers and explanations.'
+                heading=f'{x.name} MCQs'
+                links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',child_subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:100]]
                 break
     elif path.startswith('/paper/'):
         parts=[p for p in path.split('/') if p]
