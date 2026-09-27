@@ -18,7 +18,7 @@ window.Public=(()=>{
  function mini(q,index){return questionCard(q,index+1,true)}
  function quickCard(){const quick=MCQ.topMcqs(),qi=Math.max(0,Math.min(Number(App.homeQuickIndex||0),Math.max(0,quick.length-1))),q=quick[qi];return q?`<div class="hero-quick mcq-reference-quick"><div class="quick-head"><div>${questionTags(q,{featured:true})}</div>${btn('›','home-quick-next','quick-next-control',`aria-label="Next quick MCQ"`)}</div><div class="quick-question-panel"><h3>${e(q.question)}</h3></div><div class="quick-options">${[1,2,3,4].map((n,i)=>{const text=q['option'+n],chosen=App.quickAnswer?.id===q.id?App.quickAnswer.choice:null,answered=App.quickAnswer?.id===q.id,state=answered?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';return btn(`<span class="letter">${'ABCD'[i]}</span><span class="option-text">${e(text)}</span><span class="option-indicator" aria-hidden="true"></span>`,'home-quick-choose',`quick-option ${state}`,`data-id="${q.id}" data-option="${n}" ${answered?'disabled':''}`)}).join('')}</div>${App.quickAnswer?.id===q.id?`<div class="quick-answer mcq-verified-answer"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>${e(q.correct_answer)}</b></strong></div><p>${e(q.description||'No explanation has been added yet.')}</p>${relationships(q)}</div>`:''}<div class="quick-dots">${quick.map((_,i)=>`<button type="button" class="quick-dot ${i===qi?'active':''}" data-action="home-quick-jump" data-index="${i}" aria-label="Quick MCQ ${i+1}"></button>`).join('')}</div></div>`:'';}
  function home(){
-  const allQs=MCQ.publicMcqs(),qs=allQs.filter(q=>MCQ.isImportant(q)),pageSize=10,page=App.page(qs.length,pageSize),rows=qs.slice((page-1)*pageSize,page*pageSize),cats=MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy).slice(0,7);
+  const allQs=MCQ.publicMcqs(),qs=allQs.filter(q=>MCQ.isImportant(q)),pageSize=10,page=App.page(qs.length,pageSize),rows=qs.slice((page-1)*pageSize,page*pageSize),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7);
   const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`,today=new Date().toISOString().slice(0,10),latest=(MCQ.db.latestJobs||[]).filter(x=>x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))).slice(0,4);
   const homeStats=[
    {title:'MCQs',value:allQs.length,iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
@@ -50,7 +50,7 @@ window.Public=(()=>{
   if(id){const parentType={paper:'papers',job:'jobs'}[type];parent=MCQ.get(parentType,id);if(!parent)return notFound();name=parent.name;const rel=MCQ.parents[collection];rows=rows.filter(x=>x[rel[1]]===+id);if(type==='paper'){trail=[['Past Papers','papers']];title=parent.name+' Past Papers, Jobs & MCQs';desc='Browse '+parent.name+' jobs and past papers, then open a year to practice linked MCQs with answers and explanations.'}if(type==='job'){const pa=MCQ.get('papers',parent.paper_id);if(!pa)return notFound();trail=[['Past Papers','papers'],[pa.name,'paper/'+pa.id]];title=pa.name+' '+parent.name+' Past Papers & MCQs';desc='Choose a '+parent.name+' paper year under '+pa.name+' and practice the linked MCQs with correct answers and explanations.'}}
   if(type==='papers'&&country)rows=rows.filter(x=>(x.country||MCQ.db.settings.country||'Pakistan')===country);
   if(type==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||MCQ.db.settings.country||'Pakistan')===country);
-  rows=[...rows].sort((a,b)=>a.name.localeCompare(b.name));let page=App.page(rows.length);
+  rows=['categories','papers','jobs','years'].includes(collection)?MCQ.sortPinned(collection,rows):[...rows].sort((a,b)=>a.name.localeCompare(b.name));let page=App.page(rows.length);
   const jobSummary='';
   let pre='';if(type==='categories'){
    pre=PublicLayout.selectionBar([{label:'All',path:'categories',params:{},active:!country},{label:'Pakistan',path:'categories',params:{country:'Pakistan'},active:country==='Pakistan'},{label:'India',path:'categories',params:{country:'India'},active:country==='India'}],'Category country');
@@ -75,7 +75,7 @@ window.Public=(()=>{
     collection='years';name='All Past Papers';page=App.page(rows.length);
     pre=PublicLayout.selectionStack([{html:modeBar},{html:countryBar}]);
    }else{
-    const visiblePapers=MCQ.db.papers.filter(x=>x.active!==false&&(!country||(x.country||MCQ.db.settings.country||'Pakistan')===country)).map(x=>({...x,_jobs:MCQ.db.jobs.filter(j=>j.active!==false&&j.paper_id===x.id).length})).filter(x=>x._jobs).sort((a,b)=>b._jobs-a._jobs||a.name.localeCompare(b.name)).slice(0,10);
+    const visiblePapers=MCQ.sortPinned('papers',MCQ.db.papers.filter(x=>x.active!==false&&(!country||(x.country||MCQ.db.settings.country||'Pakistan')===country)).map(x=>({...x,_jobs:MCQ.db.jobs.filter(j=>j.active!==false&&j.paper_id===x.id).length})).filter(x=>x._jobs)).slice(0,10);
     const orgBar=PublicLayout.selectionBar([{label:'Organizations',path:'papers',params:country?{country}:{},active:true},...visiblePapers.map(x=>({label:x.name.match(/\b(PPSC|FPSC|NTS|SSC|UPSC|SPSC|KPPSC|BPSC|ETEA|FIA|ASF)\b/i)?.[1]||x.name.split(/\s+/).slice(0,2).join(' '),path:'paper/'+x.id,active:false}))],'Organizations','selection-bar-secondary');
     pre=PublicLayout.selectionStack([{html:modeBar},{html:countryBar},{html:orgBar}]);
    }
@@ -264,8 +264,8 @@ window.Public=(()=>{
   active.forEach(j=>{const key=Number(j.paper_id)||0;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(j)});
   const buckets=[...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([,items])=>items.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))));
   const jobs=[];let added=true;while(added){added=false;for(const bucket of buckets){if(bucket.length){jobs.push(bucket.shift());added=true}}}
-  const pageSize=12,page=App.page(jobs.length,pageSize),params=App.route.params,visible=jobs.slice((page-1)*pageSize,page*pageSize);
-  const main=`${UI.adSlot('jobs_ad')}<p class="small muted result-count">${jobs.length} jobs from all agencies · ${pageSize} per page</p>${visible.length?`<div class="grid paper-grid">${visible.map((j,i)=>card('jobs',j,(page-1)*pageSize+i)).join('')}</div>${UI.pager(jobs.length,page,pageSize,params,'jobs-exams')}`:empty('No jobs available','Published jobs from all agencies will appear here.')}`;
+  const ordered=MCQ.sortPinned('jobs',jobs),pageSize=12,page=App.page(ordered.length,pageSize),params=App.route.params,visible=ordered.slice((page-1)*pageSize,page*pageSize);
+  const main=`${UI.adSlot('jobs_ad')}<p class="small muted result-count">${ordered.length} jobs from all agencies · ${pageSize} per page</p>${visible.length?`<div class="grid paper-grid">${visible.map((j,i)=>card('jobs',j,(page-1)*pageSize+i)).join('')}</div>${UI.pager(ordered.length,page,pageSize,params,'jobs-exams')}`:empty('No jobs available','Published jobs from all agencies will appear here.')}`;
   return PublicLayout.page({trail:[['Jobs & Exams']],title:'Jobs & Exams Preparation',desc:'Browse jobs and competitive exams across agencies. Open a job to view available past-paper years and linked MCQs.',main,sidebar:PublicLayout.smart('jobs'),active:'jobs-exams',sidebarLabel:'Related / Browse'});
  }
  function pdfs(){
