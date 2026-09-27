@@ -703,6 +703,29 @@ def spa_index(request):
     return render(request,'index.html',{'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical})
 
 
+def favicon(request):
+    from pathlib import Path
+    path=Path(__file__).resolve().parents[1]/'frontend'/'assets'/'images'/'favicon.png'
+    if not path.exists(): raise Http404
+    return FileResponse(open(path,'rb'),content_type='image/png')
+
+def site_manifest(request):
+    data={
+        'name':'MCQ Campus',
+        'short_name':'MCQ Campus',
+        'description':'Practice MCQs, past papers and exam preparation.',
+        'start_url':'/',
+        'scope':'/',
+        'display':'standalone',
+        'background_color':'#ffffff',
+        'theme_color':'#102823',
+        'icons':[
+            {'src':'/assets/images/favicon-192.png','sizes':'192x192','type':'image/png'},
+            {'src':'/assets/images/favicon-512.png','sizes':'512x512','type':'image/png'},
+        ],
+    }
+    return JsonResponse(data,content_type='application/manifest+json')
+
 def root_static_file(request, filename):
     allowed={'routing-manifest.json'}
     if filename not in allowed: raise Http404
