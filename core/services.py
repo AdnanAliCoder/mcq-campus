@@ -37,6 +37,41 @@ def _save_site_blob(settings,blob):
     root['_site']=blob
     settings.admin_permissions=root
 
+PIN_ENTITY_TYPES={'categories','papers','jobs','years'}
+def _pinned_entities(settings=None):
+    blob=_site_blob(settings or SiteSetting.get_solo())
+    raw=blob.get('pinnedEntities') or {}
+    out={}
+    for typ in PIN_ENTITY_TYPES:
+        vals=[]
+        for value in raw.get(typ) or []:
+            try:
+                ident=int(value)
+                if ident>0 and ident not in vals: vals.append(ident)
+            except (TypeError,ValueError): pass
+        out[typ]=vals[:10]
+    return out
+
+def _set_entity_pin(user,typ,rid,mode):
+    require(is_super(user),'Only the Super Admin can manage pinned records.')
+    require(typ in PIN_ENTITY_TYPES,'This record type cannot be pinned.')
+    model=ENTITY_MODELS[typ]; rid=int(rid); require(model.objects.filter(pk=rid).exists(),'Record not found.')
+    settings=SiteSetting.get_solo(); blob=_site_blob(settings); pins=_pinned_entities(settings); rows=list(pins.get(typ) or [])
+    rows=[x for x in rows if x!=rid]
+    if mode=='pin':
+        require(len(rows)<10,'You can pin up to 10 records in this section.')
+        rows.append(rid)
+    elif mode=='up':
+        old=list(pins.get(typ) or []); require(rid in old,'Pin this record first.'); i=old.index(rid); rows=old[:]
+        if i>0: rows[i-1],rows[i]=rows[i],rows[i-1]
+    elif mode=='down':
+        old=list(pins.get(typ) or []); require(rid in old,'Pin this record first.'); i=old.index(rid); rows=old[:]
+        if i<len(rows)-1: rows[i+1],rows[i]=rows[i],rows[i+1]
+    elif mode!='unpin':
+        raise ValueError('Invalid pin action.')
+    pins[typ]=rows[:10]; blob['pinnedEntities']=pins; _save_site_blob(settings,blob); settings.updated_by=user; settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    return pins
+
 def _profile_payload(profile):
     raw=str(profile.avatar or '')
     prefix='__MCQ_PROFILE__:'
@@ -157,7 +192,7 @@ def _client_site_state(settings):
       'seo':{'title':settings.seo_title,'description':settings.seo_description},
       'rolePermissions':{'admin':{'review':bool(role_root.get('review',False)),'import':bool(role_root.get('import',False)),'permissions':perms}},
       'adSettings':{'enabled':ad_cfg.get('enabled',True),'adsenseClient':settings.adsense_client_id or ad_cfg.get('adsenseClient',''),'analyticsId':settings.google_analytics_id or ad_cfg.get('analyticsId',''),'slots':ad_cfg.get('slots') or {}},
-      'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,
+      'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,'pinnedEntities':_pinned_entities(settings),
     }
 
 def _startup_site_state(settings):
@@ -183,7 +218,7 @@ def public_content_data():
 def public_resources_data():
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
-    return {k:state[k] for k in ['settings','seo','rolePermissions','adSettings']}
+    return {k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities']}
 
 def public_catalog_data():
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
@@ -711,6 +746,8 @@ def command(user,action,payload):
                 if int(x.get('id',0))==rid: x['published']=not bool(x.get('published',True)); x['updated_at']=timezone.now().isoformat()
         else: rows=[x for x in rows if int(x.get('id',0))!=rid]
         blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return {form:rows}
+    if action=='action:entity-pin':
+        return {'pinnedEntities':_set_entity_pin(user,payload.get('type'),payload.get('id'),str(payload.get('mode') or 'pin'))}
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
