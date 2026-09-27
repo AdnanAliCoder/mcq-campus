@@ -158,6 +158,10 @@ def _delete_entity(user,typ,rid):
     mcq_rows=[_serialize_mcq(x) for x in mcqs]
     MCQ.objects.filter(pk__in=[x.id for x in mcqs]).delete()
     root.delete()
+    if typ in PIN_ENTITY_TYPES:
+        settings=SiteSetting.get_solo(); blob=_site_blob(settings); pins=_pinned_entities(settings)
+        pins[typ]=[x for x in (pins.get(typ) or []) if int(x)!=int(rid)]
+        blob['pinnedEntities']=pins; _save_site_blob(settings,blob); settings.updated_by=user; settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
     tr=TrashRecord.objects.create(kind=typ,name=root.name,payload={'entities':entities,'mcqs':mcq_rows},deleted_by=user)
     log(user,'Deleted '+typ,f'{root.name} · {len(mcq_rows)} MCQ(s) moved to recovery')
     return tr
