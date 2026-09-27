@@ -373,12 +373,28 @@ def _bulk_duplicate_mcq(question):
     pattern=r'^\s*'+r'\s+'.join(re.escape(x) for x in parts)+r'\s*$'
     return MCQ.objects.filter(question__iregex=pattern).first()
 
+def _mcq_hierarchy_from_years(year_ids, paper_ids=None, job_ids=None):
+    """Use existing JobYear records as the source of truth for their parent Job/Paper."""
+    years=normalize_ids(year_ids)
+    jobs=normalize_ids(job_ids)
+    papers=normalize_ids(paper_ids)
+    for y in JobYear.objects.filter(pk__in=years).select_related('job__paper'):
+        if y.job_id not in jobs: jobs.append(y.job_id)
+        if y.job.paper_id not in papers: papers.append(y.job.paper_id)
+    return papers,jobs,years
+
+def _is_important_hierarchy(job_year_ids):
+    years=normalize_ids(job_year_ids)
+    if len(set(years)) < 2:
+        return False
+    parent_jobs=set(JobYear.objects.filter(pk__in=years).values_list('job_id',flat=True))
+    return len(parent_jobs) >= 2
+
 def _merge_bulk_mcq_hierarchy(user,existing,draft):
-    incoming={
-        'paper_ids':normalize_ids(draft.get('paper_id')),
-        'job_ids':normalize_ids(draft.get('job_ids')),
-        'job_year_ids':normalize_ids(draft.get('job_years_ids')),
-    }
+    incoming_papers,incoming_jobs,incoming_years=_mcq_hierarchy_from_years(
+        draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
+    )
+    incoming={'paper_ids':incoming_papers,'job_ids':incoming_jobs,'job_year_ids':incoming_years}
     changed=[]
     for field,values in incoming.items():
         current=normalize_ids(getattr(existing,field,None))
@@ -386,7 +402,13 @@ def _merge_bulk_mcq_hierarchy(user,existing,draft):
         if merged!=current:
             setattr(existing,field,merged)
             changed.append(field)
-    important=len(set(existing.job_ids or []))>=2
+    # Rebuild parent Job/Paper mappings from every saved Job Year as well.
+    papers,jobs,years=_mcq_hierarchy_from_years(existing.job_year_ids,existing.paper_ids,existing.job_ids)
+    for field,values in [('paper_ids',papers),('job_ids',jobs),('job_year_ids',years)]:
+        if normalize_ids(getattr(existing,field,None))!=values:
+            setattr(existing,field,values)
+            if field not in changed: changed.append(field)
+    important=_is_important_hierarchy(existing.job_year_ids)
     if existing.important!=important:
         existing.important=important
         changed.append('important')
@@ -412,8 +434,8 @@ def save_mcq(user,draft):
         _merge_bulk_mcq_hierarchy(user,duplicate,draft)
         return duplicate
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
-    job_ids=normalize_ids(draft.get('job_ids'))
-    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=normalize_ids(draft.get('paper_id')),job_ids=job_ids,job_year_ids=normalize_ids(draft.get('job_years_ids')),important=len(set(normalize_ids(draft.get('job_ids'))))>=2,country=str(draft.get('country') or 'Pakistan'))
+    paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids'))
+    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=str(draft.get('country') or 'Pakistan'))
     now=timezone.now()
     if existing and existing.status=='approved' and not is_super(user):
         proposed={**mcq(existing),**common,'category_id':cid,'paper_id':common['paper_ids'],'job_years_ids':common['job_year_ids'],'updated_at':iso(now),'updated_by':user_name(user),'updated_by_id':user.id}
@@ -446,7 +468,7 @@ def review_mcqs(user,ids,status,reason=''):
                 pu['approval_status']='correction'; pu['reason']=reason; q.pending_update=pu
         else:
             q.status=status; q.rejection_reason='' if status=='approved' else reason
-        q.important=len(set(q.job_ids or []))>=2
+        q.important=_is_important_hierarchy(q.job_year_ids)
         q.reviewed_by=user
         if status=='approved': q.approved_by=user
         hist=q.audit_history or []; hist.insert(0,{'type':q.submission_type,'reviewed_by':user_name(user),'reviewed_by_id':user.id,'reviewed_at':iso(timezone.now()),'approval_status':status,'reason':reason}); q.audit_history=hist[:100]
