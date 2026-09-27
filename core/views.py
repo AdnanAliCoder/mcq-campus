@@ -657,7 +657,7 @@ def _urlset(items):
     return '<?xml version="1.0" encoding="UTF-8"?>'+'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(rows)+'</urlset>'
 
 def sitemap_index(request):
-    names=['pages','categories','papers','mcqs','resources']
+    names=['pages','categories','papers','jobs','years','mcqs','resources']
     body='<?xml version="1.0" encoding="UTF-8"?>'+'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(f'<sitemap><loc>{SEO_ORIGIN}/sitemap-{name}.xml</loc></sitemap>' for name in names)+'</sitemapindex>'
     return _xml_response(body)
 
@@ -674,15 +674,23 @@ def sitemap_categories(request):
     return _xml_response(_urlset(rows))
 
 def sitemap_papers(request):
-    rows=[]
-    for p in Paper.objects.filter(active=True).only('name','updated_at'):
-        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}',p.updated_at))
-    jobs=Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','updated_at','paper__name')
-    for j in jobs:
-        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}',j.updated_at))
-    years=JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','updated_at','job__name','job__paper__name')
-    for y in years:
-        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}',y.updated_at))
+    rows=[(f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}',p.updated_at) for p in Paper.objects.filter(active=True,jobs__active=True).distinct().only('name','updated_at')]
+    return _xml_response(_urlset(rows))
+
+def sitemap_jobs(request):
+    jobs=Job.objects.filter(active=True,paper__active=True,years__active=True).select_related('paper').distinct().only('name','updated_at','paper__name')
+    rows=[(f'{SEO_ORIGIN}/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}',j.updated_at) for j in jobs]
+    return _xml_response(_urlset(rows))
+
+def sitemap_years(request):
+    years=JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('id','name','updated_at','job__name','job__paper__name')
+    approved=MCQ.objects.filter(status='approved').only('job_year_ids')
+    used=set()
+    for q in approved:
+        for value in (q.job_year_ids or []):
+            try: used.add(int(value))
+            except (TypeError,ValueError): pass
+    rows=[(f'{SEO_ORIGIN}/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}',y.updated_at) for y in years if y.id in used]
     return _xml_response(_urlset(rows))
 
 def sitemap_mcqs(request):
@@ -732,6 +740,30 @@ def _seo_page_context(path, default_title, default_description):
             (j.name,f'/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}')
             for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')
         ]
+    elif path=='/pdfs':
+        title='Exam Preparation PDFs | MCQ Campus'
+        description='Browse exam preparation PDFs and downloadable study resources for MCQs, past papers and competitive exams.'
+        heading='Exam Preparation PDFs'
+        intro='Find downloadable preparation resources for competitive exams and MCQ practice.'
+    elif path=='/latest-jobs':
+        title='Latest Jobs & Exam Opportunities | MCQ Campus'
+        description='Browse current job and exam opportunities with organization details, deadlines and preparation links.'
+        heading='Latest Jobs & Exam Opportunities'
+        intro='Track current opportunities and continue preparation with related MCQs and past papers.'
+    elif path=='/posts':
+        title='Exam Preparation Blog & Updates | MCQ Campus'
+        description='Read exam preparation articles, study guides, updates and useful resources from MCQ Campus.'
+        heading='Exam Preparation Blog & Updates'
+        links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
+    elif path.startswith('/post/'):
+        wanted=path.split('/post/',1)[1].strip('/')
+        post=Post.objects.filter(status='published',slug=wanted).only('title','excerpt','body','seo_title','seo_description').first()
+        if post:
+            title=(post.seo_title or f'{post.title} | MCQ Campus')
+            description=(post.seo_description or post.excerpt or post.body or 'MCQ Campus exam preparation article.')[:155]
+            heading=post.title
+            intro=(post.excerpt or description)[:240]
+            links=[('Practice MCQs','/mcqs'),('Past Papers','/papers'),('Jobs & Exams','/jobs-exams'),('More Articles','/posts')]
     elif path.startswith('/category/'):
         wanted=path.split('/category/',1)[1].strip('/')
         for x in Category.objects.filter(active=True).only('id','name'):
@@ -773,9 +805,10 @@ def _seo_page_context(path, default_title, default_description):
         for p in Paper.objects.filter(active=True).only('id','name'):
             if _seo_slug(p.name)==paper_slug: paper=p; break
         if paper:
-            title=f'{paper.name} Past Papers & MCQs | MCQ Campus'
-            description=f'Browse {paper.name} jobs, past papers and related MCQs with answers and explanations.'
-            heading=f'{paper.name} Past Papers'
+            title=f'{paper.name} Past Papers, Jobs & MCQs | MCQ Campus'
+            description=f'Browse {paper.name} jobs and past papers, then practice related MCQs with correct answers and explanations.'
+            heading=f'{paper.name} Past Papers, Jobs & MCQs'
+            intro=f'Explore {paper.name} job-wise past papers and practice linked MCQs with answers and explanations.'
             links=[(j.name,f'/paper/{paper_slug}/job/{_seo_slug(j.name)}') for j in Job.objects.filter(active=True,paper_id=paper.id).only('name').order_by('name')]
             if 'job' in parts:
                 ji=parts.index('job')
@@ -784,9 +817,10 @@ def _seo_page_context(path, default_title, default_description):
                 for j in Job.objects.filter(active=True,paper_id=paper.id).only('id','name'):
                     if _seo_slug(j.name)==job_slug: job=j; break
                 if job:
-                    title=f'{job.name} Past Papers & MCQs | MCQ Campus'
-                    description=f'Explore {job.name} past papers and practice related MCQs with answers and explanations.'
-                    heading=f'{job.name} Past Papers & MCQs'
+                    title=f'{paper.name} {job.name} Past Papers & MCQs | MCQ Campus'
+                    description=f'Explore {paper.name} {job.name} past papers by year and practice related MCQs with correct answers and explanations.'
+                    heading=f'{paper.name} {job.name} Past Papers & MCQs'
+                    intro=f'Choose a {job.name} paper year and practice the MCQs linked to that {paper.name} exam record.'
                     links=[(y.name,f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')]
                     if 'year' in parts:
                         yi=parts.index('year')
@@ -795,9 +829,10 @@ def _seo_page_context(path, default_title, default_description):
                         for y in JobYear.objects.filter(active=True,job_id=job.id).only('id','name'):
                             if _seo_slug(y.name)==year_slug: year=y; break
                         if year:
-                            title=f'{job.name} {year.name} MCQs | MCQ Campus'
-                            description=f'Practice MCQs from {job.name} {year.name} with answers and explanations.'
-                            heading=f'{job.name} — {year.name}'
+                            title=f'{paper.name} {job.name} {year.name} Past Paper MCQs | MCQ Campus'
+                            description=f'Practice {paper.name} {job.name} {year.name} past paper MCQs with correct answers and explanations.'
+                            heading=f'{paper.name} {job.name} — {year.name} Past Paper MCQs'
+                            intro=f'Practice questions linked to the {paper.name} {job.name} {year.name} past paper and review correct answers with explanations.'
                             links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
     elif path.startswith('/mcq/'):
         wanted=path.split('/mcq/',1)[1].strip('/')
@@ -858,6 +893,10 @@ def _seo_breadcrumbs(path):
             if cat: out.append((cat.name,f'/category/{_seo_slug(cat.name)}'))
             out.append((q.question[:80],path))
         return out
+    if path.startswith('/post/'):
+        slug=path.split('/post/',1)[1].strip('/')
+        p=Post.objects.filter(status='published',slug=slug).only('title').first()
+        return crumbs+[('Blog','/posts')]+([(p.title,path)] if p else [])
     labels={'/categories':'Categories','/mcqs':'MCQs','/papers':'Past Papers','/jobs-exams':'Jobs & Exams','/pdfs':'PDFs','/latest-jobs':'Latest Jobs','/posts':'Blog'}
     if path in labels: return crumbs+[(labels[path],path)]
     return crumbs
