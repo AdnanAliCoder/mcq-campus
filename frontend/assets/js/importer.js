@@ -64,6 +64,5 @@ window.Importer=(()=>{
    return row
   })
  }
- function commit(rows){MCQ.assert('import');const summary={total:rows.length,valid:rows.filter(r=>r.status==='valid').length,imported:0,duplicates:rows.filter(r=>r.status==='duplicate').length,invalid:rows.filter(r=>r.status==='invalid').length,failed:0};for(const row of rows){if(row.status!=='valid')continue;try{MCQ.saveMcq(row.q);row.status='imported';summary.imported++}catch(e){row.errors=[e.message];row.status=e.existing?'duplicate':'failed';if(e.existing)summary.duplicates++;else summary.failed++}}return summary}
- return {parse,preview,prepareRows,commit,normalize,csv};
+ return {parse,preview,prepareRows,normalize,csv};
 })();
