@@ -274,6 +274,32 @@ class IntegrationTests(TestCase):
         self.assertEqual(q.job_ids,[job.id])
         self.assertEqual(q.job_year_ids,[year.id])
 
+    def test_bulk_import_groups_same_upload_before_saving_two_job_years(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=307,name='Family Welfare Assistant',paper=self.paper)
+        year1=JobYear.objects.create(id=407,name='[ATS] KPK - Family Welfare Assistant Past Paper [13 Aug 2022]',job=job)
+        year2=JobYear.objects.create(id=408,name='[ATS] KPK - Family Welfare Assistant Past Paper [30 Jul 2022]',job=job)
+        base={
+            'question':'Pulitzer prize is awarded for outstanding work in the field of _____?',
+            'option1':'Film Industry','option2':'Journalism','option3':'Science & Tech','option4':'Scuba',
+            'correct_answer':'Journalism',
+            'description':'The Pulitzer Prize recognizes distinguished achievements in journalism, alongside separate awards for literature, drama, and musical composition.',
+            'category_id':self.category.id,'paper_id':[self.paper.id],'job_ids':[job.id],
+        }
+        rows=[
+            {'status':'valid','q':{**base,'job_years_ids':[year1.id]}},
+            {'status':'merge','q':{**base,'job_years_ids':[year2.id]}},
+        ]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()['result']
+        self.assertEqual(MCQ.objects.filter(question=base['question']).count(),1)
+        q=MCQ.objects.get(question=base['question'])
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertEqual(data['summary']['imported'],1)
+        self.assertEqual(data['summary']['merged'],1)
+        self.assertEqual(data['summary']['duplicates'],0)
+
     def test_bulk_import_same_question_same_job_two_years_stays_one_mcq(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         job=Job.objects.create(id=302,name='Computer Operator',paper=self.paper)
