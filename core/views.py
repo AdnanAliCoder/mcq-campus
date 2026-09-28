@@ -673,6 +673,73 @@ SEO_ORIGIN=str(getattr(settings,'PUBLIC_CANONICAL_ORIGIN','https://www.mcqcampus
 def _seo_slug(value):
     return slugify(str(value or ''))[:96] or 'item'
 
+def _seo_title(value, limit=60):
+    text=re.sub(r'\\s+',' ',str(value or '')).strip()
+    if len(text)<=limit:
+        return text
+    suffix=' | MCQ Campus'
+    if text.endswith(suffix):
+        head=text[:-len(suffix)].rstrip(' -—|,:')
+        room=max(12,limit-len(suffix)-3)
+        return head[:room].rstrip(' -—|,:')+'...'+suffix
+    return text[:limit-3].rstrip(' -—|,:')+'...'
+
+def _seo_supporting_sections(path,heading,description):
+    subject=str(heading or 'MCQ Campus').strip()
+    if path=='/':
+        return [
+            ('Practice by topic, paper and exam','MCQ Campus organizes preparation around subject categories, past papers, jobs and exam years so learners can move from broad revision to focused practice. Use the main sections to find approved multiple-choice questions, review answers and explanations, and continue into the paper or job that matches the exam you are preparing for.'),
+            ('Use answers and explanations for revision','Attempt each question before checking the answer, then use the explanation to understand why the option is correct. Revisit weak areas through category pages, compare questions that appear across different papers or job years, and use important MCQs for faster revision when you are short on time.'),
+            ('Explore connected preparation resources','Past-paper pages connect organizations, jobs and exam years with the MCQs linked to those records. You can also browse current opportunities, preparation PDFs and exam-focused articles. These internal links make it easier to continue from one topic to the next without losing the context of your preparation.'),
+        ]
+    if path.startswith('/mcq/'):
+        return [
+            ('Review this question in context',f'This page is part of {subject} on MCQ Campus. Read the question carefully, choose an answer before checking the explanation, and use the related category, paper, job or exam-year links to understand where the question belongs in your wider preparation.'),
+            ('Build stronger recall','A useful revision method is to answer from memory first, then compare your choice with the correct answer and explanation. If the question is linked to more than one paper or job year, review those related pages as well because repeated concepts can be useful signals when planning revision.'),
+            ('Continue with related MCQs','Use the related links below to practise more questions from the same subject or exam path. Moving between a question, its category and its past-paper hierarchy creates a clearer study trail than practising isolated questions without context.'),
+        ]
+    if '/year/' in path:
+        return [
+            ('Practice this past paper by year',f'{subject} groups the MCQs connected with this specific exam-year record. Work through the available questions as a focused past-paper session, then review explanations and note the topics that need another revision pass.'),
+            ('Compare repeated concepts','Questions can appear across more than one job year or paper. When a question is connected to other records, follow those links to compare how the same concept has been tested and to identify topics that deserve extra attention.'),
+            ('Broaden your preparation','After finishing this year, move to the parent job, paper or category pages to practise related material. This keeps your revision structured while still exposing you to a wider set of questions and explanations.'),
+        ]
+    if path.startswith('/paper/'):
+        return [
+            ('Follow the paper hierarchy',f'{subject} is organized so you can move from the testing organization or paper to a specific job and then to an exam year. Choose the level that matches your target exam and use the linked questions for focused practice.'),
+            ('Use past papers as a revision guide','Past-paper practice is most useful when you review both the answer and the explanation instead of memorizing an option. Mark weak subjects, revisit their category pages and compare related years to build a more balanced preparation plan.'),
+            ('Discover related exam material','The links on this page connect the current paper with relevant jobs, years and MCQs. You can also return to the wider Past Papers, Categories and Jobs & Exams sections whenever you want to change your preparation path.'),
+        ]
+    if path.startswith('/category/') or path.startswith('/subcategory/') or path.startswith('/topic/'):
+        return [
+            ('Practice this subject step by step',f'{subject} collects related questions so you can revise one area without mixing unrelated topics. Start with the available MCQs, check the explanation after answering, and use subcategory or topic links when you want to narrow the subject further.'),
+            ('Connect topics with past papers','Subject practice becomes more useful when you also see where questions appear in exams. Follow related MCQ links into their paper and job-year context to connect topic knowledge with real past-paper preparation.'),
+            ('Continue to nearby subjects','Use the related pages below to move between broader categories, narrower topics, papers and jobs. This creates a connected revision path and makes it easier to return to areas that need more practice.'),
+        ]
+    if path.startswith('/post/'):
+        return [
+            ('Use this guide with active practice',f'{description} Apply the guidance on this page alongside MCQ practice and past-paper revision so the information becomes part of an active study routine rather than a one-time read.'),
+            ('Continue with related preparation','After reading, open the linked MCQ, category, paper or jobs pages that match the subject. Combining explanatory content with practice questions and exam records gives you more ways to review the same material.'),
+        ]
+    return [
+        ('Find the right preparation path',f'{description} Use {subject} as a starting point, then follow the related links to move into categories, past papers, jobs, exam years, PDFs or articles that match your current study goal.'),
+        ('Practise with context','MCQ Campus connects questions with the subjects and exam records they belong to. Answer first, review the explanation second, and then continue into a related page so each practice session builds on the previous one.'),
+        ('Explore more MCQ Campus resources','The related links below provide additional routes into practice MCQs, categories, past papers and exam preparation resources. They are included to help learners and search engines discover the public study content without relying only on JavaScript navigation.'),
+    ]
+
+def _seo_known_spa_path(path):
+    static={
+        '/','/mcqs','/important','/categories','/papers','/jobs','/jobs-exams','/pdfs',
+        '/latest-jobs','/posts','/about','/contact','/faq','/privacy','/terms','/disclaimer',
+        '/cookies','/advertising','/sitemap','/search','/login','/register','/forgot','/reset',
+        '/verify','/dashboard','/profile','/my-downloads','/admin','/super-admin'
+    }
+    prefixes=(
+        '/category/','/subcategory/','/topic/','/paper/','/job/','/year/','/mcq/','/practice/',
+        '/post/','/dashboard/','/admin/','/super-admin/'
+    )
+    return path in static or any(path.startswith(prefix) for prefix in prefixes)
+
 def _public_text_response(body, content_type):
     response=HttpResponse(body,content_type=content_type)
     # Keep crawler-facing discovery files cheap and independent of session state.
@@ -696,7 +763,7 @@ def sitemap_index(request):
     return _xml_response(body)
 
 def sitemap_pages(request):
-    paths=['/','/mcqs','/categories','/papers','/jobs-exams','/pdfs','/latest-jobs','/posts','/about','/contact','/faq','/privacy','/terms','/disclaimer']
+    paths=['/','/mcqs','/categories','/papers','/jobs-exams','/pdfs','/latest-jobs','/posts','/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap']
     return _xml_response(_urlset([(SEO_ORIGIN+p,None) for p in paths]))
 
 def sitemap_categories(request):
@@ -789,6 +856,18 @@ def _seo_page_context(path, default_title, default_description):
         description='Read exam preparation articles, study guides, updates and useful resources from MCQ Campus.'
         heading='Exam Preparation Blog & Updates'
         links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
+    elif path=='/sitemap':
+        title='HTML Sitemap | MCQ Campus'
+        description='Browse public MCQ Campus pages including categories, past papers, jobs, exam years, MCQs and study resources.'
+        heading='MCQ Campus Sitemap'
+        intro='Use this HTML sitemap to discover public study pages without relying on JavaScript navigation.'
+        category_links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
+        paper_links=[(p.name,f'/paper/{_seo_slug(p.name)}') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
+        job_links=[(j.name,f'/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}') for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')]
+        year_links=[(f'{y.job.name} — {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','job__name','job__paper__name').order_by('-name')]
+        resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
+        mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
+        links=category_links+paper_links+job_links+year_links+resource_links+mcq_links
     elif path.startswith('/post/'):
         wanted=path.split('/post/',1)[1].strip('/')
         post=Post.objects.filter(status='published',slug=wanted).only('title','excerpt','body','seo_title','seo_description').first()
@@ -885,7 +964,20 @@ def _seo_page_context(path, default_title, default_description):
                     links.extend((f'{y.job.name} {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in years)
                 links.extend([('Browse Categories','/categories'),('Browse Past Papers','/papers')])
                 break
-    return title,description,heading,intro,links
+    support_links=[
+        ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
+        ('Jobs & Exams','/jobs-exams'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
+        ('Exam Preparation Articles','/posts'),('About MCQ Campus','/about'),('Contact','/contact'),
+        ('Privacy Policy','/privacy'),('Terms of Service','/terms'),('HTML Sitemap','/sitemap'),
+    ]
+    merged=[]; seen=set()
+    current=path.rstrip('/') or '/'
+    for label,href in list(links)+support_links:
+        key=(str(href or '').rstrip('/') or '/')
+        if key==current or key in seen:
+            continue
+        seen.add(key); merged.append((label,href))
+    return title,description,heading,intro,merged
 
 def _seo_breadcrumbs(path):
     crumbs=[('Home','/')]
@@ -939,7 +1031,7 @@ def _seo_jsonld(title,description,canonical,path):
     graph=[
         {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQ Campus','url':SEO_ORIGIN+'/','logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
         {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQ Campus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en'},
-        {'@type':'WebPage','@id':canonical+'#webpage','url':canonical,'name':title,'description':description,'isPartOf':{'@id':SEO_ORIGIN+'/#website'}},
+        {'@type':'WebPage','@id':canonical+'#webpage','url':canonical,'name':title,'description':description,'isPartOf':{'@id':SEO_ORIGIN+'/#website'},'speakable':{'@type':'SpeakableSpecification','cssSelector':['#main h1','#seo-summary']}},
     ]
     crumbs=_seo_breadcrumbs(path)
     if len(crumbs)>1:
@@ -953,15 +1045,32 @@ def spa_index(request):
     default_title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
     default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
-    title,description,heading,intro,links=_seo_page_context(path,default_title,default_description)
+    if path in {'/index.html','/index.php'}:
+        response=HttpResponse(status=308)
+        response['Location']=SEO_ORIGIN+'/'
+        response['Cache-Control']='public, max-age=0, s-maxage=3600'
+        return response
+    status=200
+    if _seo_known_spa_path(path):
+        title,description,heading,intro,links=_seo_page_context(path,default_title,default_description)
+    else:
+        status=404
+        title='Page Not Found | MCQ Campus'
+        description='The requested page could not be found. Browse MCQs, categories, past papers, jobs and exam preparation resources.'
+        heading='Page not found'
+        intro='The address you opened does not match a public MCQ Campus page. Use the links below to continue your preparation.'
+        links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),('Jobs & Exams','/jobs-exams'),('Home','/')]
+    title=_seo_title(title)
     canonical=SEO_ORIGIN+('/' if path=='/' else path)
     private_prefixes=('/admin','/super-admin','/dashboard','/profile','/login','/register','/forgot','/reset','/verify','/search')
-    robots='noindex,nofollow' if path.startswith(private_prefixes) else 'index,follow'
+    robots='noindex,nofollow' if status==404 or path.startswith(private_prefixes) else 'index,follow'
+    sections=[] if robots.startswith('noindex') else _seo_supporting_sections(path,heading,description)
     response=render(request,'index.html',{
         'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
-        'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_origin':SEO_ORIGIN,'seo_robots':robots,
+        'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_sections':sections,
+        'seo_origin':SEO_ORIGIN,'seo_robots':robots,
         'seo_jsonld':_seo_jsonld(title,description,canonical,path),
-    })
+    },status=status)
     response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
     response['Pragma']='no-cache'
     response['Expires']='0'
@@ -1001,4 +1110,28 @@ def root_static_file(request, filename):
 
 def robots_txt(request):
     body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /super-admin/\nDisallow: /dashboard/\nDisallow: /profile/\nDisallow: /api/\nSitemap: '+SEO_ORIGIN+'/sitemap.xml\n'
+    return _public_text_response(body,'text/plain; charset=utf-8')
+
+def llms_txt(request):
+    body=(
+        '# MCQ Campus\n'
+        '> MCQ Campus is an exam-preparation website for practising MCQs with answers and explanations, browsing past papers, categories, jobs, exam years, PDFs and study articles.\n\n'
+        '## Main sections\n'
+        f'- [Practice MCQs]({SEO_ORIGIN}/mcqs)\n'
+        f'- [MCQ Categories]({SEO_ORIGIN}/categories)\n'
+        f'- [Past Papers]({SEO_ORIGIN}/papers)\n'
+        f'- [Jobs & Exams]({SEO_ORIGIN}/jobs-exams)\n'
+        f'- [Preparation PDFs]({SEO_ORIGIN}/pdfs)\n'
+        f'- [Latest Jobs]({SEO_ORIGIN}/latest-jobs)\n'
+        f'- [Exam Preparation Articles]({SEO_ORIGIN}/posts)\n\n'
+        '## Discovery\n'
+        f'- [HTML Sitemap]({SEO_ORIGIN}/sitemap)\n'
+        f'- [XML Sitemap]({SEO_ORIGIN}/sitemap.xml)\n'
+        f'- [About]({SEO_ORIGIN}/about)\n'
+        f'- [Contact]({SEO_ORIGIN}/contact)\n\n'
+        '## Crawling notes\n'
+        '- Public study pages may be crawled and indexed.\n'
+        '- Account, dashboard, administration and API routes are not intended for search indexing.\n'
+        '- Prefer canonical URLs on the www.mcqcampus.com host.\n'
+    )
     return _public_text_response(body,'text/plain; charset=utf-8')
