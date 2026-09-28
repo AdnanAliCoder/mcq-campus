@@ -674,7 +674,7 @@ def _seo_slug(value):
     return slugify(str(value or ''))[:96] or 'item'
 
 def _seo_title(value, limit=60):
-    text=re.sub(r'\\s+',' ',str(value or '')).strip()
+    text=re.sub(r'\s+',' ',str(value or '')).strip()
     if len(text)<=limit:
         return text
     suffix=' | MCQ Campus'
