@@ -185,6 +185,37 @@ class IntegrationTests(TestCase):
         self.assertEqual(MCQ.objects.filter(pk__in=ids).count(),2)
         self.assertFalse(TrashRecord.objects.filter(pk=trash.id).exists())
 
+    def test_bulk_import_same_question_same_job_two_years_stays_one_mcq(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=302,name='Computer Operator',paper=self.paper)
+        year1=JobYear.objects.create(id=402,name='2022-A',job=job)
+        year2=JobYear.objects.create(id=403,name='2022-B',job=job)
+        base={'question':'Pulitzer prize is awarded for outstanding work in the field of _____?','option1':'Journalism','option2':'Sports','option3':'Medicine','option4':'Physics','correct_answer':'Journalism','description':'Pulitzer Prizes recognize achievements including journalism.','category_id':self.category.id,'paper_id':[self.paper.id],'job_ids':[job.id]}
+        rows=[
+            {'status':'valid','q':{**base,'job_years_ids':[year1.id]}},
+            {'status':'merge','q':{**base,'job_years_ids':[year2.id]}},
+        ]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        qs=MCQ.objects.filter(question=base['question'])
+        self.assertEqual(qs.count(),1)
+        q=qs.get()
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertEqual(set(q.job_ids),{job.id})
+        self.assertEqual(set(q.paper_ids),{self.paper.id})
+
+    def test_trash_bulk_restore_and_permanent_delete(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        first=self.post_json('/api/commands',{'action':'action:mcq-delete-confirm','payload':{'ids':[self.pending.id]}}).json()['result']
+        second=self.post_json('/api/commands',{'action':'action:mcq-bulk-delete','payload':{'ids':[self.rejected.id]}}).json()['result']
+        restored=self.post_json('/api/commands',{'action':'action:trash-restore-many','payload':{'ids':[first['trashId']]}})
+        self.assertEqual(restored.status_code,200)
+        self.assertTrue(MCQ.objects.filter(pk=self.pending.id).exists())
+        deleted=self.post_json('/api/commands',{'action':'action:trash-permanent-delete','payload':{'ids':[second['trashId']]}})
+        self.assertEqual(deleted.status_code,200)
+        self.assertFalse(TrashRecord.objects.filter(pk=second['trashId']).exists())
+        self.assertFalse(MCQ.objects.filter(pk=self.rejected.id).exists())
+
     def test_bulk_import_merges_only_hierarchy_for_repeated_question(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         paper2=Paper.objects.create(id=201,name='FPSC',icon='paper')
