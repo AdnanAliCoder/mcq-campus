@@ -970,7 +970,7 @@ def command(user,action,payload):
         rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
-        summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0}
+        summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0,'errors':[]}
         imported_ids=[]
         groups,invalid=_combine_import_rows(payload.get('rows') or [])
         summary['invalid']=invalid
@@ -993,8 +993,10 @@ def command(user,action,payload):
                 imported_ids.append(obj.pk)
                 summary['imported']+=1
                 summary['merged']+=group['extra_merges']
-            except ValueError:
+            except ValueError as exc:
                 summary['failed']+=1
+                if len(summary['errors'])<20:
+                    summary['errors'].append({'question':str(draft.get('question') or '')[:160],'message':str(exc)})
         imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
         return {'summary':summary,'mcqs':[mcq(x) for x in imported]}
     raise ValueError(f'Unsupported command: {action}')
