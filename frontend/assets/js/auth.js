@@ -322,8 +322,8 @@ window.Auth=(()=>{
    if(own!==generation)throw Error('The account changed. Please try again.');
    if(data.user)setIdentity({...user,...data.user});
    applyCommandResult(action,data.result,payload);
-   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:trash-restore','action:restore-trash'].includes(action))invalidateWorkspaceMcqs();
-   if(action==='action:mcq-delete'){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
+   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidateWorkspaceMcqs();
+   if(['action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'].includes(action)){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
    if(data.refresh==='bootstrap'){
     const snapshot=await request('/bootstrap');
     if(own!==generation)throw Error('The account changed. Please try again.');
