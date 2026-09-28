@@ -148,6 +148,25 @@ def _serialize_entity(t,x):
 def _serialize_mcq(x):
     return {'id':x.id,'question':x.question,'option1':x.option1,'option2':x.option2,'option3':x.option3,'option4':x.option4,'correct_answer':x.correct_answer,'description':x.description,'category_id':x.category_id,'subcategory_ids':x.subcategory_ids,'child_subcategory_ids':x.child_subcategory_ids,'paper_ids':x.paper_ids,'job_ids':x.job_ids,'job_year_ids':x.job_year_ids,'country':x.country,'status':x.status,'important':x.important,'source':x.source,'seo_description':x.seo_description,'rejection_reason':x.rejection_reason,'submission_type':x.submission_type,'pending_update':x.pending_update,'audit_history':x.audit_history}
 
+def _delete_mcqs_to_trash(user,ids):
+    require(is_super(user),'Only the Super Admin can move MCQs to Trash.')
+    clean=[]
+    for value in ids or []:
+        try:
+            rid=int(value)
+            if rid>0 and rid not in clean: clean.append(rid)
+        except (TypeError,ValueError):
+            pass
+    require(clean,'Select at least one MCQ.')
+    rows=list(MCQ.objects.filter(pk__in=clean).order_by('id'))
+    require(rows,'No matching MCQs were found.')
+    payload=[_serialize_mcq(x) for x in rows]
+    label=rows[0].question[:120] if len(rows)==1 else f'{len(rows)} MCQs'
+    tr=TrashRecord.objects.create(kind='mcqs',name=label,payload={'entities':{},'mcqs':payload},deleted_by=user)
+    MCQ.objects.filter(pk__in=[x.id for x in rows]).delete()
+    log(user,'Deleted MCQs',f'{len(rows)} MCQ(s) moved to Trash')
+    return tr,[x.id for x in rows]
+
 def _delete_entity(user,typ,rid):
     require(is_super(user),'Only the Super Admin can permanently move taxonomy records to recovery.')
     model=ENTITY_MODELS.get(typ); require(model is not None,'Invalid entity.')
@@ -753,6 +772,9 @@ def command(user,action,payload):
         blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return {form:rows}
     if action=='action:entity-pin':
         return {'pinnedEntities':_set_entity_pin(user,payload.get('type'),payload.get('id'),str(payload.get('mode') or 'pin'))}
+    if action=='action:mcq-delete':
+        tr,deleted_ids=_delete_mcqs_to_trash(user,payload.get('ids') or [payload.get('id')])
+        return {'deleted':{'type':'mcqs','ids':deleted_ids},'trashId':tr.id,'count':len(deleted_ids)}
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
