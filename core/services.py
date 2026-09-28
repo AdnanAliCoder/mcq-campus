@@ -198,7 +198,7 @@ def _restore_trash_many(user,ids):
     restored=0
     for tr in list(TrashRecord.objects.filter(pk__in=clean).order_by('deleted_at')):
         _restore_trash(user,tr); restored+=1
-    return {'restored':restored,'ids':clean}
+    return {'restored':restored,'ids':clean,'deleted':{'type':'trash','ids':clean}}
 
 def _delete_trash_permanently(user,ids):
     require(is_super(user))
