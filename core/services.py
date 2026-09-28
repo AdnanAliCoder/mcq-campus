@@ -1,4 +1,4 @@
-import hashlib, hmac, json, re, secrets
+import hashlib, hmac, json, re, secrets, unicodedata
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import password_validation
@@ -453,6 +453,10 @@ def validate_mcq_data(d):
     if not Category.objects.filter(pk=cid).exists(): raise ValueError('Choose a valid category.')
     return cid
 
+def _bulk_question_key(question):
+    text=unicodedata.normalize('NFKC',str(question or '')).replace('\u00a0',' ')
+    return re.sub(r'\s+',' ',text).strip().casefold()
+
 def _bulk_duplicate_mcq(question):
     question=str(question or '').strip()
     if not question: return None
@@ -556,7 +560,7 @@ def _combine_import_rows(rows):
             continue
         draft=dict(row.get('q') or {})
         question=str(draft.get('question') or '').strip()
-        key=re.sub(r'\s+',' ',question).casefold()
+        key=_bulk_question_key(question)
         if not key:
             invalid+=1
             continue
