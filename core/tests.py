@@ -274,6 +274,27 @@ class IntegrationTests(TestCase):
         self.assertEqual(q.job_ids,[job.id])
         self.assertEqual(q.job_year_ids,[year.id])
 
+    def test_bulk_merge_accepts_model_style_job_year_ids_alias(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=312,name='Alias Merge Job',paper=self.paper)
+        year1=JobYear.objects.create(id=412,name='Alias Merge Year 1',job=job)
+        year2=JobYear.objects.create(id=413,name='Alias Merge Year 2',job=job)
+        q=MCQ.objects.create(
+            id=812,question='Alias hierarchy merge?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Test',category=self.category,status='approved',
+            paper_ids=[self.paper.id],job_ids=[job.id],job_year_ids=[year1.id],
+            created_by=self.owner,submitted_by=self.owner,approved_by=self.owner,
+        )
+        rows=[{'status':'merge','q':{
+            'question':q.question,'option1':'A','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'A','description':'Test','category_id':self.category.id,
+            'paper_ids':[self.paper.id],'job_ids':[job.id],'job_year_ids':[year2.id],
+        }}]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        q.refresh_from_db()
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+
     def test_super_admin_bulk_import_is_directly_approved(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         job=Job.objects.create(id=308,name='Direct Approved Job',paper=self.paper)
