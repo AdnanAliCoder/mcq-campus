@@ -970,35 +970,44 @@ def command(user,action,payload):
         rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
-        summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0,'errors':[]}
+        summary={'imported':0,'updated':0,'merged':0,'duplicates':0,'invalid':0,'failed':0,'errors':[]}
         imported_ids=[]
+        results=[]
         groups,invalid=_combine_import_rows(payload.get('rows') or [])
         summary['invalid']=invalid
         for group in groups:
             draft=group['draft']
             summary['duplicates']+=group['duplicates']
+            question=str(draft.get('question') or '')[:160]
             try:
                 duplicate=_bulk_duplicate_mcq(draft.get('question'))
                 if duplicate:
                     result=_merge_bulk_mcq_hierarchy(user,duplicate,draft)
+                    _approve_bulk_import_mcq(user,duplicate)
+                    imported_ids.append(duplicate.pk)
                     if result=='merged':
-                        _approve_bulk_import_mcq(user,duplicate)
-                        summary['merged']+=max(1,group['extra_merges'])
-                        imported_ids.append(duplicate.pk)
+                        summary['updated']+=1
+                        summary['merged']+=group['extra_merges']
+                        results.append({'id':duplicate.pk,'question':question,'result':'updated'})
                     else:
                         summary['duplicates']+=1
+                        results.append({'id':duplicate.pk,'question':question,'result':'already-live'})
                     continue
                 obj=save_mcq(user,draft)
                 _approve_bulk_import_mcq(user,obj)
                 imported_ids.append(obj.pk)
                 summary['imported']+=1
                 summary['merged']+=group['extra_merges']
+                results.append({'id':obj.pk,'question':question,'result':'imported'})
             except ValueError as exc:
                 summary['failed']+=1
+                message=str(exc)
                 if len(summary['errors'])<20:
-                    summary['errors'].append({'question':str(draft.get('question') or '')[:160],'message':str(exc)})
+                    summary['errors'].append({'question':question,'message':message})
+                results.append({'question':question,'result':'failed','message':message})
         imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
-        return {'summary':summary,'mcqs':[mcq(x) for x in imported]}
+        return {'summary':summary,'results':results,'mcqs':[mcq(x) for x in imported]}
+
     raise ValueError(f'Unsupported command: {action}')
 
 def _otp_hash(user,purpose,code):
