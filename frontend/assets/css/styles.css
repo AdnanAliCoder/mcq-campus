@@ -2277,3 +2277,59 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 .import-status-cards .card .small{font-size:.72rem}
 .import-preview-table .select-col{min-width:54px;width:54px;max-width:54px}
 @media(max-width:760px){.import-status-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Public MCQ answer polish: compact verified tick + compact, left-aligned year metadata. */
+.mcq-verified-answer .verified-check,
+.quick-answer .verified-check{
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  flex:0 0 18px!important;
+  font-size:11px!important;
+  line-height:18px!important;
+  border-radius:50%!important;
+}
+.mcq-answer-years{
+  display:block!important;
+  width:100%;
+  text-align:left;
+}
+.mcq-answer-years .mcq-years-label{
+  display:block;
+  margin:0 0 6px;
+  font-size:.76rem;
+  font-weight:700;
+  text-align:left;
+}
+.mcq-answer-years .chips{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  width:100%;
+  margin-top:0;
+  justify-content:start;
+}
+.mcq-answer-years .mcq-year-chip{
+  justify-content:flex-start;
+  text-align:left;
+  min-width:0;
+  padding:4px 7px;
+  font-size:.72rem;
+}
+.mcq-answer-years .mcq-year-icon{
+  display:inline-flex;
+  width:13px;
+  height:13px;
+  flex:0 0 13px;
+  align-items:center;
+  justify-content:center;
+}
+.mcq-answer-years .mcq-year-icon .icon{
+  width:13px!important;
+  height:13px!important;
+}
+@media(max-width:600px){
+  .mcq-answer-years .chips{grid-template-columns:1fr}
+  .mcq-answer-years,.mcq-answer-years .mcq-years-label,.mcq-answer-years .mcq-year-chip{text-align:left}
+}
