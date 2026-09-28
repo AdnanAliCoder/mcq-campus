@@ -461,6 +461,69 @@ class IntegrationTests(TestCase):
         self.assertFalse(q.important)
         self.assertFalse(mcq(q)['important'])
 
+
+    def test_bulk_import_new_repeated_question_creates_one_pending_mcq(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=880,name='New Import Job',paper=self.paper)
+        year1=JobYear.objects.create(id=881,name='2025-A',job=job)
+        year2=JobYear.objects.create(id=882,name='2025-B',job=job)
+        base={
+            'question':'Brand new repeated bulk import?',
+            'option1':'A','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'A','description':'New pending import',
+            'category_id':self.category.id,'paper_id':[self.paper.id],'job_ids':[job.id],
+        }
+        rows=[
+            {'status':'valid','q':{**base,'job_years_ids':[year1.id]}},
+            {'status':'merge','q':{**base,'job_years_ids':[year2.id]}},
+        ]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()['result']
+        qs=MCQ.objects.filter(question=base['question'])
+        self.assertEqual(qs.count(),1)
+        q=qs.get()
+        self.assertEqual(q.status,'pending')
+        self.assertEqual(q.submission_type,'new')
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertEqual(data['summary']['imported'],1)
+        self.assertEqual(data['summary']['updated'],0)
+        self.assertEqual(data['results'][0]['result'],'pending-new')
+
+    def test_bulk_import_existing_question_stages_update_without_new_record(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        paper2=Paper.objects.create(id=883,name='Existing Update Paper',country='Pakistan')
+        job1=Job.objects.create(id=884,name='Existing Base Job',paper=self.paper)
+        job2=Job.objects.create(id=885,name='Existing New Job',paper=paper2)
+        year1=JobYear.objects.create(id=886,name='2024',job=job1)
+        year2=JobYear.objects.create(id=887,name='2025',job=job2)
+        existing=MCQ.objects.create(
+            id=888,question='Existing bulk update target?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Keep canonical',category=self.category,status='approved',
+            paper_ids=[self.paper.id],job_ids=[job1.id],job_year_ids=[year1.id],
+            created_by=self.owner,submitted_by=self.owner,approved_by=self.owner,
+        )
+        draft={
+            'question':existing.question,'option1':'A','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'A','description':'Incoming copy','category_id':self.category.id,
+            'paper_id':[paper2.id],'job_ids':[job2.id],'job_years_ids':[year2.id],
+        }
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':[{'status':'update','q':draft}]}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()['result']
+        self.assertEqual(MCQ.objects.filter(question=existing.question).count(),1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.status,'approved')
+        self.assertEqual(existing.paper_ids,[self.paper.id])
+        self.assertIsNotNone(existing.pending_update)
+        proposed=existing.pending_update['proposed']
+        self.assertEqual(set(proposed['paper_id']),{self.paper.id,paper2.id})
+        self.assertEqual(set(proposed['job_ids']),{job1.id,job2.id})
+        self.assertEqual(set(proposed['job_years_ids']),{year1.id,year2.id})
+        self.assertEqual(data['summary']['imported'],0)
+        self.assertEqual(data['summary']['updated'],1)
+        self.assertEqual(data['results'][0]['result'],'pending-update')
+
     def test_trash_bulk_restore_and_permanent_delete(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         first=self.post_json('/api/commands',{'action':'action:mcq-delete-confirm','payload':{'ids':[self.pending.id]}}).json()['result']
