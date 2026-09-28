@@ -239,6 +239,41 @@ class IntegrationTests(TestCase):
         self.assertEqual(response.status_code,200)
         self.assertFalse(MCQ.objects.filter(pk=q.id).exists())
 
+    def test_bulk_import_same_question_different_paper_job_year_merges_hierarchy(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        paper2=Paper.objects.create(id=303,name='Second Agency',country='Pakistan')
+        job1=Job.objects.create(id=304,name='First Job',paper=self.paper)
+        job2=Job.objects.create(id=305,name='Second Job',paper=paper2)
+        year1=JobYear.objects.create(id=404,name='2022',job=job1)
+        year2=JobYear.objects.create(id=405,name='2023',job=job2)
+        base={'question':'Hierarchy merge example?','option1':'A','option2':'B','option3':'C','option4':'D','correct_answer':'A','description':'Test','category_id':self.category.id}
+        rows=[
+            {'status':'valid','q':{**base,'paper_id':[self.paper.id],'job_ids':[job1.id],'job_years_ids':[year1.id]}},
+            {'status':'merge','q':{**base,'paper_id':[paper2.id],'job_ids':[job2.id],'job_years_ids':[year2.id]}},
+        ]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        q=MCQ.objects.get(question=base['question'])
+        self.assertEqual(set(q.paper_ids),{self.paper.id,paper2.id})
+        self.assertEqual(set(q.job_ids),{job1.id,job2.id})
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+
+    def test_bulk_import_exact_same_hierarchy_is_duplicate_not_second_mcq(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=306,name='Duplicate Job',paper=self.paper)
+        year=JobYear.objects.create(id=406,name='2024',job=job)
+        base={'question':'Exact duplicate hierarchy?','option1':'A','option2':'B','option3':'C','option4':'D','correct_answer':'A','description':'Test','category_id':self.category.id,'paper_id':[self.paper.id],'job_ids':[job.id],'job_years_ids':[year.id]}
+        rows=[{'status':'valid','q':base},{'status':'duplicate','q':base}]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()['result']
+        self.assertEqual(MCQ.objects.filter(question=base['question']).count(),1)
+        self.assertEqual(data['summary']['duplicates'],1)
+        q=MCQ.objects.get(question=base['question'])
+        self.assertEqual(q.paper_ids,[self.paper.id])
+        self.assertEqual(q.job_ids,[job.id])
+        self.assertEqual(q.job_year_ids,[year.id])
+
     def test_bulk_import_same_question_same_job_two_years_stays_one_mcq(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         job=Job.objects.create(id=302,name='Computer Operator',paper=self.paper)
