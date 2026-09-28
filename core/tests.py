@@ -185,6 +185,31 @@ class IntegrationTests(TestCase):
         self.assertEqual(MCQ.objects.filter(pk__in=ids).count(),2)
         self.assertFalse(TrashRecord.objects.filter(pk=trash.id).exists())
 
+    def test_dedicated_admin_mcq_delete_endpoint(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        q=MCQ.objects.create(
+            id=720,question='Dedicated delete endpoint?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Dedicated endpoint',category=self.category,status='approved',
+            created_by=self.owner,submitted_by=self.owner,
+        )
+        response=self.post_json('/api/admin/mcqs/delete',{'ids':[q.id]})
+        self.assertEqual(response.status_code,200)
+        data=response.json()
+        self.assertEqual(data['deletedIds'],[q.id])
+        self.assertFalse(MCQ.objects.filter(pk=q.id).exists())
+        self.assertTrue(TrashRecord.objects.filter(pk=data['trashId']).exists())
+
+    def test_dedicated_trash_restore_and_delete_endpoints(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        first=self.post_json('/api/admin/mcqs/delete',{'ids':[self.pending.id]}).json()
+        restored=self.post_json('/api/admin/trash/restore',{'ids':[first['trashId']]})
+        self.assertEqual(restored.status_code,200)
+        self.assertTrue(MCQ.objects.filter(pk=self.pending.id).exists())
+        second=self.post_json('/api/admin/mcqs/delete',{'ids':[self.rejected.id]}).json()
+        deleted=self.post_json('/api/admin/trash/delete',{'ids':[second['trashId']]})
+        self.assertEqual(deleted.status_code,200)
+        self.assertFalse(TrashRecord.objects.filter(pk=second['trashId']).exists())
+
     def test_legacy_admin_delete_command_aliases_do_not_fall_through(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         aliases=['mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete']
