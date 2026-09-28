@@ -7,12 +7,13 @@ window.Importer=(()=>{
  function parse(text,ext){text=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');if(ext==='csv')return csv(text);if(ext==='txt')return txt(text);if(ext==='json'){const d=JSON.parse(text);const rows=Array.isArray(d)?d:d.mcqs||d.data;if(!Array.isArray(rows))throw Error('JSON must be an array or an object containing an mcqs/data array.');return rows.map(r=>{if(!r||typeof r!=='object'||Array.isArray(r))return {_parseError:'Row must be an object.'};return Object.fromEntries(Object.entries(r).map(([k,v])=>[key(k),v]))})}throw Error('Choose a TXT, CSV or JSON file.')}
  function resolveName(type,value,parentIds){const names=Array.isArray(value)?value:String(value??'').split('|').filter(Boolean);const parent=MCQ.parents[type];return names.map(name=>{const matches=MCQ.db[type].filter(x=>(type!=='categories'||!x.legacy)&&MCQ.norm(x.name)===MCQ.norm(name)&&(!parent||parentIds.includes(x[parent[1]])));if(matches.length!==1)throw Error((matches.length?'Ambiguous':'Unknown')+' '+type+': '+name);return matches[0].id})}
  function normalize(raw){const q={question:String(raw.question??'').trim(),description:String(raw.description??''),correct_answer:String(raw.correct_answer??'').trim(),subcategory_ids:[],child_subcategory_ids:[]};for(let i=1;i<=4;i++)q['option'+i]=String(raw['option'+i]??'').trim();q.category_id=raw.category_id?+raw.category_id:resolveName('categories',raw.category,[])[0];q.paper_id=raw.paper_id?MCQ.ids(raw.paper_id):resolveName('papers',raw.paper,[]);q.job_ids=raw.job_ids?MCQ.ids(raw.job_ids):resolveName('jobs',raw.job,q.paper_id);q.job_years_ids=raw.job_years_ids?MCQ.ids(raw.job_years_ids):resolveName('years',raw.jobyear,q.job_ids);return q}
+ function identityKey(value){return String(value??'').normalize('NFKC').replace(/\u00a0/g,' ').trim().toLowerCase().replace(/\s+/g,' ')}
  function prepareRows(rows){
   const groups=new Map,out=[];
   const add=(a,b)=>[...new Set([...MCQ.ids(a),...MCQ.ids(b)].map(Number).filter(Boolean))];
   for(const row of rows||[]){
    if(!row?.q||row.status==='invalid'){out.push(row);continue}
-   const key=MCQ.norm(row.q.question);
+   const key=identityKey(row.q.question);
    if(!groups.has(key)){
     const copy={...row,q:{...row.q,paper_id:MCQ.ids(row.q.paper_id),job_ids:MCQ.ids(row.q.job_ids),job_years_ids:MCQ.ids(row.q.job_years_ids)},mergedRows:0,duplicateRows:0};
     groups.set(key,copy);out.push(copy);continue;
