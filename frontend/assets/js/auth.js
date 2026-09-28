@@ -440,7 +440,7 @@ window.Auth=(()=>{
   finally{restoreButton();}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','trash-restore','report-resolve','restore-trash','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete']);
+ const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','report-resolve','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
