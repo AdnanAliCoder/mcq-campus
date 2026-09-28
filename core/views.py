@@ -781,7 +781,7 @@ def _seo_latest_year_maps():
         active=True,job__active=True,job__paper__active=True
     ).select_related('job').only('name','job_id','job__paper_id')
     for y in years:
-        found=[int(v) for v in re.findall(r'(?<!\\d)(20\\d{2})(?!\\d)',str(y.name or ''))]
+        found=[int(v) for v in re.findall(r'(?<!\d)(20\d{2})(?!\d)',str(y.name or ''))]
         if not found: continue
         latest=max(found)
         if latest<2000: continue
