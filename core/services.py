@@ -815,7 +815,8 @@ def command(user,action,payload):
         for rid in ids:
             if rid and ENTITY_MODELS.get(typ) and _delete_entity(user,typ,int(rid)) is not None: count+=1
         return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
-    if action in {'action:trash-restore','action:restore-trash'}: return _restore_trash(user,TrashRecord.objects.get(pk=int(payload.get('id'))))
+    if action in {'action:trash-restore','action:restore-trash'}:
+        rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0}; imported_ids=[]
         for row in payload.get('rows') or []:
