@@ -7,43 +7,6 @@ window.Importer=(()=>{
  function parse(text,ext){text=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');if(ext==='csv')return csv(text);if(ext==='txt')return txt(text);if(ext==='json'){const d=JSON.parse(text);const rows=Array.isArray(d)?d:d.mcqs||d.data;if(!Array.isArray(rows))throw Error('JSON must be an array or an object containing an mcqs/data array.');return rows.map(r=>{if(!r||typeof r!=='object'||Array.isArray(r))return {_parseError:'Row must be an object.'};return Object.fromEntries(Object.entries(r).map(([k,v])=>[key(k),v]))})}throw Error('Choose a TXT, CSV or JSON file.')}
  function resolveName(type,value,parentIds){const names=Array.isArray(value)?value:String(value??'').split('|').filter(Boolean);const parent=MCQ.parents[type];return names.map(name=>{const matches=MCQ.db[type].filter(x=>(type!=='categories'||!x.legacy)&&MCQ.norm(x.name)===MCQ.norm(name)&&(!parent||parentIds.includes(x[parent[1]])));if(matches.length!==1)throw Error((matches.length?'Ambiguous':'Unknown')+' '+type+': '+name);return matches[0].id})}
  function normalize(raw){const q={question:String(raw.question??'').trim(),description:String(raw.description??''),correct_answer:String(raw.correct_answer??'').trim(),subcategory_ids:[],child_subcategory_ids:[]};for(let i=1;i<=4;i++)q['option'+i]=String(raw['option'+i]??'').trim();q.category_id=raw.category_id?+raw.category_id:resolveName('categories',raw.category,[])[0];q.paper_id=raw.paper_id?MCQ.ids(raw.paper_id):resolveName('papers',raw.paper,[]);q.job_ids=raw.job_ids?MCQ.ids(raw.job_ids):resolveName('jobs',raw.job,q.paper_id);q.job_years_ids=raw.job_years_ids?MCQ.ids(raw.job_years_ids):resolveName('years',raw.jobyear,q.job_ids);return q}
- function preview(raws){
-  const seen=new Map;
-  const ids=v=>[...new Set(MCQ.ids(v).map(Number).filter(Boolean))].sort((a,b)=>a-b);
-  const hierarchy=q=>({papers:ids(q.paper_id),jobs:ids(q.job_ids),years:ids(q.job_years_ids)});
-  const same=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
-  const hasNew=(base,next)=>next.papers.some(x=>!base.papers.includes(x))||next.jobs.some(x=>!base.jobs.includes(x))||next.years.some(x=>!base.years.includes(x));
-  const mergeHierarchy=(a,b)=>({papers:ids([...a.papers,...b.papers]),jobs:ids([...a.jobs,...b.jobs]),years:ids([...a.years,...b.years])});
-  return raws.map((raw,i)=>{
-   let row={line:i+1,raw,question:raw.question||'',errors:[],status:'valid'};
-   try{
-    row.q=normalize(raw);row.errors=MCQ.validate(row.q);if(raw._parseError)row.errors.unshift(raw._parseError);
-    const n=MCQ.norm(row.q.question),incoming=hierarchy(row.q),existing=MCQ.db.mcqs.find(x=>MCQ.norm(x.question)===n);
-    if(!row.errors.length){
-     if(existing){
-      const current=hierarchy(existing);
-      if(hasNew(current,incoming)){
-       row.status='merge';row.existing=MCQ.managedRows('mcqs').some(q=>q.id===existing.id)?existing.id:undefined;
-       row.errors.push('Existing MCQ found: new Paper / Job / Job Year links will be added to the same MCQ.');
-      }else{
-       row.status='duplicate';row.existing=MCQ.managedRows('mcqs').some(q=>q.id===existing.id)?existing.id:undefined;
-       row.errors.push('Duplicate ignored: Question, Paper, Job and Job Year are already linked.');
-      }
-     }else if(seen.has(n)){
-      const current=seen.get(n);
-      if(hasNew(current,incoming)){
-       row.status='merge';row.errors.push('Repeated in this upload: new hierarchy links will be merged into one MCQ.');
-       seen.set(n,mergeHierarchy(current,incoming));
-      }else{
-       row.status='duplicate';row.errors.push('Duplicate ignored: same Question, Paper, Job and Job Year already appear in this upload.');
-      }
-     }else seen.set(n,incoming);
-    }else row.status='invalid';
-    if(!seen.has(n)&&row.status!=='invalid')seen.set(n,incoming);
-   }catch(e){row.status='invalid';row.errors=[e.message]}
-   return row
-  })
- }
  function prepareRows(rows){
   const groups=new Map,out=[];
   const add=(a,b)=>[...new Set([...MCQ.ids(a),...MCQ.ids(b)].map(Number).filter(Boolean))];
@@ -51,21 +14,51 @@ window.Importer=(()=>{
    if(!row?.q||row.status==='invalid'){out.push(row);continue}
    const key=MCQ.norm(row.q.question);
    if(!groups.has(key)){
-    const copy={...row,q:{...row.q,paper_id:MCQ.ids(row.q.paper_id),job_ids:MCQ.ids(row.q.job_ids),job_years_ids:MCQ.ids(row.q.job_years_ids)}};
+    const copy={...row,q:{...row.q,paper_id:MCQ.ids(row.q.paper_id),job_ids:MCQ.ids(row.q.job_ids),job_years_ids:MCQ.ids(row.q.job_years_ids)},mergedRows:0,duplicateRows:0};
     groups.set(key,copy);out.push(copy);continue;
    }
-   const base=groups.get(key),before={
-    p:MCQ.ids(base.q.paper_id),j:MCQ.ids(base.q.job_ids),y:MCQ.ids(base.q.job_years_ids)
-   };
+   const base=groups.get(key);
+   const before={p:MCQ.ids(base.q.paper_id),j:MCQ.ids(base.q.job_ids),y:MCQ.ids(base.q.job_years_ids)};
    base.q.paper_id=add(base.q.paper_id,row.q.paper_id);
    base.q.job_ids=add(base.q.job_ids,row.q.job_ids);
    base.q.job_years_ids=add(base.q.job_years_ids,row.q.job_years_ids);
    const changed=base.q.paper_id.length>before.p.length||base.q.job_ids.length>before.j.length||base.q.job_years_ids.length>before.y.length;
-   if(changed){
-    if(base.status!=='valid')base.status='merge';
-   }
+   if(changed)base.mergedRows=(base.mergedRows||0)+1;
+   else base.duplicateRows=(base.duplicateRows||0)+1;
   }
   return out
+ }
+ function preview(raws){
+  const normalized=raws.map((raw,i)=>{
+   let row={line:i+1,raw,question:raw.question||'',errors:[],status:'valid'};
+   try{
+    row.q=normalize(raw);
+    row.errors=MCQ.validate(row.q);
+    if(raw._parseError)row.errors.unshift(raw._parseError);
+    if(row.errors.length)row.status='invalid';
+   }catch(e){row.status='invalid';row.errors=[e.message]}
+   return row
+  });
+  return prepareRows(normalized).map(row=>{
+   if(row.status==='invalid'||!row.q)return row;
+   const existing=MCQ.db.mcqs.find(x=>MCQ.norm(x.question)===MCQ.norm(row.q.question));
+   const ids=v=>[...new Set(MCQ.ids(v).map(Number).filter(Boolean))];
+   const current=existing?{p:ids(existing.paper_id),j:ids(existing.job_ids),y:ids(existing.job_years_ids)}:{p:[],j:[],y:[]};
+   const incoming={p:ids(row.q.paper_id),j:ids(row.q.job_ids),y:ids(row.q.job_years_ids)};
+   const hasNew=incoming.p.some(x=>!current.p.includes(x))||incoming.j.some(x=>!current.j.includes(x))||incoming.y.some(x=>!current.y.includes(x));
+   row.existing=existing&&MCQ.managedRows('mcqs').some(q=>q.id===existing.id)?existing.id:undefined;
+   if(existing&&!hasNew){
+    row.status='duplicate';
+    row.errors=['Duplicate ignored: this question already has the same Paper / Job / Job Year links.'];
+   }else if(existing||row.mergedRows){
+    row.status='merge';
+    row.errors=[(existing?'Existing MCQ':'Repeated question in this upload')+': unique Paper / Job / Job Year links were combined into one MCQ.'+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
+   }else{
+    row.status='valid';
+    if(row.duplicateRows)row.errors=[row.duplicateRows+' exact duplicate row(s) ignored.'];
+   }
+   return row
+  })
  }
  function commit(rows){MCQ.assert('import');const summary={total:rows.length,valid:rows.filter(r=>r.status==='valid').length,imported:0,duplicates:rows.filter(r=>r.status==='duplicate').length,invalid:rows.filter(r=>r.status==='invalid').length,failed:0};for(const row of rows){if(row.status!=='valid')continue;try{MCQ.saveMcq(row.q);row.status='imported';summary.imported++}catch(e){row.errors=[e.message];row.status=e.existing?'duplicate':'failed';if(e.existing)summary.duplicates++;else summary.failed++}}return summary}
  return {parse,preview,prepareRows,commit,normalize,csv};
