@@ -44,6 +44,29 @@ window.Importer=(()=>{
    return row
   })
  }
+ function prepareRows(rows){
+  const groups=new Map,out=[];
+  const add=(a,b)=>[...new Set([...MCQ.ids(a),...MCQ.ids(b)].map(Number).filter(Boolean))];
+  for(const row of rows||[]){
+   if(!row?.q||row.status==='invalid'){out.push(row);continue}
+   const key=MCQ.norm(row.q.question);
+   if(!groups.has(key)){
+    const copy={...row,q:{...row.q,paper_id:MCQ.ids(row.q.paper_id),job_ids:MCQ.ids(row.q.job_ids),job_years_ids:MCQ.ids(row.q.job_years_ids)}};
+    groups.set(key,copy);out.push(copy);continue;
+   }
+   const base=groups.get(key),before={
+    p:MCQ.ids(base.q.paper_id),j:MCQ.ids(base.q.job_ids),y:MCQ.ids(base.q.job_years_ids)
+   };
+   base.q.paper_id=add(base.q.paper_id,row.q.paper_id);
+   base.q.job_ids=add(base.q.job_ids,row.q.job_ids);
+   base.q.job_years_ids=add(base.q.job_years_ids,row.q.job_years_ids);
+   const changed=base.q.paper_id.length>before.p.length||base.q.job_ids.length>before.j.length||base.q.job_years_ids.length>before.y.length;
+   if(changed){
+    if(base.status!=='valid')base.status='merge';
+   }
+  }
+  return out
+ }
  function commit(rows){MCQ.assert('import');const summary={total:rows.length,valid:rows.filter(r=>r.status==='valid').length,imported:0,duplicates:rows.filter(r=>r.status==='duplicate').length,invalid:rows.filter(r=>r.status==='invalid').length,failed:0};for(const row of rows){if(row.status!=='valid')continue;try{MCQ.saveMcq(row.q);row.status='imported';summary.imported++}catch(e){row.errors=[e.message];row.status=e.existing?'duplicate':'failed';if(e.existing)summary.duplicates++;else summary.failed++}}return summary}
- return {parse,preview,commit,normalize,csv};
+ return {parse,preview,prepareRows,commit,normalize,csv};
 })();
