@@ -727,6 +727,14 @@ def _seo_supporting_sections(path,heading,description):
         ('Explore more MCQ Campus resources','The related links below provide additional routes into practice MCQs, categories, past papers and exam preparation resources. They are included to help learners and search engines discover the public study content without relying only on JavaScript navigation.'),
     ]
 
+def _seo_past_papers_landing_paper(path):
+    suffix='-past-papers'
+    slug=str(path or '').strip('/').lower()
+    if not slug.endswith(suffix): return None
+    paper_slug=slug[:-len(suffix)].strip('-')
+    if not paper_slug: return None
+    return next((p for p in Paper.objects.filter(active=True).only('id','name') if _seo_slug(p.name)==paper_slug),None)
+
 def _seo_known_spa_path(path):
     static={
         '/','/mcqs','/important','/categories','/papers','/jobs','/jobs-exams','/pdfs',
@@ -738,7 +746,7 @@ def _seo_known_spa_path(path):
         '/category/','/subcategory/','/topic/','/paper/','/job/','/year/','/mcq/','/practice/',
         '/post/','/dashboard/','/admin/','/super-admin/'
     )
-    return path in static or any(path.startswith(prefix) for prefix in prefixes)
+    return path in static or any(path.startswith(prefix) for prefix in prefixes) or bool(_seo_past_papers_landing_paper(path))
 
 def _public_text_response(body, content_type):
     response=HttpResponse(body,content_type=content_type)
@@ -794,8 +802,11 @@ def sitemap_papers(request):
     paper_latest,_=_seo_latest_year_maps()
     rows=[]
     for p in papers:
-        base=f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}'
+        paper_slug=_seo_slug(p.name)
+        base=f'{SEO_ORIGIN}/paper/{paper_slug}'
         rows.append((base,p.updated_at))
+        # Search-intent landing URL: e.g. /ppsc-past-papers or /allied-testing-service-ats-past-papers
+        rows.append((f'{SEO_ORIGIN}/{paper_slug}-past-papers',p.updated_at))
         latest=paper_latest.get(p.id)
         if latest:
             rows.append((f'{base}/free-all-past-papers-2000-{latest}',p.updated_at))
@@ -898,6 +909,22 @@ def _seo_page_context(path, default_title, default_description):
         resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
         mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
         links=category_links+paper_links+job_links+year_links+resource_links+mcq_links
+    elif _seo_past_papers_landing_paper(path):
+        paper=_seo_past_papers_landing_paper(path)
+        paper_slug=_seo_slug(paper.name)
+        jobs=list(Job.objects.filter(active=True,paper_id=paper.id).only('id','name').order_by('name'))
+        job_ids=[j.id for j in jobs]
+        years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
+        title=f'{paper.name} Past Papers | MCQ Campus'
+        description=f'Browse {paper.name} past papers by job and year, then practice related MCQs with correct answers and explanations on MCQ Campus.'
+        heading=f'{paper.name} Past Papers'
+        intro=f'Explore {paper.name} past papers for available jobs and exam years. Open a job or paper year to continue to the related MCQs and preparation material.'
+        job_links=[(f'{j.name} Past Papers',f'/paper/{paper_slug}/job/{_seo_slug(j.name)}') for j in jobs]
+        year_links=[
+            (f'{y.job.name} — {y.name}',f'/paper/{paper_slug}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}')
+            for y in years
+        ]
+        links=job_links+year_links
     elif path.startswith('/post/'):
         wanted=path.split('/post/',1)[1].strip('/')
         post=Post.objects.filter(status='published',slug=wanted).only('title','excerpt','body','seo_title','seo_description').first()
@@ -1012,6 +1039,9 @@ def _seo_page_context(path, default_title, default_description):
 def _seo_breadcrumbs(path):
     crumbs=[('Home','/')]
     if path=='/': return crumbs
+    landing=_seo_past_papers_landing_paper(path)
+    if landing:
+        return crumbs+[('Past Papers','/papers'),(f'{landing.name} Past Papers',path)]
     if path.startswith('/category/'):
         slug=path.split('/category/',1)[1].strip('/')
         row=next((x for x in Category.objects.filter(active=True).only('name') if _seo_slug(x.name)==slug),None)
