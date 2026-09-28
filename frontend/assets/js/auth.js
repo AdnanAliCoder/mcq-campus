@@ -460,11 +460,22 @@ window.Auth=(()=>{
     loadedSections.add('core');sectionLoadedAt.set('core',Date.now());
     loadedSections.add('overview');sectionLoadedAt.set('overview',Date.now());
     const summary=result?.summary||{};
-    if(Number(summary.failed||0)>0&&Number(summary.imported||0)+Number(summary.merged||0)===0){
+    const savedCount=Number(summary.imported||0)+Number(summary.updated||0);
+    const duplicateCount=Number(summary.duplicates||0);
+    if(Number(summary.failed||0)>0&&savedCount===0){
       const first=summary.errors?.[0]?.message||'No MCQs were imported.';
       throw Error(first);
     }
-    UI.toast((Number(summary.imported||0)+Number(summary.merged||0))+' MCQ result(s) saved live.');
+    if(savedCount>0){
+      const parts=[];
+      if(Number(summary.imported||0))parts.push(summary.imported+' new');
+      if(Number(summary.updated||0))parts.push(summary.updated+' updated');
+      UI.toast(parts.join(' + ')+' MCQ(s) saved approved and live.');
+    }else if(duplicateCount>0){
+      UI.toast(duplicateCount+' MCQ(s) already live; no duplicate record created.');
+    }else{
+      UI.toast('No MCQ changes were needed.');
+    }
    }else UI.toast('Saved.');document.getElementById('modal')?.close();App.render();
   }
   catch(error){UI.toast(error.message);}
