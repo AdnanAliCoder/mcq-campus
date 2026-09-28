@@ -937,19 +937,21 @@ def _seo_page_context(path, default_title, default_description):
         if landing_job:
             job_slug=_seo_slug(landing_job.name)
             years=list(JobYear.objects.filter(active=True,job_id=landing_job.id).only('name').order_by('-name'))
-            title=f'{paper.name} {landing_job.name} Past Papers – All Papers & MCQs | MCQ Campus'
-            description=f'Find all {paper.name} {landing_job.name} past papers by year and practice related MCQs with correct answers and explanations.'
+            latest_year=_seo_latest_year_maps()[1].get(landing_job.id)
+            title=f'{paper.name} {landing_job.name} Past Papers'
+            description=(f'{paper.name} {landing_job.name} Past Papers {latest_year}. All {landing_job.name} past papers and previous papers by year.' if latest_year else f'{paper.name} {landing_job.name} Past Papers. All {landing_job.name} past papers and previous papers by year.')
             heading=f'{paper.name} {landing_job.name} Past Papers'
-            intro=f'Browse all available {landing_job.name} past papers for {paper.name}. Choose a paper year to open its related MCQs, answers and preparation material.'
+            intro=(f'{landing_job.name} Past Papers · {paper.name} {landing_job.name} Past Papers {latest_year} · All {landing_job.name} Past Papers' if latest_year else f'{landing_job.name} Past Papers · {paper.name} {landing_job.name} Past Papers · All {landing_job.name} Past Papers')
             links=[(f'{landing_job.name} {y.name} Past Paper',f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in years]
         else:
             jobs=list(Job.objects.filter(active=True,paper_id=paper.id).only('id','name').order_by('name'))
             job_ids=[j.id for j in jobs]
             years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
-            title=f'{paper.name} Past Papers – All {paper.name} Papers & MCQs | MCQ Campus'
-            description=f'Find all {paper.name} past papers by job and year, with related MCQs, correct answers and explanations for exam preparation.'
+            latest_year=_seo_latest_year_maps()[0].get(paper.id)
+            title=f'{paper.name} Past Papers'
+            description=(f'{paper.name} Past Papers {latest_year}. All {paper.name} past papers and previous papers by job and year.' if latest_year else f'{paper.name} Past Papers. All {paper.name} past papers and previous papers by job and year.')
             heading=f'{paper.name} Past Papers'
-            intro=f'Browse all available {paper.name} past papers by job and exam year. Choose a job or paper year to open its related MCQs and preparation material.'
+            intro=(f'{paper.name} Past Papers {latest_year} · All {paper.name} Past Papers · Previous {paper.name} Past Papers' if latest_year else f'{paper.name} Past Papers · All {paper.name} Past Papers · Previous {paper.name} Past Papers')
             job_links=[(f'{paper.name} {j.name} Past Papers',f'/{paper_slug}-{_seo_slug(j.name)}-past-papers') for j in jobs]
             year_links=[
                 (f'{y.job.name} — {y.name}',f'/paper/{paper_slug}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}')
