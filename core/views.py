@@ -850,12 +850,13 @@ def sitemap_jobs(request):
     _,job_latest=_seo_latest_year_maps()
     rows=[]
     for j in jobs:
-        paper_slug=_seo_slug(_seo_short_name(j.paper.name))
+        hierarchy_slug=_seo_slug(j.paper.name)
+        search_slug=_seo_slug(_seo_short_name(j.paper.name))
         job_slug=_seo_slug(j.name)
-        base=f'{SEO_ORIGIN}/paper/{paper_slug}/job/{job_slug}'
+        base=f'{SEO_ORIGIN}/paper/{hierarchy_slug}/job/{job_slug}'
         rows.append((base,j.updated_at))
-        # Search-intent job landing URL: /ppsc-assistant-past-papers
-        rows.append((f'{SEO_ORIGIN}/{paper_slug}-{job_slug}-past-papers',j.updated_at))
+        # Additive SEO landing URL only; the original hierarchy URL above is unchanged.
+        rows.append((f'{SEO_ORIGIN}/{search_slug}-{job_slug}-past-papers',j.updated_at))
         latest=job_latest.get(j.id)
         if latest:
             rows.append((f'{base}/free-all-past-papers-2000-{latest}',j.updated_at))
@@ -1092,7 +1093,7 @@ def _seo_breadcrumbs(path):
     landing,landing_job=_seo_past_papers_landing(path)
     if landing:
         if landing_job:
-            return crumbs+[('Past Papers','/papers'),(f'{landing.name} Past Papers',f'/{_seo_slug(landing.name)}-past-papers'),(f'{landing.name} {landing_job.name} Past Papers',path)]
+            return crumbs+[('Past Papers','/papers'),(f'{_seo_short_name(landing.name)} Past Papers',f'/{_seo_slug(_seo_short_name(landing.name))}-past-papers'),(f'{_seo_short_name(landing.name)} {landing_job.name} Past Papers',path)]
         return crumbs+[('Past Papers','/papers'),(f'{landing.name} Past Papers',path)]
     if path.startswith('/category/'):
         slug=path.split('/category/',1)[1].strip('/')
