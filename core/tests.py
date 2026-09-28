@@ -185,6 +185,35 @@ class IntegrationTests(TestCase):
         self.assertEqual(MCQ.objects.filter(pk__in=ids).count(),2)
         self.assertFalse(TrashRecord.objects.filter(pk=trash.id).exists())
 
+    def test_legacy_admin_delete_command_aliases_do_not_fall_through(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        aliases=['mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete']
+        created=[]
+        for index,action in enumerate(aliases,1):
+            q=MCQ.objects.create(
+                id=700+index,question=f'Alias delete {index}?',option1='A',option2='B',option3='C',option4='D',
+                correct_answer='A',description='Alias compatibility',category=self.category,status='approved',
+                created_by=self.owner,submitted_by=self.owner,
+            )
+            created.append(q.id)
+            response=self.post_json('/api/commands',{'action':action,'payload':{'ids':[q.id]}})
+            self.assertEqual(response.status_code,200,action)
+            self.assertFalse(MCQ.objects.filter(pk=q.id).exists(),action)
+            trash_id=response.json()['result']['trashId']
+            self.post_json('/api/commands',{'action':'trash-restore','payload':{'id':trash_id}})
+            self.assertTrue(MCQ.objects.filter(pk=q.id).exists(),action)
+
+    def test_double_action_prefix_is_normalized(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        q=MCQ.objects.create(
+            id=710,question='Double action prefix?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Compatibility',category=self.category,status='approved',
+            created_by=self.owner,submitted_by=self.owner,
+        )
+        response=self.post_json('/api/commands',{'action':'action:action:mcq-delete','payload':{'id':q.id}})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(MCQ.objects.filter(pk=q.id).exists())
+
     def test_bulk_import_same_question_same_job_two_years_stays_one_mcq(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         job=Job.objects.create(id=302,name='Computer Operator',paper=self.paper)
