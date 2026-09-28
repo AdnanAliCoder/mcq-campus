@@ -957,11 +957,15 @@ def spa_index(request):
     canonical=SEO_ORIGIN+('/' if path=='/' else path)
     private_prefixes=('/admin','/super-admin','/dashboard','/profile','/login','/register','/forgot','/reset','/verify','/search')
     robots='noindex,nofollow' if path.startswith(private_prefixes) else 'index,follow'
-    return render(request,'index.html',{
+    response=render(request,'index.html',{
         'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
         'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_origin':SEO_ORIGIN,'seo_robots':robots,
         'seo_jsonld':_seo_jsonld(title,description,canonical,path),
     })
+    response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma']='no-cache'
+    response['Expires']='0'
+    return response
 
 
 def favicon(request):
