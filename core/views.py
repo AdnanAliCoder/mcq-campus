@@ -840,9 +840,7 @@ def sitemap_papers(request):
         rows.append((base,p.updated_at))
         # Search-intent landing URL: e.g. /ppsc-past-papers or /allied-testing-service-ats-past-papers
         rows.append((f'{SEO_ORIGIN}/{paper_slug}-past-papers',p.updated_at))
-        latest=paper_latest.get(p.id)
-        if latest:
-            rows.append((f'{base}/free-all-past-papers-2000-{latest}',p.updated_at))
+
     return _xml_response(_urlset(rows))
 
 def sitemap_jobs(request):
