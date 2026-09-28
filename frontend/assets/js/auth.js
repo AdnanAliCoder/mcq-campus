@@ -450,7 +450,22 @@ window.Auth=(()=>{
   try{
    let selectedImportRows=App.importRows;if(el.dataset.action==='import-confirm'){const selected=[...document.querySelectorAll('.import-row-check:checked')].map(x=>Number(x.value)).filter(Number.isInteger);if(!selected.length)throw Error('Select at least one MCQ to import.');selectedImportRows=selected.map(i=>App.importRows?.[i]).filter(Boolean);}const extra={...el.dataset,rows:el.dataset.action==='import-confirm'?Importer.prepareRows(selectedImportRows):App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
-   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){App.importSummary=result?.summary||result;App.importedIds=(result?.mcqs||[]).map(x=>Number(x.id)).filter(Boolean);loadedSections.delete('overview');sectionLoadedAt.delete('overview');invalidateWorkspaceMcqs();}document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){
+    App.importSummary=result?.summary||result;
+    App.importedIds=(result?.mcqs||[]).map(x=>Number(x.id)).filter(Boolean);
+    loadedSections.delete('overview');sectionLoadedAt.delete('overview');invalidateWorkspaceMcqs();
+    loadedSections.delete('core');sectionLoadedAt.delete('core');
+    const [freshCore,freshOverview]=await Promise.all([request('/bootstrap'),request('/admin/overview')]);
+    MCQ.mergeCore(freshCore);MCQ.db.adminOverview=freshOverview||{};
+    loadedSections.add('core');sectionLoadedAt.set('core',Date.now());
+    loadedSections.add('overview');sectionLoadedAt.set('overview',Date.now());
+    const summary=result?.summary||{};
+    if(Number(summary.failed||0)>0&&Number(summary.imported||0)+Number(summary.merged||0)===0){
+      const first=summary.errors?.[0]?.message||'No MCQs were imported.';
+      throw Error(first);
+    }
+    UI.toast((Number(summary.imported||0)+Number(summary.merged||0))+' MCQ result(s) saved live.');
+   }else UI.toast('Saved.');document.getElementById('modal')?.close();App.render();
   }
   catch(error){UI.toast(error.message);}
   finally{restoreButton();}
