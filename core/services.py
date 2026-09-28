@@ -1,4 +1,4 @@
-import hashlib, hmac, json, re, secrets, unicodedata, unicodedata
+import hashlib, hmac, json, re, secrets, unicodedata
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import password_validation
@@ -674,24 +674,6 @@ def _combine_import_rows(rows):
         group['signatures'].add(signature)
     return groups,invalid
 
-
-def _approve_bulk_import_mcq(user,obj):
-    """Super Admin bulk imports are trusted and become live immediately."""
-    if not is_super(user):
-        return obj
-    changed=[]
-    if obj.status!='approved':
-        obj.status='approved'; changed.append('status')
-    if obj.rejection_reason:
-        obj.rejection_reason=''; changed.append('rejection_reason')
-    if obj.reviewed_by_id!=user.id:
-        obj.reviewed_by=user; changed.append('reviewed_by')
-    if obj.approved_by_id!=user.id:
-        obj.approved_by=user; changed.append('approved_by')
-    if changed:
-        obj.save(update_fields=changed)
-        log(user,'Bulk import auto-approved',obj.question)
-    return obj
 
 def save_mcq(user,draft):
     require(is_admin(user) and has_perm(user,'add_mcq'))
