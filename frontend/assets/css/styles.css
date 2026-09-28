@@ -2197,3 +2197,30 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
 }
 .import-approval-panel{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}
 .import-approval-panel .section-head{margin-bottom:12px}
+
+
+/* Super Admin complete MCQ table: keep every field readable instead of squeezing columns. */
+.table-wrap:has(.admin-mcq-full-table){overflow-x:auto}
+.admin-mcq-full-table{width:max-content;min-width:100%;table-layout:fixed}
+.admin-mcq-full-table th,.admin-mcq-full-table td{vertical-align:top;white-space:normal;overflow-wrap:anywhere}
+.admin-mcq-full-table th:nth-child(2),.admin-mcq-full-table td:nth-child(2),
+.admin-mcq-full-table th:nth-child(9),.admin-mcq-full-table td:nth-child(9){min-width:640px;width:640px}
+.admin-mcq-full-table th:nth-child(3),.admin-mcq-full-table td:nth-child(3),
+.admin-mcq-full-table th:nth-child(4),.admin-mcq-full-table td:nth-child(4),
+.admin-mcq-full-table th:nth-child(5),.admin-mcq-full-table td:nth-child(5),
+.admin-mcq-full-table th:nth-child(6),.admin-mcq-full-table td:nth-child(6),
+.admin-mcq-full-table th:nth-child(7),.admin-mcq-full-table td:nth-child(7),
+.admin-mcq-full-table th:nth-child(8),.admin-mcq-full-table td:nth-child(8),
+.admin-mcq-full-table th:nth-child(10),.admin-mcq-full-table td:nth-child(10),
+.admin-mcq-full-table th:nth-child(11),.admin-mcq-full-table td:nth-child(11),
+.admin-mcq-full-table th:nth-child(12),.admin-mcq-full-table td:nth-child(12),
+.admin-mcq-full-table th:nth-child(13),.admin-mcq-full-table td:nth-child(13),
+.admin-mcq-full-table th:nth-child(14),.admin-mcq-full-table td:nth-child(14),
+.admin-mcq-full-table th:nth-child(15),.admin-mcq-full-table td:nth-child(15),
+.admin-mcq-full-table th:nth-child(16),.admin-mcq-full-table td:nth-child(16),
+.admin-mcq-full-table th:nth-child(17),.admin-mcq-full-table td:nth-child(17),
+.admin-mcq-full-table th:nth-child(18),.admin-mcq-full-table td:nth-child(18){min-width:320px;width:320px}
+.admin-mcq-full-table th:first-child,.admin-mcq-full-table td:first-child{width:54px;min-width:54px}
+@media(max-width:760px){
+ .admin-mcq-full-table{table-layout:fixed}
+}
