@@ -675,6 +675,44 @@ def _combine_import_rows(rows):
     return groups,invalid
 
 
+def _create_bulk_pending_mcq(user,draft):
+    """Create one new Pending MCQ after bulk duplicate detection has already found no website match."""
+    require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
+    cid=validate_mcq_data(draft)
+    paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(
+        draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
+    )
+    now=timezone.now()
+    obj=MCQ(
+        id=next_id(MCQ),
+        question=str(draft.get('question') or '').strip(),
+        option1=str(draft.get('option1') or '').strip(),
+        option2=str(draft.get('option2') or '').strip(),
+        option3=str(draft.get('option3') or '').strip(),
+        option4=str(draft.get('option4') or '').strip(),
+        correct_answer=str(draft.get('correct_answer') or '').strip(),
+        description=str(draft.get('description') or '').strip(),
+        source=str(draft.get('source') or '').strip(),
+        seo_description=str(draft.get('seo_description') or '').strip(),
+        category_id=cid,
+        subcategory_ids=normalize_ids(draft.get('subcategory_ids')),
+        child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),
+        paper_ids=paper_ids,
+        job_ids=job_ids,
+        job_year_ids=job_year_ids,
+        important=_is_important_hierarchy(job_year_ids),
+        country=str(draft.get('country') or 'Pakistan'),
+        status='pending',
+        submission_type='new',
+        created_by=user,
+        updated_by=user,
+        submitted_by=user,
+        submitted_at=now,
+    )
+    obj.save()
+    log(user,'Bulk imported new pending MCQ',obj.question)
+    return obj
+
 def save_mcq(user,draft):
     require(is_admin(user) and has_perm(user,'add_mcq'))
     cid=validate_mcq_data(draft); qid=int(draft.get('id') or 0) or None
@@ -1044,19 +1082,13 @@ def command(user,action,payload):
                         results.append({'id':duplicate.pk,'question':question,'result':'already-exists'})
                     continue
 
-                # New bulk imports are always stored as Pending. They become public
-                # only after the normal review/approval action.
-                obj=save_mcq(user,draft)
-                if obj.status!='pending':
-                    obj.status='pending'
-                    obj.reviewed_by=None
-                    obj.approved_by=None
-                    obj.rejection_reason=''
-                    obj.save(update_fields=['status','reviewed_by','approved_by','rejection_reason'])
+                # No website match exists: create exactly one NEW pending MCQ from the
+                # already-consolidated upload group. Do not run duplicate detection a second time.
+                obj=_create_bulk_pending_mcq(user,draft)
                 imported_ids.append(obj.pk)
                 summary['imported']+=1
                 summary['merged']+=group['extra_merges']
-                results.append({'id':obj.pk,'question':question,'result':'pending'})
+                results.append({'id':obj.pk,'question':question,'result':'pending-new'})
             except ValueError as exc:
                 summary['failed']+=1
                 message=str(exc)
