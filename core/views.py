@@ -20,6 +20,7 @@ from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
+    _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -613,6 +614,39 @@ def auth_switch_role(request):
     request.session['active_role']=role
     request.session.modified=True
     return JsonResponse({'activeRole':role,'csrfToken':get_token(request)})
+
+@profile_api('admin_mcq_delete')
+@require_POST
+@login_required_json
+def admin_mcq_delete(request):
+    d=payload(request)
+    try:
+        tr,deleted_ids=_delete_mcqs_to_trash(request.user,d.get('ids') or [d.get('id')])
+        return JsonResponse({'success':True,'deletedIds':deleted_ids,'trashId':tr.id,'count':len(deleted_ids)})
+    except PermissionError as e: return err(e,403)
+    except (ValueError,KeyError,TypeError) as e: return err(e,422)
+
+@profile_api('admin_trash_restore')
+@require_POST
+@login_required_json
+def admin_trash_restore(request):
+    d=payload(request)
+    try:
+        result=_restore_trash_many(request.user,d.get('ids') or [d.get('id')])
+        return JsonResponse({'success':True,**result})
+    except PermissionError as e: return err(e,403)
+    except (ValueError,KeyError,TypeError) as e: return err(e,422)
+
+@profile_api('admin_trash_delete')
+@require_POST
+@login_required_json
+def admin_trash_delete(request):
+    d=payload(request)
+    try:
+        result=_delete_trash_permanently(request.user,d.get('ids') or [d.get('id')])
+        return JsonResponse({'success':True,**result})
+    except PermissionError as e: return err(e,403)
+    except (ValueError,KeyError,TypeError) as e: return err(e,422)
 
 @profile_api('commands')
 @require_POST
