@@ -2257,3 +2257,14 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
   .table-wrap:has(.admin-mcq-full-table){max-height:70vh}
   .admin-mcq-full-table{table-layout:fixed}
 }
+
+
+/* Bulk import: show one consolidated MCQ per complete-data row. */
+.import-preview-toolbar{margin-top:20px;align-items:center}
+.import-preview-wrap{margin-top:14px}
+.import-preview-table .import-status-merge td{background:rgba(247,181,0,.035)}
+.import-preview-table .import-status-duplicate td{background:rgba(100,116,139,.035)}
+.import-preview-table .import-status-invalid td,.import-preview-table .import-status-failed td{background:rgba(180,35,24,.035)}
+.import-merge-count{margin-top:6px;font-weight:700;color:#8a5a00}
+.import-preview-table .btn{margin-top:8px}
+@media(max-width:760px){.import-preview-toolbar{align-items:stretch}.import-preview-toolbar .btn{width:100%;justify-content:center}}
