@@ -508,6 +508,62 @@ def _merge_bulk_mcq_hierarchy(user,existing,draft):
         return 'merged'
     return 'duplicate'
 
+def _import_hierarchy(draft):
+    papers,jobs,years=_mcq_hierarchy_from_years(
+        draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
+    )
+    return papers,jobs,years
+
+def _combine_import_rows(rows):
+    """Group same-question rows before saving so hierarchy from later rows cannot be lost."""
+    groups=[]
+    by_key={}
+    invalid=0
+    for row in rows or []:
+        if row.get('status')=='invalid' or not row.get('q'):
+            if row.get('status')=='invalid': invalid+=1
+            continue
+        draft=dict(row.get('q') or {})
+        question=str(draft.get('question') or '').strip()
+        key=re.sub(r'\s+',' ',question).casefold()
+        if not key:
+            invalid+=1
+            continue
+        papers,jobs,years=_import_hierarchy(draft)
+        signature=(tuple(sorted(papers)),tuple(sorted(jobs)),tuple(sorted(years)))
+        if key not in by_key:
+            draft['paper_id']=papers
+            draft['job_ids']=jobs
+            draft['job_years_ids']=years
+            group={'draft':draft,'signatures':{signature},'extra_merges':0,'duplicates':0}
+            by_key[key]=group
+            groups.append(group)
+            continue
+        group=by_key[key]
+        if signature in group['signatures']:
+            group['duplicates']+=1
+            continue
+        before=(
+            set(normalize_ids(group['draft'].get('paper_id'))),
+            set(normalize_ids(group['draft'].get('job_ids'))),
+            set(normalize_ids(group['draft'].get('job_years_ids'))),
+        )
+        added=(
+            any(x not in before[0] for x in papers) or
+            any(x not in before[1] for x in jobs) or
+            any(x not in before[2] for x in years)
+        )
+        if added:
+            group['draft']['paper_id']=normalize_ids(group['draft'].get('paper_id'))+[x for x in papers if x not in before[0]]
+            group['draft']['job_ids']=normalize_ids(group['draft'].get('job_ids'))+[x for x in jobs if x not in before[1]]
+            group['draft']['job_years_ids']=normalize_ids(group['draft'].get('job_years_ids'))+[x for x in years if x not in before[2]]
+            group['extra_merges']+=1
+        else:
+            group['duplicates']+=1
+        group['signatures'].add(signature)
+    return groups,invalid
+
+
 def save_mcq(user,draft):
     require(is_admin(user) and has_perm(user,'add_mcq'))
     cid=validate_mcq_data(draft); qid=int(draft.get('id') or 0) or None
@@ -852,20 +908,28 @@ def command(user,action,payload):
     if action in {'action:trash-restore','action:restore-trash'}:
         rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
     if action=='action:import-confirm':
-        require(is_admin(user) and has_perm(user,'bulk_import_mcqs')); summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0}; imported_ids=[]
-        for row in payload.get('rows') or []:
-            if row.get('status')=='invalid' or not row.get('q'):
-                if row.get('status')=='invalid': summary['invalid']+=1
-                continue
-            draft=row['q']
+        require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
+        summary={'imported':0,'merged':0,'duplicates':0,'invalid':0,'failed':0}
+        imported_ids=[]
+        groups,invalid=_combine_import_rows(payload.get('rows') or [])
+        summary['invalid']=invalid
+        for group in groups:
+            draft=group['draft']
+            summary['duplicates']+=group['duplicates']
             try:
                 duplicate=_bulk_duplicate_mcq(draft.get('question'))
                 if duplicate:
                     result=_merge_bulk_mcq_hierarchy(user,duplicate,draft)
-                    summary[result]+=1
+                    if result=='merged':
+                        summary['merged']+=max(1,group['extra_merges'])
+                    else:
+                        summary['duplicates']+=1
                     imported_ids.append(duplicate.pk)
                     continue
-                obj=save_mcq(user,draft); imported_ids.append(obj.pk); summary['imported']+=1
+                obj=save_mcq(user,draft)
+                imported_ids.append(obj.pk)
+                summary['imported']+=1
+                summary['merged']+=group['extra_merges']
             except ValueError:
                 summary['failed']+=1
         imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
