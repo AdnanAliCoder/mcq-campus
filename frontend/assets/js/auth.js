@@ -448,7 +448,7 @@ window.Auth=(()=>{
   const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...'};
   const restoreButton=setButtonLoading(el,actionLabels[el.dataset.action]||'Working...');
   try{
-   let selectedImportRows=App.importRows;if(el.dataset.action==='import-confirm'){const selected=[...document.querySelectorAll('.import-row-check:checked')].map(x=>Number(x.value)).filter(Number.isInteger);if(!selected.length)throw Error('Select at least one MCQ to import.');selectedImportRows=selected.map(i=>App.importRows?.[i]).filter(Boolean);}const extra={...el.dataset,rows:el.dataset.action==='import-confirm'?selectedImportRows:App.importRows};
+   let selectedImportRows=App.importRows;if(el.dataset.action==='import-confirm'){const selected=[...document.querySelectorAll('.import-row-check:checked')].map(x=>Number(x.value)).filter(Number.isInteger);if(!selected.length)throw Error('Select at least one MCQ to import.');selectedImportRows=selected.map(i=>App.importRows?.[i]).filter(Boolean);if(selectedImportRows.some(r=>!r?.q))throw Error('Selected import row is missing normalized MCQ data. Re-upload the file.');}const extra={...el.dataset,rows:el.dataset.action==='import-confirm'?selectedImportRows.map(r=>r.q):App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
    const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){
     App.importSummary=result?.summary||result;
@@ -460,8 +460,8 @@ window.Auth=(()=>{
     const summary=result?.summary||{};
     const savedCount=Number(summary.imported||0)+Number(summary.updated||0);
     const duplicateCount=Number(summary.duplicates||0);
-    if(Number(summary.failed||0)>0&&savedCount===0){
-      const first=summary.errors?.[0]?.message||'No MCQs were imported.';
+    if((Number(summary.failed||0)>0||Number(summary.invalid||0)>0)&&savedCount===0){
+      const first=summary.errors?.[0]?.message||('No MCQs were imported. Invalid rows: '+Number(summary.invalid||0)+'.');
       throw Error(first);
     }
     if(savedCount>0){
