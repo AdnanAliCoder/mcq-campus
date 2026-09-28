@@ -2199,20 +2199,61 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
 .import-approval-panel .section-head{margin-bottom:12px}
 
 
-/* Super Admin complete MCQ table: keep every field readable instead of squeezing columns. */
-.table-wrap:has(.admin-mcq-full-table){overflow-x:auto}
-.admin-mcq-full-table{width:max-content;min-width:100%;table-layout:fixed}
-.admin-mcq-full-table th,.admin-mcq-full-table td{vertical-align:top;white-space:normal;overflow-wrap:anywhere}
-.admin-mcq-full-table .mcq-col-question{min-width:200px;width:200px}
-.admin-mcq-full-table .mcq-col-description{min-width:200px;width:200px}
-.admin-mcq-full-table .mcq-col-option,
-.admin-mcq-full-table .mcq-col-answer,
-.admin-mcq-full-table .mcq-col-meta,
-.admin-mcq-full-table .mcq-col-small,
-.admin-mcq-full-table .mcq-col-date,
-.admin-mcq-full-table .mcq-col-actions{min-width:320px;width:320px}
+/* Super Admin complete MCQ table: compact readable columns + contained scrolling. */
+.table-wrap:has(.admin-mcq-full-table){
+  max-width:100%;
+  max-height:75vh;
+  overflow:auto;
+  position:relative;
+  scrollbar-gutter:stable both-edges;
+}
+.admin-mcq-full-table{
+  width:max-content;
+  min-width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+}
+.admin-mcq-full-table th,
+.admin-mcq-full-table td{
+  vertical-align:top;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.admin-mcq-full-table thead th{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.1);
+}
 .admin-mcq-full-table th:first-child:not([class]),
-.admin-mcq-full-table td:first-child:not([class]){width:54px;min-width:54px}
+.admin-mcq-full-table td:first-child:not([class]){
+  min-width:40px;
+  width:40px;
+  max-width:40px;
+}
+.admin-mcq-full-table .mcq-col-question{min-width:200px;width:200px}
+.admin-mcq-full-table .mcq-col-option{min-width:120px;width:120px}
+.admin-mcq-full-table .mcq-col-answer{min-width:130px;width:130px}
+.admin-mcq-full-table .mcq-col-description{min-width:200px;width:200px}
+.admin-mcq-full-table .mcq-col-meta{min-width:150px;width:150px}
+.admin-mcq-full-table .mcq-col-small{min-width:100px;width:100px}
+.admin-mcq-full-table .mcq-col-date{min-width:140px;width:140px}
+.admin-mcq-full-table .mcq-col-actions{min-width:110px;width:110px}
+.admin-mcq-full-table .mcq-col-actions .table-actions{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
+}
+.admin-mcq-full-table .mcq-col-actions .btn{
+  width:100%;
+  justify-content:center;
+}
+html[data-theme="dark"] .admin-mcq-full-table thead th,
+body.dark .admin-mcq-full-table thead th{background:#10231f}
 @media(max-width:760px){
- .admin-mcq-full-table{table-layout:fixed}
+  .table-wrap:has(.admin-mcq-full-table){max-height:70vh}
+  .admin-mcq-full-table{table-layout:fixed}
 }
