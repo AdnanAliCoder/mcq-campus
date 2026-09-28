@@ -738,6 +738,40 @@ def save_ad(user,payload):
     obj.save(); log(user,'Saved ad placement',obj.name); return {'ad':ad(obj)}
 
 def command(user,action,payload):
+    action=str(action or '').strip()
+    # Backward-compatible admin command aliases. Old cached frontend builds and
+    # newer buttons must resolve to the same server-side actions instead of
+    # falling through to "Unsupported command".
+    while action.startswith('action:action:'):
+        action=action[len('action:'):]
+    aliases={
+        'mcq-delete':'action:mcq-delete',
+        'delete-mcq':'action:mcq-delete',
+        'delete-mcqs':'action:mcq-bulk-delete',
+        'bulk-mcq-delete':'action:mcq-bulk-delete',
+        'bulk-mcq-delete-confirm':'action:mcq-delete',
+        'mcq-delete-confirm':'action:mcq-delete-confirm',
+        'trash-restore':'action:trash-restore',
+        'restore-trash':'action:restore-trash',
+        'trash-bulk-restore':'action:trash-bulk-restore',
+        'trash-restore-many':'action:trash-restore-many',
+        'trash-permanent-delete':'action:trash-permanent-delete',
+        'trash-bulk-delete':'action:trash-bulk-delete',
+        'entity-delete-confirm':'action:entity-delete-confirm',
+        'entity-bulk-delete':'action:entity-bulk-delete',
+        'hierarchy-bulk-delete':'action:hierarchy-bulk-delete',
+        'entity-pin':'action:entity-pin',
+        'import-confirm':'action:import-confirm',
+        'report-resolve':'action:report-resolve',
+        'user-status':'action:user-status',
+        'post-delete':'action:post-delete',
+        'pdf-delete':'action:pdf-delete',
+        'latest-job-toggle':'action:latest-job-toggle',
+        'latest-job-delete':'action:latest-job-delete',
+        'ad-toggle':'action:ad-toggle',
+        'ad-delete':'action:ad-delete',
+    }
+    action=aliases.get(action,action)
     if action=='attempt':
         qid,answer=payload.get('args',[None,None]); q=MCQ.objects.filter(pk=qid,status='approved').first();
         if not q: raise ValueError('Question not available.')
@@ -836,7 +870,7 @@ def command(user,action,payload):
                 summary['failed']+=1
         imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
         return {'summary':summary,'mcqs':[mcq(x) for x in imported]}
-    raise ValueError('Unsupported command.')
+    raise ValueError(f'Unsupported command: {action}')
 
 def _otp_hash(user,purpose,code):
     key=str(settings.SECRET_KEY).encode('utf-8')
