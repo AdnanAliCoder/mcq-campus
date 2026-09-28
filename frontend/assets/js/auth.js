@@ -322,7 +322,8 @@ window.Auth=(()=>{
    if(own!==generation)throw Error('The account changed. Please try again.');
    if(data.user)setIdentity({...user,...data.user});
    applyCommandResult(action,data.result,payload);
-   if(['form:mcq','form:review','action:import-confirm'].includes(action))invalidateWorkspaceMcqs();
+   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:trash-restore','action:restore-trash'].includes(action))invalidateWorkspaceMcqs();
+   if(action==='action:mcq-delete'){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
    if(data.refresh==='bootstrap'){
     const snapshot=await request('/bootstrap');
     if(own!==generation)throw Error('The account changed. Please try again.');
