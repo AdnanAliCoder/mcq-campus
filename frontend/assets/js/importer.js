@@ -51,9 +51,12 @@ window.Importer=(()=>{
    if(existing&&!hasNew){
     row.status='duplicate';
     row.errors=['Duplicate ignored: this question already has the same Paper / Job / Job Year links.'];
-   }else if(existing||row.mergedRows){
+   }else if(existing){
+    row.status='update';
+    row.errors=['Existing website MCQ: new unique Paper / Job / Job Year links will be added to the stored MCQ.'+(row.mergedRows?' '+row.mergedRows+' repeated upload row(s) were consolidated first.':'')+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
+   }else if(row.mergedRows){
     row.status='merge';
-    row.errors=[(existing?'Existing MCQ':'Repeated question in this upload')+': unique Paper / Job / Job Year links were combined into one MCQ.'+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
+    row.errors=['Repeated question in this upload: unique Paper / Job / Job Year links were combined into one MCQ.'+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
    }else{
     row.status='valid';
     if(row.duplicateRows)row.errors=[row.duplicateRows+' exact duplicate row(s) ignored.'];
