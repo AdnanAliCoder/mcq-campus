@@ -274,6 +274,57 @@ class IntegrationTests(TestCase):
         self.assertEqual(q.job_ids,[job.id])
         self.assertEqual(q.job_year_ids,[year.id])
 
+    def test_existing_website_mcq_merges_new_unique_hierarchy_ids_without_duplicate(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        paper2=Paper.objects.create(id=320,name='Second Existing Paper',country='Pakistan')
+        job1=Job.objects.create(id=321,name='Existing Job One',paper=self.paper)
+        job2=Job.objects.create(id=322,name='Existing Job Two',paper=paper2)
+        year1=JobYear.objects.create(id=421,name='Existing Year One',job=job1)
+        year2=JobYear.objects.create(id=422,name='Existing Year Two',job=job2)
+
+        existing=MCQ.objects.create(
+            id=820,question='Existing website merge target?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Keep this canonical MCQ',category=self.category,status='approved',
+            paper_ids=[self.paper.id],job_ids=[job1.id],job_year_ids=[year1.id],
+            created_by=self.owner,submitted_by=self.owner,approved_by=self.owner,
+        )
+        draft={
+            'question':existing.question,'option1':'A','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'A','description':'Duplicate row description must not replace canonical content',
+            'category_id':self.category.id,'paper_id':[paper2.id],'job_ids':[job2.id],'job_years_ids':[year2.id],
+        }
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':[{'status':'merge','q':draft}]}})
+        self.assertEqual(response.status_code,200)
+        existing.refresh_from_db()
+        self.assertEqual(MCQ.objects.filter(question=existing.question).count(),1)
+        self.assertEqual(set(existing.paper_ids),{self.paper.id,paper2.id})
+        self.assertEqual(set(existing.job_ids),{job1.id,job2.id})
+        self.assertEqual(set(existing.job_year_ids),{year1.id,year2.id})
+        self.assertEqual(existing.description,'Keep this canonical MCQ')
+
+    def test_hierarchy_merge_ignores_nonexistent_ids_and_derives_real_parents(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        paper2=Paper.objects.create(id=323,name='Hierarchy Source Paper',country='Pakistan')
+        job=Job.objects.create(id=324,name='Hierarchy Source Job',paper=paper2)
+        year=JobYear.objects.create(id=423,name='Hierarchy Source Year',job=job)
+        q=MCQ.objects.create(
+            id=821,question='ID source of truth?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Test',category=self.category,status='approved',
+            paper_ids=[],job_ids=[],job_year_ids=[],
+            created_by=self.owner,submitted_by=self.owner,approved_by=self.owner,
+        )
+        rows=[{'status':'merge','q':{
+            'question':q.question,'option1':'A','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'A','description':'Test','category_id':self.category.id,
+            'paper_id':[999999],'job_ids':[999998],'job_years_ids':[year.id,999997],
+        }}]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        q.refresh_from_db()
+        self.assertEqual(q.paper_ids,[paper2.id])
+        self.assertEqual(q.job_ids,[job.id])
+        self.assertEqual(q.job_year_ids,[year.id])
+
     def test_bulk_merge_accepts_model_style_job_year_ids_alias(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         job=Job.objects.create(id=312,name='Alias Merge Job',paper=self.paper)
