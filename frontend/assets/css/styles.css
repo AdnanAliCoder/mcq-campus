@@ -2268,3 +2268,12 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 .import-merge-count{margin-top:6px;font-weight:700;color:#8a5a00}
 .import-preview-table .btn{margin-top:8px}
 @media(max-width:760px){.import-preview-toolbar{align-items:stretch}.import-preview-toolbar .btn{width:100%;justify-content:center}}
+
+
+/* Bulk import summary: four compact cards in one desktop row. */
+.import-status-cards{grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px}
+.import-status-cards .card{padding:11px 14px;min-height:64px}
+.import-status-cards .card strong{font-size:1.25rem;line-height:1.15}
+.import-status-cards .card .small{font-size:.72rem}
+.import-preview-table .select-col{min-width:54px;width:54px;max-width:54px}
+@media(max-width:760px){.import-status-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
