@@ -497,11 +497,10 @@ def _mcq_hierarchy_from_years(year_ids, paper_ids=None, job_ids=None):
     return papers,jobs,years
 
 def _is_important_hierarchy(job_year_ids):
+    # A repeated MCQ is important as soon as it appears in two or more distinct
+    # Job Year records, even when those years belong to the same Job.
     years=normalize_ids(job_year_ids)
-    if len(set(years)) < 2:
-        return False
-    parent_jobs=set(JobYear.objects.filter(pk__in=years).values_list('job_id',flat=True))
-    return len(parent_jobs) >= 2
+    return len(set(years)) >= 2
 
 def _merge_bulk_mcq_hierarchy(user,existing,draft):
     # Accept both frontend/API naming and model naming so no hierarchy link is lost.
