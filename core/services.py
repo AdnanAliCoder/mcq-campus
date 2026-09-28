@@ -481,8 +481,15 @@ def _is_important_hierarchy(job_year_ids):
     return len(parent_jobs) >= 2
 
 def _merge_bulk_mcq_hierarchy(user,existing,draft):
+    # Accept both frontend/API naming and model naming so no hierarchy link is lost.
+    incoming_year_source=draft.get('job_years_ids')
+    if incoming_year_source in (None,''):
+        incoming_year_source=draft.get('job_year_ids')
+    incoming_paper_source=draft.get('paper_id')
+    if incoming_paper_source in (None,''):
+        incoming_paper_source=draft.get('paper_ids')
     incoming_papers,incoming_jobs,incoming_years=_mcq_hierarchy_from_years(
-        draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
+        incoming_year_source,incoming_paper_source,draft.get('job_ids')
     )
     incoming={'paper_ids':incoming_papers,'job_ids':incoming_jobs,'job_year_ids':incoming_years}
     changed=[]
@@ -509,10 +516,11 @@ def _merge_bulk_mcq_hierarchy(user,existing,draft):
     return 'duplicate'
 
 def _import_hierarchy(draft):
-    papers,jobs,years=_mcq_hierarchy_from_years(
-        draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
-    )
-    return papers,jobs,years
+    years=draft.get('job_years_ids')
+    if years in (None,''): years=draft.get('job_year_ids')
+    papers=draft.get('paper_id')
+    if papers in (None,''): papers=draft.get('paper_ids')
+    return _mcq_hierarchy_from_years(years,papers,draft.get('job_ids'))
 
 def _combine_import_rows(rows):
     """Group same-question rows before saving so hierarchy from later rows cannot be lost."""
