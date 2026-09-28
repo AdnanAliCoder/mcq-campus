@@ -454,10 +454,8 @@ window.Auth=(()=>{
     App.importSummary=result?.summary||result;
     App.importedIds=(result?.mcqs||[]).map(x=>Number(x.id)).filter(Boolean);
     loadedSections.delete('overview');sectionLoadedAt.delete('overview');invalidateWorkspaceMcqs();
-    loadedSections.delete('core');sectionLoadedAt.delete('core');
-    const [freshCore,freshOverview]=await Promise.all([request('/bootstrap'),request('/admin/overview')]);
-    MCQ.mergeCore(freshCore);MCQ.db.adminOverview=freshOverview||{};
-    loadedSections.add('core');sectionLoadedAt.set('core',Date.now());
+    const freshOverview=await request('/admin/overview');
+    MCQ.db.adminOverview=freshOverview||{};
     loadedSections.add('overview');sectionLoadedAt.set('overview',Date.now());
     const summary=result?.summary||{};
     const savedCount=Number(summary.imported||0)+Number(summary.updated||0);
@@ -469,10 +467,10 @@ window.Auth=(()=>{
     if(savedCount>0){
       const parts=[];
       if(Number(summary.imported||0))parts.push(summary.imported+' new');
-      if(Number(summary.updated||0))parts.push(summary.updated+' updated');
-      UI.toast(parts.join(' + ')+' MCQ(s) saved approved and live.');
+      if(Number(summary.updated||0))parts.push(summary.updated+' update');
+      UI.toast(parts.join(' + ')+' MCQ(s) saved to Pending review.');
     }else if(duplicateCount>0){
-      UI.toast(duplicateCount+' MCQ(s) already live; no duplicate record created.');
+      UI.toast(duplicateCount+' MCQ(s) already exist; no duplicate record created.');
     }else{
       UI.toast('No MCQ changes were needed.');
     }
