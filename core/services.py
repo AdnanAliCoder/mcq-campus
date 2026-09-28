@@ -631,10 +631,16 @@ def _combine_import_rows(rows):
     by_key={}
     invalid=0
     for row in rows or []:
-        if row.get('status')=='invalid' or not row.get('q'):
-            if row.get('status')=='invalid': invalid+=1
+        if not isinstance(row,dict):
+            invalid+=1
             continue
-        draft=dict(row.get('q') or {})
+        if row.get('status')=='invalid':
+            invalid+=1
+            continue
+        # Frontend preview rows use {"q": {...}}. API/tests may also send the
+        # normalized MCQ draft directly. Support both shapes.
+        source=row.get('q') if isinstance(row.get('q'),dict) else row
+        draft=dict(source or {})
         question=str(draft.get('question') or '').strip()
         key=_bulk_question_key(question)
         if not key:
@@ -1061,8 +1067,11 @@ def command(user,action,payload):
         summary={'imported':0,'updated':0,'merged':0,'duplicates':0,'invalid':0,'failed':0,'errors':[]}
         imported_ids=[]
         results=[]
-        groups,invalid=_combine_import_rows(payload.get('rows') or [])
+        input_rows=payload.get('rows') or []
+        groups,invalid=_combine_import_rows(input_rows)
         summary['invalid']=invalid
+        if input_rows and not groups:
+            raise ValueError('Selected MCQs reached the server, but no importable MCQ data was found. Re-upload the file and try again.')
         for group in groups:
             draft=group['draft']
             summary['duplicates']+=group['duplicates']
