@@ -774,13 +774,43 @@ def sitemap_categories(request):
     rows.extend((f'{SEO_ORIGIN}/topic/{_seo_slug(x.name)}',x.updated_at) for x in children)
     return _xml_response(_urlset(rows))
 
+def _seo_latest_year_maps():
+    paper_latest={}
+    job_latest={}
+    years=JobYear.objects.filter(
+        active=True,job__active=True,job__paper__active=True
+    ).select_related('job').only('name','job_id','job__paper_id')
+    for y in years:
+        found=[int(v) for v in re.findall(r'(?<!\\d)(20\\d{2})(?!\\d)',str(y.name or ''))]
+        if not found: continue
+        latest=max(found)
+        if latest<2000: continue
+        job_latest[y.job_id]=max(job_latest.get(y.job_id,2000),latest)
+        paper_latest[y.job.paper_id]=max(paper_latest.get(y.job.paper_id,2000),latest)
+    return paper_latest,job_latest
+
 def sitemap_papers(request):
-    rows=[(f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}',p.updated_at) for p in Paper.objects.filter(active=True,jobs__active=True).distinct().only('name','updated_at')]
+    papers=list(Paper.objects.filter(active=True,jobs__active=True).distinct().only('id','name','updated_at'))
+    paper_latest,_=_seo_latest_year_maps()
+    rows=[]
+    for p in papers:
+        base=f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}'
+        rows.append((base,p.updated_at))
+        latest=paper_latest.get(p.id)
+        if latest:
+            rows.append((f'{base}/free-all-past-papers-2000-{latest}',p.updated_at))
     return _xml_response(_urlset(rows))
 
 def sitemap_jobs(request):
-    jobs=Job.objects.filter(active=True,paper__active=True,years__active=True).select_related('paper').distinct().only('name','updated_at','paper__name')
-    rows=[(f'{SEO_ORIGIN}/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}',j.updated_at) for j in jobs]
+    jobs=list(Job.objects.filter(active=True,paper__active=True,years__active=True).select_related('paper').distinct().only('id','name','updated_at','paper__name'))
+    _,job_latest=_seo_latest_year_maps()
+    rows=[]
+    for j in jobs:
+        base=f'{SEO_ORIGIN}/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}'
+        rows.append((base,j.updated_at))
+        latest=job_latest.get(j.id)
+        if latest:
+            rows.append((f'{base}/free-all-past-papers-2000-{latest}',j.updated_at))
     return _xml_response(_urlset(rows))
 
 def sitemap_years(request):
