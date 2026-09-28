@@ -464,13 +464,36 @@ def _bulk_duplicate_mcq(question):
     return MCQ.objects.filter(question__iregex=pattern).first()
 
 def _mcq_hierarchy_from_years(year_ids, paper_ids=None, job_ids=None):
-    """Use existing JobYear records as the source of truth for their parent Job/Paper."""
-    years=normalize_ids(year_ids)
-    jobs=normalize_ids(job_ids)
-    papers=normalize_ids(paper_ids)
-    for y in JobYear.objects.filter(pk__in=years).select_related('job__paper'):
-        if y.job_id not in jobs: jobs.append(y.job_id)
-        if y.job.paper_id not in papers: papers.append(y.job.paper_id)
+    """Return only real database IDs and rebuild parent hierarchy from those IDs."""
+    requested_years=normalize_ids(year_ids)
+    requested_jobs=normalize_ids(job_ids)
+    requested_papers=normalize_ids(paper_ids)
+
+    year_rows=list(JobYear.objects.filter(pk__in=requested_years).select_related('job__paper'))
+    valid_year_ids={int(y.id) for y in year_rows}
+    years=[x for x in requested_years if x in valid_year_ids]
+
+    job_rows=list(Job.objects.filter(pk__in=requested_jobs).select_related('paper'))
+    valid_job_ids={int(j.id) for j in job_rows}
+    jobs=[x for x in requested_jobs if x in valid_job_ids]
+
+    valid_paper_ids=set(Paper.objects.filter(pk__in=requested_papers).values_list('id',flat=True))
+    papers=[x for x in requested_papers if x in valid_paper_ids]
+
+    # Job IDs imply their real parent Paper IDs.
+    for job in job_rows:
+        if job.id in jobs and job.paper_id not in papers:
+            papers.append(job.paper_id)
+
+    # Job Year IDs are the strongest source of truth: each one implies its Job and Paper.
+    for year in year_rows:
+        if year.id not in years:
+            continue
+        if year.job_id not in jobs:
+            jobs.append(year.job_id)
+        if year.job.paper_id not in papers:
+            papers.append(year.job.paper_id)
+
     return papers,jobs,years
 
 def _is_important_hierarchy(job_year_ids):
