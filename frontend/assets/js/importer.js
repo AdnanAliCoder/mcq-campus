@@ -42,7 +42,7 @@ window.Importer=(()=>{
   });
   return prepareRows(normalized).map(row=>{
    if(row.status==='invalid'||!row.q)return row;
-   const existing=MCQ.db.mcqs.find(x=>MCQ.norm(x.question)===MCQ.norm(row.q.question));
+   const existing=MCQ.db.mcqs.find(x=>identityKey(x.question)===identityKey(row.q.question));
    const ids=v=>[...new Set(MCQ.ids(v).map(Number).filter(Boolean))];
    const current=existing?{p:ids(existing.paper_id),j:ids(existing.job_ids),y:ids(existing.job_years_ids)}:{p:[],j:[],y:[]};
    const incoming={p:ids(row.q.paper_id),j:ids(row.q.job_ids),y:ids(row.q.job_years_ids)};
