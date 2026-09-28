@@ -73,6 +73,9 @@ USE_TZ=True
 STATIC_URL='/assets/'
 STATICFILES_DIRS=[BASE_DIR/'frontend'/'assets']
 STATIC_ROOT=BASE_DIR/'staticfiles'
+# Frontend asset filenames are stable (auth.js, admin.js, etc.), so force revalidation
+# after every deploy instead of allowing a browser/CDN to keep an older JS bundle.
+WHITENOISE_MAX_AGE=0
 STORAGES={'staticfiles':{'BACKEND':'whitenoise.storage.CompressedStaticFilesStorage'}}
 DEFAULT_AUTO_FIELD='django.db.models.BigAutoField'
 MIGRATION_MODULES={'core': None}
