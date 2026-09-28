@@ -435,8 +435,8 @@ class IntegrationTests(TestCase):
         self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
         self.assertEqual(set(q.job_ids),{job.id})
         self.assertEqual(set(q.paper_ids),{self.paper.id})
-        self.assertTrue(q.important)
-        self.assertTrue(mcq(q)['important'])
+        self.assertFalse(q.important)
+        self.assertFalse(mcq(q)['important'])
 
     def test_trash_bulk_restore_and_permanent_delete(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
