@@ -564,6 +564,24 @@ def _combine_import_rows(rows):
     return groups,invalid
 
 
+def _approve_bulk_import_mcq(user,obj):
+    """Super Admin bulk imports are trusted and become live immediately."""
+    if not is_super(user):
+        return obj
+    changed=[]
+    if obj.status!='approved':
+        obj.status='approved'; changed.append('status')
+    if obj.rejection_reason:
+        obj.rejection_reason=''; changed.append('rejection_reason')
+    if obj.reviewed_by_id!=user.id:
+        obj.reviewed_by=user; changed.append('reviewed_by')
+    if obj.approved_by_id!=user.id:
+        obj.approved_by=user; changed.append('approved_by')
+    if changed:
+        obj.save(update_fields=changed)
+        log(user,'Bulk import auto-approved',obj.question)
+    return obj
+
 def save_mcq(user,draft):
     require(is_admin(user) and has_perm(user,'add_mcq'))
     cid=validate_mcq_data(draft); qid=int(draft.get('id') or 0) or None
@@ -921,12 +939,14 @@ def command(user,action,payload):
                 if duplicate:
                     result=_merge_bulk_mcq_hierarchy(user,duplicate,draft)
                     if result=='merged':
+                        _approve_bulk_import_mcq(user,duplicate)
                         summary['merged']+=max(1,group['extra_merges'])
+                        imported_ids.append(duplicate.pk)
                     else:
                         summary['duplicates']+=1
-                    imported_ids.append(duplicate.pk)
                     continue
                 obj=save_mcq(user,draft)
+                _approve_bulk_import_mcq(user,obj)
                 imported_ids.append(obj.pk)
                 summary['imported']+=1
                 summary['merged']+=group['extra_merges']
