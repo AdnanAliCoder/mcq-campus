@@ -185,6 +185,37 @@ def _delete_entity(user,typ,rid):
     log(user,'Deleted '+typ,f'{root.name} · {len(mcq_rows)} MCQ(s) moved to recovery')
     return tr
 
+def _restore_trash_many(user,ids):
+    require(is_super(user))
+    clean=[]
+    for value in ids or []:
+        try:
+            rid=int(value)
+            if rid>0 and rid not in clean: clean.append(rid)
+        except (TypeError,ValueError):
+            pass
+    require(clean,'Select at least one Trash record.')
+    restored=0
+    for tr in list(TrashRecord.objects.filter(pk__in=clean).order_by('deleted_at')):
+        _restore_trash(user,tr); restored+=1
+    return {'restored':restored,'ids':clean}
+
+def _delete_trash_permanently(user,ids):
+    require(is_super(user))
+    clean=[]
+    for value in ids or []:
+        try:
+            rid=int(value)
+            if rid>0 and rid not in clean: clean.append(rid)
+        except (TypeError,ValueError):
+            pass
+    require(clean,'Select at least one Trash record.')
+    qs=TrashRecord.objects.filter(pk__in=clean)
+    found=list(qs.values_list('id',flat=True))
+    qs.delete()
+    if found: log(user,'Permanently deleted Trash',f'{len(found)} recovery record(s) permanently deleted')
+    return {'deleted':{'type':'trash','ids':found},'count':len(found)}
+
 def _restore_trash(user,tr):
     require(is_super(user))
     entities=(tr.payload or {}).get('entities') or {}
@@ -772,9 +803,13 @@ def command(user,action,payload):
         blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return {form:rows}
     if action=='action:entity-pin':
         return {'pinnedEntities':_set_entity_pin(user,payload.get('type'),payload.get('id'),str(payload.get('mode') or 'pin'))}
-    if action=='action:mcq-delete':
+    if action in {'action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete'}:
         tr,deleted_ids=_delete_mcqs_to_trash(user,payload.get('ids') or [payload.get('id')])
         return {'deleted':{'type':'mcqs','ids':deleted_ids},'trashId':tr.id,'count':len(deleted_ids)}
+    if action in {'action:trash-restore-many','action:trash-bulk-restore'}:
+        return _restore_trash_many(user,payload.get('ids') or [payload.get('id')])
+    if action in {'action:trash-permanent-delete','action:trash-bulk-delete'}:
+        return _delete_trash_permanently(user,payload.get('ids') or [payload.get('id')])
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
