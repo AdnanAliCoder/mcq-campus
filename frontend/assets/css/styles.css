@@ -2233,10 +2233,10 @@ html[data-theme="dark"] .app-loader-spinner,body.dark .app-loader-spinner{border
   width:40px;
   max-width:40px;
 }
-.admin-mcq-full-table .mcq-col-question{min-width:280px;width:280px}
+.admin-mcq-full-table .mcq-col-question{min-width:200px;width:200px}
 .admin-mcq-full-table .mcq-col-option{min-width:120px;width:120px}
 .admin-mcq-full-table .mcq-col-answer{min-width:130px;width:130px}
-.admin-mcq-full-table .mcq-col-description{min-width:220px;width:220px}
+.admin-mcq-full-table .mcq-col-description{min-width:200px;width:200px}
 .admin-mcq-full-table .mcq-col-meta{min-width:150px;width:150px}
 .admin-mcq-full-table .mcq-col-small{min-width:100px;width:100px}
 .admin-mcq-full-table .mcq-col-date{min-width:140px;width:140px}
