@@ -766,6 +766,27 @@ def _seo_past_papers_landing(path):
 def _seo_past_papers_landing_paper(path):
     return _seo_past_papers_landing(path)[0]
 
+def _seo_job_past_papers_landing(path):
+    """Resolve additive job-only SEO URLs without changing original Paper/Job routes."""
+    suffix='-past-papers'
+    slug=str(path or '').strip('/').lower()
+    if not slug.endswith(suffix): return []
+    wanted=slug[:-len(suffix)].strip('-')
+    if not wanted: return []
+    # Paper and paper-qualified aliases are handled by _seo_past_papers_landing.
+    paper,job=_seo_past_papers_landing(path)
+    if paper: return []
+    return list(
+        Job.objects.filter(active=True,paper__active=True,years__active=True)
+        .select_related('paper').distinct()
+        .only('id','name','paper_id','paper__name')
+        .filter(name__isnull=False)
+    ) if False else [
+        j for j in Job.objects.filter(active=True,paper__active=True,years__active=True)
+        .select_related('paper').distinct().only('id','name','paper_id','paper__name')
+        if _seo_slug(j.name)==wanted
+    ]
+
 def _seo_known_spa_path(path):
     static={
         '/','/mcqs','/important','/categories','/papers','/jobs','/jobs-exams','/pdfs',
@@ -778,7 +799,8 @@ def _seo_known_spa_path(path):
         '/post/','/dashboard/','/admin/','/super-admin/'
     )
     paper,job=_seo_past_papers_landing(path)
-    return path in static or any(path.startswith(prefix) for prefix in prefixes) or bool(paper)
+    job_landings=_seo_job_past_papers_landing(path)
+    return path in static or any(path.startswith(prefix) for prefix in prefixes) or bool(paper) or bool(job_landings)
 
 def _public_text_response(body, content_type):
     response=HttpResponse(body,content_type=content_type)
@@ -845,19 +867,21 @@ def sitemap_papers(request):
 
 def sitemap_jobs(request):
     jobs=list(Job.objects.filter(active=True,paper__active=True,years__active=True).select_related('paper').distinct().only('id','name','updated_at','paper__name'))
-    _,job_latest=_seo_latest_year_maps()
     rows=[]
+    bare_seen=set()
     for j in jobs:
         hierarchy_slug=_seo_slug(j.paper.name)
         search_slug=_seo_slug(_seo_short_name(j.paper.name))
         job_slug=_seo_slug(j.name)
         base=f'{SEO_ORIGIN}/paper/{hierarchy_slug}/job/{job_slug}'
+        # ORIGINAL URL — never replace or rename.
         rows.append((base,j.updated_at))
-        # Additive SEO landing URL only; the original hierarchy URL above is unchanged.
+        # Additive organization + job SEO landing.
         rows.append((f'{SEO_ORIGIN}/{search_slug}-{job_slug}-past-papers',j.updated_at))
-        latest=job_latest.get(j.id)
-        if latest:
-            rows.append((f'{base}/free-all-past-papers-2000-{latest}',j.updated_at))
+        # Additive job-only search-intent landing, e.g. /junior-clerk-past-papers.
+        if job_slug not in bare_seen:
+            rows.append((f'{SEO_ORIGIN}/{job_slug}-past-papers',j.updated_at))
+            bare_seen.add(job_slug)
     return _xml_response(_urlset(rows))
 
 def sitemap_years(request):
@@ -940,11 +964,30 @@ def _seo_page_context(path, default_title, default_description):
         intro='Use this HTML sitemap to discover public study pages without relying on JavaScript navigation.'
         category_links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
         paper_links=[(f'{_seo_short_name(p.name)} Past Papers',f'/{_seo_slug(_seo_short_name(p.name))}-past-papers') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
-        job_links=[(f'{_seo_short_name(j.paper.name)} {j.name} Past Papers',f'/{_seo_slug(_seo_short_name(j.paper.name))}-{_seo_slug(j.name)}-past-papers') for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')]
+        job_rows=list(Job.objects.filter(active=True,paper__active=True,years__active=True).select_related('paper').distinct().only('name','paper__name').order_by('name'))
+        job_links=[(f'All {_seo_short_name(j.paper.name)} {j.name} Past Papers',f'/{_seo_slug(_seo_short_name(j.paper.name))}-{_seo_slug(j.name)}-past-papers') for j in job_rows]
+        bare_job_links=[]
+        bare_seen=set()
+        for j in job_rows:
+            slug=_seo_slug(j.name)
+            if slug in bare_seen: continue
+            bare_seen.add(slug)
+            bare_job_links.append((f'{j.name} Past Papers',f'/{slug}-past-papers'))
         year_links=[(f'{y.job.name} — {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','job__name','job__paper__name').order_by('-name')]
         resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
         mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
-        links=category_links+paper_links+job_links+year_links+resource_links+mcq_links
+        links=category_links+paper_links+job_links+bare_job_links+year_links+resource_links+mcq_links
+    elif _seo_job_past_papers_landing(path):
+        matched_jobs=_seo_job_past_papers_landing(path)
+        job_name=matched_jobs[0].name
+        title=f'{job_name} Past Papers'
+        description=f'{job_name} Past Papers. Browse all available {job_name} past papers by testing organization and year.'
+        heading=f'{job_name} Past Papers'
+        intro=f'All {job_name} Past Papers · Previous {job_name} Past Papers'
+        links=[
+            (f'All {_seo_short_name(j.paper.name)} {j.name} Past Papers',f'/{_seo_slug(_seo_short_name(j.paper.name))}-{_seo_slug(j.name)}-past-papers')
+            for j in matched_jobs
+        ]
     elif _seo_past_papers_landing_paper(path):
         paper,landing_job=_seo_past_papers_landing(path)
         paper_slug=_seo_slug(paper.name)
@@ -954,9 +997,9 @@ def _seo_page_context(path, default_title, default_description):
             job_slug=_seo_slug(landing_job.name)
             years=list(JobYear.objects.filter(active=True,job_id=landing_job.id).only('name').order_by('-name'))
             latest_year=_seo_latest_year_maps()[1].get(landing_job.id)
-            title=f'{paper_search_name} {landing_job.name} Past Papers'
+            title=f'All {paper_search_name} {landing_job.name} Past Papers'
             description=(f'{paper_search_name} {landing_job.name} Past Papers {latest_year}. All {landing_job.name} past papers and previous papers by year.' if latest_year else f'{paper_search_name} {landing_job.name} Past Papers. All {landing_job.name} past papers and previous papers by year.')
-            heading=f'{paper_search_name} {landing_job.name} Past Papers'
+            heading=f'All {paper_search_name} {landing_job.name} Past Papers'
             intro=(f'{landing_job.name} Past Papers · {paper_search_name} {landing_job.name} Past Papers {latest_year} · All {landing_job.name} Past Papers' if latest_year else f'{landing_job.name} Past Papers · {paper_search_name} {landing_job.name} Past Papers · All {landing_job.name} Past Papers')
             links=[(f'{landing_job.name} {y.name} Past Paper',f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in years]
         else:
@@ -964,9 +1007,9 @@ def _seo_page_context(path, default_title, default_description):
             job_ids=[j.id for j in jobs]
             years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
             latest_year=_seo_latest_year_maps()[0].get(paper.id)
-            title=f'{paper_search_name} Past Papers'
+            title=f'All {paper_search_name} Past Papers'
             description=(f'{paper_search_name} Past Papers {latest_year}. All {paper_search_name} past papers and previous papers by job and year.' if latest_year else f'{paper_search_name} Past Papers. All {paper_search_name} past papers and previous papers by job and year.')
-            heading=f'{paper_search_name} Past Papers'
+            heading=f'All {paper_search_name} Past Papers'
             intro=(f'{paper_search_name} Past Papers {latest_year} · All {paper_search_name} Past Papers · Previous {paper_search_name} Past Papers' if latest_year else f'{paper_search_name} Past Papers · All {paper_search_name} Past Papers · Previous {paper_search_name} Past Papers')
             job_links=[(f'{paper_search_name} {j.name} Past Papers',f'/{paper_search_slug}-{_seo_slug(j.name)}-past-papers') for j in jobs]
             year_links=[
@@ -1089,6 +1132,9 @@ def _seo_breadcrumbs(path):
     crumbs=[('Home','/')]
     if path=='/': return crumbs
     landing,landing_job=_seo_past_papers_landing(path)
+    bare_jobs=_seo_job_past_papers_landing(path)
+    if bare_jobs:
+        return crumbs+[('Past Papers','/papers'),(f'{bare_jobs[0].name} Past Papers',path)]
     if landing:
         if landing_job:
             return crumbs+[('Past Papers','/papers'),(f'{_seo_short_name(landing.name)} Past Papers',f'/{_seo_slug(_seo_short_name(landing.name))}-past-papers'),(f'{_seo_short_name(landing.name)} {landing_job.name} Past Papers',path)]
