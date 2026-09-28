@@ -169,6 +169,22 @@ class IntegrationTests(TestCase):
         self.assertEqual(paper_result['entity']['name'],'FPSC')
         self.assertNotIn('snapshot',paper_response.json())
 
+    def test_super_admin_bulk_mcq_delete_moves_to_trash_and_recovers(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        ids=[self.pending.id,self.rejected.id]
+        response=self.post_json('/api/commands',{'action':'action:mcq-delete','payload':{'ids':ids}})
+        self.assertEqual(response.status_code,200)
+        result=response.json()['result']
+        self.assertEqual(set(result['deleted']['ids']),set(ids))
+        self.assertFalse(MCQ.objects.filter(pk__in=ids).exists())
+        trash=TrashRecord.objects.get(pk=result['trashId'])
+        self.assertEqual(trash.kind,'mcqs')
+        self.assertEqual(len((trash.payload or {}).get('mcqs') or []),2)
+        restored=self.post_json('/api/commands',{'action':'action:trash-restore','payload':{'id':trash.id}})
+        self.assertEqual(restored.status_code,200)
+        self.assertEqual(MCQ.objects.filter(pk__in=ids).count(),2)
+        self.assertFalse(TrashRecord.objects.filter(pk=trash.id).exists())
+
     def test_bulk_import_merges_only_hierarchy_for_repeated_question(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         paper2=Paper.objects.create(id=201,name='FPSC',icon='paper')
