@@ -550,6 +550,74 @@ def _merge_bulk_mcq_hierarchy(user,existing,draft):
         return 'merged'
     return 'duplicate'
 
+def _stage_bulk_mcq_hierarchy_update(user,existing,draft):
+    """Keep approved MCQs live as-is while staging imported hierarchy changes for review."""
+    incoming_year_source=draft.get('job_years_ids')
+    if incoming_year_source in (None,''):
+        incoming_year_source=draft.get('job_year_ids')
+    incoming_paper_source=draft.get('paper_id')
+    if incoming_paper_source in (None,''):
+        incoming_paper_source=draft.get('paper_ids')
+    incoming_papers,incoming_jobs,incoming_years=_mcq_hierarchy_from_years(
+        incoming_year_source,incoming_paper_source,draft.get('job_ids')
+    )
+
+    current_papers=normalize_ids(existing.paper_ids)
+    current_jobs=normalize_ids(existing.job_ids)
+    current_years=normalize_ids(existing.job_year_ids)
+    merged_papers=current_papers+[x for x in incoming_papers if x not in current_papers]
+    merged_jobs=current_jobs+[x for x in incoming_jobs if x not in current_jobs]
+    merged_years=current_years+[x for x in incoming_years if x not in current_years]
+    merged_papers,merged_jobs,merged_years=_mcq_hierarchy_from_years(
+        merged_years,merged_papers,merged_jobs
+    )
+
+    changed=(merged_papers!=current_papers or merged_jobs!=current_jobs or merged_years!=current_years)
+    if not changed:
+        return 'duplicate'
+
+    # Pending MCQs are not public yet, so merge directly into the pending record.
+    if existing.status!='approved':
+        existing.paper_ids=merged_papers
+        existing.job_ids=merged_jobs
+        existing.job_year_ids=merged_years
+        existing.important=_is_important_hierarchy(merged_years)
+        existing.status='pending'
+        existing.submission_type='update' if existing.pk else 'new'
+        existing.submitted_by=user
+        existing.submitted_at=timezone.now()
+        existing.updated_by=user
+        existing.save(update_fields=['paper_ids','job_ids','job_year_ids','important','status','submission_type','submitted_by','submitted_at','updated_by','updated_at'])
+        log(user,'Merged pending bulk MCQ hierarchy',existing.question)
+        return 'pending'
+
+    # Approved/live MCQs keep their public data unchanged until manual approval.
+    proposed=mcq(existing)
+    proposed.update({
+        'paper_id':merged_papers,
+        'job_ids':merged_jobs,
+        'job_years_ids':merged_years,
+        'important':_is_important_hierarchy(merged_years),
+        'updated_at':iso(timezone.now()),
+        'updated_by':user_name(user),
+        'updated_by_id':user.id,
+    })
+    existing.pending_update={
+        'proposed':proposed,
+        'submitted_by':user_name(user),
+        'submitted_by_id':user.id,
+        'submitted_at':iso(timezone.now()),
+        'approval_status':'pending',
+        'reason':'',
+    }
+    existing.submission_type='update'
+    existing.submitted_by=user
+    existing.submitted_at=timezone.now()
+    existing.updated_by=user
+    existing.save(update_fields=['pending_update','submission_type','submitted_by','submitted_at','updated_by','updated_at'])
+    log(user,'Staged bulk MCQ hierarchy update',existing.question)
+    return 'pending-update'
+
 def _import_hierarchy(draft):
     years=draft.get('job_years_ids')
     if years in (None,''): years=draft.get('job_year_ids')
@@ -982,23 +1050,31 @@ def command(user,action,payload):
             try:
                 duplicate=_bulk_duplicate_mcq(draft.get('question'))
                 if duplicate:
-                    result=_merge_bulk_mcq_hierarchy(user,duplicate,draft)
-                    _approve_bulk_import_mcq(user,duplicate)
-                    imported_ids.append(duplicate.pk)
-                    if result=='merged':
+                    result=_stage_bulk_mcq_hierarchy_update(user,duplicate,draft)
+                    if result in {'pending','pending-update'}:
+                        imported_ids.append(duplicate.pk)
                         summary['updated']+=1
                         summary['merged']+=group['extra_merges']
-                        results.append({'id':duplicate.pk,'question':question,'result':'updated'})
+                        results.append({'id':duplicate.pk,'question':question,'result':'pending-update'})
                     else:
                         summary['duplicates']+=1
-                        results.append({'id':duplicate.pk,'question':question,'result':'already-live'})
+                        imported_ids.append(duplicate.pk)
+                        results.append({'id':duplicate.pk,'question':question,'result':'already-exists'})
                     continue
+
+                # New bulk imports are always stored as Pending. They become public
+                # only after the normal review/approval action.
                 obj=save_mcq(user,draft)
-                _approve_bulk_import_mcq(user,obj)
+                if obj.status!='pending':
+                    obj.status='pending'
+                    obj.reviewed_by=None
+                    obj.approved_by=None
+                    obj.rejection_reason=''
+                    obj.save(update_fields=['status','reviewed_by','approved_by','rejection_reason'])
                 imported_ids.append(obj.pk)
                 summary['imported']+=1
                 summary['merged']+=group['extra_merges']
-                results.append({'id':obj.pk,'question':question,'result':'imported'})
+                results.append({'id':obj.pk,'question':question,'result':'pending'})
             except ValueError as exc:
                 summary['failed']+=1
                 message=str(exc)
