@@ -253,10 +253,33 @@ class IntegrationTests(TestCase):
         ]
         response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
         self.assertEqual(response.status_code,200)
+        self.assertEqual(MCQ.objects.filter(question=base['question']).count(),1)
         q=MCQ.objects.get(question=base['question'])
         self.assertEqual(set(q.paper_ids),{self.paper.id,paper2.id})
         self.assertEqual(set(q.job_ids),{job1.id,job2.id})
         self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertTrue(q.important)
+
+    def test_bulk_import_visually_same_question_merges_different_jobs(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        paper2=Paper.objects.create(id=330,name='Unicode Merge Paper',country='Pakistan')
+        job1=Job.objects.create(id=331,name='Unicode Job One',paper=self.paper)
+        job2=Job.objects.create(id=332,name='Unicode Job Two',paper=paper2)
+        year1=JobYear.objects.create(id=431,name='Unicode Year One',job=job1)
+        year2=JobYear.objects.create(id=432,name='Unicode Year Two',job=job2)
+        base={'option1':'A','option2':'B','option3':'C','option4':'D','correct_answer':'A','description':'Test','category_id':self.category.id}
+        rows=[
+            {'status':'valid','q':{**base,'question':'Same visible question?','paper_id':[self.paper.id],'job_ids':[job1.id],'job_years_ids':[year1.id]}},
+            {'status':'valid','q':{**base,'question':'Same\u00a0visible   question?','paper_id':[paper2.id],'job_ids':[job2.id],'job_years_ids':[year2.id]}},
+        ]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(MCQ.objects.filter(question__icontains='Same').count(),1)
+        q=MCQ.objects.get(question__icontains='Same')
+        self.assertEqual(set(q.paper_ids),{self.paper.id,paper2.id})
+        self.assertEqual(set(q.job_ids),{job1.id,job2.id})
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertTrue(q.important)
 
     def test_bulk_import_exact_same_hierarchy_is_duplicate_not_second_mcq(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
