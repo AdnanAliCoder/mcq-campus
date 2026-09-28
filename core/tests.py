@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, OneTimeToken, PendingSignup, profile_for
+from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, TrashRecord, OneTimeToken, PendingSignup, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
