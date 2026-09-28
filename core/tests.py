@@ -274,6 +274,51 @@ class IntegrationTests(TestCase):
         self.assertEqual(q.job_ids,[job.id])
         self.assertEqual(q.job_year_ids,[year.id])
 
+    def test_super_admin_bulk_import_is_directly_approved(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=308,name='Direct Approved Job',paper=self.paper)
+        year1=JobYear.objects.create(id=409,name='Direct Approved Year 1',job=job)
+        year2=JobYear.objects.create(id=410,name='Direct Approved Year 2',job=job)
+        base={
+            'question':'Direct approved consolidated import?',
+            'option1':'A','option2':'B','option3':'C','option4':'D','correct_answer':'A',
+            'description':'Test','category_id':self.category.id,'paper_id':[self.paper.id],'job_ids':[job.id],
+        }
+        rows=[
+            {'status':'valid','q':{**base,'job_years_ids':[year1.id]}},
+            {'status':'merge','q':{**base,'job_years_ids':[year2.id]}},
+        ]
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':rows}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()['result']
+        self.assertEqual(len(data['mcqs']),1)
+        q=MCQ.objects.get(question=base['question'])
+        self.assertEqual(q.status,'approved')
+        self.assertEqual(set(q.job_year_ids),{year1.id,year2.id})
+        self.assertEqual(q.approved_by_id,self.owner.id)
+
+    def test_exact_existing_import_duplicate_is_ignored_from_imported_results(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        job=Job.objects.create(id=309,name='Existing Duplicate Job',paper=self.paper)
+        year=JobYear.objects.create(id=411,name='Existing Duplicate Year',job=job)
+        q=MCQ.objects.create(
+            id=799,question='Existing exact duplicate?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',description='Test',category=self.category,status='approved',
+            paper_ids=[self.paper.id],job_ids=[job.id],job_year_ids=[year.id],
+            created_by=self.owner,submitted_by=self.owner,approved_by=self.owner,
+        )
+        draft={
+            'question':q.question,'option1':'A','option2':'B','option3':'C','option4':'D',
+            'correct_answer':'A','description':'Test','category_id':self.category.id,
+            'paper_id':[self.paper.id],'job_ids':[job.id],'job_years_ids':[year.id],
+        }
+        response=self.post_json('/api/commands',{'action':'action:import-confirm','payload':{'rows':[{'status':'duplicate','q':draft}]}})
+        self.assertEqual(response.status_code,200)
+        data=response.json()['result']
+        self.assertEqual(data['summary']['duplicates'],1)
+        self.assertEqual(data['mcqs'],[])
+        self.assertEqual(MCQ.objects.filter(question=q.question).count(),1)
+
     def test_bulk_import_groups_same_upload_before_saving_two_job_years(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         job=Job.objects.create(id=307,name='Family Welfare Assistant',paper=self.paper)
