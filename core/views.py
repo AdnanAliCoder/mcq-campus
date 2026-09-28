@@ -925,8 +925,8 @@ def _seo_page_context(path, default_title, default_description):
         heading='MCQ Campus Sitemap'
         intro='Use this HTML sitemap to discover public study pages without relying on JavaScript navigation.'
         category_links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
-        paper_links=[(p.name,f'/paper/{_seo_slug(p.name)}') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
-        job_links=[(j.name,f'/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}') for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')]
+        paper_links=[(f'{p.name} Past Papers',f'/{_seo_slug(p.name)}-past-papers') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
+        job_links=[(f'{j.paper.name} {j.name} Past Papers',f'/{_seo_slug(j.paper.name)}-{_seo_slug(j.name)}-past-papers') for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')]
         year_links=[(f'{y.job.name} — {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','job__name','job__paper__name').order_by('-name')]
         resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
         mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
@@ -1008,9 +1008,9 @@ def _seo_page_context(path, default_title, default_description):
         for p in Paper.objects.filter(active=True).only('id','name'):
             if _seo_slug(p.name)==paper_slug: paper=p; break
         if paper:
-            title=f'{paper.name} Past Papers, Jobs & MCQs | MCQ Campus'
+            title=f'{paper.name} Past Papers'
             description=f'Browse {paper.name} jobs and past papers, then practice related MCQs with correct answers and explanations.'
-            heading=f'{paper.name} Past Papers, Jobs & MCQs'
+            heading=f'{paper.name} Past Papers'
             intro=f'Explore {paper.name} job-wise past papers and practice linked MCQs with answers and explanations.'
             links=[(j.name,f'/paper/{paper_slug}/job/{_seo_slug(j.name)}') for j in Job.objects.filter(active=True,paper_id=paper.id).only('name').order_by('name')]
             if 'job' in parts:
@@ -1020,9 +1020,9 @@ def _seo_page_context(path, default_title, default_description):
                 for j in Job.objects.filter(active=True,paper_id=paper.id).only('id','name'):
                     if _seo_slug(j.name)==job_slug: job=j; break
                 if job:
-                    title=f'{paper.name} {job.name} Past Papers & MCQs | MCQ Campus'
+                    title=f'{paper.name} {job.name} Past Papers'
                     description=f'Explore {paper.name} {job.name} past papers by year and practice related MCQs with correct answers and explanations.'
-                    heading=f'{paper.name} {job.name} Past Papers & MCQs'
+                    heading=f'{paper.name} {job.name} Past Papers'
                     intro=f'Choose a {job.name} paper year and practice the MCQs linked to that {paper.name} exam record.'
                     links=[(y.name,f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')]
                     if 'year' in parts:
@@ -1032,9 +1032,9 @@ def _seo_page_context(path, default_title, default_description):
                         for y in JobYear.objects.filter(active=True,job_id=job.id).only('id','name'):
                             if _seo_slug(y.name)==year_slug: year=y; break
                         if year:
-                            title=f'{paper.name} {job.name} {year.name} Past Paper MCQs | MCQ Campus'
+                            title=f'{paper.name} {job.name} {year.name} Past Paper'
                             description=f'Practice {paper.name} {job.name} {year.name} past paper MCQs with correct answers and explanations.'
-                            heading=f'{paper.name} {job.name} — {year.name} Past Paper MCQs'
+                            heading=f'{paper.name} {job.name} — {year.name} Past Paper'
                             intro=f'Practice questions linked to the {paper.name} {job.name} {year.name} past paper and review correct answers with explanations.'
                             links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
     elif path.startswith('/mcq/'):
