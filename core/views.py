@@ -769,12 +769,14 @@ def _seo_past_papers_catalog():
         return path
 
     for paper in papers:
-        # Preferred organization landing URL includes the complete organization
-        # name plus its acronym when the acronym is stored in the paper name.
-        # Example: Allied Testing Service [ATS] -> /allied-testing-service-ats-past-papers
-        stem=_seo_slug(paper.name)
+        # Prefer the acronym people actually type into Google:
+        # PPSC -> /ppsc-past-papers, ATS -> /ats-past-papers.
+        # If no acronym is available, fall back to the full organization slug.
+        short=_seo_slug(_seo_short_name(paper.name))
+        stem=short if short and short!='item' else _seo_slug(paper.name)
         paper_paths[paper.id]=reserve(stem,{'paper':paper,'job':None,'jobs':[]},f'paper-{paper.id}')
-    # Full organization-name aliases remain usable, with one preferred URL.
+    # Keep full-name URLs working as aliases, but canonicalize them to the
+    # short search-intent URL stored in record['path'].
     for paper in papers:
         entries.setdefault(f'/{_seo_slug(paper.name)}-past-papers',entries[paper_paths[paper.id]])
     for job in jobs:
@@ -923,9 +925,13 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     ]
 
     if path=='/':
-        title='MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
-        description='Practice MCQs with answers and explanations, browse past papers, jobs, categories and exam preparation resources for competitive exams.'
-        heading='Practice MCQs, Past Papers & Exam Preparation'
+        title='MCQ Campus — Past Papers, Job Papers & MCQ Preparation'
+        description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other past papers, job-wise papers, MCQs, answers and explanations for competitive exam preparation.'
+        heading='Past Papers, Job Papers & MCQ Preparation'
+        catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+        paper_links=[(f'{_seo_short_name(p.name)} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
+        job_links=[(catalog['entries'][href]['jobs'][0].name+' Past Papers',href) for href in catalog['group_paths'].values()]
+        links=paper_links+job_links+links
     elif path=='/mcqs':
         title='Practice MCQs with Answers & Explanations | MCQ Campus'
         description='Practice approved MCQs with correct answers and explanations across categories, jobs and past papers.'
@@ -937,11 +943,12 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         heading='MCQ Categories'
         links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
     elif path=='/papers':
-        title='Past Papers & MCQs with Answers | MCQ Campus'
-        description='Browse testing organizations and past papers, then practice related MCQs with answers and explanations.'
-        heading='Past Papers & MCQs'
+        title='Past Papers — PPSC, FPSC, SPSC, BPSC, NTS, ATS & More | MCQ Campus'
+        description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other Pakistan past papers by job and year, with linked MCQs, answers and explanations.'
+        heading='Pakistan Past Papers by Organization and Job'
+        intro='Browse PPSC, FPSC, SPSC, BPSC, NTS, ATS and other testing organizations. Open an organization to find its jobs, past-paper years and related MCQs.'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
-        links=[(f'{p.name} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
+        links=[(f'{_seo_short_name(p.name)} Past Papers — {re.sub(r"[\\[\\]()]+","",p.name).strip()}',catalog['paper_paths'][p.id]) for p in catalog['papers']]
     elif path=='/jobs-exams':
         title='Jobs & Exams Preparation — Past Papers and MCQs | MCQ Campus'
         description='Browse competitive exam jobs and prepare with job-wise past papers, repeated MCQs, answers and explanations.'
@@ -1015,10 +1022,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             jobs=[j for j in catalog['jobs'] if j.paper_id==paper.id]
             job_ids=[j.id for j in jobs]
             years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
-            heading=f'{paper_display_name} Past Papers'
-            title=heading+' | MCQ Campus'
-            description=f'Browse {paper_display_name} past papers by job and exam year. Find available jobs, exam years and linked MCQs with answers and explanations.'
-            intro=f'Explore {paper_display_name} past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or exam year below to continue your preparation.'
+            heading=f'{paper_search_name} Past Papers'
+            title=f'{paper_search_name} Past Papers, Jobs & MCQs | MCQ Campus'
+            description=f'Browse {paper_search_name} past papers for {paper_display_name} by job and exam year. Find job-wise papers and linked MCQs with answers and explanations.'
+            intro=f'Explore {paper_search_name} ({paper_display_name}) past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or exam year below to continue your preparation.'
             job_links=[(f'{paper_search_name} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in jobs]
             year_links=[
                 (f'{y.job.name} — {y.name}',f'/paper/{paper_slug}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}')
@@ -1327,9 +1334,12 @@ def spa_index(request):
         'seo_origin':SEO_ORIGIN,'seo_robots':robots,
         'seo_jsonld':jsonld,'seo_discovery_page':discovery_page,
     },status=status)
-    response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
-    response['Pragma']='no-cache'
-    response['Expires']='0'
+    if discovery or path in {'/','/papers','/jobs-exams'}:
+        response['Cache-Control']='public, max-age=0, s-maxage=300, stale-while-revalidate=600'
+    else:
+        response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma']='no-cache'
+        response['Expires']='0'
     return response
 
 
