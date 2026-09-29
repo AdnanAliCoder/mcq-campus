@@ -45,7 +45,7 @@ window.UI=(()=>{
   const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','jobs','paper_id','jobs'],jobs:['job','years','job_id','papers'],years:['year',null,null,'MCQs']}[type];
   let count;if(type==='categories')count=MCQ.publicMcqs().filter(q=>+q.category_id===+x.id).length;else count=conf[1]?MCQ.db[conf[1]].filter(y=>y[conf[2]]===x.id).length:MCQ.publicMcqs().filter(q=>MCQ.ids(q[type==='children'?'child_subcategory_ids':'job_years_ids']).includes(x.id)).length;
   const title=x.name;
-  const bracketTitleHtml=value=>{const raw=String(value||''),parts=raw.split(/(\[[^\]\n]+\])/g);if(parts.length<2)return '';return parts.map(part=>/^\[[^\]\n]+\]$/.test(part)?`<span class="card-title-bracket">${esc(part)}</span>`:esc(part)).join('')};
+  const bracketTitleHtml=value=>{const raw=String(value||''),at=raw.indexOf('[');if(at<0)return '';const before=raw.slice(0,at).trimEnd(),suffix=raw.slice(at).trimStart();return `<span class="card-title-main">${esc(before)}</span><span class="card-title-suffix">${esc(suffix)}</span>`};
   if(['categories','papers','jobs','years'].includes(type)){
    const parentJob=type==='years'?MCQ.get('jobs',x.job_id):null,parentPaper=type==='jobs'?MCQ.get('papers',x.paper_id):type==='years'&&parentJob?MCQ.get('papers',parentJob.paper_id):null;
    const data={
