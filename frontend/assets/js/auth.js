@@ -117,7 +117,7 @@ window.Auth=(()=>{
   const routeParams=new URLSearchParams(location.search);
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
-  if(['home','pdfs','latest-jobs'].includes(workspace))wants.push('catalog');
+  if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
