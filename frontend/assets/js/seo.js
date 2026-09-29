@@ -7,7 +7,16 @@ window.SEO=(()=>{
  const fitTitle=(value,limit=60)=>{const text=String(value||'').replace(/\s+/g,' ').trim();if(text.length<=limit)return text;const suffix=' | '+site();if(text.endsWith(suffix)){const head=text.slice(0,-suffix.length).replace(/[\s\-—|,:]+$/,'');const room=Math.max(12,limit-suffix.length-3);return head.slice(0,room).replace(/[\s\-—|,:]+$/,'')+'...'+suffix}return text.slice(0,limit-3).replace(/[\s\-—|,:]+$/,'')+'...'};
  const site=()=>MCQ?.db?.settings?.siteName||'MCQ Campus';
  const shortName=value=>{const text=String(value||'').trim(),bracket=[...text.matchAll(/\[([^\]]{2,16})\]/g)].map(m=>m[1].trim()).filter(Boolean);if(bracket.length)return bracket[bracket.length-1];const paren=[...text.matchAll(/\(([^)]{2,16})\)/g)].map(m=>m[1].trim()).filter(x=>/^[A-Z0-9&. -]+$/.test(x));if(paren.length)return paren[paren.length-1];const caps=text.match(/\b[A-Z][A-Z0-9&.-]{1,15}\b/g);return caps?.[caps.length-1]||text};
- const yearLabel=(job,value)=>{let text=String(value||'').trim();if(job)text=text.replace(new RegExp('^'+String(job).replace(/[.*+?^$()|[\\]\\\\]/g,'\\\\ const baseUrl=()=>')+'\\\\s*[-–—:]?\\\\s*','i'),'');text=text.replace(/\\bPast\\s+Paper\\b/ig,' ').replace(/[\\[\\]()]/g,' ').replace(/\\s+/g,' ').trim();const dated=text.match(/\\b\\d{1,2}\\s+[A-Za-z]{3,9}\\s+20\\d{2}\\b(?:\\s+(?:Morning|Evening|Night|Shift\\s*\\d+))?/i),year=text.match(/\\b20\\d{2}\\b/);return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim()};
+ const yearLabel=(job,value)=>{
+  let text=String(value||'').trim();
+  const jobText=String(job||'').trim();
+  if(jobText&&text.toLowerCase().startsWith(jobText.toLowerCase())) text=text.slice(jobText.length).replace(/^\s*[-–—:]?\s*/,'');
+  text=text.replace(/\bPast\s+Paper\b/ig,' ').replace(/[\[\]()]/g,' ').replace(/\s+/g,' ').trim();
+  const dated=text.match(/\b\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2}\b(?:\s+(?:Morning|Evening|Night|Shift\s*\d+))?/i);
+  const year=text.match(/\b20\d{2}\b/);
+  return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim();
+ };
+ const baseUrl=()=>')+'\\\\s*[-–—:]?\\\\s*','i'),'');text=text.replace(/\\bPast\\s+Paper\\b/ig,' ').replace(/[\\[\\]()]/g,' ').replace(/\\s+/g,' ').trim();const dated=text.match(/\\b\\d{1,2}\\s+[A-Za-z]{3,9}\\s+20\\d{2}\\b(?:\\s+(?:Morning|Evening|Night|Shift\\s*\\d+))?/i),year=text.match(/\\b20\\d{2}\\b/);return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim()};
  const baseUrl=()=>{try{return new URL(document.querySelector('link[rel="canonical"]')?.href||document.querySelector('meta[property="og:url"]')?.content||location.href).origin}catch{return 'https://www.mcqcampus.com'}};
  // The server resolves these discovery URLs from database IDs. Keep that exact
  // content after hydration; loading another discovery page uses its document.
@@ -33,8 +42,8 @@ window.SEO=(()=>{
   if(base==='subcategory'){const x=get('subcategories',id);return x?`/subcategory/${s(x)}`:'/categories'}
   if(base==='topic'){const x=get('children',id);return x?`/topic/${s(x)}`:'/categories'}
   if(base==='mcqs')return '/mcqs'; if(base==='papers')return '/papers'; if(base==='paper'){const p=get('papers',id);return p?`/${slug(shortName(p.name))}-past-papers`:'/papers'}
-  if(base==='job'){const x=get('jobs',id),p=x&&get('papers',x.paper_id),short=p?shortName(p.name):'';title=((short?short+' ':'')+(x?.name||'Job')+' Past Papers')+suffix;description=`Explore ${(short?short+' ':'')}${x?.name||'job'} past papers by year and practice related MCQs with answers and explanations.`}
-  if(base==='year'){const x=get('years',id),j=x&&get('jobs',x.job_id),p=j&&get('papers',j.paper_id),short=p?shortName(p.name):'',label=yearLabel(j?.name,x?.name);title=((short?short+' ':'')+(j?.name?j.name+' ':'')+label+' Past Paper')+suffix;description=`Practice ${(short?short+' ':'')}${j?.name||'job'} ${label} past paper MCQs with correct answers and explanations.`}
+  if(base==='job'){const j=get('jobs',id),p=j&&get('papers',j.paper_id);return p&&j?`/${slug(shortName(p.name))}-${slug(j.name)}-past-papers`:`/job/${s(j)}`}
+  if(base==='year'){const y=get('years',id),j=y&&get('jobs',y.job_id),p=j&&get('papers',j.paper_id);return p&&j?`/paper/${s(p)}/job/${s(j)}/year/${s(y)}`:`/year/${s(y)}`}
   if(base==='mcq'||base==='practice'){const q=get('mcqs',id);return `/mcq/${s(q)}`}
   if(base==='tests')return '/tests'; if(base==='test')return `/test/${slug(id)}`;
   if(base==='jobs-exams')return '/jobs-exams'; if(base==='pdfs')return '/pdfs'; if(base==='pdf'){const x=get('pdfs',id);return x?`/pdf/${s(x)}`:'/pdfs'} if(base==='latest-jobs')return '/latest-jobs'; if(base==='latest-job'){const x=get('latestJobs',id);return x?`/latest-job/${s(x)}`:'/latest-jobs'}
@@ -52,8 +61,8 @@ window.SEO=(()=>{
   if(base==='topic'){const x=get('children',id);title=(x?.name||'Topic')+' MCQs with Answers'+suffix;description=`Practice ${x?.name||'topic'} MCQs with correct answers and explanations.`}
   if(base==='papers'){title='Past Papers & MCQs with Answers'+suffix;description='Browse organizations, jobs and dated past papers, then practice related MCQs.'}
   if(base==='paper'){const x=get('papers',id),short=x?shortName(x.name):'Past Paper';title=short+' Past Papers'+suffix;description=`Browse ${short} past papers by job and exam year, then practice linked MCQs with correct answers and explanations.`}
-  if(base==='job'){const x=get('jobs',id),p=x&&get('papers',x.paper_id);title=((p?.name? p.name+' ':'')+(x?.name||'Job')+' Past Papers & MCQs')+suffix;description=`Explore ${(p?.name? p.name+' ':'')}${x?.name||'job'} past papers by year and practice related MCQs with answers and explanations.`}
-  if(base==='year'){const x=get('years',id),j=x&&get('jobs',x.job_id),p=j&&get('papers',j.paper_id);title=((p?.name? p.name+' ':'')+(j?.name? j.name+' ':'')+(x?.name||'Past Paper')+' Past Paper MCQs')+suffix;description=`Practice ${(p?.name? p.name+' ':'')}${j?.name||'job'} ${x?.name||'past paper'} MCQs with correct answers and explanations.`}
+  if(base==='job'){const x=get('jobs',id),p=x&&get('papers',x.paper_id),short=p?shortName(p.name):'';title=((short?short+' ':'')+(x?.name||'Job')+' Past Papers')+suffix;description=`Explore ${(short?short+' ':'')}${x?.name||'job'} past papers by year and practice related MCQs with answers and explanations.`}
+  if(base==='year'){const x=get('years',id),j=x&&get('jobs',x.job_id),p=j&&get('papers',j.paper_id),short=p?shortName(p.name):'',label=yearLabel(j?.name,x?.name);title=((short?short+' ':'')+(j?.name?j.name+' ':'')+label+' Past Paper')+suffix;description=`Practice ${(short?short+' ':'')}${j?.name||'job'} ${label} past paper MCQs with correct answers and explanations.`}
   if(base==='important'){title='Important MCQs for Practice'+suffix;description='Practice MCQs marked important by the MCQ Campus editorial workflow.'}
   if(base==='mcqs'){title='Practice MCQs with Answers & Explanations'+suffix;description='Practice approved MCQs across categories, jobs and past papers.'}
   if(base==='mcq'||base==='practice'){const q=get('mcqs',id);title=(q?.question||'MCQ').slice(0,70)+suffix;description=(q?.description||`Practice this MCQ and review the correct answer on ${site()}.`).slice(0,155)}
