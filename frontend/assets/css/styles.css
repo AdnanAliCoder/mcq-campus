@@ -2414,3 +2414,26 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 @media(max-width:620px){
  .mcq-verified-answer .mcq-year-chip{padding:3px 6px!important}
 }
+
+/* 2026-09-29: give the public MCQ question prompt a clearer identity than answer options. */
+.mcq-reference-card .mcq-question-panel{
+  position:relative;
+  background:linear-gradient(135deg,#f7fcfa,#eef8f4)!important;
+  border:1.5px solid #8fc8b4!important;
+  border-left:4px solid #238b68!important;
+  border-radius:12px!important;
+  padding:11px 14px 11px 16px!important;
+  box-shadow:0 3px 9px rgba(28,105,80,.06)!important;
+}
+.mcq-reference-card .mcq-question-panel h2{
+  color:#183c31!important;
+  font-weight:800!important;
+  letter-spacing:-.012em!important;
+  line-height:1.38!important;
+}
+@media(max-width:620px){
+ .mcq-reference-card .mcq-question-panel{
+   padding:10px 12px 10px 14px!important;
+   border-left-width:3px!important;
+ }
+}
