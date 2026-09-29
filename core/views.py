@@ -769,15 +769,19 @@ def _seo_past_papers_catalog():
         return path
 
     for paper in papers:
-        short=_seo_slug(_seo_short_name(paper.name))
-        unique=sum(_seo_slug(_seo_short_name(p.name))==short for p in papers)==1
-        stem=short if unique else _seo_slug(paper.name)
+        # Preferred organization landing URL includes the complete organization
+        # name plus its acronym when the acronym is stored in the paper name.
+        # Example: Allied Testing Service [ATS] -> /allied-testing-service-ats-past-papers
+        stem=_seo_slug(paper.name)
         paper_paths[paper.id]=reserve(stem,{'paper':paper,'job':None,'jobs':[]},f'paper-{paper.id}')
     # Full organization-name aliases remain usable, with one preferred URL.
     for paper in papers:
         entries.setdefault(f'/{_seo_slug(paper.name)}-past-papers',entries[paper_paths[paper.id]])
     for job in jobs:
-        stem=paper_paths[job.paper_id][1:].removesuffix('-past-papers')+'-'+_seo_slug(job.name)
+        # Job searches are normally acronym + post name, e.g.
+        # /ppsc-assistant-past-papers or /ats-junior-clerk-past-papers.
+        short=_seo_slug(_seo_short_name(job.paper.name))
+        stem=short+'-'+_seo_slug(job.name)
         job_paths[job.id]=reserve(stem,{'paper':job.paper,'job':job,'jobs':[]},f'job-{job.id}')
     for job in jobs:
         entries.setdefault(f'/{_seo_slug(job.paper.name)}-{_seo_slug(job.name)}-past-papers',entries[job_paths[job.id]])
@@ -874,9 +878,6 @@ def sitemap_papers(request):
     rows=[]
     for p in catalog['papers']:
         if p.id not in paper_ids: continue
-        hierarchy_slug=_seo_slug(p.name)
-        base=f'{SEO_ORIGIN}/paper/{hierarchy_slug}'
-        rows.append((base,p.updated_at))
         rows.append((SEO_ORIGIN+catalog['paper_paths'][p.id],p.updated_at))
     return _xml_response(_urlset(rows))
 
@@ -885,10 +886,7 @@ def sitemap_jobs(request):
     rows=[]
     for j in catalog['jobs']:
         if j.id not in catalog['available']: continue
-        hierarchy_slug=_seo_slug(j.paper.name)
         job_slug=_seo_slug(j.name)
-        base=f'{SEO_ORIGIN}/paper/{hierarchy_slug}/job/{job_slug}'
-        rows.append((base,j.updated_at))
         rows.append((SEO_ORIGIN+catalog['job_paths'][j.id],j.updated_at))
         rows.append((SEO_ORIGIN+catalog['group_paths'][job_slug],j.updated_at))
     return _xml_response(_urlset(rows))
@@ -942,7 +940,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         title='Past Papers & MCQs with Answers | MCQ Campus'
         description='Browse testing organizations and past papers, then practice related MCQs with answers and explanations.'
         heading='Past Papers & MCQs'
-        links=[(p.name,f'/paper/{_seo_slug(p.name)}') for p in Paper.objects.filter(active=True).only('name').order_by('name')]
+        catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+        links=[(f'{p.name} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
     elif path=='/jobs-exams':
         title='Jobs & Exams Preparation — Past Papers and MCQs | MCQ Campus'
         description='Browse competitive exam jobs and prepare with job-wise past papers, repeated MCQs, answers and explanations.'
