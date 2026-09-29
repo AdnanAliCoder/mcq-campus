@@ -1255,6 +1255,7 @@ def spa_index(request):
     discovery_page=None
     if discovery:
         discovery_page={'path':path,'heading':heading,'intro':intro,
+            'landing':({'type':'job' if landing['job'] else 'paper','id':landing['job'].id if landing['job'] else landing['paper'].id} if landing and landing['paper'] else None),
             'groups':_seo_discovery_groups(links,catalog),'breadcrumbs':_seo_breadcrumbs(path,catalog),
             'title':title,'description':description,'robots':robots,'canonical':canonical,'schema':json.loads(jsonld)}
     response=render(request,'index.html',{
