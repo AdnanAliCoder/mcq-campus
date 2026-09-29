@@ -825,6 +825,59 @@ def _seo_row_for_token(queryset,token,label_field='name'):
             return row
     return None
 
+def _seo_public_catalog_items():
+    """Return public PDF and Latest Job records used by SEO routes and sitemaps."""
+    data=public_catalog_data()
+    pdfs=[x for x in (data.get('pdfs') or []) if x.get('active',True) is not False]
+    latest_jobs=[x for x in (data.get('latestJobs') or []) if x.get('published',False) is not False]
+    return pdfs,latest_jobs
+
+def _seo_catalog_item(kind,token):
+    token=str(token or '').strip().lower()
+    if not token:
+        return None
+    pdfs,latest_jobs=_seo_public_catalog_items()
+    rows=pdfs if kind=='pdf' else latest_jobs if kind=='latest-job' else []
+    for row in rows:
+        rid=str(row.get('id') or '')
+        slug=_seo_slug(row.get('slug') or row.get('title') or row.get('name') or rid)
+        if token==rid or token==slug:
+            return row
+    return None
+
+def _seo_year_search_label(job_name,year_name):
+    """Keep the useful year/date/session part without repeating the job name."""
+    text=str(year_name or '').strip()
+    if job_name:
+        text=re.sub(r'^'+re.escape(str(job_name).strip())+r'\s*[-–—:]?\s*','',text,flags=re.I)
+    text=re.sub(r'\bPast\s+Paper\b',' ',text,flags=re.I)
+    text=text.replace('[',' ').replace(']',' ').replace('(',' ').replace(')',' ')
+    text=re.sub(r'\s+',' ',text).strip(' -–—:')
+    dated=re.search(r'\b\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2}\b(?:\s+(?:Morning|Evening|Night|Shift\s*\d+))?',text,re.I)
+    if dated:
+        return dated.group(0).strip()
+    year=re.search(r'(?<!\d)(20\d{2})(?!\d)',text)
+    if year:
+        suffix=re.search(r'\b(Morning|Evening|Night|Shift\s*\d+)\b',text,re.I)
+        return year.group(1)+((' '+suffix.group(1)) if suffix else '')
+    return text or str(year_name or '').strip()
+
+def _seo_hierarchy_canonical_path(path,catalog=None):
+    """Paper and job hierarchy aliases point at their search-intent canonical pages."""
+    parts=[p for p in str(path or '').strip('/').split('/') if p]
+    if not parts or parts[0]!='paper' or len(parts) not in {2,4}:
+        return path
+    catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+    paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1])
+    if not paper:
+        return path
+    if len(parts)==2:
+        return catalog['paper_paths'].get(paper.id,path)
+    if parts[2]!='job':
+        return path
+    job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),parts[3])
+    return catalog['job_paths'].get(job.id,path) if job else path
+
 def _seo_dynamic_path_exists(path):
     """Reject invented SPA entity URLs so crawlers do not receive soft-404 200 pages."""
     parts=[p for p in str(path or '').strip('/').split('/') if p]
@@ -843,6 +896,10 @@ def _seo_dynamic_path_exists(path):
         return bool(_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),parts[1],'question'))
     if kind=='post' and len(parts)==2:
         return bool(_seo_row_for_token(Post.objects.filter(status='published').only('id','slug','title'),parts[1],'slug'))
+    if kind=='pdf' and len(parts)==2:
+        return bool(_seo_catalog_item('pdf',parts[1]))
+    if kind=='latest-job' and len(parts)==2:
+        return bool(_seo_catalog_item('latest-job',parts[1]))
     if kind=='job' and len(parts)==2:
         return bool(_seo_row_for_token(Job.objects.filter(active=True,paper__active=True).only('id','name'),parts[1]))
     if kind=='year' and len(parts)==2:
@@ -931,28 +988,19 @@ def _seo_latest_year_maps():
 
 def sitemap_papers(request):
     catalog=_seo_past_papers_catalog()
-    paper_ids={j.paper_id for j in catalog['jobs']}
-    rows=[]
-    for p in catalog['papers']:
-        if p.id not in paper_ids: continue
-        # Keep the real browse hierarchy discoverable as well as the
-        # search-intent landing URL. Both pages are self-canonical and useful.
-        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}',p.updated_at))
-        rows.append((SEO_ORIGIN+catalog['paper_paths'][p.id],p.updated_at))
+    paper_ids={j.paper_id for j in catalog['jobs'] if j.id in catalog['available']}
+    rows=[
+        (SEO_ORIGIN+catalog['paper_paths'][p.id],p.updated_at)
+        for p in catalog['papers'] if p.id in paper_ids
+    ]
     return _xml_response(_urlset(rows))
 
 def sitemap_jobs(request):
     catalog=_seo_past_papers_catalog()
-    rows=[]
-    for j in catalog['jobs']:
-        if j.id not in catalog['available']: continue
-        paper_slug=_seo_slug(j.paper.name)
-        job_slug=_seo_slug(j.name)
-        # Preserve the original paper -> job hierarchy URL in the sitemap,
-        # then add the canonical search-intent landing pages.
-        rows.append((f'{SEO_ORIGIN}/paper/{paper_slug}/job/{job_slug}',j.updated_at))
-        rows.append((SEO_ORIGIN+catalog['job_paths'][j.id],j.updated_at))
-        rows.append((SEO_ORIGIN+catalog['group_paths'][job_slug],j.updated_at))
+    rows=[
+        (SEO_ORIGIN+catalog['job_paths'][j.id],j.updated_at)
+        for j in catalog['jobs'] if j.id in catalog['available']
+    ]
     return _xml_response(_urlset(rows))
 
 def sitemap_years(request):
@@ -972,6 +1020,9 @@ def sitemap_mcqs(request):
 
 def sitemap_resources(request):
     rows=[(f'{SEO_ORIGIN}/post/{p.slug}',p.updated_at) for p in Post.objects.filter(status='published').only('slug','updated_at')]
+    pdfs,latest_jobs=_seo_public_catalog_items()
+    rows.extend((f"{SEO_ORIGIN}/pdf/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}",None) for x in pdfs)
+    rows.extend((f"{SEO_ORIGIN}/latest-job/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}",None) for x in latest_jobs)
     return _xml_response(_urlset(rows))
 
 def _seo_page_context(path, default_title, default_description,catalog=None):
@@ -992,7 +1043,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         heading='Past Papers, Job Papers & MCQ Preparation'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         paper_links=[(f'{_seo_short_name(p.name)} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
-        job_links=[(catalog['entries'][href]['jobs'][0].name+' Past Papers',href) for href in catalog['group_paths'].values()]
+        job_links=[
+            (f'{_seo_short_name(j.paper.name)} {j.name} Past Papers',catalog['job_paths'][j.id])
+            for j in catalog['jobs'] if j.id in catalog['available']
+        ]
         links=paper_links+job_links+links
     elif path=='/mcqs':
         title='Practice MCQs with Answers & Explanations | MCQ Campus'
@@ -1028,11 +1082,43 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         description='Browse exam preparation PDFs and downloadable study resources for MCQs, past papers and competitive exams.'
         heading='Exam Preparation PDFs'
         intro='Find downloadable preparation resources for competitive exams and MCQ practice.'
+        pdfs,_=_seo_public_catalog_items()
+        links=[(str(x.get('title') or 'Exam Preparation PDF'),f"/pdf/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}") for x in pdfs]
     elif path=='/latest-jobs':
         title='Latest Jobs & Exam Opportunities | MCQ Campus'
         description='Browse current job and exam opportunities with organization details, deadlines and preparation links.'
         heading='Latest Jobs & Exam Opportunities'
         intro='Track current opportunities and continue preparation with related MCQs and past papers.'
+        _,latest_jobs=_seo_public_catalog_items()
+        links=[(str(x.get('title') or 'Latest Job'),f"/latest-job/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}") for x in latest_jobs]
+    elif path.startswith('/pdf/'):
+        item=_seo_catalog_item('pdf',path.split('/pdf/',1)[1].strip('/'))
+        if item:
+            name=str(item.get('title') or item.get('name') or 'Exam Preparation PDF').strip()
+            item_description=str(item.get('description') or '').strip()
+            title=f'{name} PDF Download | MCQ Campus'
+            description=(item_description or f'Download {name} PDF for MCQ and competitive exam preparation on MCQ Campus.')[:155]
+            heading=f'{name} PDF'
+            intro=item_description or f'Download {name} and continue preparing with related past papers and MCQs.'
+            links=[('More Preparation PDFs','/pdfs'),('Past Papers','/papers'),('Practice MCQs','/mcqs')]
+    elif path.startswith('/latest-job/'):
+        item=_seo_catalog_item('latest-job',path.split('/latest-job/',1)[1].strip('/'))
+        if item:
+            paper=Paper.objects.filter(pk=item.get('paper_id'),active=True).only('name').first()
+            org=_seo_short_name(paper.name) if paper else ''
+            name=str(item.get('title') or 'Job Opportunity').strip()
+            label=(org+' '+name).strip()
+            last=str(item.get('last_date') or '').strip()
+            title=f'{label} Latest Job | MCQ Campus'
+            description=(f'{label} latest job information'+(f', last date {last}' if last else '')+'. View details and related past papers on MCQ Campus.')[:155]
+            heading=label
+            intro=f'Latest recruitment information for {label}.'+(f' Last date: {last}.' if last else '')
+            links=[('Latest Jobs','/latest-jobs')]
+            if paper:
+                catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+                if paper.id in catalog['paper_paths']:
+                    links.append((f'{org} Past Papers',catalog['paper_paths'][paper.id]))
+            links.extend([('Past Papers','/papers'),('Practice MCQs','/mcqs')])
     elif path=='/posts':
         title='Exam Preparation Blog & Updates | MCQ Campus'
         description='Read exam preparation articles, study guides, updates and useful resources from MCQ Campus.'
@@ -1140,38 +1226,42 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     elif path.startswith('/paper/'):
         parts=[p for p in path.split('/') if p]
         paper_slug=parts[1] if len(parts)>1 else ''
-        paper=None
-        for p in Paper.objects.filter(active=True).only('id','name'):
-            if _seo_slug(p.name)==paper_slug: paper=p; break
+        paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),paper_slug)
         if paper:
-            title=f'{paper.name} Past Papers'
-            description=f'Browse {paper.name} jobs and past papers, then practice related MCQs with correct answers and explanations.'
-            heading=f'{paper.name} Past Papers'
-            intro=f'Explore {paper.name} job-wise past papers and practice linked MCQs with answers and explanations.'
-            links=[(j.name,f'/paper/{paper_slug}/job/{_seo_slug(j.name)}') for j in Job.objects.filter(active=True,paper_id=paper.id).only('name').order_by('name')]
+            catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+            short=_seo_short_name(paper.name)
+            title=f'{short} Past Papers | MCQ Campus'
+            description=f'Browse {short} past papers by job and exam year, with linked MCQs, correct answers and explanations.'
+            heading=f'{short} Past Papers'
+            intro=f'Explore {short} job-wise past papers and open a job to choose its available exam year.'
+            links=[
+                (f'{short} {j.name} Past Papers',catalog['job_paths'][j.id])
+                for j in catalog['jobs'] if j.paper_id==paper.id and j.id in catalog['available']
+            ]
             if 'job' in parts:
                 ji=parts.index('job')
                 job_slug=parts[ji+1] if len(parts)>ji+1 else ''
-                job=None
-                for j in Job.objects.filter(active=True,paper_id=paper.id).only('id','name'):
-                    if _seo_slug(j.name)==job_slug: job=j; break
+                job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),job_slug)
                 if job:
-                    title=f'{paper.name} {job.name} Past Papers'
-                    description=f'Explore {paper.name} {job.name} past papers by year and practice related MCQs with correct answers and explanations.'
-                    heading=f'{paper.name} {job.name} Past Papers'
-                    intro=f'Choose a {job.name} paper year and practice the MCQs linked to that {paper.name} exam record.'
-                    links=[(y.name,f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')]
+                    title=f'{short} {job.name} Past Papers | MCQ Campus'
+                    description=f'Browse {short} {job.name} past papers by exam year and practice linked MCQs with answers and explanations.'
+                    heading=f'{short} {job.name} Past Papers'
+                    intro=f'Choose a {short} {job.name} exam year to open its past paper and linked MCQs.'
+                    links=[
+                        (f'{short} {job.name} {_seo_year_search_label(job.name,y.name)} Past Paper',
+                         f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}')
+                        for y in JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')
+                    ]
                     if 'year' in parts:
                         yi=parts.index('year')
                         year_slug=parts[yi+1] if len(parts)>yi+1 else ''
-                        year=None
-                        for y in JobYear.objects.filter(active=True,job_id=job.id).only('id','name'):
-                            if _seo_slug(y.name)==year_slug: year=y; break
+                        year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('id','name'),year_slug)
                         if year:
-                            title=f'{paper.name} {job.name} {year.name} Past Paper'
-                            description=f'Practice {paper.name} {job.name} {year.name} past paper MCQs with correct answers and explanations.'
-                            heading=f'{paper.name} {job.name} — {year.name} Past Paper'
-                            intro=f'Practice questions linked to the {paper.name} {job.name} {year.name} past paper and review correct answers with explanations.'
+                            year_label=_seo_year_search_label(job.name,year.name)
+                            title=f'{short} {job.name} {year_label} Past Paper | MCQ Campus'
+                            description=f'Practice {short} {job.name} {year_label} past paper MCQs with correct answers and explanations.'
+                            heading=f'{short} {job.name} {year_label} Past Paper'
+                            intro=f'Practice MCQs linked to the {short} {job.name} {year_label} past paper and review correct answers with explanations.'
                             links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
     elif path.startswith('/mcq/'):
         wanted=path.split('/mcq/',1)[1].strip('/')
@@ -1231,20 +1321,28 @@ def _seo_breadcrumbs(path,catalog=None):
         if row: return crumbs+[('Categories','/categories'),(row.subcategory.category.name,f'/category/{_seo_slug(row.subcategory.category.name)}'),(row.subcategory.name,f'/subcategory/{_seo_slug(row.subcategory.name)}'),(row.name,path)]
     if path.startswith('/paper/'):
         parts=[p for p in path.split('/') if p]
-        paper=next((p for p in Paper.objects.filter(active=True).only('id','name') if len(parts)>1 and _seo_slug(p.name)==parts[1]),None)
+        paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1] if len(parts)>1 else '')
         out=crumbs+[('Past Papers','/papers')]
         if paper:
-            out.append((paper.name,f'/paper/{_seo_slug(paper.name)}'))
+            catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+            short=_seo_short_name(paper.name)
+            out.append((f'{short} Past Papers',catalog['paper_paths'].get(paper.id,f'/paper/{_seo_slug(paper.name)}')))
             if 'job' in parts:
                 ji=parts.index('job'); wanted=parts[ji+1] if len(parts)>ji+1 else ''
-                job=next((j for j in Job.objects.filter(active=True,paper_id=paper.id).only('id','name') if _seo_slug(j.name)==wanted),None)
+                job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),wanted)
                 if job:
-                    out.append((job.name,f'/paper/{_seo_slug(paper.name)}/job/{_seo_slug(job.name)}'))
+                    out.append((f'{short} {job.name} Past Papers',catalog['job_paths'].get(job.id,f'/paper/{_seo_slug(paper.name)}/job/{_seo_slug(job.name)}')))
                     if 'year' in parts:
                         yi=parts.index('year'); yw=parts[yi+1] if len(parts)>yi+1 else ''
-                        year=next((y for y in JobYear.objects.filter(active=True,job_id=job.id).only('name') if _seo_slug(y.name)==yw),None)
-                        if year: out.append((year.name,path))
+                        year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('name'),yw)
+                        if year: out.append((f'{short} {job.name} {_seo_year_search_label(job.name,year.name)}',path))
             return out
+    if path.startswith('/pdf/'):
+        item=_seo_catalog_item('pdf',path.split('/pdf/',1)[1].strip('/'))
+        return crumbs+[('PDFs','/pdfs')]+([(str(item.get('title') or 'PDF'),path)] if item else [])
+    if path.startswith('/latest-job/'):
+        item=_seo_catalog_item('latest-job',path.split('/latest-job/',1)[1].strip('/'))
+        return crumbs+[('Latest Jobs','/latest-jobs')]+([(str(item.get('title') or 'Latest Job'),path)] if item else [])
     if path.startswith('/mcq/'):
         slug=path.split('/mcq/',1)[1].strip('/')
         q=next((q for q in MCQ.objects.filter(status='approved').only('question','category_id') if _seo_slug(q.question)==slug),None)
@@ -1353,7 +1451,7 @@ def spa_index(request):
     default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
     discovery=_seo_is_past_papers_path(path) or path=='/sitemap'
-    catalog=_seo_past_papers_catalog() if discovery else None
+    catalog=_seo_past_papers_catalog() if discovery or path.startswith('/paper/') else None
     landing=_seo_past_papers_record(path,catalog)
     if path in {'/index.html','/index.php'}:
         response=HttpResponse(status=308)
@@ -1372,7 +1470,8 @@ def spa_index(request):
         links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),('Jobs & Exams','/jobs-exams'),('Home','/')]
     # Keep the complete job name and "Past Papers" intent even for long names.
     title=title if landing else _seo_title(title)
-    canonical=SEO_ORIGIN+(landing['path'] if landing else path)
+    canonical_path=landing['path'] if landing else _seo_hierarchy_canonical_path(path,catalog)
+    canonical=SEO_ORIGIN+canonical_path
     private_roots={'admin','super-admin','dashboard','profile','login','register','forgot','reset','verify','search'}
     robots='noindex,nofollow' if status==404 or path.strip('/').split('/')[0] in private_roots else 'index,follow'
     if landing and landing['job'] and landing['job'].id not in catalog['available']:
@@ -1396,7 +1495,7 @@ def spa_index(request):
         'seo_origin':SEO_ORIGIN,'seo_robots':robots,
         'seo_jsonld':jsonld,'seo_discovery_page':discovery_page,
     },status=status)
-    if discovery or path in {'/','/papers','/jobs-exams'}:
+    if discovery or path in {'/','/papers','/jobs-exams','/pdfs','/latest-jobs'} or path.startswith(('/pdf/','/latest-job/','/paper/')):
         response['Cache-Control']='public, max-age=0, s-maxage=300, stale-while-revalidate=600'
     else:
         response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
