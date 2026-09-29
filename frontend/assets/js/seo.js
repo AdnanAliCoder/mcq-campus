@@ -16,7 +16,6 @@ window.SEO=(()=>{
   const year=text.match(/\b20\d{2}\b/);
   return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim();
  };
- const baseUrl=()=>')+'\\\\s*[-–—:]?\\\\s*','i'),'');text=text.replace(/\\bPast\\s+Paper\\b/ig,' ').replace(/[\\[\\]()]/g,' ').replace(/\\s+/g,' ').trim();const dated=text.match(/\\b\\d{1,2}\\s+[A-Za-z]{3,9}\\s+20\\d{2}\\b(?:\\s+(?:Morning|Evening|Night|Shift\\s*\\d+))?/i),year=text.match(/\\b20\\d{2}\\b/);return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim()};
  const baseUrl=()=>{try{return new URL(document.querySelector('link[rel="canonical"]')?.href||document.querySelector('meta[property="og:url"]')?.content||location.href).origin}catch{return 'https://www.mcqcampus.com'}};
  // The server resolves these discovery URLs from database IDs. Keep that exact
  // content after hydration; loading another discovery page uses its document.
