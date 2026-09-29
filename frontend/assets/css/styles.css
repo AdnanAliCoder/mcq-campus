@@ -2339,6 +2339,5 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 @media(max-width:600px){.public-page .page-heading h1{font-size:1.7rem}.public-page .page-heading p{font-size:.875rem}}
 
 /* Card titles with bracketed suffix: keep the suffix in the title column, never beside it. */
-.entity-showcase-card h3 .card-title-main,.entity-showcase-card h3 .card-title-suffix{display:inline}
-.entity-showcase-card h3 .card-title-suffix{white-space:nowrap}
-@media(max-width:620px){.entity-showcase-card h3 .card-title-main,.entity-showcase-card h3 .card-title-suffix{display:block}.entity-showcase-card h3 .card-title-suffix{margin-top:2px;text-align:left}}
+.entity-showcase-card h3 .card-title-main,.entity-showcase-card h3 .card-title-suffix{display:block}
+.entity-showcase-card h3 .card-title-suffix{white-space:nowrap;margin-top:2px;text-align:left}
