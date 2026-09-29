@@ -2340,4 +2340,4 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 
 
 /* Only Paper -> Job -> Job Year public selection cards: start the first bracketed suffix on a new line and keep it together. */
-.bracket-group{white-space:nowrap}
+.bracket-group{display:inline-block!important;white-space:nowrap!important;max-width:100%;vertical-align:baseline}
