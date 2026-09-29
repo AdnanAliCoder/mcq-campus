@@ -997,6 +997,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         paper,landing_job=_seo_past_papers_landing(path,catalog)
         paper_slug=_seo_slug(paper.name)
         paper_search_name=_seo_short_name(paper.name)
+        paper_display_name=re.sub(r'[\[\]()]+','',paper.name).replace('  ',' ').strip()
         if landing_job:
             job_slug=_seo_slug(landing_job.name)
             years=list(JobYear.objects.filter(active=True,job_id=landing_job.id).only('name').order_by('-name'))
@@ -1010,10 +1011,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             jobs=[j for j in catalog['jobs'] if j.paper_id==paper.id]
             job_ids=[j.id for j in jobs]
             years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
-            heading=f'{paper_search_name} Past Papers'
+            heading=f'{paper_display_name} Past Papers'
             title=heading+' | MCQ Campus'
-            description=f'Browse {paper.name} past papers by job and exam year. Open related MCQs with answers and explanations for your preparation.'
-            intro=f'Explore {paper.name} past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or open a dated paper below to continue your preparation.'
+            description=f'Browse {paper_display_name} past papers by job and exam year. Find available jobs, exam years and linked MCQs with answers and explanations.'
+            intro=f'Explore {paper_display_name} past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or exam year below to continue your preparation.'
             job_links=[(f'{paper_search_name} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in jobs]
             year_links=[
                 (f'{y.job.name} — {y.name}',f'/paper/{paper_slug}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}')
