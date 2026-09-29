@@ -17,6 +17,9 @@ window.SEO=(()=>{
  const needsDocumentNavigation=path=>isDiscoveryPath(path)&&!discoveryPage(path);
  function renderDiscovery(path){
   const page=discoveryPage(path);if(!page)return '';
+  const landing=page.landing||null;
+  if(landing?.type==='paper'&&landing.id)return Public.browse('paper',landing.id);
+  if(landing?.type==='job'&&landing.id)return Public.browse('job',landing.id);
   const groups=page.groups||[];
   const main='<div class="sitemap-grid">'+groups.map(([name,links])=>'<section class="card"><h2>'+esc(name)+'</h2>'+links.map(([label,href])=>UI.link(href,esc(label),'discovery-link')).join('')+'</section>').join('')+'</div>';
   const crumbs=(page.breadcrumbs||[]).slice(1).map(([label,href],i,all)=>i===all.length-1?[label]:[label,href]);
