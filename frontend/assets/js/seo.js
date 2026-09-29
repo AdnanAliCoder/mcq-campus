@@ -6,6 +6,7 @@ window.SEO=(()=>{
  const hierarchySlug=s=>String(s??'').normalize('NFKD').replace(/[^\x00-\x7F]/g,'').toLowerCase().replace(/[^\w\s-]/g,'').trim().replace(/[-\s]+/g,'-').replace(/^[-_]+|[-_]+$/g,'').slice(0,96)||'item';
  const fitTitle=(value,limit=60)=>{const text=String(value||'').replace(/\s+/g,' ').trim();if(text.length<=limit)return text;const suffix=' | '+site();if(text.endsWith(suffix)){const head=text.slice(0,-suffix.length).replace(/[\s\-—|,:]+$/,'');const room=Math.max(12,limit-suffix.length-3);return head.slice(0,room).replace(/[\s\-—|,:]+$/,'')+'...'+suffix}return text.slice(0,limit-3).replace(/[\s\-—|,:]+$/,'')+'...'};
  const site=()=>MCQ?.db?.settings?.siteName||'MCQ Campus';
+ const shortName=value=>{const text=String(value||'').trim(),bracket=[...text.matchAll(/\[([^\]]{2,16})\]/g)].map(m=>m[1].trim()).filter(Boolean);if(bracket.length)return bracket[bracket.length-1];const paren=[...text.matchAll(/\(([^)]{2,16})\)/g)].map(m=>m[1].trim()).filter(x=>/^[A-Z0-9&. -]+$/.test(x));if(paren.length)return paren[paren.length-1];const caps=text.match(/\b[A-Z][A-Z0-9&.-]{1,15}\b/g);return caps?.[caps.length-1]||text};
  const baseUrl=()=>{try{return new URL(document.querySelector('link[rel="canonical"]')?.href||document.querySelector('meta[property="og:url"]')?.content||location.href).origin}catch{return 'https://www.mcqcampus.com'}};
  // The server resolves these discovery URLs from database IDs. Keep that exact
  // content after hydration; loading another discovery page uses its document.
@@ -27,8 +28,8 @@ window.SEO=(()=>{
   if(base==='category')return `/category/${s(get('categories',id))}`;
   if(base==='subcategory'){const x=get('subcategories',id);return x?`/subcategory/${s(x)}`:'/categories'}
   if(base==='topic'){const x=get('children',id);return x?`/topic/${s(x)}`:'/categories'}
-  if(base==='mcqs')return '/mcqs'; if(base==='papers')return '/papers'; if(base==='paper')return `/paper/${s(get('papers',id))}`;
-  if(base==='job'){const j=get('jobs',id),p=j&&get('papers',j.paper_id);return p?`/paper/${s(p)}/job/${s(j)}`:`/job/${s(j)}`}
+  if(base==='mcqs')return '/mcqs'; if(base==='papers')return '/papers'; if(base==='paper'){const p=get('papers',id);return p?`/${slug(p.name)}-past-papers`:'/papers'}
+  if(base==='job'){const j=get('jobs',id),p=j&&get('papers',j.paper_id);return p&&j?`/${slug(shortName(p.name))}-${slug(j.name)}-past-papers`:`/job/${s(j)}`}
   if(base==='year'){const y=get('years',id),j=y&&get('jobs',y.job_id),p=j&&get('papers',j.paper_id);return p&&j?`/paper/${s(p)}/job/${s(j)}/year/${s(y)}`:`/year/${s(y)}`}
   if(base==='mcq'||base==='practice'){const q=get('mcqs',id);return `/mcq/${s(q)}`}
   if(base==='tests')return '/tests'; if(base==='test')return `/test/${slug(id)}`;
