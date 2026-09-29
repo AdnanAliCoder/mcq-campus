@@ -807,6 +807,64 @@ def _seo_job_past_papers_landing(path,catalog=None):
     record=_seo_past_papers_record(path,catalog)
     return record['jobs'] if record else []
 
+def _seo_row_for_token(queryset,token,label_field='name'):
+    """Resolve an existing public entity by numeric ID or its clean SEO slug."""
+    token=str(token or '').strip().lower()
+    if not token:
+        return None
+    if token.isdigit():
+        row=queryset.filter(pk=int(token)).first()
+        if row:
+            return row
+    for row in queryset:
+        value=getattr(row,label_field,'')
+        if str(value or '').strip().lower()==token or _seo_slug(value)==token:
+            return row
+        # Posts have an explicit slug but older links may have used title slugs.
+        if label_field=='slug' and _seo_slug(getattr(row,'title',''))==token:
+            return row
+    return None
+
+def _seo_dynamic_path_exists(path):
+    """Reject invented SPA entity URLs so crawlers do not receive soft-404 200 pages."""
+    parts=[p for p in str(path or '').strip('/').split('/') if p]
+    if len(parts)<2:
+        return False
+    kind=parts[0]
+    if kind=='category' and len(parts)==2:
+        return bool(_seo_row_for_token(Category.objects.filter(active=True).only('id','name'),parts[1]))
+    if kind=='subcategory' and len(parts)==2:
+        return bool(_seo_row_for_token(Subcategory.objects.filter(active=True,category__active=True).only('id','name'),parts[1]))
+    if kind=='topic' and len(parts)==2:
+        return bool(_seo_row_for_token(ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).only('id','name'),parts[1]))
+    if kind=='mcq' and len(parts)==2:
+        return bool(_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),parts[1],'question'))
+    if kind=='practice' and len(parts)==2:
+        return bool(_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),parts[1],'question'))
+    if kind=='post' and len(parts)==2:
+        return bool(_seo_row_for_token(Post.objects.filter(status='published').only('id','slug','title'),parts[1],'slug'))
+    if kind=='job' and len(parts)==2:
+        return bool(_seo_row_for_token(Job.objects.filter(active=True,paper__active=True).only('id','name'),parts[1]))
+    if kind=='year' and len(parts)==2:
+        return bool(_seo_row_for_token(JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).only('id','name'),parts[1]))
+    if kind!='paper' or len(parts) not in {2,4,6}:
+        return False
+    paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1])
+    if not paper:
+        return False
+    if len(parts)==2:
+        return True
+    if parts[2]!='job':
+        return False
+    job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),parts[3])
+    if not job:
+        return False
+    if len(parts)==4:
+        return True
+    if parts[4]!='year':
+        return False
+    return bool(_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('id','name'),parts[5]))
+
 def _seo_known_spa_path(path,catalog=None):
     static={
         '/','/mcqs','/important','/categories','/papers','/jobs','/jobs-exams','/pdfs',
@@ -814,11 +872,8 @@ def _seo_known_spa_path(path,catalog=None):
         '/cookies','/advertising','/sitemap','/search','/login','/register','/forgot','/reset',
         '/verify','/dashboard','/profile','/my-downloads','/admin','/super-admin'
     }
-    prefixes=(
-        '/category/','/subcategory/','/topic/','/paper/','/job/','/year/','/mcq/','/practice/',
-        '/post/','/dashboard/','/admin/','/super-admin/'
-    )
-    return path in static or any(path.startswith(prefix) for prefix in prefixes) or bool(_seo_past_papers_record(path,catalog))
+    private_prefixes=('/dashboard/','/admin/','/super-admin/')
+    return path in static or any(path.startswith(prefix) for prefix in private_prefixes) or _seo_dynamic_path_exists(path) or bool(_seo_past_papers_record(path,catalog))
 
 def _public_text_response(body, content_type):
     response=HttpResponse(body,content_type=content_type)
