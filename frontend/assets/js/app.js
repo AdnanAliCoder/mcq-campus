@@ -3,7 +3,7 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
 
 App.fitBracketBreaks=function(root=document){
  const scope=root===document?document.getElementById('app'):root;if(!scope)return;
- const selector='.public-page h1,.public-page h2,.public-page h3,.public-page h4,.entity-showcase-card h3,.content-showcase-card h3,.card h3,.article h1,.article h2,.article h3,.breadcrumbs span,.breadcrumbs a';
+ const selector='.public-page h1,.public-page h2,.public-page h3,.public-page h4,.entity-showcase-card h3,.content-showcase-card h3,.card h3,.article h1,.article h2,.article h3,.breadcrumbs span,.breadcrumbs a,.mcq-answer-years .mcq-year-chip>span:last-child';
  scope.querySelectorAll(selector).forEach(el=>{
   if(el.closest('.admin-shell,.super-admin,form,table')||el.children.length&&![...el.children].every(x=>x.tagName==='BR'))return;
   const original=el.dataset.bracketText||el.textContent||'';if(!original.includes('['))return;el.dataset.bracketText=original;el.textContent=original;
