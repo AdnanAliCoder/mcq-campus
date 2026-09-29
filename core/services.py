@@ -905,10 +905,38 @@ def save_site_form(user,form,payload):
     elif form=='direct-ad':
         require(is_super(user) or has_perm(user,'manage_ads')); brand=str(v.get('brand') or '').strip(); require(brand,'Brand name is required.'); obj=AdPlacement(name=brand,provider='custom',placement=str(v.get('placement') or 'home_ad'),title=brand,body=str(v.get('text') or ''),image_url=str(v.get('image_url') or ''),target_url=str(v.get('destination_url') or ''),active=True,starts_at=_parse_date(v.get('start_date')),ends_at=_parse_date(v.get('end_date'),True),created_by=user,updated_by=user); obj.save(); log(user,'Saved direct ad',brand); return {'id':obj.id}
     elif form=='pdf':
-        require(is_super(user) or has_perm(user,'manage_pdfs')); rows=list(blob.get('pdfs') or []); rid=int(c.get('id') or 0); old=next((x for x in rows if int(x.get('id',0))==rid),None); title=str(v.get('title') or '').strip(); require(title,'PDF Title is required.'); download=str(v.get('pdf_file_data') or v.get('download_url') or (old or {}).get('download_url') or '').strip(); require(download,'Choose a PDF file or enter a Download URL.'); new={'id':rid or max([int(x.get('id',0)) for x in rows]+[0])+1,'title':title,'slug':slugify(title),'description':str(v.get('description') or ''),'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
-        rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows; blob['pdfs']=rows
+        require(is_super(user) or has_perm(user,'manage_pdfs'))
+        rows=list(blob.get('pdfs') or [])
+        rid=int(c.get('id') or 0)
+        old=next((x for x in rows if int(x.get('id',0))==rid),None)
+        title=str(v.get('title') or '').strip()
+        require(title,'PDF Title is required.')
+        download=str(v.get('pdf_file_data') or v.get('download_url') or (old or {}).get('download_url') or '').strip()
+        require(download,'Choose a PDF file or enter a Download URL.')
+        new_id=rid or max([int(x.get('id',0)) for x in rows]+[0])+1
+        base_slug=slugify(title) or f'pdf-{new_id}'
+        used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
+        item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
+        new={'id':new_id,'title':title,'slug':item_slug,'description':str(v.get('description') or ''),'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
+        blob['pdfs']=rows
     elif form=='latest-job':
-        require(is_super(user) or has_perm(user,'manage_latest_jobs')); rows=list(blob.get('latestJobs') or []); rid=int(c.get('id') or 0); old=next((x for x in rows if int(x.get('id',0))==rid),None); paper_id=int(v.get('paper_id') or 0); require(Paper.objects.filter(pk=paper_id).exists(),'Choose a valid Organization / Paper.'); title=str(v.get('title') or '').strip(); last=str(v.get('last_date') or '').strip(); require(title and last,'Job Title and Last Date are required.'); new={'id':rid or max([int(x.get('id',0)) for x in rows]+[0])+1,'paper_id':paper_id,'title':title,'slug':slugify(title),'last_date':last,'apply_url':str(v.get('apply_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}; rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows; blob['latestJobs']=rows
+        require(is_super(user) or has_perm(user,'manage_latest_jobs'))
+        rows=list(blob.get('latestJobs') or [])
+        rid=int(c.get('id') or 0)
+        old=next((x for x in rows if int(x.get('id',0))==rid),None)
+        paper_id=int(v.get('paper_id') or 0)
+        require(Paper.objects.filter(pk=paper_id).exists(),'Choose a valid Organization / Paper.')
+        title=str(v.get('title') or '').strip()
+        last=str(v.get('last_date') or '').strip()
+        require(title and last,'Job Title and Last Date are required.')
+        new_id=rid or max([int(x.get('id',0)) for x in rows]+[0])+1
+        base_slug=slugify(title) or f'latest-job-{new_id}'
+        used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
+        item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
+        new={'id':new_id,'paper_id':paper_id,'title':title,'slug':item_slug,'last_date':last,'apply_url':str(v.get('apply_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
+        blob['latestJobs']=rows
     elif form=='bulk-categories':
         require(is_admin(user) and has_perm(user,'manage_categories')); count=0
         for raw in str(v.get('categories') or '').splitlines():
