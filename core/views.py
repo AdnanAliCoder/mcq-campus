@@ -946,9 +946,13 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         title='Jobs & Exams Preparation — Past Papers and MCQs | MCQ Campus'
         description='Browse competitive exam jobs and prepare with job-wise past papers, repeated MCQs, answers and explanations.'
         heading='Jobs & Exams Preparation'
+        # Link directly to the search-intent landing URLs so pages such as
+        # "PPSC Assistant Past Papers" receive crawlable internal links from
+        # a top-level public hub instead of depending on JavaScript navigation.
+        catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         links=[
-            (j.name,f'/paper/{_seo_slug(j.paper.name)}/job/{_seo_slug(j.name)}')
-            for j in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('name','paper__name').order_by('name')
+            (f'{_seo_short_name(j.paper.name)} {j.name} Past Papers',catalog['job_paths'][j.id])
+            for j in catalog['jobs'] if j.id in catalog['available']
         ]
     elif path=='/pdfs':
         title='Exam Preparation PDFs | MCQ Campus'
@@ -1189,7 +1193,7 @@ def _seo_breadcrumbs(path,catalog=None):
     if path in labels: return crumbs+[(labels[path],path)]
     return crumbs
 
-def _seo_jsonld(title,description,canonical,path,catalog=None):
+def _seo_jsonld(title,description,canonical,path,catalog=None,links=None):
     graph=[
         {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQ Campus','url':SEO_ORIGIN+'/','logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
         {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQ Campus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en'},
@@ -1198,6 +1202,18 @@ def _seo_jsonld(title,description,canonical,path,catalog=None):
     crumbs=_seo_breadcrumbs(path,catalog)
     if len(crumbs)>1:
         graph.append({'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':i+1,'name':name,'item':SEO_ORIGIN+href} for i,(name,href) in enumerate(crumbs)]})
+    if _seo_past_papers_record(path,catalog):
+        graph[2]['@type']=['WebPage','CollectionPage']
+        items=[]
+        seen=set()
+        for label,href in (links or []):
+            href=str(href or '')
+            if not href.startswith('/') or href in seen: continue
+            seen.add(href)
+            items.append({'@type':'ListItem','position':len(items)+1,'name':str(label),'url':SEO_ORIGIN+href})
+            if len(items)>=50: break
+        if items:
+            graph.append({'@type':'ItemList','name':title,'itemListElement':items})
     return json.dumps({'@context':'https://schema.org','@graph':graph},ensure_ascii=False,separators=(',',':')).replace('<','\\u003c')
 
 def _seo_discovery_groups(links,catalog):
@@ -1217,6 +1233,48 @@ def _seo_discovery_groups(links,catalog):
         else: group='More on MCQ Campus'
         groups.setdefault(group,[]).append((label,href))
     return list(groups.items())
+
+def _seo_discovery_sections(path,heading,description,catalog):
+    """Useful crawler-visible copy for search-intent past-paper landing pages."""
+    if path=='/sitemap':
+        return []
+    record=_seo_past_papers_record(path,catalog)
+    if not record:
+        return []
+    if record['jobs']:
+        job_name=record['jobs'][0].name
+        organizations=len({j.paper_id for j in record['jobs']})
+        return [
+            (f'{job_name} past papers by organization',
+             f'Browse {job_name} past papers from {organizations} available testing organizations on MCQ Campus. Each organization page keeps its own exam hierarchy so you can move from the job to the relevant paper year without mixing records from another agency.'),
+            (f'Practice {job_name} MCQs with answers',
+             f'Open the organization that matches your target exam, choose an available year, and practise the MCQs linked to that past paper. Review the correct answer and explanation after attempting each question, then use related paper and category links for wider revision.'),
+            ('Find the right exam record',
+             f'This page groups the available {job_name} preparation paths in one place. Use the organization-specific links below when the same job title appears under more than one testing body, because each organization can have different papers, years and linked MCQs.'),
+        ]
+    paper=record['paper']
+    job=record['job']
+    if paper and job:
+        short=_seo_short_name(paper.name)
+        return [
+            (f'{short} {job.name} past papers by year',
+             f'Explore the available {short} {job.name} past papers and open the exam year that matches the record you want to practise. The year links keep the {paper.name} hierarchy attached to the correct job.'),
+            (f'Prepare for {short} {job.name} with MCQs',
+             f'Use each past-paper year as a focused practice set. Attempt the linked MCQs first, then review answers and explanations and follow category links for topics that need more revision.'),
+            (f'More {short} past-paper preparation',
+             f'You can move back to the {short} organization page to browse other jobs, or continue into a specific exam year for question-level practice. These connected pages help keep job-wise and year-wise preparation easy to discover.'),
+        ]
+    if paper:
+        short=_seo_short_name(paper.name)
+        return [
+            (f'{short} past papers by job and year',
+             f'Browse {paper.name} past papers through the jobs and exam years currently available on MCQ Campus. Choose a job first when you want role-specific preparation, or open a listed year to reach the MCQs connected with that exam record.'),
+            (f'Practice {short} past paper MCQs',
+             f'Past-paper pages connect the organization, job and exam year with related multiple-choice questions. Attempt the questions, check the correct answers and explanations, and revisit subject categories where you need more practice.'),
+            (f'Explore more {short} exam preparation',
+             f'Use the related job links below to continue from this {short} hub into narrower past-paper pages. The hierarchy is preserved so similarly named jobs from other organizations do not get mixed into this paper collection.'),
+        ]
+    return []
 
 def spa_index(request):
     fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
@@ -1250,8 +1308,13 @@ def spa_index(request):
     robots='noindex,nofollow' if status==404 or path.strip('/').split('/')[0] in private_roots else 'index,follow'
     if landing and landing['job'] and landing['job'].id not in catalog['available']:
         robots='noindex,follow'
-    sections=[] if discovery or robots.startswith('noindex') else _seo_supporting_sections(path,heading,description)
-    jsonld=_seo_jsonld(title,description,canonical,path,catalog)
+    if robots.startswith('noindex'):
+        sections=[]
+    elif discovery:
+        sections=_seo_discovery_sections(path,heading,description,catalog)
+    else:
+        sections=_seo_supporting_sections(path,heading,description)
+    jsonld=_seo_jsonld(title,description,canonical,path,catalog,links)
     discovery_page=None
     if discovery:
         discovery_page={'path':path,'heading':heading,'intro':intro,
