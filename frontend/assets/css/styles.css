@@ -2398,3 +2398,19 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
  .mcq-verified-answer .mcq-answer-years .chips{grid-template-columns:1fr}
  .mcq-verified-answer .mcq-year-chip{padding:7px 8px!important}
 }
+
+/* 2026-09-29: keep polished past-paper provenance compact like the original year chips. */
+.mcq-verified-answer .mcq-year-chip{
+  padding:3px 6px!important;
+  border-radius:7px!important;
+  font-size:.66rem!important;
+  line-height:1.2!important;
+  min-height:0!important;
+}
+.mcq-verified-answer .mcq-year-icon{
+  width:18px!important;height:18px!important;min-width:18px!important;
+}
+.mcq-verified-answer .mcq-year-icon img{max-width:17px!important;max-height:17px!important}
+@media(max-width:620px){
+ .mcq-verified-answer .mcq-year-chip{padding:3px 6px!important}
+}
