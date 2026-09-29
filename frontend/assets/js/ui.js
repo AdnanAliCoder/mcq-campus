@@ -54,8 +54,8 @@ window.UI=(()=>{
     years:{badgeText:parentJob?.name||'Job Year',subtitle:'Open this year to practise linked past-paper MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
    const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentJob&&parentPaper?'paper/'+parentPaper.id+'/job/'+parentJob.id+'/year/'+x.id:conf[0]+'/'+x.id;
-   const yearTitleHtml=type==='years'&&App.route?.path?.startsWith('paper/')&&App.route?.path?.includes('/job/')?(()=>{const raw=String(title||''),at=raw.indexOf('[');if(at<0)return esc(raw);const before=raw.slice(0,at).trimEnd(),after=raw.slice(at);return `${esc(before)}<span class="job-year-bracket-line">${esc(after)}</span>`})():'';
-   return showcaseCard(entityPath,x,{...data,title,titleHtml:yearTitleHtml});
+   const cardTitleHtml=(()=>{const raw=String(title||''),at=raw.indexOf('[');if(at<0)return '';const before=raw.slice(0,at).trimEnd(),after=raw.slice(at);return `${esc(before)}<span class="card-bracket-line">${esc(after)}</span>`})();
+   return showcaseCard(entityPath,x,{...data,title,titleHtml:cardTitleHtml});
   }
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
  }
