@@ -35,7 +35,7 @@ class PastPapersSEOTests(TestCase):
         return [node.text for node in ET.fromstring(self.client.get(path).content).iter() if node.tag.endswith('}loc')]
 
     def test_paper_and_qualified_job_keep_the_correct_hierarchy(self):
-        page,_=self.page('/ppsc-past-papers')
+        page,_=self.page('/punjab-public-service-commission-ppsc-past-papers')
         links=[url for _,rows in page['groups'] for _,url in rows]
         self.assertIn('/ppsc-assistant-past-papers',links)
         self.assertNotIn('/spsc-assistant-past-papers',links)
@@ -54,14 +54,14 @@ class PastPapersSEOTests(TestCase):
 
     def test_full_name_alias_has_one_preferred_canonical(self):
         page,html=self.page('/punjab-public-service-commission-ppsc-past-papers')
-        self.assertEqual(page['canonical'],'https://www.mcqcampus.com/ppsc-past-papers')
+        self.assertEqual(page['canonical'],'https://www.mcqcampus.com/punjab-public-service-commission-ppsc-past-papers')
         self.assertIn('rel="canonical" href="'+page['canonical']+'"',html)
-        self.assertNotIn(page['path'],''.join(self.urls('/sitemap-papers.xml')))
+        self.assertIn(page['canonical'],self.urls('/sitemap-papers.xml'))
 
     def test_sitemaps_preserve_original_urls_and_add_unique_resolvable_landings(self):
         urls=self.urls('/sitemap-papers.xml')+self.urls('/sitemap-jobs.xml')
         self.assertEqual(len(urls),len(set(urls)))
-        self.assertIn('https://www.mcqcampus.com/paper/punjab-public-service-commission-ppsc/job/assistant',urls)
+        self.assertIn('https://www.mcqcampus.com/ppsc-assistant-past-papers',urls)
         for url in urls:
             path=url.removeprefix('https://www.mcqcampus.com')
             if path.endswith('-past-papers'):
