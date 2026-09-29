@@ -66,8 +66,21 @@ class IntegrationTests(TestCase):
         self.assertIn('PPSC Past Papers, Jobs &amp; MCQs',paper)
         self.assertIn('PPSC Assistant Past Papers &amp; MCQs',jobpage)
         self.assertIn('PPSC Assistant 2026 Past Paper MCQs',yearpage)
+        self.assertIn('/paper/ppsc',self.client.get('/sitemap-papers.xml').content.decode())
         self.assertIn('/paper/ppsc/job/assistant',self.client.get('/sitemap-jobs.xml').content.decode())
         self.assertIn('/paper/ppsc/job/assistant/year/2026',self.client.get('/sitemap-years.xml').content.decode())
+
+    def test_unknown_public_entity_routes_are_404_and_noindex(self):
+        for path in [
+            '/category/not-a-real-category',
+            '/paper/not-a-real-paper',
+            '/paper/ppsc/job/not-a-real-job',
+            '/mcq/not-a-real-question',
+            '/post/not-a-real-post',
+        ]:
+            response=self.client.get(path)
+            self.assertEqual(response.status_code,404,path)
+            self.assertIn('name="robots" content="noindex,nofollow"',response.content.decode(),path)
 
     def test_private_routes_are_server_noindex(self):
         body=self.client.get('/login').content.decode()
