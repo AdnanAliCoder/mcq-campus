@@ -29,10 +29,10 @@ window.PublicLayout=(()=>{
   } else if(kind==='papers'){
    const parent=ctx.parent,type=ctx.type,countries=[...new Set(['Pakistan','India',...papers.map(x=>x.country).filter(Boolean)])];
    let hierarchy=[];
-   if(type==='paper'&&parent)hierarchy=MCQ.db.jobs.filter(x=>x.active!==false&&x.paper_id===parent.id).slice(0,8).map(x=>['paper/'+parent.id+'/job/'+x.id,x.name]);
-   else if(type==='job'&&parent){const paper=MCQ.get('papers',parent.paper_id);hierarchy=years.filter(x=>x.job_id===parent.id).slice(0,8).map(x=>[paper?'paper/'+paper.id+'/job/'+parent.id+'/year/'+x.id:'year/'+x.id,x.name]);}
+   if(type==='job'&&parent){const paper=MCQ.get('papers',parent.paper_id);hierarchy=years.filter(x=>x.job_id===parent.id).slice(0,8).map(x=>[paper?'paper/'+paper.id+'/job/'+parent.id+'/year/'+x.id:'year/'+x.id,x.name]);}
    else hierarchy=paperLinks(7);
-   if(type==='paper'||type==='job')out.push(module(type==='paper'?'Jobs / Posts':'Years / Papers',linkList(hierarchy)));
+   if(type==='job')out.push(module('Years / Papers',linkList(hierarchy)));
+   if(type==='paper'&&parent){const country=parent.country||MCQ.db.settings.country||'Pakistan';const jobCount=jobs.filter(x=>x.paper_id===parent.id).length,paperCount=years.filter(y=>{const j=MCQ.get('jobs',y.job_id);return j&&j.paper_id===parent.id}).length;out.push(module('Organization',`<p class="small muted">${e(country)} · ${jobCount} jobs/posts · ${paperCount} paper records</p>`));}
    out.push(ad('paper_sidebar')||ad('sidebar_middle'));
    out.push(module('Related Resources',linkList([['mcqs','Related MCQs'],['pdfs','Related PDFs']])));
   } else if(kind==='jobs'){
