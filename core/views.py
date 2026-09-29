@@ -880,6 +880,9 @@ def sitemap_papers(request):
     rows=[]
     for p in catalog['papers']:
         if p.id not in paper_ids: continue
+        # Keep the real browse hierarchy discoverable as well as the
+        # search-intent landing URL. Both pages are self-canonical and useful.
+        rows.append((f'{SEO_ORIGIN}/paper/{_seo_slug(p.name)}',p.updated_at))
         rows.append((SEO_ORIGIN+catalog['paper_paths'][p.id],p.updated_at))
     return _xml_response(_urlset(rows))
 
@@ -888,7 +891,11 @@ def sitemap_jobs(request):
     rows=[]
     for j in catalog['jobs']:
         if j.id not in catalog['available']: continue
+        paper_slug=_seo_slug(j.paper.name)
         job_slug=_seo_slug(j.name)
+        # Preserve the original paper -> job hierarchy URL in the sitemap,
+        # then add the canonical search-intent landing pages.
+        rows.append((f'{SEO_ORIGIN}/paper/{paper_slug}/job/{job_slug}',j.updated_at))
         rows.append((SEO_ORIGIN+catalog['job_paths'][j.id],j.updated_at))
         rows.append((SEO_ORIGIN+catalog['group_paths'][job_slug],j.updated_at))
     return _xml_response(_urlset(rows))
