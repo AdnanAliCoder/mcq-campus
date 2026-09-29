@@ -54,8 +54,7 @@ window.UI=(()=>{
     years:{badgeText:parentJob?.name||'Job Year',subtitle:'Open this year to practise linked past-paper MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
    const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentJob&&parentPaper?'paper/'+parentPaper.id+'/job/'+parentJob.id+'/year/'+x.id:conf[0]+'/'+x.id;
-   const bracketAt=String(title||'').indexOf('['),titleHtml=bracketAt>0?`${esc(String(title).slice(0,bracketAt).trimEnd())}<br>${esc(String(title).slice(bracketAt).trimStart())}`:'';
-   return showcaseCard(entityPath,x,{...data,title,titleHtml});
+   return showcaseCard(entityPath,x,{...data,title});
   }
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
  }
