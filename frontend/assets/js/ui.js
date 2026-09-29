@@ -38,8 +38,8 @@ window.UI=(()=>{
 
  const catIcons=['chart','globe','bolt','code','cpu','grid','cpu','science','chart','leaf'];
  const entityIcon=(x,fallback='grid')=>{const v=String(x?.icon||x?.paper_icon||fallback).trim();if(/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(v)||/^https?:\/\//i.test(v))return `<img class="entity-icon-img" src="${esc(v)}" alt="">`;if(/^[a-z-]+$/i.test(v))return icon(v);return `<span class="entity-emoji" aria-hidden="true">${esc(v.slice(0,4))}</span>`};
- function showcaseCard(path,x,{badgeText='',title='',subtitle='',meta='',fallback='grid'}={}){
-  return link(path,`<div class="entity-card-media"><span class="entity-card-image">${entityIcon(x,fallback)}</span></div><div class="entity-card-body"><span class="entity-card-badge">${esc(badgeText)}</span><h3>${esc(title||x?.name||'')}</h3><p>${esc(subtitle)}</p><div class="entity-card-meta"><span>${icon('briefcase')} ${esc(meta)}</span></div></div><span class="entity-card-arrow" aria-hidden="true">${icon('arrow')}</span>`,'card clickable entity-showcase-card')
+ function showcaseCard(path,x,{badgeText='',title='',titleHtml='',subtitle='',meta='',fallback='grid'}={}){
+  return link(path,`<div class="entity-card-media"><span class="entity-card-image">${entityIcon(x,fallback)}</span></div><div class="entity-card-body"><span class="entity-card-badge">${esc(badgeText)}</span><h3>${titleHtml||esc(title||x?.name||'')}</h3><p>${esc(subtitle)}</p><div class="entity-card-meta"><span>${icon('briefcase')} ${esc(meta)}</span></div></div><span class="entity-card-arrow" aria-hidden="true">${icon('arrow')}</span>`,'card clickable entity-showcase-card')
  }
  function card(type,x,index=0){
   const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','jobs','paper_id','jobs'],jobs:['job','years','job_id','papers'],years:['year',null,null,'MCQs']}[type];
@@ -54,7 +54,8 @@ window.UI=(()=>{
     years:{badgeText:parentJob?.name||'Job Year',subtitle:'Open this year to practise linked past-paper MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
    const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentJob&&parentPaper?'paper/'+parentPaper.id+'/job/'+parentJob.id+'/year/'+x.id:conf[0]+'/'+x.id;
-   return showcaseCard(entityPath,x,{...data,title});
+   const yearTitleHtml=type==='years'&&App.route?.path?.startsWith('paper/')&&App.route?.path?.includes('/job/')?(()=>{const raw=String(title||''),at=raw.indexOf('[');if(at<0)return esc(raw);const before=raw.slice(0,at).trimEnd(),after=raw.slice(at);return `${esc(before)}<span class="job-year-bracket-line">${esc(after)}</span>`})():'';
+   return showcaseCard(entityPath,x,{...data,title,titleHtml:yearTitleHtml});
   }
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
  }
