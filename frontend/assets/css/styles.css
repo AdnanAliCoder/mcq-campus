@@ -2437,3 +2437,57 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
    border-left-width:3px!important;
  }
 }
+
+/* 2026-09-29: polished shell for the complete public MCQ experience. */
+.mcq-reference-card{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(180deg,#ffffff 0%,#fbfefd 100%)!important;
+  border:1px solid #b8d6cb!important;
+  border-radius:22px!important;
+  box-shadow:0 10px 28px rgba(24,78,61,.09),0 2px 6px rgba(24,78,61,.04)!important;
+}
+.mcq-reference-card::before{
+  content:"";
+  position:absolute;left:0;right:0;top:0;height:4px;
+  background:linear-gradient(90deg,#178762,#66b99a,#d6aa2f);
+}
+.mcq-reference-card>.mcq-top{
+  margin:-2px -2px 11px!important;
+  padding:4px 2px 9px!important;
+  border-bottom:1px solid rgba(54,113,92,.10);
+}
+.mcq-reference-card .mcq-reference-options{
+  padding:2px 1px 0;
+}
+.mcq-reference-card .mcq-reference-options .option,
+.mcq-reference-card .mcq-reference-options.test-options label{
+  background:#fff!important;
+  border-color:#a9c1b8!important;
+  box-shadow:0 2px 5px rgba(35,80,65,.035);
+}
+.mcq-reference-card .mcq-reference-options .option:hover{
+  border-color:#65a991!important;
+  background:#f9fdfb!important;
+}
+.mcq-reference-card .mcq-reference-options .option.correct{
+  border-color:#169565!important;
+  background:linear-gradient(90deg,#f1fbf6,#e5f7ed)!important;
+}
+.mcq-reference-card .mcq-reference-options .option.wrong{
+  border-color:#c65c5c!important;
+  background:linear-gradient(90deg,#fff7f7,#ffeded)!important;
+}
+.mcq-reference-card .mcq-reference-actions{
+  margin-top:5px;
+  padding-top:10px!important;
+  border-top:1px solid rgba(54,113,92,.09);
+}
+@media(max-width:620px){
+ .mcq-reference-card{
+   border-radius:19px!important;
+   padding:13px!important;
+   box-shadow:0 7px 20px rgba(24,78,61,.08)!important;
+ }
+ .mcq-reference-card::before{height:3px}
+}
