@@ -122,6 +122,23 @@ class PastPapersSEOTests(TestCase):
         sitemap,_=self.page('/sitemap')
         self.assertIn(path,[href for _,rows in sitemap['groups'] for _,href in rows])
 
+    def test_keyword_landings_have_crawlable_supporting_content_and_itemlist(self):
+        page,html=self.page('/ppsc-assistant-past-papers')
+        self.assertIn('PPSC Assistant past papers by year',html)
+        schema=page['schema']['@graph']
+        webpage=next(node for node in schema if node.get('@id','').endswith('#webpage'))
+        self.assertIn('CollectionPage',webpage['@type'])
+        item_list=next(node for node in schema if node.get('@type')=='ItemList')
+        urls=[item['url'] for item in item_list['itemListElement']]
+        self.assertIn('https://www.mcqcampus.com/paper/punjab-public-service-commission-ppsc/job/assistant/year/2024',urls)
+
+    def test_jobs_exams_hub_links_to_search_intent_job_landings(self):
+        response=self.client.get('/jobs-exams')
+        self.assertEqual(response.status_code,200)
+        html=response.content.decode()
+        self.assertIn('href="/ppsc-assistant-past-papers"',html)
+        self.assertIn('PPSC Assistant Past Papers',html)
+
     def test_names_are_escaped_in_discovery_json_and_html(self):
         job=Job.objects.create(id=30,name='Operator </script><img src=x onerror=alert(1)>',paper=self.ppsc)
         JobYear.objects.create(id=300,name='2026',job=job)
