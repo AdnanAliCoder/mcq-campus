@@ -74,23 +74,29 @@ class PastPapersSEOTests(TestCase):
         self.assertIn('rel="canonical" href="'+page['canonical']+'"',html)
         self.assertIn(page['canonical'],self.urls('/sitemap-papers.xml'))
 
-    def test_sitemaps_preserve_original_urls_and_add_unique_resolvable_landings(self):
-        urls=self.urls('/sitemap-papers.xml')+self.urls('/sitemap-jobs.xml')
+    def test_sitemaps_focus_on_canonical_search_intent_landings(self):
+        paper_urls=self.urls('/sitemap-papers.xml')
+        job_urls=self.urls('/sitemap-jobs.xml')
+        urls=paper_urls+job_urls
         self.assertEqual(len(urls),len(set(urls)))
-        self.assertIn('https://www.mcqcampus.com/ppsc-assistant-past-papers',urls)
+        self.assertIn('https://www.mcqcampus.com/ppsc-past-papers',paper_urls)
+        self.assertIn('https://www.mcqcampus.com/ppsc-assistant-past-papers',job_urls)
+        self.assertNotIn('https://www.mcqcampus.com/paper/punjab-public-service-commission-ppsc',paper_urls)
+        self.assertFalse(any('/paper/' in url and '/job/' in url for url in job_urls))
+        self.assertFalse(any(url.endswith('/assistant-past-papers') for url in job_urls))
         for url in urls:
             path=url.removeprefix('https://www.mcqcampus.com')
-            if path.endswith('-past-papers'):
-                data,_=self.page(path)
-                self.assertEqual(data['canonical'],url)
-                self.assertEqual(data['robots'],'index,follow')
+            data,_=self.page(path)
+            self.assertEqual(data['canonical'],url)
+            self.assertEqual(data['robots'],'index,follow')
 
-    def test_original_hierarchy_page_keeps_its_url_and_renderer(self):
+    def test_original_hierarchy_alias_uses_search_intent_canonical(self):
         path='/paper/punjab-public-service-commission-ppsc/job/assistant'
         response=self.client.get(path)
         self.assertEqual(response.status_code,200)
-        self.assertIn('href="https://www.mcqcampus.com'+path+'"',response.content.decode())
-        self.assertNotIn('id="seo-discovery-page"',response.content.decode())
+        html=response.content.decode()
+        self.assertIn('href="https://www.mcqcampus.com/ppsc-assistant-past-papers"',html)
+        self.assertNotIn('id="seo-discovery-page"',html)
 
     def test_qualified_and_generic_job_slug_collision_does_not_mix_records(self):
         job=Job.objects.create(id=30,name='PPSC Assistant',paper=self.spsc)
@@ -130,13 +136,15 @@ class PastPapersSEOTests(TestCase):
         job=Job.objects.create(id=30,name=name,paper=self.ppsc)
         JobYear.objects.create(id=300,name='2026',job=job)
         catalog=_seo_past_papers_catalog()
-        path=catalog['group_paths']['administrative-officer-for-education-and-training-services']
-        page,_=self.page(path)
+        generic_path=catalog['group_paths']['administrative-officer-for-education-and-training-services']
+        qualified_path=catalog['job_paths'][job.id]
+        page,_=self.page(generic_path)
         self.assertEqual(page['title'],name+' Past Papers | MCQ Campus')
         self.assertEqual(page['robots'],'index,follow')
-        self.assertIn('https://www.mcqcampus.com'+path,self.urls('/sitemap-jobs.xml'))
-        sitemap,_=self.page('/sitemap')
-        self.assertIn(path,[href for _,rows in sitemap['groups'] for _,href in rows])
+        self.assertIn('https://www.mcqcampus.com'+qualified_path,self.urls('/sitemap-jobs.xml'))
+        self.assertNotIn('https://www.mcqcampus.com'+generic_path,self.urls('/sitemap-jobs.xml'))
+        qualified,_=self.page(qualified_path)
+        self.assertIn('PPSC '+name+' Past Papers',qualified['title'])
 
     def test_keyword_landings_have_crawlable_supporting_content_and_itemlist(self):
         page,html=self.page('/ppsc-assistant-past-papers')
