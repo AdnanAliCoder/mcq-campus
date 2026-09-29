@@ -63,11 +63,13 @@ class IntegrationTests(TestCase):
         paper=self.client.get('/paper/ppsc').content.decode()
         jobpage=self.client.get('/paper/ppsc/job/assistant').content.decode()
         yearpage=self.client.get('/paper/ppsc/job/assistant/year/2026').content.decode()
-        self.assertIn('PPSC Past Papers, Jobs &amp; MCQs',paper)
-        self.assertIn('PPSC Assistant Past Papers &amp; MCQs',jobpage)
-        self.assertIn('PPSC Assistant 2026 Past Paper MCQs',yearpage)
-        self.assertIn('/paper/ppsc',self.client.get('/sitemap-papers.xml').content.decode())
-        self.assertIn('/paper/ppsc/job/assistant',self.client.get('/sitemap-jobs.xml').content.decode())
+        self.assertIn('PPSC Past Papers | MCQ Campus',paper)
+        self.assertIn('PPSC Assistant Past Papers | MCQ Campus',jobpage)
+        self.assertIn('PPSC Assistant 2026 Past Paper | MCQ Campus',yearpage)
+        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/ppsc-past-papers"',paper)
+        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/ppsc-assistant-past-papers"',jobpage)
+        self.assertIn('/ppsc-past-papers',self.client.get('/sitemap-papers.xml').content.decode())
+        self.assertIn('/ppsc-assistant-past-papers',self.client.get('/sitemap-jobs.xml').content.decode())
         self.assertIn('/paper/ppsc/job/assistant/year/2026',self.client.get('/sitemap-years.xml').content.decode())
 
     def test_unknown_public_entity_routes_are_404_and_noindex(self):
@@ -77,6 +79,8 @@ class IntegrationTests(TestCase):
             '/paper/ppsc/job/not-a-real-job',
             '/mcq/not-a-real-question',
             '/post/not-a-real-post',
+            '/pdf/not-a-real-pdf',
+            '/latest-job/not-a-real-job',
         ]:
             response=self.client.get(path)
             self.assertEqual(response.status_code,404,path)
