@@ -34,8 +34,16 @@ def category(x): return entity_base(x)
 def subcategory(x): return {**entity_base(x),'category_id':x.category_id}
 def child(x): return {**entity_base(x),'subcategory_id':x.subcategory_id}
 def paper(x): return {**entity_base(x),'country':x.country,'paper_icon':x.icon}
-def job(x): return {**entity_base(x),'paper_id':x.paper_id}
-def year(x): return {**entity_base(x),'job_id':x.job_id}
+def job(x):
+    row={**entity_base(x),'paper_id':x.paper_id}
+    if getattr(x,'paper',None): row['icon']=x.paper.icon
+    return row
+def year(x):
+    row={**entity_base(x),'job_id':x.job_id}
+    job_obj=getattr(x,'job',None)
+    paper_obj=getattr(job_obj,'paper',None) if job_obj else None
+    if paper_obj: row['icon']=paper_obj.icon
+    return row
 def _important_mcq(x):
     years=list(dict.fromkeys(x.job_year_ids or []))
     if len(years)<2: return False
