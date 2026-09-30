@@ -779,7 +779,9 @@ def save_entity(user,payload):
     fields,values,ctx,_=parse_fields(payload); typ=ctx.get('type'); require(typ in ENTITY_MODELS,'Invalid entity type.'); perm={'categories':'manage_categories','subcategories':'manage_subcategories','children':'manage_child_categories','papers':'manage_papers','jobs':'manage_jobs','years':'manage_job_years'}[typ]; require(is_admin(user) and has_perm(user,perm))
     model=ENTITY_MODELS[typ]; rid=int(ctx.get('id') or 0) or None; name=str(values.get('entity-name') or '').strip();
     if not name: raise ValueError('Name is required.')
-    icon=str(values.get('entity-icon-data') or values.get('entity-icon') or 'grid').strip() or 'grid'; active='entity-active' in fields
+    icon_url=str(values.get('entity-icon-url') or '').strip()
+    if icon_url and not re.match(r'^https?://',icon_url,re.I): raise ValueError('Icon URL must start with http:// or https://.')
+    icon=str(icon_url or values.get('entity-icon-data') or values.get('entity-icon') or 'grid').strip() or 'grid'; active='entity-active' in fields
     obj=model.objects.filter(pk=rid).first() if rid else None
     if not obj: obj=model(id=next_id(model),created_by=user)
     obj.name=name; obj.icon=icon; obj.active=active; obj.updated_by=user
