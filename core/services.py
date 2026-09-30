@@ -788,7 +788,12 @@ def save_entity(user,payload):
     if typ=='papers': obj.country=str(values.get('entity-country') or 'Pakistan')[:80]
     if typ in ENTITY_PARENT:
         fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.'); setattr(obj,fk,pid)
-    obj.save(); log(user,f'Saved {typ}',name); return {'type':typ,'entity':_serialize_entity(typ,obj)}
+    obj.save()
+    if typ=='papers':
+        now=timezone.now()
+        Job.objects.filter(paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
+        JobYear.objects.filter(job__paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
+    log(user,f'Saved {typ}',name); return {'type':typ,'entity':_serialize_entity(typ,obj)}
 
 def _normalize_email(value):
     email=str(value or '').strip().lower()
