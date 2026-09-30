@@ -330,8 +330,8 @@ def snapshot(user):
     subs=list(Subcategory.objects.select_related('created_by','updated_by').all().order_by('id'))
     childs=list(ChildCategory.objects.select_related('created_by','updated_by').all().order_by('id'))
     papers=list(Paper.objects.select_related('created_by','updated_by').all().order_by('id'))
-    jobs=list(Job.objects.select_related('created_by','updated_by').all().order_by('id'))
-    years=list(JobYear.objects.select_related('created_by','updated_by').all().order_by('id'))
+    jobs=list(Job.objects.select_related('paper','created_by','updated_by').all().order_by('id'))
+    years=list(JobYear.objects.select_related('job__paper','created_by','updated_by').all().order_by('id'))
     qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
     objects=list(qs)
     total=int(objects[0]._page_total) if objects else 0
