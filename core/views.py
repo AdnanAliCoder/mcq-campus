@@ -21,6 +21,7 @@ from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
+    ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -658,6 +659,8 @@ def commands(request):
         if action in {'changePassword','form:password-change'}:
             update_session_auth_hash(request,request.user)
         response={'success':True,'result':result}
+        seo_actions={'form:mcq','form:review','form:entity','form:post','form:pdf','form:latest-job','action:import-confirm','action:latest-job-toggle','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'}
+        if action in seo_actions: response['seoIndex']=seo_index_snapshot()
         if action in {'saveProfile','form:profile','form:user'}: response['user']=user_dict(request.user,request.session)
         delta_actions={'attempt','toggleBookmark','savePaper','report','saveProfile','changePassword','form:profile','form:password-change','form:mcq','form:review','form:entity','form:user','form:guide','form:post','form:ad','form:pdf','form:latest-job','action:import-confirm','action:report-resolve','action:user-status','action:ad-toggle','action:ad-delete','action:post-delete','action:pdf-delete','action:latest-job-toggle','action:latest-job-delete','action:entity-pin','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'}
         if action not in delta_actions: response['refresh']='bootstrap'
@@ -845,6 +848,132 @@ def _seo_catalog_item(kind,token):
             return row
     return None
 
+def _seo_index_value(kind,key,registry=None):
+    registry=registry or seo_index_snapshot()
+    value=(registry.get('items') or {}).get(f'{kind}:{key}')
+    return int(value) if value else None
+
+def _seo_index_token(kind,key,registry=None):
+    value=_seo_index_value(kind,key,registry)
+    return f'{value:06d}' if value else None
+
+def _seo_indexed_path(kind,obj,registry=None):
+    registry=registry or seo_index_snapshot()
+    if kind=='mcq':
+        token=_seo_index_token('mcq',obj.id,registry); return f'/mcqs/{token}/{_seo_slug(obj.question)}' if token else None
+    if kind=='category':
+        token=_seo_index_token('category',obj.id,registry); return f'/categories/{token}/{_seo_slug(obj.name)}' if token else None
+    if kind=='paper':
+        token=_seo_index_token('paper',obj.id,registry); return f'/past-papers/{token}/{_seo_slug(_seo_short_name(obj.name))}-past-papers' if token else None
+    if kind=='job':
+        token=_seo_index_token('job',obj.id,registry); paper=getattr(obj,'paper',None) or Paper.objects.filter(pk=obj.paper_id).only('name').first()
+        return f'/past-papers/{token}/{_seo_slug(_seo_short_name(paper.name))}-{_seo_slug(obj.name)}-past-papers' if token and paper else None
+    if kind=='year':
+        token=_seo_index_token('year',obj.id,registry); job=getattr(obj,'job',None) or Job.objects.filter(pk=obj.job_id).select_related('paper').first(); paper=getattr(job,'paper',None) if job else None
+        return f'/past-papers/{token}/{_seo_slug(_seo_short_name(paper.name)+" "+obj.name)}' if token and paper else None
+    if kind=='post':
+        token=_seo_index_token('post',obj.id,registry); return f'/blog/{token}/{_seo_slug(obj.slug or obj.title)}' if token else None
+    if kind=='pdf':
+        key=seo_catalog_key(obj); token=_seo_index_token('pdf',key,registry); return f'/past-papers/pdfs/{token}/{_seo_slug(obj.get("slug") or obj.get("title") or obj.get("name") or key)}' if token else None
+    if kind=='latest-job':
+        key=seo_catalog_key(obj); token=_seo_index_token('latest-job',key,registry); paper=Paper.objects.filter(pk=obj.get('paper_id'),active=True).only('name').first()
+        label=((_seo_short_name(paper.name)+' ') if paper else '')+str(obj.get('title') or 'job')
+        return f'/latest-jobs/{token}/{_seo_slug(label)}' if token else None
+    return None
+
+def _seo_index_lookup(token,kinds,registry=None):
+    try: wanted=int(str(token))
+    except (TypeError,ValueError): return None
+    registry=registry or seo_index_snapshot()
+    allowed=set(kinds)
+    for compound,value in (registry.get('items') or {}).items():
+        if int(value)!=wanted: continue
+        kind,key=compound.split(':',1)
+        if kind in allowed: return kind,key
+    return None
+
+def _seo_resolve_indexed_path(path,registry=None):
+    registry=registry or seo_index_snapshot()
+    parts=[p for p in str(path or '').strip('/').split('/') if p]
+    hit=None
+    if len(parts)>=3 and parts[0]=='mcqs': hit=_seo_index_lookup(parts[1],['mcq'],registry)
+    elif len(parts)>=3 and parts[0]=='categories': hit=_seo_index_lookup(parts[1],['category'],registry)
+    elif len(parts)>=3 and parts[0]=='past-papers' and parts[1]!='pdfs': hit=_seo_index_lookup(parts[1],['paper','job','year'],registry)
+    elif len(parts)>=4 and parts[:2]==['past-papers','pdfs']: hit=_seo_index_lookup(parts[2],['pdf'],registry)
+    elif len(parts)>=3 and parts[0]=='latest-jobs': hit=_seo_index_lookup(parts[1],['latest-job'],registry)
+    elif len(parts)>=3 and parts[0]=='blog': hit=_seo_index_lookup(parts[1],['post'],registry)
+    if not hit: return None
+    kind,key=hit
+    obj=None; internal=None
+    if kind=='mcq':
+        obj=MCQ.objects.filter(pk=key,status='approved').first()
+        if obj: internal=f'/mcq/{_seo_slug(obj.question)}'
+    elif kind=='category':
+        obj=Category.objects.filter(pk=key,active=True).first()
+        if obj: internal=f'/category/{_seo_slug(obj.name)}'
+    elif kind=='paper':
+        obj=Paper.objects.filter(pk=key,active=True).first()
+        if obj: internal=f'/paper/{_seo_slug(obj.name)}'
+    elif kind=='job':
+        obj=Job.objects.filter(pk=key,active=True,paper__active=True).select_related('paper').first()
+        if obj: internal=f'/paper/{_seo_slug(obj.paper.name)}/job/{_seo_slug(obj.name)}'
+    elif kind=='year':
+        obj=JobYear.objects.filter(pk=key,active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').first()
+        if obj: internal=f'/paper/{_seo_slug(obj.job.paper.name)}/job/{_seo_slug(obj.job.name)}/year/{_seo_slug(obj.name)}'
+    elif kind=='post':
+        obj=Post.objects.filter(pk=key,status='published').first()
+        if obj: internal=f'/post/{obj.slug}'
+    elif kind in {'pdf','latest-job'}:
+        pdfs,latest_jobs=_seo_public_catalog_items(); rows=pdfs if kind=='pdf' else latest_jobs
+        obj=next((x for x in rows if seo_catalog_key(x)==key),None)
+        if obj: internal=f'/{kind}/{_seo_slug(obj.get("slug") or obj.get("title") or obj.get("name") or key)}'
+    if not obj: return None
+    canonical=_seo_indexed_path(kind,obj,registry)
+    return {'kind':kind,'key':key,'obj':obj,'canonical':canonical,'internal':internal}
+
+def _seo_legacy_target(path,catalog=None,registry=None):
+    registry=registry or seo_index_snapshot()
+    if path.startswith('/mcqs/important-mcqs/'):
+        parts=[p for p in path.split('/') if p]
+        token=parts[2] if len(parts)>2 else ''
+        q=MCQ.objects.filter(pk=token,status='approved').first() if str(token).isdigit() else None
+        if q is None:
+            hit=_seo_index_lookup(token,['mcq'],registry)
+            q=MCQ.objects.filter(pk=hit[1],status='approved').first() if hit else None
+        return _seo_indexed_path('mcq',q,registry) if q else None
+    if path.startswith('/mcq/') or path.startswith('/practice/'):
+        token=path.split('/',2)[2].strip('/')
+        q=_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),token,'question')
+        return _seo_indexed_path('mcq',q,registry) if q else None
+    if path.startswith('/category/'):
+        token=path.split('/category/',1)[1].strip('/'); obj=_seo_row_for_token(Category.objects.filter(active=True).only('id','name'),token)
+        return _seo_indexed_path('category',obj,registry) if obj else None
+    if path.startswith('/pdf/'):
+        obj=_seo_catalog_item('pdf',path.split('/pdf/',1)[1].strip('/')); return _seo_indexed_path('pdf',obj,registry) if obj else None
+    if path.startswith('/latest-job/'):
+        obj=_seo_catalog_item('latest-job',path.split('/latest-job/',1)[1].strip('/')); return _seo_indexed_path('latest-job',obj,registry) if obj else None
+    if path.startswith('/post/'):
+        token=path.split('/post/',1)[1].strip('/'); obj=_seo_row_for_token(Post.objects.filter(status='published').only('id','slug','title'),token,'slug')
+        return _seo_indexed_path('post',obj,registry) if obj else None
+    if path.startswith('/paper/'):
+        parts=[p for p in path.strip('/').split('/') if p]
+        paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1] if len(parts)>1 else '')
+        if not paper: return None
+        if len(parts)==2: return _seo_indexed_path('paper',paper,registry)
+        if len(parts)>=4 and parts[2]=='job':
+            job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).select_related('paper'),parts[3])
+            if not job: return None
+            if len(parts)==4: return _seo_indexed_path('job',job,registry)
+            if len(parts)>=6 and parts[4]=='year':
+                year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).select_related('job','job__paper'),parts[5])
+                return _seo_indexed_path('year',year,registry) if year else None
+    catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+    record=_seo_past_papers_record(path,catalog)
+    if record:
+        if record.get('job'): return _seo_indexed_path('job',record['job'],registry)
+        if record.get('paper'): return _seo_indexed_path('paper',record['paper'],registry)
+    return None
+
 def _seo_year_search_label(job_name,year_name):
     """Keep the useful year/date/session part without repeating the job name."""
     text=str(year_name or '').strip()
@@ -955,75 +1084,24 @@ def _urlset(items):
     return '<?xml version="1.0" encoding="UTF-8"?>'+'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(rows)+'</urlset>'
 
 def sitemap_index(request):
-    names=['pages','categories','papers','jobs','years','mcqs','resources']
-    body='<?xml version="1.0" encoding="UTF-8"?>'+'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(f'<sitemap><loc>{SEO_ORIGIN}/sitemap-{name}.xml</loc></sitemap>' for name in names)+'</sitemapindex>'
-    return _xml_response(body)
-
-def sitemap_pages(request):
-    paths=['/','/mcqs','/categories','/papers','/jobs-exams','/pdfs','/latest-jobs','/posts','/tests','/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap']
-    return _xml_response(_urlset([(SEO_ORIGIN+p,None) for p in paths]))
-
-def sitemap_categories(request):
-    rows=[(f'{SEO_ORIGIN}/category/{_seo_slug(x.name)}',x.updated_at) for x in Category.objects.filter(active=True).only('name','updated_at')]
-    subs=Subcategory.objects.filter(active=True,category__active=True).only('name','updated_at')
-    rows.extend((f'{SEO_ORIGIN}/subcategory/{_seo_slug(x.name)}',x.updated_at) for x in subs)
-    children=ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).only('name','updated_at')
-    rows.extend((f'{SEO_ORIGIN}/topic/{_seo_slug(x.name)}',x.updated_at) for x in children)
-    return _xml_response(_urlset(rows))
-
-def _seo_latest_year_maps():
-    paper_latest={}
-    job_latest={}
-    years=JobYear.objects.filter(
-        active=True,job__active=True,job__paper__active=True
-    ).select_related('job').only('name','job_id','job__paper_id')
-    for y in years:
-        found=[int(v) for v in re.findall(r'(?<!\d)(20\d{2})(?!\d)',str(y.name or ''))]
-        if not found: continue
-        latest=max(found)
-        if latest<2000: continue
-        job_latest[y.job_id]=max(job_latest.get(y.job_id,2000),latest)
-        paper_latest[y.job.paper_id]=max(paper_latest.get(y.job.paper_id,2000),latest)
-    return paper_latest,job_latest
-
-def sitemap_papers(request):
-    catalog=_seo_past_papers_catalog()
-    paper_ids={j.paper_id for j in catalog['jobs'] if j.id in catalog['available']}
-    rows=[
-        (SEO_ORIGIN+catalog['paper_paths'][p.id],p.updated_at)
-        for p in catalog['papers'] if p.id in paper_ids
-    ]
-    return _xml_response(_urlset(rows))
-
-def sitemap_jobs(request):
-    catalog=_seo_past_papers_catalog()
-    rows=[
-        (SEO_ORIGIN+catalog['job_paths'][j.id],j.updated_at)
-        for j in catalog['jobs'] if j.id in catalog['available']
-    ]
-    return _xml_response(_urlset(rows))
-
-def sitemap_years(request):
-    years=JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('id','name','updated_at','job__name','job__paper__name')
-    approved=MCQ.objects.filter(status='approved').only('job_year_ids')
-    used=set()
-    for q in approved:
-        for value in (q.job_year_ids or []):
-            try: used.add(int(value))
-            except (TypeError,ValueError): pass
-    rows=[(f'{SEO_ORIGIN}/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}',y.updated_at) for y in years if y.id in used]
-    return _xml_response(_urlset(rows))
-
-def sitemap_mcqs(request):
-    rows=[(f'{SEO_ORIGIN}/mcq/{_seo_slug(q.question)}',q.updated_at) for q in MCQ.objects.filter(status='approved').only('question','updated_at')]
-    return _xml_response(_urlset(rows))
-
-def sitemap_resources(request):
-    rows=[(f'{SEO_ORIGIN}/post/{p.slug}',p.updated_at) for p in Post.objects.filter(status='published').only('slug','updated_at')]
+    registry=seo_index_snapshot()
+    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/latest-jobs',None),(SEO_ORIGIN+'/blog',None)]
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('mcq',x,registry),x.updated_at) for x in MCQ.objects.filter(status='approved').order_by('id'))
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('paper',x,registry),x.updated_at) for x in Paper.objects.filter(active=True).order_by('id'))
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('job',x,registry),x.updated_at) for x in Job.objects.filter(active=True,paper__active=True).select_related('paper').order_by('id'))
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('year',x,registry),x.updated_at) for x in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').order_by('id'))
     pdfs,latest_jobs=_seo_public_catalog_items()
-    rows.extend((f"{SEO_ORIGIN}/pdf/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}",None) for x in pdfs)
-    rows.extend((f"{SEO_ORIGIN}/latest-job/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}",None) for x in latest_jobs)
-    return _xml_response(_urlset(rows))
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('pdf',x,registry),None) for x in pdfs)
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('category',x,registry),x.updated_at) for x in Category.objects.filter(active=True).order_by('id'))
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('latest-job',x,registry),None) for x in latest_jobs)
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('post',x,registry),x.updated_at) for x in Post.objects.filter(status='published').order_by('id'))
+    return _xml_response(_urlset([(loc,lastmod) for loc,lastmod in rows if loc and 'None' not in loc]))
+
+def legacy_sitemap_redirect(request):
+    response=HttpResponse(status=301)
+    response['Location']=SEO_ORIGIN+'/sitemap.xml'
+    response['Cache-Control']='public, max-age=3600'
+    return response
 
 def _seo_page_context(path, default_title, default_description,catalog=None):
     """Build crawler-visible metadata and internal links without requiring JavaScript."""
@@ -1368,7 +1446,13 @@ def _seo_jsonld(title,description,canonical,path,catalog=None,links=None):
     ]
     crumbs=_seo_breadcrumbs(path,catalog)
     if len(crumbs)>1:
-        graph.append({'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':i+1,'name':name,'item':SEO_ORIGIN+href} for i,(name,href) in enumerate(crumbs)]})
+        registry=seo_index_snapshot()
+        static_targets={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog'}
+        canonical_crumbs=[]
+        for name,href in crumbs:
+            target=static_targets.get(href) or _seo_legacy_target(href,catalog,registry) or href
+            canonical_crumbs.append((name,target))
+        graph.append({'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':i+1,'name':name,'item':SEO_ORIGIN+href} for i,(name,href) in enumerate(canonical_crumbs)]})
     if _seo_past_papers_record(path,catalog):
         graph[2]['@type']=['WebPage','CollectionPage']
         items=[]
@@ -1450,63 +1534,60 @@ def spa_index(request):
     default_title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
     default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
-    legacy_redirects={'/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
-    if path in legacy_redirects:
-        response=HttpResponse(status=308)
-        response['Location']=SEO_ORIGIN+legacy_redirects[path]
-        response['Cache-Control']='public, max-age=0, s-maxage=3600'
-        return response
-    discovery=_seo_is_past_papers_path(path) or path=='/sitemap'
-    catalog=_seo_past_papers_catalog() if discovery or path.startswith('/paper/') else None
-    landing=_seo_past_papers_record(path,catalog)
+    registry=seo_index_snapshot()
     if path in {'/index.html','/index.php'}:
-        response=HttpResponse(status=308)
-        response['Location']=SEO_ORIGIN+'/'
-        response['Cache-Control']='public, max-age=0, s-maxage=3600'
-        return response
-    status=200
-    if _seo_known_spa_path(path,catalog):
-        title,description,heading,intro,links=_seo_page_context(path,default_title,default_description,catalog)
+        response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+'/';return response
+
+    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
+    if path in static_redirects:
+        response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+static_redirects[path];response['Cache-Control']='public, max-age=3600';return response
+
+    catalog=None
+    legacy_candidate=path.startswith(('/mcq/','/practice/','/category/','/pdf/','/latest-job/','/post/','/paper/','/mcqs/important-mcqs/')) or _seo_is_past_papers_path(path)
+    if legacy_candidate:
+        catalog=_seo_past_papers_catalog() if path.startswith('/paper/') or _seo_is_past_papers_path(path) else None
+        target=_seo_legacy_target(path,catalog,registry)
+        if target and target!=path:
+            response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+target;response['Cache-Control']='public, max-age=3600';return response
+
+    resolved=_seo_resolve_indexed_path(path,registry)
+    if resolved and resolved['canonical']!=path:
+        response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+resolved['canonical'];response['Cache-Control']='public, max-age=3600';return response
+
+    static_internal={'/past-papers':'/papers','/past-papers/pdfs':'/pdfs','/blog':'/posts','/mcqs/important-mcqs':'/important'}
+    seo_path=resolved['internal'] if resolved else static_internal.get(path,path)
+    if resolved and resolved['kind'] in {'paper','job','year'}:
+        catalog=_seo_past_papers_catalog()
+    elif catalog is None and (seo_path.startswith('/paper/') or _seo_is_past_papers_path(seo_path)):
+        catalog=_seo_past_papers_catalog()
+
+    landing=_seo_past_papers_record(seo_path,catalog) if catalog else None
+    known=bool(resolved) or path in static_internal or _seo_known_spa_path(seo_path,catalog)
+    status=200 if known else 404
+    if known:
+        title,description,heading,intro,links=_seo_page_context(seo_path,default_title,default_description,catalog)
+        links=[(label,static_redirects.get(href) or _seo_legacy_target(href,catalog,registry) or href) for label,href in links]
     else:
-        status=404
-        title='Page Not Found | MCQ Campus'
-        description='The requested page could not be found. Browse MCQs, categories, past papers, jobs and exam preparation resources.'
-        heading='Page not found'
-        intro='The address you opened does not match a public MCQ Campus page. Use the links below to continue your preparation.'
-        links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),('Jobs & Exams','/jobs-exams'),('Home','/')]
-    # Keep the complete job name and "Past Papers" intent even for long names.
+        title='Page Not Found | MCQ Campus';description='The requested page could not be found.';heading='Page not found';intro='The address you opened does not match a public MCQ Campus page.';links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/past-papers'),('Home','/')]
+
     title=title if landing else _seo_title(title)
-    canonical_path=landing['path'] if landing else _seo_hierarchy_canonical_path(path,catalog)
+    canonical_path=resolved['canonical'] if resolved else path
     canonical=SEO_ORIGIN+canonical_path
+    target_roots={'mcqs','past-papers','categories','latest-jobs','blog'}
+    root=path.strip('/').split('/')[0] if path!='/' else ''
     private_roots={'admin','super-admin','dashboard','profile','login','register','forgot','reset','verify','search'}
-    robots='noindex,nofollow' if status==404 or path.strip('/').split('/')[0] in private_roots else 'index,follow'
-    if landing and landing['job'] and landing['job'].id not in catalog['available']:
-        robots='noindex,follow'
-    if robots.startswith('noindex'):
-        sections=[]
-    elif discovery:
-        sections=_seo_discovery_sections(path,heading,description,catalog)
-    else:
-        sections=_seo_supporting_sections(path,heading,description)
-    jsonld=_seo_jsonld(title,description,canonical,path,catalog,links)
-    discovery_page=None
-    if discovery:
-        discovery_page={'path':path,'heading':heading,'intro':intro,
-            'landing':({'type':'job' if landing['job'] else 'paper','id':landing['job'].id if landing['job'] else landing['paper'].id} if landing and landing['paper'] else None),
-            'groups':_seo_discovery_groups(links,catalog),'breadcrumbs':_seo_breadcrumbs(path,catalog),
-            'title':title,'description':description,'robots':robots,'canonical':canonical,'schema':json.loads(jsonld)}
+    robots='noindex,nofollow' if status==404 or root in private_roots else ('noindex,follow' if path=='/mcqs/important-mcqs' else ('index,follow' if path=='/' or root in target_roots else 'noindex,follow'))
+    sections=[] if robots.startswith('noindex') else _seo_supporting_sections(seo_path,heading,description)
+    jsonld=_seo_jsonld(title,description,canonical,seo_path,catalog,links)
     response=render(request,'index.html',{
         'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
         'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_sections':sections,
-        'seo_origin':SEO_ORIGIN,'seo_robots':robots,
-        'seo_jsonld':jsonld,'seo_discovery_page':discovery_page,
+        'seo_origin':SEO_ORIGIN,'seo_robots':robots,'seo_jsonld':jsonld,'seo_discovery_page':None,
     },status=status)
-    if discovery or path in {'/','/papers','/jobs-exams','/pdfs','/latest-jobs'} or path.startswith(('/pdf/','/latest-job/','/paper/')):
+    if status==200 and (path=='/' or root in target_roots):
         response['Cache-Control']='public, max-age=0, s-maxage=300, stale-while-revalidate=600'
     else:
-        response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
-        response['Pragma']='no-cache'
-        response['Expires']='0'
+        response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0';response['Pragma']='no-cache';response['Expires']='0'
     return response
 
 
@@ -1544,11 +1625,10 @@ def llms_txt(request):
         '## Main sections\n'
         f'- [Practice MCQs]({SEO_ORIGIN}/mcqs)\n'
         f'- [MCQ Categories]({SEO_ORIGIN}/categories)\n'
-        f'- [Past Papers]({SEO_ORIGIN}/papers)\n'
-        f'- [Jobs & Exams]({SEO_ORIGIN}/jobs-exams)\n'
-        f'- [Preparation PDFs]({SEO_ORIGIN}/pdfs)\n'
+        f'- [Past Papers]({SEO_ORIGIN}/past-papers)\n'
+        f'- [Preparation PDFs]({SEO_ORIGIN}/past-papers/pdfs)\n'
         f'- [Latest Jobs]({SEO_ORIGIN}/latest-jobs)\n'
-        f'- [Exam Preparation Articles]({SEO_ORIGIN}/posts)\n\n'
+        f'- [Exam Preparation Articles]({SEO_ORIGIN}/blog)\n\n'
         '## Discovery\n'
         f'- [HTML Sitemap]({SEO_ORIGIN}/sitemap)\n'
         f'- [XML Sitemap]({SEO_ORIGIN}/sitemap.xml)\n'

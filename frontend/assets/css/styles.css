@@ -2618,3 +2618,7 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
   .mcq-reference-card .mcq-verified-answer{margin:0 15px 14px;padding:14px}
   .mcq-reference-card .mcq-reference-actions{padding:12px 15px 15px}
 }
+
+/* Canonical MCQ detail links keep the existing question-card appearance. */
+.mcq-question-link{color:inherit;text-decoration:none}
+.mcq-question-link:hover{text-decoration:none}

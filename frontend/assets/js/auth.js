@@ -116,8 +116,8 @@ window.Auth=(()=>{
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
   const routeParams=new URLSearchParams(location.search);
   if(!authRoutes.has(workspace))wants.push('core','resources');
-  if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
-  if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace))wants.push('catalog');
+  if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
+  if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -321,6 +321,7 @@ window.Auth=(()=>{
    const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm',timeout:action==='action:import-confirm'?60000:15000});
    if(own!==generation)throw Error('The account changed. Please try again.');
    if(data.user)setIdentity({...user,...data.user});
+   if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
    applyCommandResult(action,data.result,payload);
    if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidateWorkspaceMcqs();
    if(['action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'].includes(action)){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
