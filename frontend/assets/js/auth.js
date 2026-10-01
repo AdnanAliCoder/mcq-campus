@@ -6,6 +6,7 @@ window.Auth=(()=>{
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=300000;
+ const ADMIN_PAGE_SIZES=[100,500,1000,2000,3000,5000,10000],ADMIN_DEFAULT_PAGE_SIZE=1000;
 
  function initialRoute(){
   if(location.hash){
@@ -138,9 +139,9 @@ window.Auth=(()=>{
   }
   const workspaceEndpoint=()=>{
    const q=new URLSearchParams();
-   const requested=(user?.roles?.includes('super-admin')&&['all-mcqs','mcqs'].includes(section))?10000:([10,20,50,100,500,1000,2000,3000].includes(Number(routeParams.get('limit')))?Number(routeParams.get('limit')):20);
+   const requested=ADMIN_PAGE_SIZES.includes(Number(routeParams.get('limit')))?Number(routeParams.get('limit')):ADMIN_DEFAULT_PAGE_SIZE;
    q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
-   q.set('page_size',String(section==='edit'?1:section==='paper-mcqs'?Math.max(500,requested):requested));
+   q.set('page_size',String(section==='edit'?1:requested));
    for(const key of ['status','category','paper','job','year','author','from','to','search']){
     const value=routeParams.get(key);if(value)q.set(key,value);
    }
@@ -215,8 +216,22 @@ window.Auth=(()=>{
   }
  }
  function hydrate(snapshot,identity){
-  MCQ.hydrate(snapshot,null);
+  const incoming=snapshot||{};
+  MCQ.hydrate(incoming,null);
   setIdentity(identity);
+  // A lightweight startup snapshot intentionally omits taxonomy/MCQs/catalog.
+  // Never keep stale "loaded" markers after replacing the client store with it.
+  const sections=[
+   ['core',['categories','papers','jobs','years','mcqs']],
+   ['public-content',['posts']],
+   ['catalog',['pdfs','latestJobs']],
+   ['legal',['content']],
+   ['resources',['seoIndex']]
+  ];
+  for(const [section,keys] of sections){
+   const supplied=keys.some(key=>Object.prototype.hasOwnProperty.call(incoming,key));
+   if(!supplied){loadedSections.delete(section);sectionLoadedAt.delete(section)}
+  }
  }
  async function check(){
   if(checking)return checking;
@@ -540,6 +555,7 @@ window.Auth=(()=>{
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
- return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,get user(){return user;}};
+ const sectionReady=key=>loadedSections.has(key)&&Date.now()-(sectionLoadedAt.get(key)||0)<SECTION_TTL;
+ return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,sectionReady,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
 })();
 
