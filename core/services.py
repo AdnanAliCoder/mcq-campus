@@ -1202,6 +1202,18 @@ def save_site_form(user,form,payload):
     else: raise ValueError('Unsupported site form.')
     _save_site_blob(s,blob); s.updated_by=user; s.save(); log(user,'Updated '+form,form); return True
 
+def save_page_seo_form(user,payload):
+    require(is_super(user),'Only the Super Admin can edit public page SEO content.')
+    _,v,ctx,_=parse_fields(payload)
+    kind=str(ctx.get('kind') or '').strip()
+    key=str(ctx.get('key') or '').strip()
+    require(kind and key,'Choose a valid public page.')
+    allowed={'static','category','paper','job','year','mcq','pdf','latest-job','post'}
+    require(kind in allowed,'Unsupported public page type.')
+    rows=save_page_seo_entry(user,kind,key,v.get('seo_title'),v.get('seo_description'))
+    log(user,'Updated page SEO',f'{kind}:{key}')
+    return {'pageSeo':rows}
+
 def save_ad(user,payload):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=AdPlacement.objects.filter(pk=rid).first() if rid else AdPlacement(created_by=user)
     obj.name=str(v.get('name') or '').strip(); obj.provider=str(v.get('provider') or 'custom'); obj.placement=str(v.get('placement') or 'top_banner'); obj.title=str(v.get('title') or ''); obj.body=str(v.get('body') or ''); obj.image_url=str(v.get('image_url') or ''); obj.target_url=str(v.get('target_url') or ''); obj.adsense_slot=str(v.get('adsense_slot') or '').strip(); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
@@ -1271,6 +1283,7 @@ def command(user,action,payload):
     if action=='form:guide': return save_guide(user,payload)
     if action=='form:post': return save_post(user,payload)
     if action=='form:config': return save_config(user,payload)
+    if action=='form:page-seo': return save_page_seo_form(user,payload)
     if action=='form:pdf':
         save_site_form(user,'pdf',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
     if action=='form:latest-job':
