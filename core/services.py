@@ -312,7 +312,24 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     if filters.get('id'):
         try: qs=qs.filter(pk=int(filters['id']))
         except (TypeError,ValueError): pass
-    if filters.get('search'): qs=qs.filter(question__icontains=str(filters['search']).strip())
+    if filters.get('search'):
+        term=str(filters['search']).strip()
+        if term:
+            paper_ids=list(Paper.objects.filter(name__icontains=term).values_list('id',flat=True)[:500])
+            job_ids=list(Job.objects.filter(name__icontains=term).values_list('id',flat=True)[:500])
+            year_ids=list(JobYear.objects.filter(name__icontains=term).values_list('id',flat=True)[:500])
+            search_q=(
+                Q(question__icontains=term)|Q(option1__icontains=term)|Q(option2__icontains=term)|
+                Q(option3__icontains=term)|Q(option4__icontains=term)|Q(correct_answer__icontains=term)|
+                Q(description__icontains=term)|Q(category__name__icontains=term)|
+                Q(created_by__first_name__icontains=term)|Q(created_by__last_name__icontains=term)|
+                Q(created_by__email__icontains=term)|Q(submitted_by__first_name__icontains=term)|
+                Q(submitted_by__last_name__icontains=term)|Q(submitted_by__email__icontains=term)
+            )
+            if paper_ids: search_q|=Q(paper_ids__overlap=paper_ids)
+            if job_ids: search_q|=Q(job_ids__overlap=job_ids)
+            if year_ids: search_q|=Q(job_year_ids__overlap=year_ids)
+            qs=qs.filter(search_q).distinct()
     # JSON membership filters are supported by PostgreSQL/Supabase. Keep them optional.
     for key,field in [('paper','paper_ids'),('job','job_ids'),('year','job_year_ids')]:
         if filters.get(key):
