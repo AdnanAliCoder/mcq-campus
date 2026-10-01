@@ -290,7 +290,7 @@ def visible_mcqs(user):
 
 def mcq_page(user,page=1,page_size=50,filters=None):
     filters=filters or {}; page=max(1,int(page or 1))
-    max_page_size=3000 if is_admin(user) else 100
+    max_page_size=10000 if is_admin(user) else 100
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=visible_mcqs(user)
     if filters.get('owner')=='me' and user and getattr(user,'is_authenticated',False):
@@ -1121,7 +1121,13 @@ def command(user,action,payload):
         save_site_form(user,'pdf',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
     if action=='form:latest-job':
         save_site_form(user,'latest-job',payload); return {'latestJobs':_site_blob(SiteSetting.get_solo()).get('latestJobs') or []}
-    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories','form:bulk-pdfs','form:bulk-latest-jobs','form:bulk-posts'}: return save_site_form(user,action[5:],payload)
+    if action=='form:bulk-pdfs':
+        save_site_form(user,'bulk-pdfs',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
+    if action=='form:bulk-latest-jobs':
+        save_site_form(user,'bulk-latest-jobs',payload); return {'latestJobs':_site_blob(SiteSetting.get_solo()).get('latestJobs') or []}
+    if action=='form:bulk-posts':
+        result=save_site_form(user,'bulk-posts',payload); return {'processed':(result or {}).get('processed',0),'posts':[post(x) for x in Post.objects.filter(status='published').order_by('-updated_at')[:100]]}
+    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories'}: return save_site_form(user,action[5:],payload)
     if action=='form:ad': return save_ad(user,payload)
     if action=='form:contact':
         _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
