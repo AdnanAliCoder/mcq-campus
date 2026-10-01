@@ -356,7 +356,7 @@ def _startup_site_state(settings):
 def startup_payload(user,session):
     settings=SiteSetting.objects.only('singleton','site_name','description','country','seo_title','seo_description').filter(pk=1).first()
     if settings is None: settings=SiteSetting.objects.create(pk=1)
-    return {'snapshot':{'schemaVersion':9,**_startup_site_state(settings)},'user':user_identity_dict(user,session) if user and getattr(user,'is_authenticated',False) else None}
+    return {'snapshot':{'schemaVersion':11,**_startup_site_state(settings)},'user':user_identity_dict(user,session) if user and getattr(user,'is_authenticated',False) else None}
 
 def public_content_data():
     now=timezone.now()
@@ -455,7 +455,7 @@ def snapshot(user):
     total=int(objects[0]._page_total) if objects else 0
     rows=[mcq_list(x) for x in objects]
     return {
-      'schemaVersion':9,
+      'schemaVersion':11,
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
