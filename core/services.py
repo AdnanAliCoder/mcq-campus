@@ -37,6 +37,59 @@ def _save_site_blob(settings,blob):
     root['_site']=blob
     settings.admin_permissions=root
 
+# Permanent global SEO indexes live in the existing SiteSetting JSON blob so the
+# production database needs no schema migration. Assigned numbers are never reused.
+SEO_INDEX_ORDER=('mcq','paper','job','year','pdf','category','latest-job','post')
+
+def seo_catalog_key(row):
+    value=row.get('id') if isinstance(row,dict) else None
+    if value not in (None,''): return str(value)
+    value=(row.get('slug') or row.get('title') or row.get('name') or '') if isinstance(row,dict) else ''
+    return slugify(str(value))[:120] or 'item'
+
+def _seo_visible_keys(settings):
+    keys=[]
+    keys.extend(('mcq',str(x)) for x in MCQ.objects.filter(status='approved').order_by('id').values_list('id',flat=True))
+    keys.extend(('paper',str(x)) for x in Paper.objects.filter(active=True).order_by('id').values_list('id',flat=True))
+    keys.extend(('job',str(x)) for x in Job.objects.filter(active=True,paper__active=True).order_by('id').values_list('id',flat=True))
+    keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).order_by('id').values_list('id',flat=True))
+    site=_site_blob(settings)
+    keys.extend(('pdf',seo_catalog_key(x)) for x in (site.get('pdfs') or []) if isinstance(x,dict) and x.get('active',True) is not False)
+    keys.extend(('category',str(x)) for x in Category.objects.filter(active=True).order_by('id').values_list('id',flat=True))
+    keys.extend(('latest-job',seo_catalog_key(x)) for x in (site.get('latestJobs') or []) if isinstance(x,dict) and x.get('published',False) is not False)
+    keys.extend(('post',str(x)) for x in Post.objects.filter(status='published').order_by('id').values_list('id',flat=True))
+    return [f'{kind}:{key}' for kind,key in keys]
+
+def ensure_seo_indexes():
+    with transaction.atomic():
+        settings=SiteSetting.objects.select_for_update().filter(pk=1).first()
+        if settings is None: settings=SiteSetting.objects.create(pk=1)
+        blob=_site_blob(settings)
+        raw=blob.get('seoIndex') or {}
+        items=dict(raw.get('items') or {})
+        used={int(v) for v in items.values() if str(v).isdigit() and int(v)>0}
+        next_value=max([int(raw.get('next') or 1),max(used,default=0)+1])
+        changed=False
+        for key in _seo_visible_keys(settings):
+            if key in items: continue
+            while next_value in used: next_value+=1
+            items[key]=next_value;used.add(next_value);next_value+=1;changed=True
+        registry={'next':next_value,'items':items}
+        if changed or raw!=registry:
+            blob['seoIndex']=registry
+            _save_site_blob(settings,blob)
+            settings.save(update_fields=['admin_permissions','updated_at'])
+        return registry
+
+def seo_index_snapshot():
+    registry=ensure_seo_indexes()
+    return {'next':int(registry.get('next') or 1),'items':dict(registry.get('items') or {})}
+
+def seo_index_number(kind,key):
+    registry=ensure_seo_indexes()
+    value=(registry.get('items') or {}).get(f'{kind}:{key}')
+    return int(value) if value else None
+
 PIN_ENTITY_TYPES={'categories','papers','jobs','years'}
 def _pinned_entities(settings=None):
     blob=_site_blob(settings or SiteSetting.get_solo())
@@ -272,7 +325,9 @@ def public_content_data():
 def public_resources_data():
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
-    return {k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities']}
+    data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities']}
+    data['seoIndex']=seo_index_snapshot()
+    return data
 
 def public_catalog_data():
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
@@ -359,6 +414,7 @@ def snapshot(user):
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
+      'seoIndex':seo_index_snapshot(),
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':total or len(rows),'total':total,'hasNext':False},
     }
 
