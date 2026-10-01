@@ -5,7 +5,7 @@ window.Auth=(()=>{
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
- const SECTION_TTL=300000;
+ const SECTION_TTL=Number.POSITIVE_INFINITY;
  const ADMIN_PAGE_SIZES=[100,500,1000,2000,3000,5000,10000],ADMIN_DEFAULT_PAGE_SIZE=1000;
 
  function initialRoute(){
@@ -550,12 +550,11 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){backendLoading(true);try{await check();await ensureRouteData(route());}finally{backendLoading(false)}App.render();}
+ async function start(){const app=document.getElementById('app');if(app)app.innerHTML='';backendLoading(true);try{await check();await ensureRouteData(route());}finally{backendLoading(false)}App.render();}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
- const sectionReady=key=>loadedSections.has(key)&&Date.now()-(sectionLoadedAt.get(key)||0)<SECTION_TTL;
- return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,sectionReady,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
+ return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
 })();
 
