@@ -24,7 +24,20 @@ def require(cond,msg='Your account does not have permission for this action.'):
     if not cond: raise PermissionError(msg)
 def log(u,action,detail=''): AuditLog.objects.create(user=u if getattr(u,'is_authenticated',False) else None,action=action,detail=str(detail)[:5000])
 
-def next_id(model): return (model.objects.order_by('-id').values_list('id',flat=True).first() or 0)+1
+def next_id(model):
+    current=(model.objects.order_by('-id').values_list('id',flat=True).first() or 0)
+    kind={MCQ:'mcq',Paper:'paper',Job:'job',JobYear:'year',Category:'category'}.get(model)
+    retired=0
+    if kind:
+        try:
+            settings=SiteSetting.get_solo(); raw=_site_blob(settings).get('seoIndex') or {}
+            for key in (raw.get('items') or {}):
+                if not str(key).startswith(kind+':'): continue
+                entity_key=str(key).split(':',1)[1]
+                if entity_key.isdigit(): retired=max(retired,int(entity_key))
+        except Exception:
+            pass
+    return max(int(current),retired)+1
 
 def _site_blob(settings=None):
     settings=settings or SiteSetting.get_solo()
@@ -40,6 +53,19 @@ def _save_site_blob(settings,blob):
 # Permanent global SEO indexes live in the existing SiteSetting JSON blob so the
 # production database needs no schema migration. Assigned numbers are never reused.
 SEO_INDEX_ORDER=('mcq','paper','job','year','pdf','category','latest-job','post')
+
+def next_catalog_id(rows,kind,settings=None):
+    current=max([int(x.get('id',0)) for x in (rows or []) if isinstance(x,dict)]+[0])
+    retired=0
+    try:
+        settings=settings or SiteSetting.get_solo(); raw=_site_blob(settings).get('seoIndex') or {}
+        for key in (raw.get('items') or {}):
+            if not str(key).startswith(kind+':'): continue
+            entity_key=str(key).split(':',1)[1]
+            if entity_key.isdigit(): retired=max(retired,int(entity_key))
+    except Exception:
+        pass
+    return max(current,retired)+1
 
 def seo_catalog_key(row):
     value=row.get('id') if isinstance(row,dict) else None
@@ -1040,7 +1066,7 @@ def save_site_form(user,form,payload):
         require(title,'PDF Title is required.')
         download=str(v.get('pdf_file_data') or v.get('download_url') or (old or {}).get('download_url') or '').strip()
         require(download,'Choose a PDF file or enter a Download URL.')
-        new_id=rid or max([int(x.get('id',0)) for x in rows]+[0])+1
+        new_id=rid or next_catalog_id(rows,'pdf',s)
         base_slug=slugify(title) or f'pdf-{new_id}'
         used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
         item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
@@ -1057,7 +1083,7 @@ def save_site_form(user,form,payload):
         title=str(v.get('title') or '').strip()
         last=str(v.get('last_date') or '').strip()
         require(title and last,'Job Title and Last Date are required.')
-        new_id=rid or max([int(x.get('id',0)) for x in rows]+[0])+1
+        new_id=rid or next_catalog_id(rows,'latest-job',s)
         base_slug=slugify(title) or f'latest-job-{new_id}'
         used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
         item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
@@ -1077,7 +1103,7 @@ def save_site_form(user,form,payload):
                 description='\n'.join(middle).strip()
             if not title or not url: raise ValueError('Each PDF block needs a title and a valid http/https download URL.')
             old=next((x for x in rows if str(x.get('title') or '').strip().casefold()==title.casefold()),None)
-            new_id=int((old or {}).get('id') or (max([int(x.get('id',0)) for x in rows]+[0])+1))
+            new_id=int((old or {}).get('id') or next_catalog_id(rows,'pdf',s))
             new={'id':new_id,'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'pdf',new_id),'description':description,'download_url':url,'cover':(old or {}).get('cover') or '','active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
             rows=[new if int(x.get('id',0))==new_id else x for x in rows] if old else [new]+rows; count+=1
         blob['pdfs']=rows
@@ -1097,7 +1123,7 @@ def save_site_form(user,form,payload):
             if not paper:
                 paper=Paper.objects.create(id=next_id(Paper),name=paper_name,country=s.country,icon='briefcase',created_by=user,updated_by=user)
             old=next((x for x in rows if int(x.get('paper_id') or 0)==paper.id and str(x.get('title') or '').strip().casefold()==title.casefold() and str(x.get('last_date') or '')==last),None)
-            new_id=int((old or {}).get('id') or (max([int(x.get('id',0)) for x in rows]+[0])+1))
+            new_id=int((old or {}).get('id') or next_catalog_id(rows,'latest-job',s))
             new={'id':new_id,'paper_id':paper.id,'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'latest-job',new_id),'last_date':last,'apply_url':apply_url,'prep_url':prep_url,'published':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
             rows=[new if int(x.get('id',0))==new_id else x for x in rows] if old else [new]+rows; count+=1
         blob['latestJobs']=rows
