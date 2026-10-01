@@ -1512,7 +1512,13 @@ def _seo_jsonld(title,description,canonical,path,catalog=None,links=None):
     ]
     crumbs=_seo_breadcrumbs(path,catalog)
     if len(crumbs)>1:
-        graph.append({'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':i+1,'name':name,'item':SEO_ORIGIN+href} for i,(name,href) in enumerate(crumbs)]})
+        registry=seo_index_snapshot()
+        static_targets={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog'}
+        canonical_crumbs=[]
+        for name,href in crumbs:
+            target=static_targets.get(href) or _seo_legacy_target(href,catalog,registry) or href
+            canonical_crumbs.append((name,target))
+        graph.append({'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':i+1,'name':name,'item':SEO_ORIGIN+href} for i,(name,href) in enumerate(canonical_crumbs)]})
     if _seo_past_papers_record(path,catalog):
         graph[2]['@type']=['WebPage','CollectionPage']
         items=[]
