@@ -890,6 +890,380 @@ def _parse_bulk_label(raw,default_icon='grid'):
     if len(bits)==2 and any(ord(ch)>127 for ch in bits[0]): return bits[1].strip(),bits[0][:32]
     return text,default_icon
 
+def _bulk_blocks(raw):
+    text=str(raw or '').replace('\r\n','\n').replace('\r','\n').strip()
+    if not text: return []
+    return [block.strip() for block in re.split(r'\n\s*\n+',text) if block.strip()]
+
+def _bulk_labeled(block):
+    out={}; free=[]; current=None
+    aliases={
+        'title':'title','pdf title':'title','job':'title','job title':'title','paper':'paper','organization':'paper',
+        'description':'description','content':'content','body':'content','url':'url','download url':'url','download link':'url',
+        'apply url':'apply_url','apply link':'apply_url','last date':'last_date','date':'last_date',
+        'preparation url':'prep_url','preparation link':'prep_url','prepare url':'prep_url','prepare link':'prep_url','blog url':'url'
+    }
+    for raw_line in block.splitlines():
+        line=raw_line.strip()
+        m=re.match(r'^([A-Za-z][A-Za-z ]{1,30})\s*:\s*(.*)
+    fields,v,c,_=parse_fields(payload); s=SiteSetting.get_solo(); blob=_site_blob(s); now=timezone.now().isoformat()
+    if form=='footer-settings':
+        require(is_super(user) or has_perm(user,'manage_footer')); old=blob.get('footer') or {}; footer=dict(old)
+        for k in ['description','copyrightText','footerLogoUrl','countryText']: footer[k]=str(v.get(k) or '')
+        for k in ['showCountryText','showAbout','showContact','showPrivacy','showTerms','showDisclaimer','showCookiePolicy','showAdvertisingPolicy','showFaq','showSitemap']: footer[k]=k in fields
+        blob['footer']=footer; contact=dict(blob.get('contact') or {}); contact['supportEmail']=str(v.get('supportEmail') or ''); contact['advertisingContact']=str(v.get('advertisingContact') or ''); blob['contact']=contact
+    elif form=='social-links':
+        require(is_super(user) or has_perm(user,'manage_social_links')); social={}
+        for key in ['facebook','youtube','instagram','linkedin','x']:
+            social[key]={'url':str(v.get(key+'_url') or ''),'icon':str(v.get(key+'_icon') or key),'iconData':str(v.get(key+'_icon_data') or ''),'enabled':key+'_enabled' in fields}
+        email=str(v.get('footer_email') or '').strip()
+        if email and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email): raise ValueError('Enter a valid footer email address.')
+        social['email']={'address':email,'enabled':'footer_email_enabled' in fields}
+        blob['socialLinks']=social
+    elif form=='legal-page':
+        require(is_super(user) or has_perm(user,'manage_legal_pages')); key=str(c.get('page') or 'about'); require(key in {'about','contact','privacy','terms','disclaimer','cookies','advertising'},'Invalid page.'); pages=dict(blob.get('legalPages') or {}); content=str(v.get('content') or ''); title=str(v.get('title') or '').strip(); require(title and content,'Title and page content are required.'); pages[key]={'title':title,'content':content,'lastUpdated':str(v.get('lastUpdated') or timezone.now().date().isoformat()),'published':'published' in fields,'seoTitle':title[:80],'metaDescription':re.sub(r'[#*\-]+',' ',content).strip()[:155]}; blob['legalPages']=pages
+    elif form=='ad-config':
+        require(is_super(user) or has_perm(user,'manage_ads')); ad=extract_adsense(v.get('adsenseClient')); ga=extract_ga(v.get('analyticsId')); slots={k[5:]:str(val or '') for k,val in v.items() if k.startswith('slot_')}; blob['adSettings']={'enabled':'enabled' in fields,'adsenseClient':ad,'analyticsId':ga,'slots':slots}; s.adsense_client_id=ad; s.adsense_enabled=bool(ad) and 'enabled' in fields; s.google_analytics_id=ga; s.analytics_enabled=bool(ga)
+    elif form=='direct-ad':
+        require(is_super(user) or has_perm(user,'manage_ads')); brand=str(v.get('brand') or '').strip(); require(brand,'Brand name is required.'); obj=AdPlacement(name=brand,provider='custom',placement=str(v.get('placement') or 'home_ad'),title=brand,body=str(v.get('text') or ''),image_url=str(v.get('image_url') or ''),target_url=str(v.get('destination_url') or ''),active=True,starts_at=_parse_date(v.get('start_date')),ends_at=_parse_date(v.get('end_date'),True),created_by=user,updated_by=user); obj.save(); log(user,'Saved direct ad',brand); return {'id':obj.id}
+    elif form=='pdf':
+        require(is_super(user) or has_perm(user,'manage_pdfs'))
+        rows=list(blob.get('pdfs') or [])
+        rid=int(c.get('id') or 0)
+        old=next((x for x in rows if int(x.get('id',0))==rid),None)
+        title=str(v.get('title') or '').strip()
+        require(title,'PDF Title is required.')
+        download=str(v.get('pdf_file_data') or v.get('download_url') or (old or {}).get('download_url') or '').strip()
+        require(download,'Choose a PDF file or enter a Download URL.')
+        new_id=rid or max([int(x.get('id',0)) for x in rows]+[0])+1
+        base_slug=slugify(title) or f'pdf-{new_id}'
+        used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
+        item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
+        new={'id':new_id,'title':title,'slug':item_slug,'description':str(v.get('description') or ''),'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
+        blob['pdfs']=rows
+    elif form=='latest-job':
+        require(is_super(user) or has_perm(user,'manage_latest_jobs'))
+        rows=list(blob.get('latestJobs') or [])
+        rid=int(c.get('id') or 0)
+        old=next((x for x in rows if int(x.get('id',0))==rid),None)
+        paper_id=int(v.get('paper_id') or 0)
+        require(Paper.objects.filter(pk=paper_id).exists(),'Choose a valid Organization / Paper.')
+        title=str(v.get('title') or '').strip()
+        last=str(v.get('last_date') or '').strip()
+        require(title and last,'Job Title and Last Date are required.')
+        new_id=rid or max([int(x.get('id',0)) for x in rows]+[0])+1
+        base_slug=slugify(title) or f'latest-job-{new_id}'
+        used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
+        item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
+        new={'id':new_id,'paper_id':paper_id,'title':title,'slug':item_slug,'last_date':last,'apply_url':str(v.get('apply_url') or ''),'prep_url':str(v.get('prep_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
+        blob['latestJobs']=rows
+    elif form=='bulk-pdfs':
+        require(is_super(user) or has_perm(user,'manage_pdfs'))
+        rows=list(blob.get('pdfs') or []); count=0
+        for block in _bulk_blocks(v.get('bulk_text')):
+            d=_bulk_labeled(block); free=d.pop('_free',[])
+            title=str(d.get('title') or (free[0] if free else '')).strip()
+            url=_bulk_safe_url(d.get('url') or (free[-1] if free and re.match(r'^https?://',free[-1],re.I) else ''))
+            description=str(d.get('description') or '').strip()
+            if not description and free:
+                middle=free[1:-1] if url and len(free)>1 else free[1:]
+                description='\n'.join(middle).strip()
+            if not title or not url: raise ValueError('Each PDF block needs a title and a valid http/https download URL.')
+            old=next((x for x in rows if str(x.get('title') or '').strip().casefold()==title.casefold()),None)
+            new_id=int((old or {}).get('id') or (max([int(x.get('id',0)) for x in rows]+[0])+1))
+            new={'id':new_id,'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'pdf',new_id),'description':description,'download_url':url,'cover':(old or {}).get('cover') or '','active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+            rows=[new if int(x.get('id',0))==new_id else x for x in rows] if old else [new]+rows; count+=1
+        blob['pdfs']=rows
+        log(user,'Bulk PDF import',f'{count} PDF(s) processed')
+    elif form=='bulk-latest-jobs':
+        require(is_super(user) or has_perm(user,'manage_latest_jobs'))
+        rows=list(blob.get('latestJobs') or []); count=0
+        for block in _bulk_blocks(v.get('bulk_text')):
+            d=_bulk_labeled(block); free=d.pop('_free',[])
+            paper_name=str(d.get('paper') or (free[0] if free else '')).strip()
+            title=str(d.get('title') or (free[1] if len(free)>1 else '')).strip()
+            last=str(d.get('last_date') or (free[2] if len(free)>2 else '')).strip()
+            apply_url=_bulk_safe_url(d.get('apply_url') or d.get('url') or next((x for x in free[3:] if re.match(r'^https?://',x,re.I)),'')) 
+            prep_url=_bulk_safe_url(d.get('prep_url') or '')
+            require(paper_name and title and last,'Each Latest Job block needs Paper/Organization, Job Title and Last Date.')
+            paper=Paper.objects.filter(name__iexact=paper_name).first()
+            if not paper:
+                paper=Paper.objects.create(id=next_id(Paper),name=paper_name,icon='briefcase',created_by=user,updated_by=user)
+            old=next((x for x in rows if int(x.get('paper_id') or 0)==paper.id and str(x.get('title') or '').strip().casefold()==title.casefold() and str(x.get('last_date') or '')==last),None)
+            new_id=int((old or {}).get('id') or (max([int(x.get('id',0)) for x in rows]+[0])+1))
+            new={'id':new_id,'paper_id':paper.id,'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'latest-job',new_id),'last_date':last,'apply_url':apply_url,'prep_url':prep_url,'published':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+            rows=[new if int(x.get('id',0))==new_id else x for x in rows] if old else [new]+rows; count+=1
+        blob['latestJobs']=rows
+        log(user,'Bulk Latest Jobs import',f'{count} job(s) processed')
+    elif form=='bulk-posts':
+        require(is_admin(user) and has_perm(user,'manage_posts')); count=0
+        for block in _bulk_blocks(v.get('bulk_text')):
+            d=_bulk_labeled(block); free=d.pop('_free',[])
+            title=str(d.get('title') or (free[0] if free else '')).strip()
+            url=_bulk_safe_url(d.get('url') or (free[-1] if free and re.match(r'^https?://',free[-1],re.I) else ''))
+            content=str(d.get('content') or d.get('description') or '').strip()
+            if not content and free:
+                middle=free[1:-1] if url and len(free)>1 else free[1:]
+                content='\n'.join(middle).strip()
+            require(title and content,'Each Blog block needs a Title and Content.')
+            obj=Post.objects.filter(title__iexact=title).first() or Post(created_by=user)
+            obj.title=title; obj.slug=slugify(title)[:120] or f'post-{timezone.now().timestamp():.0f}'
+            if Post.objects.exclude(pk=obj.pk).filter(slug=obj.slug).exists(): obj.slug=f'{obj.slug[:105]}-{int(timezone.now().timestamp())}'
+            obj.body=content; obj.excerpt=re.sub(r'\s+',' ',content).strip()[:180]; obj.category=obj.category or 'Exam preparation'; obj.seo_title=title[:80]; obj.seo_description=obj.excerpt[:300]; obj.status='published'
+            old_links=[x for x in (obj.links or []) if x.get('label')!='__blog_url']
+            if url: old_links.append({'label':'__blog_url','url':url})
+            obj.links=old_links; obj.updated_by=user; obj.save(); count+=1
+        log(user,'Bulk Blog import',f'{count} post(s) processed'); return {'processed':count}
+    elif form=='bulk-categories':
+        require(is_admin(user) and has_perm(user,'manage_categories')); count=0
+        for raw in str(v.get('categories') or '').splitlines():
+            line=raw.strip()
+            if not line: continue
+            name,ic=_parse_bulk_label(line,'grid')
+            if not name: continue
+            obj=Category.objects.filter(name__iexact=name).first()
+            if not obj: Category.objects.create(id=next_id(Category),name=name,icon=ic,created_by=user,updated_by=user)
+            elif ic!='grid' and obj.icon!=ic: obj.icon=ic; obj.updated_by=user; obj.save(update_fields=['icon','updated_by','updated_at'])
+            count+=1
+        log(user,'Bulk category import',f'{count} line(s) processed'); return {'processed':count}
+    elif form=='bulk-hierarchy':
+        require(is_admin(user) and has_perm(user,'manage_papers') and has_perm(user,'manage_jobs') and has_perm(user,'manage_job_years')); count=0
+        for raw in str(v.get('hierarchy') or '').splitlines():
+            parts=[x.strip() for x in re.split(r'\s*(?:\||>)\s*',raw.strip()) if x.strip()]
+            if len(parts)!=3: continue
+            pn,pi=_parse_bulk_label(parts[0],'paper'); jn,ji=_parse_bulk_label(parts[1],'grid'); yn,yi=_parse_bulk_label(parts[2],'grid')
+            p=Paper.objects.filter(name__iexact=pn).first()
+            if not p: p=Paper.objects.create(id=next_id(Paper),name=pn,country=s.country,icon=pi,created_by=user,updated_by=user)
+            elif pi!='paper' and p.icon!=pi: p.icon=pi; p.updated_by=user; p.save(update_fields=['icon','updated_by','updated_at'])
+            j=Job.objects.filter(paper=p,name__iexact=jn).first()
+            if not j: j=Job.objects.create(id=next_id(Job),paper=p,name=jn,icon=ji,created_by=user,updated_by=user)
+            elif ji!='grid' and j.icon!=ji: j.icon=ji; j.updated_by=user; j.save(update_fields=['icon','updated_by','updated_at'])
+            y=JobYear.objects.filter(job=j,name__iexact=yn).first()
+            if not y: JobYear.objects.create(id=next_id(JobYear),job=j,name=yn,icon=yi,created_by=user,updated_by=user)
+            elif yi!='grid' and y.icon!=yi: y.icon=yi; y.updated_by=user; y.save(update_fields=['icon','updated_by','updated_at'])
+            count+=1
+        log(user,'Bulk hierarchy import',f'{count} line(s) processed'); return {'processed':count}
+    else: raise ValueError('Unsupported site form.')
+    _save_site_blob(s,blob); s.updated_by=user; s.save(); log(user,'Updated '+form,form); return True
+
+def save_ad(user,payload):
+    require(is_super(user)); fields,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=AdPlacement.objects.filter(pk=rid).first() if rid else AdPlacement(created_by=user)
+    obj.name=str(v.get('name') or '').strip(); obj.provider=str(v.get('provider') or 'custom'); obj.placement=str(v.get('placement') or 'top_banner'); obj.title=str(v.get('title') or ''); obj.body=str(v.get('body') or ''); obj.image_url=str(v.get('image_url') or ''); obj.target_url=str(v.get('target_url') or ''); obj.adsense_slot=str(v.get('adsense_slot') or '').strip(); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
+    if not obj.name: raise ValueError('Ad name is required.')
+    if obj.provider=='adsense' and not obj.adsense_slot: raise ValueError('AdSense slot ID is required.')
+    obj.save(); log(user,'Saved ad placement',obj.name); return {'ad':ad(obj)}
+
+def command(user,action,payload):
+    action=str(action or '').strip()
+    # Backward-compatible admin command aliases. Old cached frontend builds and
+    # newer buttons must resolve to the same server-side actions instead of
+    # falling through to "Unsupported command".
+    while action.startswith('action:action:'):
+        action=action[len('action:'):]
+    aliases={
+        'mcq-delete':'action:mcq-delete',
+        'delete-mcq':'action:mcq-delete',
+        'delete-mcqs':'action:mcq-bulk-delete',
+        'bulk-mcq-delete':'action:mcq-bulk-delete',
+        'bulk-mcq-delete-confirm':'action:mcq-delete',
+        'mcq-delete-confirm':'action:mcq-delete-confirm',
+        'trash-restore':'action:trash-restore',
+        'restore-trash':'action:restore-trash',
+        'trash-bulk-restore':'action:trash-bulk-restore',
+        'trash-restore-many':'action:trash-restore-many',
+        'trash-permanent-delete':'action:trash-permanent-delete',
+        'trash-bulk-delete':'action:trash-bulk-delete',
+        'entity-delete-confirm':'action:entity-delete-confirm',
+        'entity-bulk-delete':'action:entity-bulk-delete',
+        'hierarchy-bulk-delete':'action:hierarchy-bulk-delete',
+        'entity-pin':'action:entity-pin',
+        'import-confirm':'action:import-confirm',
+        'report-resolve':'action:report-resolve',
+        'user-status':'action:user-status',
+        'post-delete':'action:post-delete',
+        'pdf-delete':'action:pdf-delete',
+        'latest-job-toggle':'action:latest-job-toggle',
+        'latest-job-delete':'action:latest-job-delete',
+        'ad-toggle':'action:ad-toggle',
+        'ad-delete':'action:ad-delete',
+    }
+    action=aliases.get(action,action)
+    if action=='attempt':
+        qid,answer=payload.get('args',[None,None]); q=MCQ.objects.filter(pk=qid,status='approved').first();
+        if not q: raise ValueError('Question not available.')
+        correct=str(q.correct_answer)==str(answer); Attempt.objects.create(user=user,mcq=q,answer=str(answer),correct=correct); return correct
+    if action=='toggleBookmark':
+        qid=(payload.get('args') or [None])[0]; q=MCQ.objects.get(pk=qid); obj,created=Bookmark.objects.get_or_create(user=user,mcq=q)
+        if not created: obj.delete(); return False
+        return True
+    if action=='savePaper':
+        pid=(payload.get('args') or [None])[0]; p=Paper.objects.get(pk=pid); obj,created=SavedPaper.objects.get_or_create(user=user,paper=p)
+        if not created: obj.delete(); return False
+        return True
+    if action=='report':
+        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.'); r=Report.objects.create(user=user,mcq=MCQ.objects.get(pk=qid),reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
+    if action=='saveProfile':
+        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
+    if action=='changePassword':
+        raise ValueError('Use the secure password change flow with email verification.')
+    if action=='form:mcq':
+        obj=save_mcq(user,payload.get('draft') or {}); return {'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
+    if action=='form:review':
+        _,v,c,_=parse_fields(payload); ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]; review_mcqs(user,c.get('ids',''),c.get('status','pending'),v.get('reason','')); rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by'); return {'mcqs':[mcq(x) for x in rows]}
+    if action=='form:entity': return save_entity(user,payload)
+    if action=='form:user': return save_user(user,payload)
+    if action=='form:guide': return save_guide(user,payload)
+    if action=='form:post': return save_post(user,payload)
+    if action=='form:config': return save_config(user,payload)
+    if action=='form:pdf':
+        save_site_form(user,'pdf',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
+    if action=='form:latest-job':
+        save_site_form(user,'latest-job',payload); return {'latestJobs':_site_blob(SiteSetting.get_solo()).get('latestJobs') or []}
+    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories','form:bulk-pdfs','form:bulk-latest-jobs','form:bulk-posts'}: return save_site_form(user,action[5:],payload)
+    if action=='form:ad': return save_ad(user,payload)
+    if action=='form:contact':
+        _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
+    if action=='form:profile':
+        _,v,_,_=parse_fields(payload); return command(user,'saveProfile',{'args':[v]})
+    if action=='form:password-change':
+        raise ValueError('Use the secure password change flow with email verification.')
+    if action=='action:report-resolve':
+        require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); r=Report.objects.get(pk=rid); r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)}}
+    if action=='action:user-status':
+        require(is_super(user)); target=User.objects.get(pk=int(payload.get('id')))
+        enabling=not target.is_active
+        if not enabling:
+            require(target.pk!=user.pk,'You cannot disable the account you are currently using.')
+            if user_role(target)=='super-admin': require(_active_super_admins(exclude_id=target.pk),'At least one active Super Admin must remain.')
+        target.is_active=enabling; target.save(update_fields=['is_active'])
+        if not enabling: _invalidate_user_sessions(target.pk)
+        return {'user':user_dict(target)}
+    if action=='action:ad-toggle':
+        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return {'ad':ad(obj)}
+    if action=='action:ad-delete':
+        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); rid=obj.id; name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return {'deleted':{'type':'ads','ids':[rid]}}
+    if action=='action:post-delete':
+        require(is_super(user) or has_perm(user,'delete_posts')); obj=Post.objects.get(pk=int(payload.get('id'))); rid=obj.id; title=obj.title; obj.delete(); log(user,'Deleted post',title); return {'deleted':{'type':'posts','ids':[rid]}}
+    if action in {'action:pdf-delete','action:latest-job-delete','action:latest-job-toggle'}:
+        form='pdfs' if action=='action:pdf-delete' else 'latestJobs'; perm='delete_pdfs' if form=='pdfs' else ('delete_latest_jobs' if action.endswith('delete') else 'manage_latest_jobs'); require(is_super(user) or has_perm(user,perm)); s=SiteSetting.get_solo(); blob=_site_blob(s); rows=list(blob.get(form) or []); rid=int(payload.get('id'))
+        if action.endswith('toggle'):
+            for x in rows:
+                if int(x.get('id',0))==rid: x['published']=not bool(x.get('published',True)); x['updated_at']=timezone.now().isoformat()
+        else: rows=[x for x in rows if int(x.get('id',0))!=rid]
+        blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return {form:rows}
+    if action=='action:entity-pin':
+        return {'pinnedEntities':_set_entity_pin(user,payload.get('type'),payload.get('id'),str(payload.get('mode') or 'pin'))}
+    if action in {'action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete'}:
+        tr,deleted_ids=_delete_mcqs_to_trash(user,payload.get('ids') or [payload.get('id')])
+        return {'deleted':{'type':'mcqs','ids':deleted_ids},'trashId':tr.id,'count':len(deleted_ids)}
+    if action in {'action:trash-restore-many','action:trash-bulk-restore'}:
+        return _restore_trash_many(user,payload.get('ids') or [payload.get('id')])
+    if action in {'action:trash-permanent-delete','action:trash-bulk-delete'}:
+        return _delete_trash_permanently(user,payload.get('ids') or [payload.get('id')])
+    if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
+        typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
+        for rid in ids:
+            if rid and ENTITY_MODELS.get(typ) and _delete_entity(user,typ,int(rid)) is not None: count+=1
+        return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
+    if action in {'action:trash-restore','action:restore-trash'}:
+        rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
+    if action=='action:import-confirm':
+        require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
+        summary={'imported':0,'updated':0,'merged':0,'duplicates':0,'invalid':0,'failed':0,'errors':[]}
+        imported_ids=[]
+        results=[]
+        input_rows=payload.get('rows') or []
+        groups,invalid=_combine_import_rows(input_rows)
+        summary['invalid']=invalid
+        if input_rows and not groups:
+            raise ValueError('Selected MCQs reached the server, but no importable MCQ data was found. Re-upload the file and try again.')
+        for group in groups:
+            draft=group['draft']
+            summary['duplicates']+=group['duplicates']
+            question=str(draft.get('question') or '')[:160]
+            try:
+                duplicate=_bulk_duplicate_mcq(draft.get('question'))
+                if duplicate:
+                    result=_stage_bulk_mcq_hierarchy_update(user,duplicate,draft)
+                    if result in {'pending','pending-update'}:
+                        imported_ids.append(duplicate.pk)
+                        summary['updated']+=1
+                        summary['merged']+=group['extra_merges']
+                        results.append({'id':duplicate.pk,'question':question,'result':'pending-update'})
+                    else:
+                        summary['duplicates']+=1
+                        imported_ids.append(duplicate.pk)
+                        results.append({'id':duplicate.pk,'question':question,'result':'already-exists'})
+                    continue
+
+                # No website match exists: create exactly one NEW pending MCQ from the
+                # already-consolidated upload group. Do not run duplicate detection a second time.
+                obj=_create_bulk_pending_mcq(user,draft)
+                imported_ids.append(obj.pk)
+                summary['imported']+=1
+                summary['merged']+=group['extra_merges']
+                results.append({'id':obj.pk,'question':question,'result':'pending-new'})
+            except ValueError as exc:
+                summary['failed']+=1
+                message=str(exc)
+                if len(summary['errors'])<20:
+                    summary['errors'].append({'question':question,'message':message})
+                results.append({'question':question,'result':'failed','message':message})
+        imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
+        return {'summary':summary,'results':results,'mcqs':[mcq(x) for x in imported]}
+
+    raise ValueError(f'Unsupported command: {action}')
+
+def _otp_hash(user,purpose,code):
+    key=str(settings.SECRET_KEY).encode('utf-8')
+    message=f'{user.pk}:{purpose}:{str(code)}'.encode('utf-8')
+    return hmac.new(key,message,hashlib.sha256).hexdigest()
+
+def create_token(user,purpose,minutes=10):
+    if purpose not in {'verify','reset','change'}: raise ValueError('Invalid token purpose.')
+    OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).update(used_at=timezone.now())
+    raw=f'{secrets.randbelow(1000000):06d}'
+    OneTimeToken.objects.create(user=user,purpose=purpose,code_hash=_otp_hash(user,purpose,raw),expires_at=timezone.now()+timedelta(minutes=minutes))
+    return raw
+
+def consume_token(user,raw,purpose,max_attempts=5):
+    if not user or purpose not in {'verify','reset','change'}: return None
+    code=str(raw or '').strip()
+    if not re.fullmatch(r'\d{6}',code): return None
+    obj=OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).order_by('-created_at').first()
+    if not obj or obj.expires_at<=timezone.now() or obj.attempt_count>=max_attempts: return None
+    if not hmac.compare_digest(obj.code_hash,_otp_hash(user,purpose,code)):
+        obj.attempt_count+=1
+        fields=['attempt_count']
+        if obj.attempt_count>=max_attempts:
+            obj.used_at=timezone.now(); fields.append('used_at')
+        obj.save(update_fields=fields)
+        return None
+    obj.used_at=timezone.now(); obj.save(update_fields=['used_at'])
+    OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).exclude(pk=obj.pk).update(used_at=timezone.now())
+    return obj.user
+,line)
+        if m and m.group(1).strip().lower() in aliases:
+            current=aliases[m.group(1).strip().lower()]
+            value=m.group(2).strip()
+            if value: out[current]=(out.get(current,'')+'\n'+value).strip()
+        elif current in {'description','content'}:
+            out[current]=(out.get(current,'')+'\n'+raw_line.strip()).strip()
+        elif line:
+            free.append(line)
+    out['_free']=free
+    return out
+
+def _bulk_safe_url(value):
+    return str(value or '').strip() if re.match(r'^https?://',str(value or '').strip(),re.I) else ''
+
+def _unique_slug(rows,title,prefix,new_id):
+    base=slugify(title) or f'{prefix}-{new_id}'
+    used={str(x.get('slug') or '').strip().lower() for x in rows}
+    return base if base.lower() not in used else f'{base}-{new_id}'
+
 def save_site_form(user,form,payload):
     fields,v,c,_=parse_fields(payload); s=SiteSetting.get_solo(); blob=_site_blob(s); now=timezone.now().isoformat()
     if form=='footer-settings':
