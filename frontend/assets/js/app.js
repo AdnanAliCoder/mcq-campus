@@ -6,8 +6,23 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
  else if(base==='categories'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['category']);if(hit){base='category';id=hit.key}}
  else if(base==='past-papers'){
   if(parts[1]==='pdfs'){if(/^\d+$/.test(parts[2]||'')){const hit=indexed(parts[2],['pdf']);if(hit){base='pdf';id=hit.key}}else base='pdfs'}
-  else if(/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['paper','job','year']);if(hit){base=hit.kind;id=hit.key}}
-  else base='papers';
+  else if(/^\d+$/.test(parts[1]||'')){
+   let hit=indexed(parts[1],['paper','job','year']);
+   if(!hit&&parts[2]&&window.SEO){
+    const wanted=String(parts[2]).toLowerCase(),slug=SEO.slug,short=SEO.shortName;
+    const paper=MCQ.db.papers.find(x=>x.active!==false&&`${slug(short(x.name))}-past-papers`===wanted);
+    if(paper)hit={kind:'paper',key:String(paper.id)};
+    if(!hit){
+     const job=MCQ.db.jobs.find(x=>{const p=MCQ.get('papers',x.paper_id);return x.active!==false&&p?.active!==false&&`${slug(short(p.name))}-${slug(x.name)}-past-papers`===wanted});
+     if(job)hit={kind:'job',key:String(job.id)};
+    }
+    if(!hit){
+     const year=MCQ.db.years.find(x=>{const j=MCQ.get('jobs',x.job_id),p=j&&MCQ.get('papers',j.paper_id);return x.active!==false&&j?.active!==false&&p?.active!==false&&slug(short(p.name)+' '+x.name)===wanted});
+     if(year)hit={kind:'year',key:String(year.id)};
+    }
+   }
+   if(hit){base=hit.kind;id=hit.key}
+  } else base='papers';
  }
  else if(base==='latest-jobs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['latest-job']);if(hit){base='latest-job';id=hit.key}}
  else if(base==='blog'){if(/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['post']);if(hit){base='post';id=hit.key}}else base='posts'}
