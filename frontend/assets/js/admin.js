@@ -4,7 +4,7 @@ window.Admin=(()=>{
  const root=()=>MCQ.role()==='super-admin'?'super-admin':'admin';
  const url=p=>root()+'/'+p;
  const adminPageSizes=()=>Array.isArray(Auth.ADMIN_PAGE_SIZES)?Auth.ADMIN_PAGE_SIZES:[100,500,1000,2000,3000,5000,10000];
- const adminPageSize=params=App.route.params=>adminPageSizes().includes(Number(params?.limit))?Number(params.limit):(Number(Auth.ADMIN_DEFAULT_PAGE_SIZE)||1000);
+ const adminPageSize=(params=App.route.params)=>adminPageSizes().includes(Number(params?.limit))?Number(params.limit):(Number(Auth.ADMIN_DEFAULT_PAGE_SIZE)||1000);
  const pageSizeSelect=(value)=>`<label class="admin-page-size"><span>Show entries</span><select name="limit" data-auto-filter>${adminPageSizes().map(n=>`<option value="${n}" ${value===n?'selected':''}>${n.toLocaleString()}</option>`).join('')}</select></label>`;
  const navLink=(p,title,i)=>link(url(p),icon(i)+e(title),'item '+(App.route.path===url(p)?'active':''));
  function shell(body,title){
