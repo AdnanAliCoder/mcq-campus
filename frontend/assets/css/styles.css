@@ -2622,3 +2622,6 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 /* Canonical MCQ detail links keep the existing question-card appearance. */
 .mcq-question-link{color:inherit;text-decoration:none}
 .mcq-question-link:hover{text-decoration:none}
+
+.admin-seo-fields{margin:18px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft,#f7faf8)}
+.admin-seo-fields h3{margin:0 0 6px}.admin-seo-fields .field:last-child{margin-bottom:0}.admin-static-seo-card form{display:grid;gap:12px}
