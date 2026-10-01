@@ -1594,7 +1594,7 @@ def spa_index(request):
     if path in {'/index.html','/index.php'}:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+'/';return response
 
-    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
+    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
     if path in static_redirects:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+static_redirects[path];response['Cache-Control']='public, max-age=3600';return response
 
@@ -1610,7 +1610,7 @@ def spa_index(request):
     if resolved and resolved['canonical']!=path:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+resolved['canonical'];response['Cache-Control']='public, max-age=3600';return response
 
-    static_internal={'/past-papers':'/papers','/past-papers/pdfs':'/pdfs','/blog':'/posts'}
+    static_internal={'/past-papers':'/papers','/past-papers/pdfs':'/pdfs','/blog':'/posts','/mcqs/important-mcqs':'/important'}
     seo_path=resolved['internal'] if resolved else static_internal.get(path,path)
     if resolved and resolved['kind'] in {'paper','job','year'}:
         catalog=_seo_past_papers_catalog()
@@ -1622,6 +1622,7 @@ def spa_index(request):
     status=200 if known else 404
     if known:
         title,description,heading,intro,links=_seo_page_context(seo_path,default_title,default_description,catalog)
+        links=[(label,static_redirects.get(href) or _seo_legacy_target(href,catalog,registry) or href) for label,href in links]
     else:
         title='Page Not Found | MCQ Campus';description='The requested page could not be found.';heading='Page not found';intro='The address you opened does not match a public MCQ Campus page.';links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/past-papers'),('Home','/')]
 
@@ -1631,7 +1632,7 @@ def spa_index(request):
     target_roots={'mcqs','past-papers','categories','latest-jobs','blog'}
     root=path.strip('/').split('/')[0] if path!='/' else ''
     private_roots={'admin','super-admin','dashboard','profile','login','register','forgot','reset','verify','search'}
-    robots='noindex,nofollow' if status==404 or root in private_roots else ('index,follow' if path=='/' or root in target_roots else 'noindex,follow')
+    robots='noindex,nofollow' if status==404 or root in private_roots else ('noindex,follow' if path=='/mcqs/important-mcqs' else ('index,follow' if path=='/' or root in target_roots else 'noindex,follow'))
     sections=[] if robots.startswith('noindex') else _seo_supporting_sections(seo_path,heading,description)
     jsonld=_seo_jsonld(title,description,canonical,seo_path,catalog,links)
     response=render(request,'index.html',{
@@ -1680,11 +1681,10 @@ def llms_txt(request):
         '## Main sections\n'
         f'- [Practice MCQs]({SEO_ORIGIN}/mcqs)\n'
         f'- [MCQ Categories]({SEO_ORIGIN}/categories)\n'
-        f'- [Past Papers]({SEO_ORIGIN}/papers)\n'
-        f'- [Jobs & Exams]({SEO_ORIGIN}/jobs-exams)\n'
-        f'- [Preparation PDFs]({SEO_ORIGIN}/pdfs)\n'
+        f'- [Past Papers]({SEO_ORIGIN}/past-papers)\n'
+        f'- [Preparation PDFs]({SEO_ORIGIN}/past-papers/pdfs)\n'
         f'- [Latest Jobs]({SEO_ORIGIN}/latest-jobs)\n'
-        f'- [Exam Preparation Articles]({SEO_ORIGIN}/posts)\n\n'
+        f'- [Exam Preparation Articles]({SEO_ORIGIN}/blog)\n\n'
         '## Discovery\n'
         f'- [HTML Sitemap]({SEO_ORIGIN}/sitemap)\n'
         f'- [XML Sitemap]({SEO_ORIGIN}/sitemap.xml)\n'
