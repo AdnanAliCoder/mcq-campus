@@ -116,8 +116,8 @@ window.Auth=(()=>{
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
   const routeParams=new URLSearchParams(location.search);
   if(!authRoutes.has(workspace))wants.push('core','resources');
-  if(['home','posts','post','search'].includes(workspace))wants.push('public-content');
-  if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace))wants.push('catalog');
+  if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
+  if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
