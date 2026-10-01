@@ -2,7 +2,7 @@
    Authentication and persistent writes are handled by the server adapter. */
 window.MCQ = (() => {
  const clone=x=>JSON.parse(JSON.stringify(x));
- const emptyData=()=>({schemaVersion:10,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[],seoIndex:{next:1,items:{}}});
+ const emptyData=()=>({schemaVersion:11,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[],seoIndex:{next:1,items:{}},pageSeo:{}});
  const legalDefaults=()=>({
   about:{title:'About MCQ Campus',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
   contact:{title:'Contact Us',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
@@ -146,6 +146,7 @@ window.MCQ = (() => {
   if(incoming.adSettings)db.adSettings={...db.adSettings,...incoming.adSettings,slots:{...db.adSettings.slots,...(incoming.adSettings.slots||{})}};
   if(incoming.pinnedEntities)db.pinnedEntities={categories:[],papers:[],jobs:[],years:[],...clone(incoming.pinnedEntities)};
   if(incoming.seoIndex)db.seoIndex={next:Number(incoming.seoIndex.next||1),items:{...(incoming.seoIndex.items||{})}};
+  if(incoming.pageSeo)db.pageSeo={...(incoming.pageSeo||{})};
   if(incoming.currentAffairsConfig)db.currentAffairsConfig={...db.currentAffairsConfig,...incoming.currentAffairsConfig,dailyIds:ids(incoming.currentAffairsConfig.dailyIds||[]),monthlyIds:ids(incoming.currentAffairsConfig.monthlyIds||[])};
   topCache=null;persist();return db;
  }
