@@ -1275,7 +1275,12 @@ def command(user,action,payload):
     if action=='changePassword':
         raise ValueError('Use the secure password change flow with email verification.')
     if action=='form:mcq':
-        obj=save_mcq(user,payload.get('draft') or {}); return {'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
+        draft=payload.get('draft') or {}
+        obj=save_mcq(user,draft)
+        result={'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
+        if is_super(user) and ('page_seo_title' in draft or 'page_seo_description' in draft):
+            result['pageSeo']=save_page_seo_entry(user,'mcq',obj.pk,draft.get('page_seo_title'),draft.get('page_seo_description'))
+        return result
     if action=='form:review':
         _,v,c,_=parse_fields(payload); ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]; review_mcqs(user,c.get('ids',''),c.get('status','pending'),v.get('reason','')); rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by'); return {'mcqs':[mcq(x) for x in rows]}
     if action=='form:entity': return save_entity(user,payload)
