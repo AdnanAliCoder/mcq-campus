@@ -91,7 +91,17 @@ window.SEO=(()=>{
   if(base==='faq'){title='Frequently Asked Questions'+suffix;description='Answers to common questions about MCQ Campus, exam preparation content, corrections and official-information verification.'}
   if(base==='sitemap'){title='Sitemap'+suffix;description='Browse the main MCQ Campus preparation, account, support and legal pages.'}
   if(['search','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin'].includes(base))robots='noindex,nofollow';
-  return {title:fitTitle(title),description,robots,canonical:baseUrl()+cleanPath(base,id)};
+  const pageSeo=MCQ?.db?.pageSeo||{};
+  const staticKey={home:'home',mcqs:'mcqs',papers:'past-papers',pdfs:'pdfs',categories:'categories','latest-jobs':'latest-jobs',posts:'blog'}[base];
+  const entityKind={category:'category',paper:'paper',job:'job',year:'year',mcq:'mcq'}[base];
+  let override=staticKey?pageSeo['static:'+staticKey]:(entityKind?pageSeo[entityKind+':'+String(id)]:null);
+  if(base==='pdf'){const x=get('pdfs',id);override={title:x?.seo_title||override?.title||'',description:x?.seo_description||override?.description||''}}
+  if(base==='latest-job'){const x=get('latestJobs',id);override={title:x?.seo_title||override?.title||'',description:x?.seo_description||override?.description||''}}
+  if(base==='post'){const x=get('posts',id);override={title:x?.seo_title||override?.title||'',description:x?.seo_description||override?.description||''}}
+  const customTitle=String(override?.title||'').trim(),customDescription=String(override?.description||'').trim();
+  if(customTitle)title=customTitle;
+  if(customDescription)description=customDescription;
+  return {title:customTitle?title:fitTitle(title),description,robots,canonical:baseUrl()+cleanPath(base,id)};
  }
  function setMeta(selector,attrs){let el=document.querySelector(selector);if(!el){el=document.createElement('meta');document.head.appendChild(el)}Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));}
  function apply(base,id){if(typeof document==='undefined'||!document.head)return;const d=descriptor(base,id);document.title=d.title;setMeta('meta[name="description"]',{name:'description',content:d.description});setMeta('meta[name="robots"]',{name:'robots',content:d.robots});setMeta('meta[property="og:title"]',{property:'og:title',content:d.title});setMeta('meta[property="og:description"]',{property:'og:description',content:d.description});setMeta('meta[property="og:type"]',{property:'og:type',content:['post'].includes(base)?'article':'website'});setMeta('meta[property="og:url"]',{property:'og:url',content:d.canonical});setMeta('meta[name="twitter:card"]',{name:'twitter:card',content:'summary_large_image'});setMeta('meta[name="twitter:title"]',{name:'twitter:title',content:d.title});setMeta('meta[name="twitter:description"]',{name:'twitter:description',content:d.description});let canonical=document.querySelector('link[rel="canonical"]');if(!canonical){canonical=document.createElement('link');canonical.rel='canonical';document.head.appendChild(canonical)}canonical.href=d.canonical||cleanPath(base,id);

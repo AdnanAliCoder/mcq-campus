@@ -132,7 +132,7 @@ window.Auth=(()=>{
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
    if(['posts','guides','ads'].includes(section))wants.push('content');
-   if(['settings','content','seo','roles','footer','social','ads'].includes(section))wants.push('resources');
+   if(['settings','content','seo','page-seo','roles','footer','social','ads'].includes(section))wants.push('resources');
    if(['pdfs','latest-jobs','current-affairs','pdfs-manager','latest-jobs-manager'].includes(section))wants.push('catalog');
    if(['content','legal'].includes(section))wants.push('legal');
   }
@@ -308,6 +308,7 @@ window.Auth=(()=>{
   if(action==='action:report-resolve'&&result?.report){MCQ.upsert('reports',result.report);return}
   if(action==='action:user-status'&&result?.user){MCQ.upsert('users',result.user);return}
   if(action==='action:ad-toggle'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(result?.pageSeo)MCQ.mergeCore({pageSeo:result.pageSeo});
   if(Array.isArray(result?.mcqs))result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));
   if(Array.isArray(result?.pdfs))MCQ.db.pdfs=result.pdfs;
   if(Array.isArray(result?.latestJobs))MCQ.db.latestJobs=result.latestJobs;
@@ -424,7 +425,7 @@ window.Auth=(()=>{
   finally{restore();}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','bulk-categories','bulk-pdfs','bulk-latest-jobs','bulk-posts','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','page-seo','bulk-hierarchy','bulk-categories','bulk-pdfs','bulk-latest-jobs','bulk-posts','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;

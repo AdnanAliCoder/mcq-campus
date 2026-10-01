@@ -64,7 +64,7 @@ window.UI=(()=>{
     jobs:{badgeText:parentPaper?.name||'Recruitment',subtitle:'Job-wise preparation and available past-paper years.',meta:`${count} paper${count===1?'':'s'}`,fallback:'briefcase'},
     years:{badgeText:parentJob?.name||'Job Year',subtitle:'Open this year to practise linked past-paper MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
-   const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentJob&&parentPaper?'paper/'+parentPaper.id+'/job/'+parentJob.id+'/year/'+x.id:conf[0]+'/'+x.id;
+   const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentJob&&parentPaper&&window.SEO?SEO.cleanPath('year',x.id):conf[0]+'/'+x.id;
    return showcaseCard(entityPath,x,{...data,title});
   }
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')

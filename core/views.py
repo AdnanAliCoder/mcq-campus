@@ -21,7 +21,7 @@ from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
-    ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key,
+    ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -1085,7 +1085,7 @@ def _urlset(items):
 
 def sitemap_index(request):
     registry=seo_index_snapshot()
-    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/latest-jobs',None),(SEO_ORIGIN+'/blog',None)]
+    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/blog',None)]
     rows.extend((SEO_ORIGIN+_seo_indexed_path('mcq',x,registry),x.updated_at) for x in MCQ.objects.filter(status='approved').order_by('id'))
     rows.extend((SEO_ORIGIN+_seo_indexed_path('paper',x,registry),x.updated_at) for x in Paper.objects.filter(active=True).order_by('id'))
     rows.extend((SEO_ORIGIN+_seo_indexed_path('job',x,registry),x.updated_at) for x in Job.objects.filter(active=True,paper__active=True).select_related('paper').order_by('id'))
@@ -1564,13 +1564,33 @@ def spa_index(request):
     landing=_seo_past_papers_record(seo_path,catalog) if catalog else None
     known=bool(resolved) or path in static_internal or _seo_known_spa_path(seo_path,catalog)
     status=200 if known else 404
+    custom_title=''
+    custom_description=''
     if known:
         title,description,heading,intro,links=_seo_page_context(seo_path,default_title,default_description,catalog)
         links=[(label,static_redirects.get(href) or _seo_legacy_target(href,catalog,registry) or href) for label,href in links]
+        page_seo=page_seo_snapshot(s)
+        static_key={'/':'home','/mcqs':'mcqs','/past-papers':'past-papers','/past-papers/pdfs':'pdfs','/categories':'categories','/blog':'blog','/latest-jobs':'latest-jobs'}.get(path)
+        override=page_seo.get('static:'+static_key,{}) if static_key else {}
+        if resolved:
+            kind=resolved['kind']; key=resolved['key']; obj=resolved['obj']
+            override=page_seo.get(f'{kind}:{key}',{}) or {}
+            if kind in {'pdf','latest-job'} and isinstance(obj,dict):
+                override={'title':str(obj.get('seo_title') or override.get('title') or ''),'description':str(obj.get('seo_description') or override.get('description') or '')}
+            elif kind=='post':
+                override={'title':str(getattr(obj,'seo_title','') or override.get('title') or ''),'description':str(getattr(obj,'seo_description','') or override.get('description') or '')}
+        custom_title=str((override or {}).get('title') or '').strip()
+        custom_description=str((override or {}).get('description') or '').strip()
+        if custom_title:
+            title=custom_title
+            heading=custom_title
+        if custom_description:
+            description=custom_description
+            intro=custom_description
     else:
         title='Page Not Found | MCQ Campus';description='The requested page could not be found.';heading='Page not found';intro='The address you opened does not match a public MCQ Campus page.';links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/past-papers'),('Home','/')]
 
-    title=title if landing else _seo_title(title)
+    title=title if landing or custom_title else _seo_title(title)
     canonical_path=resolved['canonical'] if resolved else path
     canonical=SEO_ORIGIN+canonical_path
     target_roots={'mcqs','past-papers','categories','latest-jobs','blog'}
