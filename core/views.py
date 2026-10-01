@@ -936,8 +936,10 @@ def _seo_legacy_target(path,catalog=None,registry=None):
     if path.startswith('/mcqs/important-mcqs/'):
         parts=[p for p in path.split('/') if p]
         token=parts[2] if len(parts)>2 else ''
-        hit=_seo_index_lookup(token,['mcq'],registry)
-        q=MCQ.objects.filter(pk=hit[1],status='approved').first() if hit else (MCQ.objects.filter(pk=token,status='approved').first() if str(token).isdigit() else None)
+        q=MCQ.objects.filter(pk=token,status='approved').first() if str(token).isdigit() else None
+        if q is None:
+            hit=_seo_index_lookup(token,['mcq'],registry)
+            q=MCQ.objects.filter(pk=hit[1],status='approved').first() if hit else None
         return _seo_indexed_path('mcq',q,registry) if q else None
     if path.startswith('/mcq/') or path.startswith('/practice/'):
         token=path.split('/',2)[2].strip('/')
