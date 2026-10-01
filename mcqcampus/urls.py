@@ -18,6 +18,5 @@ urlpatterns=[
     path('sitemap-years.xml', views.sitemap_years),
     path('sitemap-mcqs.xml', views.sitemap_mcqs),
     path('sitemap-resources.xml', views.sitemap_resources),
-    path('routing-manifest.json', views.root_static_file, {'filename':'routing-manifest.json'}),
     re_path(r'^(?!api/|django-admin/|assets/).*$', views.spa_index, name='spa-index'),
 ]
