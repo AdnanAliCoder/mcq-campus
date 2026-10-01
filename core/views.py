@@ -898,7 +898,21 @@ def _seo_resolve_indexed_path(path,registry=None):
     hit=None
     if len(parts)>=3 and parts[0]=='mcqs': hit=_seo_index_lookup(parts[1],['mcq'],registry)
     elif len(parts)>=3 and parts[0]=='categories': hit=_seo_index_lookup(parts[1],['category'],registry)
-    elif len(parts)>=3 and parts[0]=='past-papers' and parts[1]!='pdfs': hit=_seo_index_lookup(parts[1],['paper','job','year'],registry)
+    elif len(parts)>=3 and parts[0]=='past-papers' and parts[1]!='pdfs':
+        hit=_seo_index_lookup(parts[1],['paper','job','year'],registry)
+        if not hit:
+            wanted=str(parts[2] or '').strip().lower()
+            for paper in Paper.objects.filter(active=True).only('id','name'):
+                if f'{_seo_slug(_seo_short_name(paper.name))}-past-papers'==wanted:
+                    hit=('paper',str(paper.id)); break
+            if not hit:
+                for job in Job.objects.filter(active=True,paper__active=True).select_related('paper').only('id','name','paper_id','paper__name'):
+                    if f'{_seo_slug(_seo_short_name(job.paper.name))}-{_seo_slug(job.name)}-past-papers'==wanted:
+                        hit=('job',str(job.id)); break
+            if not hit:
+                for year in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('id','name','job_id','job__name','job__paper__name'):
+                    if _seo_slug(_seo_short_name(year.job.paper.name)+' '+year.name)==wanted:
+                        hit=('year',str(year.id)); break
     elif len(parts)>=4 and parts[:2]==['past-papers','pdfs']: hit=_seo_index_lookup(parts[2],['pdf'],registry)
     elif len(parts)>=3 and parts[0]=='latest-jobs': hit=_seo_index_lookup(parts[1],['latest-job'],registry)
     elif len(parts)>=3 and parts[0]=='blog': hit=_seo_index_lookup(parts[1],['post'],registry)
