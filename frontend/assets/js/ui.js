@@ -4,6 +4,7 @@ window.UI=(()=>{
  const icon=(name='book')=>`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.book}"/></svg>`;
  const prettyPath=path=>{const parts=String(path||'').replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);if(parts[0]==='home'&&parts.length===1)return '';
   if(window.SEO){
+   if(parts.length===1&&parts[0]==='important')return 'mcqs/important-mcqs';
    if(['mcq','practice','category','paper','job','year','pdf','latest-job','post'].includes(parts[0])&&/^\d+$/.test(parts[1]||''))return SEO.cleanPath(parts[0],Number(parts[1])).replace(/^\//,'');
    if(parts[0]==='paper'&&parts[2]==='job'&&parts[4]==='year'&&/^\d+$/.test(parts[5]||''))return SEO.cleanPath('year',Number(parts[5])).replace(/^\//,'');
    if(parts[0]==='paper'&&parts[2]==='job'&&/^\d+$/.test(parts[3]||''))return SEO.cleanPath('job',Number(parts[3])).replace(/^\//,'');
