@@ -925,7 +925,7 @@ def _seo_dynamic_path_exists(path):
 def _seo_known_spa_path(path,catalog=None):
     static={
         '/','/mcqs','/important','/categories','/papers','/jobs-exams','/pdfs',
-        '/latest-jobs','/posts','/tests','/about','/contact','/faq','/privacy','/terms','/disclaimer',
+        '/latest-jobs','/posts','/tests','/test/auto','/about','/contact','/faq','/privacy','/terms','/disclaimer',
         '/cookies','/advertising','/sitemap','/search','/login','/register','/forgot','/reset',
         '/verify','/dashboard','/admin','/super-admin'
     }
@@ -1450,7 +1450,7 @@ def spa_index(request):
     default_title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
     default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
-    legacy_redirects={'/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads'}
+    legacy_redirects={'/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
     if path in legacy_redirects:
         response=HttpResponse(status=308)
         response['Location']=SEO_ORIGIN+legacy_redirects[path]
