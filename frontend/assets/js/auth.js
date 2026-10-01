@@ -5,7 +5,7 @@ window.Auth=(()=>{
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
- const SECTION_TTL=300000;
+ const SECTION_TTL=Number.POSITIVE_INFINITY;
  const ADMIN_PAGE_SIZES=[100,500,1000,2000,3000,5000,10000],ADMIN_DEFAULT_PAGE_SIZE=1000;
 
  function initialRoute(){
