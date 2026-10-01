@@ -50,6 +50,25 @@ def _save_site_blob(settings,blob):
     root['_site']=blob
     settings.admin_permissions=root
 
+PAGE_SEO_ENTITY_KINDS={'categories':'category','papers':'paper','jobs':'job','years':'year'}
+
+def page_seo_snapshot(settings=None):
+    settings=settings or SiteSetting.get_solo()
+    raw=_site_blob(settings).get('pageSeo') or {}
+    return {str(k):{'title':str((v or {}).get('title') or ''),'description':str((v or {}).get('description') or '')} for k,v in raw.items() if isinstance(v,dict)}
+
+def save_page_seo_entry(user,kind,key,title='',description='',settings=None):
+    require(is_super(user),'Only the Super Admin can edit public page SEO content.')
+    settings=settings or SiteSetting.get_solo(); blob=_site_blob(settings); rows=dict(blob.get('pageSeo') or {})
+    compound=f'{str(kind)}:{str(key)}'
+    title=re.sub(r'\s+',' ',str(title or '')).strip()[:180]
+    description=re.sub(r'\s+',' ',str(description or '')).strip()[:500]
+    if title or description: rows[compound]={'title':title,'description':description}
+    else: rows.pop(compound,None)
+    blob['pageSeo']=rows; _save_site_blob(settings,blob); settings.updated_by=user
+    settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    return page_seo_snapshot(settings)
+
 # Permanent global SEO indexes live in the existing SiteSetting JSON blob so the
 # production database needs no schema migration. Assigned numbers are never reused.
 SEO_INDEX_ORDER=('mcq','paper','job','year','pdf','category','latest-job','post')
@@ -325,7 +344,7 @@ def _client_site_state(settings):
       'seo':{'title':settings.seo_title,'description':settings.seo_description},
       'rolePermissions':{'admin':{'review':bool(role_root.get('review',False)),'import':bool(role_root.get('import',False)),'permissions':perms}},
       'adSettings':{'enabled':ad_cfg.get('enabled',True),'adsenseClient':settings.adsense_client_id or ad_cfg.get('adsenseClient',''),'analyticsId':settings.google_analytics_id or ad_cfg.get('analyticsId',''),'slots':ad_cfg.get('slots') or {}},
-      'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,'pinnedEntities':_pinned_entities(settings),
+      'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,'pinnedEntities':_pinned_entities(settings),'pageSeo':page_seo_snapshot(settings),
     }
 
 def _startup_site_state(settings):
@@ -351,7 +370,7 @@ def public_content_data():
 def public_resources_data():
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
-    data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities']}
+    data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities','pageSeo']}
     data['seoIndex']=seo_index_snapshot()
     return data
 
@@ -440,6 +459,7 @@ def snapshot(user):
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
+      'pageSeo':page_seo_snapshot(),
       'seoIndex':seo_index_snapshot(),
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':total or len(rows),'total':total,'hasNext':False},
     }
@@ -893,7 +913,10 @@ def save_entity(user,payload):
         now=timezone.now()
         Job.objects.filter(paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
         JobYear.objects.filter(job__paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
-    log(user,f'Saved {typ}',name); return {'type':typ,'entity':_serialize_entity(typ,obj)}
+    page_seo=None
+    if is_super(user) and typ in PAGE_SEO_ENTITY_KINDS and ('entity-seo-title' in values or 'entity-seo-description' in values):
+        page_seo=save_page_seo_entry(user,PAGE_SEO_ENTITY_KINDS[typ],obj.id,values.get('entity-seo-title'),values.get('entity-seo-description'))
+    log(user,f'Saved {typ}',name); return {'type':typ,'entity':_serialize_entity(typ,obj),**({'pageSeo':page_seo} if page_seo is not None else {})}
 
 def _normalize_email(value):
     email=str(value or '').strip().lower()
@@ -948,7 +971,7 @@ def save_post(user,payload):
     obj.title=str(v.get('title') or '').strip(); require(obj.title,'Post title is required.')
     obj.slug=slugify(str(v.get('slug') or obj.title))[:120] or f'post-{timezone.now().timestamp():.0f}'
     if Post.objects.exclude(pk=obj.pk).filter(slug=obj.slug).exists(): obj.slug=f'{obj.slug[:105]}-{int(timezone.now().timestamp())}'
-    obj.body=str(v.get('body') or '').strip(); require(obj.body,'Blog content is required.'); obj.excerpt=re.sub(r'\s+',' ',obj.body).strip()[:180]; image_data=str(v.get('featured_image_data') or ''); image_url=str(v.get('featured_image') or ''); obj.featured_image=image_url if image_url.startswith(('http://','https://')) else ''; obj.category=obj.category or 'Exam preparation'; obj.seo_title=obj.title[:80]; obj.seo_description=obj.excerpt[:300]; obj.status='published'; links=[]
+    obj.body=str(v.get('body') or '').strip(); require(obj.body,'Blog content is required.'); obj.excerpt=re.sub(r'\s+',' ',obj.body).strip()[:180]; image_data=str(v.get('featured_image_data') or ''); image_url=str(v.get('featured_image') or ''); obj.featured_image=image_url if image_url.startswith(('http://','https://')) else ''; obj.category=obj.category or 'Exam preparation'; obj.seo_title=(str(v.get('seo_title') or '').strip() or obj.title)[:80]; obj.seo_description=(str(v.get('seo_description') or '').strip() or obj.excerpt)[:300]; obj.status='published'; links=[]
     for line in str(v.get('links') or '').splitlines():
         if '|' in line:
             label,url=[x.strip() for x in line.split('|',1)]; links.append({'label':label,'url':url})
@@ -1070,7 +1093,7 @@ def save_site_form(user,form,payload):
         base_slug=slugify(title) or f'pdf-{new_id}'
         used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
         item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
-        new={'id':new_id,'title':title,'slug':item_slug,'description':str(v.get('description') or ''),'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        new={'id':new_id,'title':title,'slug':item_slug,'description':str(v.get('description') or ''),'seo_title':str(v.get('seo_title') or (old or {}).get('seo_title') or '').strip()[:180],'seo_description':str(v.get('seo_description') or (old or {}).get('seo_description') or '').strip()[:500],'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
         rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
         blob['pdfs']=rows
     elif form=='latest-job':
@@ -1087,7 +1110,7 @@ def save_site_form(user,form,payload):
         base_slug=slugify(title) or f'latest-job-{new_id}'
         used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
         item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
-        new={'id':new_id,'paper_id':paper_id,'title':title,'slug':item_slug,'last_date':last,'apply_url':str(v.get('apply_url') or ''),'prep_url':str(v.get('prep_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        new={'id':new_id,'paper_id':paper_id,'title':title,'slug':item_slug,'description':str(v.get('description') or (old or {}).get('description') or '').strip(),'seo_title':str(v.get('seo_title') or (old or {}).get('seo_title') or '').strip()[:180],'seo_description':str(v.get('seo_description') or (old or {}).get('seo_description') or '').strip()[:500],'last_date':last,'apply_url':str(v.get('apply_url') or ''),'prep_url':str(v.get('prep_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
         rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
         blob['latestJobs']=rows
     elif form=='bulk-pdfs':
