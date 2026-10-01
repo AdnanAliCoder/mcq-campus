@@ -893,6 +893,9 @@ def _parse_bulk_label(raw,default_icon='grid'):
 def _bulk_blocks(raw):
     text=str(raw or '').replace('\r\n','\n').replace('\r','\n').strip()
     if not text: return []
+    starts=list(re.finditer(r'(?im)^(?:title|pdf title|paper|organization)\s*:',text))
+    if len(starts)>1:
+        return [text[m.start():(starts[i+1].start() if i+1<len(starts) else len(text))].strip() for i,m in enumerate(starts)]
     return [block.strip() for block in re.split(r'\n\s*\n+',text) if block.strip()]
 
 def _bulk_labeled(block):
@@ -984,7 +987,7 @@ def _bulk_labeled(block):
             d=_bulk_labeled(block); free=d.pop('_free',[])
             paper_name=str(d.get('paper') or (free[0] if free else '')).strip()
             title=str(d.get('title') or (free[1] if len(free)>1 else '')).strip()
-            last=str(d.get('last_date') or (free[2] if len(free)>2 else '')).strip()
+            last=_bulk_date(d.get('last_date') or (free[2] if len(free)>2 else ''))
             apply_url=_bulk_safe_url(d.get('apply_url') or d.get('url') or next((x for x in free[3:] if re.match(r'^https?://',x,re.I)),'')) 
             prep_url=_bulk_safe_url(d.get('prep_url') or '')
             require(paper_name and title and last,'Each Latest Job block needs Paper/Organization, Job Title and Last Date.')
@@ -1261,6 +1264,14 @@ def consume_token(user,raw,purpose,max_attempts=5):
             free.append(line)
     out['_free']=free
     return out
+
+def _bulk_date(value):
+    value=str(value or '').strip()
+    if not value: return ''
+    for fmt in ('%Y-%m-%d','%d-%m-%Y','%d/%m/%Y','%d %b %Y','%d %B %Y','%b %d, %Y','%B %d, %Y'):
+        try: return datetime.strptime(value,fmt).date().isoformat()
+        except Exception: pass
+    return value
 
 def _bulk_safe_url(value):
     return str(value or '').strip() if re.match(r'^https?://',str(value or '').strip(),re.I) else ''
