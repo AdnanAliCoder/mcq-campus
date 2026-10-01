@@ -138,7 +138,7 @@ window.Auth=(()=>{
   }
   const workspaceEndpoint=()=>{
    const q=new URLSearchParams();
-   const requested=[10,20,50,100,500,1000,2000,3000].includes(Number(routeParams.get('limit')))?Number(routeParams.get('limit')):20;
+   const requested=(user?.roles?.includes('super-admin')&&['all-mcqs','mcqs'].includes(section))?10000:([10,20,50,100,500,1000,2000,3000].includes(Number(routeParams.get('limit')))?Number(routeParams.get('limit')):20);
    q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
    q.set('page_size',String(section==='edit'?1:section==='paper-mcqs'?Math.max(500,requested):requested));
    for(const key of ['status','category','paper','job','year','author','from','to','search']){
@@ -423,7 +423,7 @@ window.Auth=(()=>{
   finally{restore();}
  },true);
 
- const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','bulk-categories','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','bulk-hierarchy','bulk-categories','bulk-pdfs','bulk-latest-jobs','bulk-posts','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
