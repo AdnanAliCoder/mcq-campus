@@ -924,10 +924,10 @@ def _seo_dynamic_path_exists(path):
 
 def _seo_known_spa_path(path,catalog=None):
     static={
-        '/','/mcqs','/important','/categories','/papers','/jobs','/jobs-exams','/pdfs',
-        '/latest-jobs','/posts','/about','/contact','/faq','/privacy','/terms','/disclaimer',
+        '/','/mcqs','/important','/categories','/papers','/jobs-exams','/pdfs',
+        '/latest-jobs','/posts','/tests','/about','/contact','/faq','/privacy','/terms','/disclaimer',
         '/cookies','/advertising','/sitemap','/search','/login','/register','/forgot','/reset',
-        '/verify','/dashboard','/profile','/my-downloads','/admin','/super-admin'
+        '/verify','/dashboard','/admin','/super-admin'
     }
     private_prefixes=('/dashboard/','/admin/','/super-admin/')
     return path in static or any(path.startswith(prefix) for prefix in private_prefixes) or _seo_dynamic_path_exists(path) or bool(_seo_past_papers_record(path,catalog))
@@ -960,7 +960,7 @@ def sitemap_index(request):
     return _xml_response(body)
 
 def sitemap_pages(request):
-    paths=['/','/mcqs','/categories','/papers','/jobs-exams','/pdfs','/latest-jobs','/posts','/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap']
+    paths=['/','/mcqs','/categories','/papers','/jobs-exams','/pdfs','/latest-jobs','/posts','/tests','/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap']
     return _xml_response(_urlset([(SEO_ORIGIN+p,None) for p in paths]))
 
 def sitemap_categories(request):
@@ -1450,6 +1450,12 @@ def spa_index(request):
     default_title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
     default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
+    legacy_redirects={'/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads'}
+    if path in legacy_redirects:
+        response=HttpResponse(status=308)
+        response['Location']=SEO_ORIGIN+legacy_redirects[path]
+        response['Cache-Control']='public, max-age=0, s-maxage=3600'
+        return response
     discovery=_seo_is_past_papers_path(path) or path=='/sitemap'
     catalog=_seo_past_papers_catalog() if discovery or path.startswith('/paper/') else None
     landing=_seo_past_papers_record(path,catalog)
@@ -1526,14 +1532,6 @@ def site_manifest(request):
         ],
     }
     return JsonResponse(data,content_type='application/manifest+json')
-
-def root_static_file(request, filename):
-    allowed={'routing-manifest.json'}
-    if filename not in allowed: raise Http404
-    from pathlib import Path
-    path=Path(__file__).resolve().parents[1]/'frontend'/filename
-    if not path.exists(): raise Http404
-    return FileResponse(open(path,'rb'),content_type='application/json')
 
 def robots_txt(request):
     body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /super-admin/\nDisallow: /dashboard/\nDisallow: /profile/\nDisallow: /api/\nSitemap: '+SEO_ORIGIN+'/sitemap.xml\n'
