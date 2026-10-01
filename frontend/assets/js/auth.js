@@ -132,7 +132,7 @@ window.Auth=(()=>{
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
    if(['posts','guides','ads'].includes(section))wants.push('content');
-   if(['settings','content','seo','roles','footer','social','ads'].includes(section))wants.push('resources');
+   if(['settings','content','seo','page-seo','roles','footer','social','ads'].includes(section))wants.push('resources');
    if(['pdfs','latest-jobs','current-affairs','pdfs-manager','latest-jobs-manager'].includes(section))wants.push('catalog');
    if(['content','legal'].includes(section))wants.push('legal');
   }
