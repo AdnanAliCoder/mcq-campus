@@ -308,6 +308,7 @@ window.Auth=(()=>{
   if(action==='action:report-resolve'&&result?.report){MCQ.upsert('reports',result.report);return}
   if(action==='action:user-status'&&result?.user){MCQ.upsert('users',result.user);return}
   if(action==='action:ad-toggle'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(result?.pageSeo)MCQ.mergeCore({pageSeo:result.pageSeo});
   if(Array.isArray(result?.mcqs))result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));
   if(Array.isArray(result?.pdfs))MCQ.db.pdfs=result.pdfs;
   if(Array.isArray(result?.latestJobs))MCQ.db.latestJobs=result.latestJobs;
