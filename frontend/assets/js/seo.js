@@ -42,7 +42,7 @@ window.SEO=(()=>{
  function cleanPath(base,id){
   const get=(t,i)=>MCQ.get(t,i), s=x=>x?.slug||slug(x?.name||x?.title||x?.question||id);
   if(base==='home')return '/';
-  if(base==='mcqs')return '/mcqs';
+  if(base==='mcqs')return '/mcqs'; if(base==='important')return '/mcqs/important-mcqs';
   if(base==='categories')return '/categories';
   if(base==='papers')return '/past-papers';
   if(base==='pdfs')return '/past-papers/pdfs';
