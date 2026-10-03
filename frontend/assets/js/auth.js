@@ -6,7 +6,7 @@ window.Auth=(()=>{
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=Number.POSITIVE_INFINITY;
- const ADMIN_PAGE_SIZES=[100,500,1000,2000,3000,5000,10000],ADMIN_DEFAULT_PAGE_SIZE=1000;
+ const ADMIN_PAGE_SIZES=[100,500,1000,2000,3000,5000,10000],ADMIN_DEFAULT_PAGE_SIZE=100;
 
  function initialRoute(){
   if(location.hash){
@@ -103,7 +103,8 @@ window.Auth=(()=>{
   try{
    let response;
    try{
-    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(timeout)});
+    const publicCachedGet=body===undefined&&!user&&new Set(['/public/content','/public/resources','/public/catalog','/public/legal']).has(path);
+    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:publicCachedGet?'default':'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(timeout)});
    }catch{throw Error('Unable to reach MCQ Campus. Check your connection and try again.');}
    if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
    if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);

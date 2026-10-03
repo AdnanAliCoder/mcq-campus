@@ -45,6 +45,8 @@ def year(x):
     if paper_obj: row['icon']=paper_obj.icon
     return row
 def _important_mcq(x):
+    cached=getattr(x,'_important_value',None)
+    if cached is not None: return bool(cached)
     years=list(dict.fromkeys(x.job_year_ids or []))
     if len(years)<2: return False
     return JobYear.objects.filter(pk__in=years).values('job_id').distinct().count()>=2

@@ -367,11 +367,13 @@ def public_content_data():
       'ads':[_client_ad(x) for x in ads_q[:50]],
     }
 
-def public_resources_data():
+def public_resources_data(user=None):
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
     data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities','pageSeo']}
-    data['seoIndex']=seo_index_snapshot()
+    # The global SEO registry can contain thousands of entries. Public pages do not
+    # need it, so only staff receives it; crawler URLs are rendered server-side.
+    if is_admin(user): data['seoIndex']=seo_index_snapshot()
     return data
 
 def public_catalog_data():
@@ -390,7 +392,7 @@ def visible_mcqs(user):
 
 def mcq_page(user,page=1,page_size=50,filters=None):
     filters=filters or {}; page=max(1,int(page or 1))
-    max_page_size=10000 if is_admin(user) else 100
+    max_page_size=10000 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=visible_mcqs(user)
     if filters.get('owner')=='me' and user and getattr(user,'is_authenticated',False):
@@ -436,12 +438,29 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         if filters.get(key):
             try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
             except (TypeError,ValueError): pass
-    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
+    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
     start=(page-1)*page_size
     objects=list(qs[start:start+page_size])
+    _attach_important_flags(objects)
     total=int(objects[0]._page_total) if objects else (qs.count() if page>1 else 0)
     rows=[mcq_list(x) for x in objects]
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
+
+def _attach_important_flags(objects):
+    """Compute the final >=2 different Jobs rule in one JobYear query per page."""
+    year_ids=set()
+    for obj in objects:
+        for value in obj.job_year_ids or []:
+            try: year_ids.add(int(value))
+            except (TypeError,ValueError): pass
+    job_by_year=dict(JobYear.objects.filter(pk__in=year_ids).values_list('id','job_id')) if year_ids else {}
+    for obj in objects:
+        jobs=set()
+        for value in obj.job_year_ids or []:
+            try: job_id=job_by_year.get(int(value))
+            except (TypeError,ValueError): job_id=None
+            if job_id is not None: jobs.add(job_id)
+        obj._important_value=len(jobs)>=2
 
 def snapshot(user):
     cats=list(Category.objects.select_related('created_by','updated_by').all().order_by('id'))
@@ -450,19 +469,25 @@ def snapshot(user):
     papers=list(Paper.objects.select_related('created_by','updated_by').all().order_by('id'))
     jobs=list(Job.objects.select_related('paper','created_by','updated_by').all().order_by('id'))
     years=list(JobYear.objects.select_related('job__paper','created_by','updated_by').all().order_by('id'))
-    qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
-    objects=list(qs)
+    # Bootstrap is intentionally bounded. Full/admin MCQ lists are loaded through
+    # /api/mcqs with pagination instead of downloading the complete table.
+    qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
+    objects=list(qs[:50])
+    _attach_important_flags(objects)
     total=int(objects[0]._page_total) if objects else 0
     rows=[mcq_list(x) for x in objects]
-    return {
+    data={
       'schemaVersion':11,
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
       'pageSeo':page_seo_snapshot(),
-      'seoIndex':seo_index_snapshot(),
-      'mcqs':rows,'mcqPage':{'page':1,'pageSize':total or len(rows),'total':total,'hasNext':False},
+      'mcqs':rows,'mcqPage':{'page':1,'pageSize':len(rows),'total':total,'hasNext':len(rows)<total},
     }
+    # The permanent SEO index registry is admin-only client data. Public SEO routes
+    # resolve indexes on the server and do not need this large map in bootstrap JSON.
+    if is_admin(user): data['seoIndex']=seo_index_snapshot()
+    return data
 
 def learner_dashboard_data(user):
     require(bool(user and getattr(user,'is_authenticated',False)))

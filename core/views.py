@@ -483,25 +483,30 @@ def startup(request):
         data['user']['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse(data)
 
+def _public_json(data):
+    response=JsonResponse(data)
+    response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
+    return response
+
 @profile_api('public_content')
 @require_GET
 def public_content(request):
-    return JsonResponse(public_content_data())
+    return _public_json(public_content_data())
 
 @profile_api('public_resources')
 @require_GET
 def public_resources(request):
-    return JsonResponse(public_resources_data())
+    return _public_json(public_resources_data(request.user))
 
 @profile_api('public_catalog')
 @require_GET
 def public_catalog(request):
-    return JsonResponse(public_catalog_data())
+    return _public_json(public_catalog_data())
 
 @profile_api('public_legal')
 @require_GET
 def public_legal(request):
-    return JsonResponse(public_legal_data())
+    return _public_json(public_legal_data())
 
 @profile_api('profile_detail')
 @require_GET
@@ -1619,7 +1624,7 @@ def spa_index(request):
         'seo_origin':SEO_ORIGIN,'seo_robots':robots,'seo_jsonld':jsonld,'seo_discovery_page':None,
     },status=status)
     if status==200 and (path=='/' or root in target_roots):
-        response['Cache-Control']='public, max-age=0, s-maxage=300, stale-while-revalidate=600'
+        response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
     else:
         response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0';response['Pragma']='no-cache';response['Expires']='0'
     return response
