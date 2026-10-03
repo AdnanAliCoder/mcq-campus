@@ -483,30 +483,33 @@ def startup(request):
         data['user']['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse(data)
 
-def _public_json(data):
+def _public_json(request,data):
     response=JsonResponse(data)
-    response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
+    if request.user.is_authenticated:
+        response['Cache-Control']='private, no-store, max-age=0'
+    else:
+        response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
     return response
 
 @profile_api('public_content')
 @require_GET
 def public_content(request):
-    return _public_json(public_content_data())
+    return _public_json(request,public_content_data())
 
 @profile_api('public_resources')
 @require_GET
 def public_resources(request):
-    return _public_json(public_resources_data(request.user))
+    return _public_json(request,public_resources_data(request.user))
 
 @profile_api('public_catalog')
 @require_GET
 def public_catalog(request):
-    return _public_json(public_catalog_data())
+    return _public_json(request,public_catalog_data())
 
 @profile_api('public_legal')
 @require_GET
 def public_legal(request):
-    return _public_json(public_legal_data())
+    return _public_json(request,public_legal_data())
 
 @profile_api('profile_detail')
 @require_GET
