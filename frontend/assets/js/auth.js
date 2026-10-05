@@ -121,7 +121,7 @@ window.Auth=(()=>{
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
-  if(['home','mcqs','important','category','subcategory','topic','year','mcq','practice'].includes(resolvedBase))wants.push('public-mcqs');
+  if(['home','mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -216,6 +216,7 @@ window.Auth=(()=>{
     try{
      const own=generation,data=await request(endpoint);
      if(!['core','public-content','resources','catalog','legal'].includes(key)&&own!==generation)return;
+     if(variable.has(key)&&routeKey!==location.pathname+location.search)return;
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
      if(key==='resources')MCQ.mergeCore(data);
