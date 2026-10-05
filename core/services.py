@@ -392,9 +392,21 @@ def visible_mcqs(user):
 
 def mcq_page(user,page=1,page_size=50,filters=None):
     filters=filters or {}; page=max(1,int(page or 1))
-    max_page_size=10000 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
+    # Admin list endpoints are deliberately capped so a stale URL cannot pull thousands
+    # of full MCQ rows and drive database/network egress. The UI uses 10-row pages;
+    # 50 remains available for the on-demand post-import review page.
+    max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=visible_mcqs(user)
+    if filters.get('ids'):
+        requested_ids=[]
+        for raw in str(filters['ids']).split(',')[:50]:
+            try:
+                value=int(raw)
+                if value>0 and value not in requested_ids: requested_ids.append(value)
+            except (TypeError,ValueError):
+                pass
+        qs=qs.filter(pk__in=requested_ids) if requested_ids else qs.none()
     if filters.get('owner')=='me' and user and getattr(user,'is_authenticated',False):
         qs=qs.filter(created_by=user)
     if filters.get('status'):
@@ -472,7 +484,8 @@ def snapshot(user):
     # Bootstrap is intentionally bounded. Full/admin MCQ lists are loaded through
     # /api/mcqs with pagination instead of downloading the complete table.
     qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
-    objects=list(qs[:50])
+    bootstrap_limit=5 if is_admin(user) else 50
+    objects=list(qs[:bootstrap_limit])
     _attach_important_flags(objects)
     total=int(objects[0]._page_total) if objects else 0
     rows=[mcq_list(x) for x in objects]
@@ -513,7 +526,7 @@ def admin_overview_data(user,active_role=None):
         approved=Count('id',filter=Q(status='approved')),
         rejected=Count('id',filter=Q(status='rejected')),
     )
-    recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:6]]
+    recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:5]]
     mine_qs=MCQ.objects.filter(created_by=user)
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')),approved=Count('id',filter=Q(status='approved')),rejected=Count('id',filter=Q(status='rejected')))
     data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'learners':0,'trash':0}
@@ -1414,8 +1427,19 @@ def command(user,action,payload):
                 if len(summary['errors'])<20:
                     summary['errors'].append({'question':question,'message':message})
                 results.append({'question':question,'result':'failed','message':message})
-        imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')
-        return {'summary':summary,'results':results,'mcqs':[mcq(x) for x in imported]}
+        # Never send every imported MCQ back in one response. Keep the complete ID list
+        # (small integers) so the browser can request 50 detail rows only when the user
+        # opens the next import-result page.
+        imported_ids=list(dict.fromkeys(imported_ids))
+        imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')[:50]
+        return {
+            'summary':summary,
+            'results':results[:50],
+            'resultTotal':len(results),
+            'importedIds':imported_ids,
+            'importPage':{'page':1,'pageSize':50,'total':len(imported_ids),'hasNext':len(imported_ids)>50},
+            'mcqs':[mcq(x) for x in imported],
+        }
 
     raise ValueError(f'Unsupported command: {action}')
 
