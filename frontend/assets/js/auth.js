@@ -126,7 +126,7 @@ window.Auth=(()=>{
    if(workspace==='profile'||section==='settings')wants.push('profile');
   }
   if(user&&['admin','super-admin'].includes(workspace)){
-   if(section==='overview')wants.push('overview');
+   if(section==='overview'||section==='admin-records')wants.push('overview');
    if(['users','admins','admin-records'].includes(section)||(section==='all-mcqs'&&user.roles?.includes('super-admin')))wants.push('users');
    if(['add','edit','all-mcqs','mcqs','paper-mcqs','categories','papers','jobs','years','import'].includes(section))wants.push('core');
    if(['all-mcqs','mcqs','edit','paper-mcqs'].includes(section))wants.push('workspace-mcqs');
