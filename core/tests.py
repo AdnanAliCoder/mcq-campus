@@ -610,6 +610,36 @@ class IntegrationTests(TestCase):
         self.assertGreaterEqual(bootstrap['mcqPage']['total'],61)
         self.assertIn('mcqPage',bootstrap)
 
+    def test_public_mcq_pages_load_ten_rows_with_exact_database_total(self):
+        more=[MCQ(id=2100+i,question=f'Public page question {i}?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',created_by=self.admin,submitted_by=self.admin) for i in range(24)]
+        MCQ.objects.bulk_create(more)
+        data=self.client.get('/api/mcqs?public=1&page=2&page_size=10').json()
+        self.assertEqual(data['pageSize'],10)
+        self.assertEqual(len(data['items']),10)
+        self.assertEqual(data['total'],MCQ.objects.filter(status='approved').count())
+        self.assertTrue(all(row['status']=='approved' for row in data['items']))
+
+    def test_public_important_pages_use_two_distinct_job_ids(self):
+        job1=Job.objects.create(id=710,name='Important Job One',paper=self.paper)
+        job2=Job.objects.create(id=711,name='Important Job Two',paper=self.paper)
+        self.approved.job_ids=[job1.id,job2.id]
+        self.approved.save(update_fields=['job_ids'])
+        data=self.client.get('/api/mcqs?public=1&important=1&page=1&page_size=10').json()
+        self.assertIn(self.approved.id,{row['id'] for row in data['items']})
+        self.assertEqual(data['total'],1)
+        row=next(row for row in data['items'] if row['id']==self.approved.id)
+        self.assertTrue(row['important'])
+
+    def test_public_entity_pages_load_ten_records_and_keep_total(self):
+        Category.objects.bulk_create([Category(id=3000+i,name=f'Category {i}',icon='grid') for i in range(15)])
+        first=self.client.get('/api/entities?type=categories&scope=public&page=1').json()
+        second=self.client.get('/api/entities?type=categories&scope=public&page=2').json()
+        self.assertEqual(first['pageSize'],10)
+        self.assertEqual(len(first['items']),10)
+        self.assertEqual(first['total'],Category.objects.filter(active=True).count())
+        self.assertEqual(second['total'],first['total'])
+        self.assertLessEqual(len(second['items']),10)
+
     def test_admin_mcq_endpoint_caps_large_page_sizes_and_owner_filter(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         response=self.client.get('/api/mcqs?page=1&page_size=500')
