@@ -606,16 +606,35 @@ class IntegrationTests(TestCase):
         self.assertLessEqual(len(list_queries),5)
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         bootstrap=self.client.get('/api/bootstrap').json()
-        self.assertLessEqual(len(bootstrap['mcqs']),50)
+        self.assertLessEqual(len(bootstrap['mcqs']),5)
+        self.assertGreaterEqual(bootstrap['mcqPage']['total'],61)
         self.assertIn('mcqPage',bootstrap)
 
-    def test_admin_mcq_endpoint_allows_large_page_sizes_and_owner_filter(self):
+    def test_admin_mcq_endpoint_caps_large_page_sizes_and_owner_filter(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         response=self.client.get('/api/mcqs?page=1&page_size=500')
         self.assertEqual(response.status_code,200)
-        self.assertEqual(response.json()['pageSize'],500)
+        self.assertEqual(response.json()['pageSize'],50)
+        self.assertLessEqual(len(response.json()['items']),50)
         mine=self.client.get('/api/mcqs?page=1&page_size=500&owner=me').json()
+        self.assertEqual(mine['pageSize'],50)
         self.assertTrue(all(row.get('created_by_id')==self.owner.id for row in mine['items']))
+
+    def test_admin_mcq_endpoint_supports_bounded_id_batches(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        ids=[self.approved.id,self.pending.id]
+        data=self.client.get('/api/mcqs?ids='+','.join(str(x) for x in ids)+'&page_size=50').json()
+        self.assertEqual(data['pageSize'],50)
+        self.assertEqual(data['total'],2)
+        self.assertEqual({row['id'] for row in data['items']},set(ids))
+
+    def test_admin_overview_keeps_exact_counts_and_only_five_recent_rows(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        self.post_json('/api/auth/switch-role',{'role':'super-admin'})
+        data=self.client.get('/api/admin/overview').json()
+        self.assertEqual(data['mcqs']['total'],MCQ.objects.count())
+        self.assertLessEqual(len(data['recent']),5)
+        self.assertIn('staffStats',data)
 
     def test_mcq_endpoint_filters_pending_updates_as_pending(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
