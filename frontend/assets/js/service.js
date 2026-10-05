@@ -139,6 +139,8 @@ window.MCQ = (() => {
    if(Array.isArray(incoming[key]))db[key]=incoming[key];
   }
   if(incoming.mcqPage)db.mcqPage=clone(incoming.mcqPage);
+  if(incoming.siteCounts)db.siteCounts=clone(incoming.siteCounts);
+  if(incoming.entityPage)db.entityPage=clone(incoming.entityPage);
   if(incoming.settings)db.settings={...db.settings,...incoming.settings,footer:{...db.settings.footer,...(incoming.settings.footer||{})},socialLinks:{...db.settings.socialLinks,...(incoming.settings.socialLinks||{})},contact:{...db.settings.contact,...(incoming.settings.contact||{})}};
   if(incoming.content){const legal=Object.fromEntries(Object.entries(db.content.legalPages||{}).map(([key,value])=>[key,{...value,...(incoming.content?.legalPages?.[key]||{})}]));db.content={...db.content,...incoming.content,legalPages:legal}}
   if(incoming.seo)db.seo={...db.seo,...incoming.seo};
