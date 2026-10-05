@@ -39,18 +39,20 @@ window.Public=(()=>{
 
  function browse(type,id){
   if(type==='subcategory'){
-   const sub=MCQ.get('subcategories',id);if(!sub)return notFound();const cat=MCQ.get('categories',sub.category_id);
-   let rows=MCQ.publicMcqs().filter(q=>MCQ.ids(q.subcategory_ids).some(x=>+x===+sub.id));const p=App.route.params,pageSize=10,page=App.page(rows.length,pageSize);
+   const sub=MCQ.get('subcategories',id);if(!sub)return notFound();const cat=MCQ.get('categories',sub.category_id),server=activeServerMcqPage(),p=App.route.params,pageSize=10;
+   const rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>MCQ.ids(q.subcategory_ids).some(x=>+x===+sub.id)),total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize);
    const children=MCQ.db.children.filter(x=>x.active!==false&&+x.subcategory_id===+sub.id).sort((a,b)=>a.name.localeCompare(b.name));
    const pre=children.length?`<div class="section-head"><div><p class="eyebrow">TOPICS</p><h2>Explore ${e(sub.name)}</h2></div></div><div class="chips">${children.map(x=>link('topic/'+x.id,e(x.name),'chip')).join('')}</div>`:'';
-   const main=`<p class="small muted result-count">${rows.length} MCQs in ${e(sub.name)} · 10 per page</p>${rows.length?rows.slice((page-1)*pageSize,page*pageSize).map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty('No MCQs in this subcategory yet','Choose a related topic or browse the parent category.',cat?link('category/'+cat.id,'Browse '+e(cat.name),'btn primary'):link('categories','Browse categories','btn primary'))}${UI.pager(rows.length,page,pageSize,p,'subcategory/'+sub.id)}`;
+   const shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+   const main=`<p class="small muted result-count">${total.toLocaleString('en-GB')} MCQs in ${e(sub.name)} · 10 per page</p>${shown.length?shown.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty(server?'No MCQs in this subcategory yet':'Loading MCQs…','Choose a related topic or browse the parent category.',cat?link('category/'+cat.id,'Browse '+e(cat.name),'btn primary'):link('categories','Browse categories','btn primary'))}${UI.pager(total,page,pageSize,p,'subcategory/'+sub.id)}`;
    return PublicLayout.page({trail:[['Categories','categories'],...(cat?[[cat.name,'category/'+cat.id]]:[]),[sub.name]],title:sub.name,desc:'Practice approved '+sub.name+' MCQs with answers and explanations.',pre,main,sidebar:PublicLayout.smart('category',{record:sub,type:'subcategory'}),active:'categories',sidebarLabel:'Related / Browse'});
   }
   if(type==='category'){
-   const cat=MCQ.get('categories',id);if(!cat)return notFound();let rows=MCQ.publicMcqs().filter(q=>+q.category_id===+cat.id);const p=App.route.params,pageSize=10,page=App.page(rows.length,pageSize);
+   const cat=MCQ.get('categories',id);if(!cat)return notFound();const server=activeServerMcqPage(),p=App.route.params,pageSize=10,rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>+q.category_id===+cat.id),total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize);
    const subs=MCQ.db.subcategories.filter(x=>x.active!==false&&+x.category_id===+cat.id).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    const pre=subs.length?`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXPLORE TOPICS</p><h2>${e(cat.name)} Subcategories</h2></div></div><div class="chips">${subs.map(x=>link('subcategory/'+x.id,e(x.name),'chip')).join('')}</div></section>`:'';
-   const main=`<p class="small muted result-count">${rows.length} MCQs in ${e(cat.name)} · 10 per page</p>${rows.length?rows.slice((page-1)*pageSize,page*pageSize).map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty('No MCQs in this category yet','Choose a subcategory or browse all MCQs.',link('mcqs','Browse all MCQs','btn primary'))}${UI.pager(rows.length,page,pageSize,p,'category/'+cat.id)}`;
+   const shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+   const main=`<p class="small muted result-count">${total.toLocaleString('en-GB')} MCQs in ${e(cat.name)} · 10 per page</p>${shown.length?shown.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty(server?'No MCQs in this category yet':'Loading MCQs…','Choose a subcategory or browse all MCQs.',link('mcqs','Browse all MCQs','btn primary'))}${UI.pager(total,page,pageSize,p,'category/'+cat.id)}`;
    const copy=pageCopy('category',cat.id,cat.name+' MCQs','Practice '+cat.name+' MCQs with correct answers and explanations, and explore related subcategories.');
    return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre,main,sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
   }
