@@ -382,6 +382,11 @@ window.Auth=(()=>{
   if(result?.deleted?.type){MCQ.remove(result.deleted.type,result.deleted.ids||[]);return}
  }
  function invalidateWorkspaceMcqs(){for(const key of [...loadedSections])if(String(key).startsWith('workspace-mcqs|')){loadedSections.delete(key);sectionLoadedAt.delete(key)}}
+ function invalidatePagedLists(){
+  for(const key of [...loadedSections])if(['workspace-mcqs|','public-mcqs|','entity-page|'].some(prefix=>String(key).startsWith(prefix))){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  loadedSections.delete('core');sectionLoadedAt.delete('core');
+  if(window.MCQ?.db){MCQ.db.entityPage=null;MCQ.db.mcqPage={...(MCQ.db.mcqPage||{}),server:false}}
+ }
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
@@ -391,7 +396,8 @@ window.Auth=(()=>{
    if(data.user)setIdentity({...user,...data.user});
    if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
    applyCommandResult(action,data.result,payload);
-   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidateWorkspaceMcqs();
+   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidatePagedLists();
+   if(['form:entity','action:entity-pin','action:entity-delete','action:entity-delete-confirm','action:entity-bulk-delete','action:bulk-hierarchy','action:bulk-categories'].includes(action))invalidatePagedLists();
    if(['action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'].includes(action)){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
    if(data.refresh==='bootstrap'){
     const snapshot=await request('/bootstrap');
