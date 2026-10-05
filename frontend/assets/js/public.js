@@ -135,27 +135,40 @@ window.Public=(()=>{
  }
  function listing(type,id){
   if(type==='search')return searchResults();
-  let rows=MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved MCQs with country, collection and category filters.',trail=[['MCQs']],record;const p=App.route.params;let listHeader='';
+  const server=activeServerMcqPage(),p=App.route.params,site=MCQ.db.siteCounts||{},pageSize=10;
+  let rows=server?MCQ.publicMcqs():MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved MCQs with country, collection and category filters.',trail=[['MCQs']],record;let listHeader='';
   if(type==='mcqs'){const copy=staticCopy('mcqs',title,desc);title=copy.title;desc=copy.desc}
   if(type==='topic'){
    record=MCQ.get('children',id);if(!record)return notFound();const su=MCQ.get('subcategories',record.subcategory_id),ca=su&&MCQ.get('categories',su.category_id);
-   rows=rows.filter(q=>MCQ.ids(q.child_subcategory_ids).includes(+id));title=record.name+' MCQs';desc='Practice '+record.name+' MCQs with correct answers and explanations.';
+   if(!server)rows=rows.filter(q=>MCQ.ids(q.child_subcategory_ids).includes(+id));title=record.name+' MCQs';desc='Practice '+record.name+' MCQs with correct answers and explanations.';
    trail=[['Categories','categories'],...(ca?[[ca.name,'category/'+ca.id]]:[]),...(su?[[su.name,'subcategory/'+su.id]]:[]),[record.name]];
   }
-  if(type==='year'){record=MCQ.get('years',id);if(!record)return notFound();const j=MCQ.get('jobs',record.job_id),pa=j&&MCQ.get('papers',j.paper_id);if(!j||!pa)return notFound();title=record.name;desc='Practice '+pa.name+' '+j.name+' '+record.name+' past paper MCQs with correct answers and explanations.';const copy=pageCopy('year',record.id,title,desc);title=copy.title;desc=copy.desc;rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+id));trail=[['Past Papers','papers'],[pa.name,window.SEO?SEO.cleanPath('paper',pa.id):'paper/'+pa.id],[j.name,window.SEO?SEO.cleanPath('job',j.id):'paper/'+pa.id+'/job/'+j.id],[record.name]];listHeader=`<section class="card seo-related-block"><p class="eyebrow">PAST PAPER</p><h2>${e(title)}</h2><p class="small muted">${e(desc)}</p></section>${btn(icon('bookmark')+' '+(MCQ.db.savedPapers.includes(+id)?'Remove saved paper':'Save paper'),'save-paper','',`data-id="${id}"`)}`}
-  if(type==='important')p.view='important';const view=p.view||'all';if(view==='important')rows=rows.filter(q=>MCQ.isImportant(q));if(view==='repeated')rows=rows.filter(q=>q.repeated===true||Number(q.repeat_count||0)>1);if(view==='latest')rows=[...rows].sort((a,b)=>(String(b.created_at||b.updated_at||'').localeCompare(String(a.created_at||a.updated_at||''))||b.id-a.id));
-  if(p.category)rows=rows.filter(q=>+q.category_id===+p.category);if(p.paper)rows=rows.filter(q=>MCQ.ids(q.paper_id).includes(+p.paper));if(p.job)rows=rows.filter(q=>MCQ.ids(q.job_ids).includes(+p.job));if(p.year)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+p.year));if(p.country)rows=rows.filter(q=>questionCountry(q)===p.country);
+  if(type==='year'){
+   record=MCQ.get('years',id);if(!record)return notFound();const j=MCQ.get('jobs',record.job_id),pa=j&&MCQ.get('papers',j.paper_id);if(!j||!pa)return notFound();title=record.name;desc='Practice '+pa.name+' '+j.name+' '+record.name+' past paper MCQs with correct answers and explanations.';const copy=pageCopy('year',record.id,title,desc);title=copy.title;desc=copy.desc;if(!server)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+id));trail=[['Past Papers','papers'],[pa.name,window.SEO?SEO.cleanPath('paper',pa.id):'paper/'+pa.id],[j.name,window.SEO?SEO.cleanPath('job',j.id):'paper/'+pa.id+'/job/'+j.id],[record.name]];listHeader=`<section class="card seo-related-block"><p class="eyebrow">PAST PAPER</p><h2>${e(title)}</h2><p class="small muted">${e(desc)}</p></section>${btn(icon('bookmark')+' '+(MCQ.db.savedPapers.includes(+id)?'Remove saved paper':'Save paper'),'save-paper','',`data-id="${id}"`)}`}
+  const view=type==='important'?'important':(p.view||'all');
+  if(!server){
+   if(view==='important')rows=rows.filter(q=>MCQ.isImportant(q));
+   if(view==='repeated')rows=rows.filter(q=>MCQ.ids(q.job_years_ids).length>=2);
+   if(view==='latest')rows=[...rows].sort((a,b)=>(String(b.created_at||b.updated_at||'').localeCompare(String(a.created_at||a.updated_at||''))||b.id-a.id));
+   if(p.category)rows=rows.filter(q=>+q.category_id===+p.category);
+   if(p.paper)rows=rows.filter(q=>MCQ.ids(q.paper_id).includes(+p.paper));
+   if(p.job)rows=rows.filter(q=>MCQ.ids(q.job_ids).includes(+p.job));
+   if(p.year)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+p.year));
+   if(p.country)rows=rows.filter(q=>questionCountry(q)===p.country);
+  }
+  const total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const active=[];if(p.country)active.push('Country: '+p.country);if(p.paper)active.push('Exam: '+(MCQ.get('papers',p.paper)?.name||p.paper));if(p.job)active.push('Job: '+(MCQ.get('jobs',p.job)?.name||p.job));if(p.year)active.push('Year: '+(MCQ.get('years',p.year)?.name||p.year));if(p.category)active.push('Category: '+(MCQ.get('categories',p.category)?.name||p.category));
   const activeSummary=active.length?`<div class="active-filter-summary" aria-label="Active selection"><strong>Selected</strong><div class="chips">${active.map(x=>`<span class="chip">${e(x)}</span>`).join('')}</div></div>`:'';
   let pre='';if(type==='mcqs'||type==='important'){
-   const base=Object.fromEntries(Object.entries(p).filter(([k])=>!['view','page','category'].includes(k))),categories=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).map(c=>({...c,count:MCQ.publicMcqs().filter(q=>q.category_id===c.id).length})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name)).slice(0,6);
+   const base=Object.fromEntries(Object.entries(p).filter(([k])=>!['view','page','category'].includes(k))),categoryCounts=site.categoryMcqs||{},categories=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).map(c=>({...c,count:Number(categoryCounts[String(c.id)]||0)})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name)).slice(0,6);
    const countryBase=Object.fromEntries(Object.entries(base).filter(([k])=>k!=='country'));
    const countryBar=PublicLayout.selectionBar([{label:'All Countries',path:'mcqs',params:{...countryBase,...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})},active:!p.country},{label:'Pakistan',path:'mcqs',params:{...countryBase,country:'Pakistan',...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})},active:p.country==='Pakistan'},{label:'India',path:'mcqs',params:{...countryBase,country:'India',...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})},active:p.country==='India'}],'Country');
    const viewBar=PublicLayout.selectionBar([['all','All'],['important','Important'],['repeated','Most Repeated'],['latest','Latest']].map(([v,l])=>({label:l,path:'mcqs',params:{...base,...(p.category?{category:p.category}:{}),...(v==='all'?{}:{view:v})},active:view===v})),'MCQ collections');
    const catBar=PublicLayout.selectionBar([{label:'Categories',path:'categories',params:p.country?{country:p.country}:{},active:false},...categories.map(c=>({label:c.name.replace('Computer Science','Computer'),path:'mcqs',params:{...base,...(view!=='all'?{view}:{}),category:c.id},active:+p.category===c.id}))],'MCQ categories','selection-bar-secondary');
    pre=PublicLayout.selectionStack([{html:countryBar},{html:viewBar},{html:catBar}]);
   }
-  const pageSize=10,page=App.page(rows.length,pageSize),main=`${listHeader}${activeSummary}${UI.adSlot('mcq_top_ad')}<p class="small muted mcq-count">${rows.length} MCQs found · 10 per page</p>${rows.length?rows.slice((page-1)*pageSize,page*pageSize).map((q,i)=>`${questionCard(q,(page-1)*pageSize+i+1,false,type==='year'?+id:null)}${i===4?UI.adSlot('mcq_inline_ad'):''}`).join(''):empty(view==='repeated'?'No repeated MCQs are tagged yet':'No MCQs found for this selection.','Choose another option or browse all MCQs.',link('mcqs','Browse All MCQs','btn primary'))}${UI.adSlot('mcq_bottom_ad')}${UI.pager(rows.length,page,pageSize,p,App.route.path)}`;
+  const label=view==='important'?'important MCQs':view==='repeated'?'repeated MCQs':'MCQs';
+  const main=`${listHeader}${activeSummary}${UI.adSlot('mcq_top_ad')}<p class="small muted mcq-count">${total.toLocaleString('en-GB')} total ${label} · only 10 load per page</p>${shown.length?shown.map((q,i)=>`${questionCard(q,(page-1)*pageSize+i+1,false,type==='year'?+id:null)}${i===4?UI.adSlot('mcq_inline_ad'):''}`).join(''):empty(server?(view==='repeated'?'No repeated MCQs found':'No MCQs found for this selection.'):'Loading MCQs…','Choose another option or browse all MCQs.',link('mcqs','Browse All MCQs','btn primary'))}${UI.adSlot('mcq_bottom_ad')}${UI.pager(total,page,pageSize,p,App.route.path)}`;
   let sidebarKind='mcqs',ctx={};if(type==='year'){sidebarKind='papers';ctx={parent:record,type}};
   return PublicLayout.page({trail,title,desc,pre,main,sidebar:PublicLayout.smart(sidebarKind,ctx),active:type==='year'?'papers':'mcqs',sidebarLabel:'Related / Browse'});
  }
