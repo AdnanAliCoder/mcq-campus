@@ -431,7 +431,10 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     filters=filters or {}
     model=ENTITY_MODELS[kind]
     qs=model.objects.all()
-    if public_only: qs=qs.filter(active=True)
+    if public_only:
+        qs=qs.filter(active=True)
+        if kind=='jobs': qs=qs.filter(paper__active=True)
+        if kind=='years': qs=qs.filter(job__active=True,job__paper__active=True)
     parent=filters.get('parent')
     rel=ENTITY_PARENT.get(kind)
     if parent and rel:
@@ -439,6 +442,8 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
         except (TypeError,ValueError): pass
     if kind=='papers' and filters.get('country'):
         qs=qs.filter(country=str(filters['country']))
+    if kind=='years' and filters.get('all_papers') and filters.get('country'):
+        qs=qs.filter(job__paper__country=str(filters['country']))
     if filters.get('search'):
         qs=qs.filter(name__icontains=str(filters['search']).strip())
     pins=_pinned_entities().get(kind,[]) if kind in PIN_ENTITY_TYPES else []
