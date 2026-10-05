@@ -124,3 +124,20 @@ test('Bulk import complete-data preview exposes merged hierarchy clearly',()=>{
  assert(admin.includes('Final stored MCQ data'));
  assert(admin.includes('const importedFull=imported.length?table(imported,false)'));
 });
+
+
+test('Admin MCQ pagination stays low-egress and progressive',()=>{
+ const auth=fs.readFileSync(path.join(frontend,'assets/js/auth.js'),'utf8');
+ const admin=fs.readFileSync(path.join(frontend,'assets/js/admin.js'),'utf8');
+ const services=fs.readFileSync(path.join(root,'core/services.py'),'utf8');
+ const views=fs.readFileSync(path.join(root,'core/views.py'),'utf8');
+ assert(auth.includes('const ADMIN_PAGE_SIZES=[10],ADMIN_DEFAULT_PAGE_SIZE=10;'));
+ assert(admin.includes('const ADMIN_MCQ_PAGE_SIZE=10,IMPORT_PAGE_SIZE=50;'));
+ assert(admin.includes('function progressivePageNumbers'));
+ assert(admin.includes("btn('Next ›','import-page'"));
+ assert(!admin.includes('Show entries'));
+ assert(services.includes("max_page_size=50 if is_admin(user)"));
+ assert(services.includes("'importedIds':imported_ids"));
+ assert(services.includes("'pageSize':50"));
+ assert(views.includes("'ids'"));
+});
