@@ -482,7 +482,7 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     # 50 remains available for the on-demand post-import review page.
     max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
     page_size=max(1,min(int(page_size or 50),max_page_size))
-    qs=visible_mcqs(user)
+    qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
     if filters.get('ids'):
         requested_ids=[]
         for raw in str(filters['ids']).split(',')[:50]:
