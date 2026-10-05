@@ -113,14 +113,16 @@ window.Auth=(()=>{
    return data;
   }finally{if(loading)backendLoading(false);}
  }
- async function ensureRouteData(path){
+ async function ensureRouteData(path,context={}){
   if(!path)return false;
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
-  const routeParams=new URLSearchParams(location.search);
+  const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||workspace,resolvedId=context?.id??recordId,routeKey=location.pathname+location.search;
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
+  if(['home','mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
+  if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
    if(workspace==='profile'||section==='settings')wants.push('profile');
@@ -130,6 +132,7 @@ window.Auth=(()=>{
    if(['users','admins','admin-records'].includes(section)||(section==='all-mcqs'&&user.roles?.includes('super-admin')))wants.push('users');
    if(['add','edit','all-mcqs','mcqs','paper-mcqs','categories','papers','jobs','years','import'].includes(section))wants.push('core');
    if(['all-mcqs','mcqs','edit','paper-mcqs'].includes(section))wants.push('workspace-mcqs');
+   if(['categories','papers','jobs','years'].includes(section))wants.push('entity-page');
    if(section==='reports')wants.push('reports');
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
@@ -140,9 +143,8 @@ window.Auth=(()=>{
   }
   const workspaceEndpoint=()=>{
    const q=new URLSearchParams();
-   const requested=ADMIN_PAGE_SIZES.includes(Number(routeParams.get('limit')))?Number(routeParams.get('limit')):ADMIN_DEFAULT_PAGE_SIZE;
    q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
-   q.set('page_size',String(section==='edit'?1:requested));
+   q.set('page_size',String(section==='edit'?1:ADMIN_DEFAULT_PAGE_SIZE));
    for(const key of ['status','category','paper','job','year','author','from','to','search']){
     const value=routeParams.get(key);if(value)q.set(key,value);
    }
@@ -150,6 +152,46 @@ window.Auth=(()=>{
    if(section==='edit'&&recordId)q.set('id',recordId);
    if(section==='paper-mcqs'&&recordId)q.set('paper',recordId);
    return '/mcqs?'+q.toString();
+  };
+  const publicMcqEndpoint=()=>{
+   const q=new URLSearchParams(),page=Math.max(1,Number(routeParams.get('page'))||1);
+   q.set('public','1');q.set('page',String(page));q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));
+   const passthrough=['category','paper','job','year','country','search'];
+   for(const key of passthrough){const value=routeParams.get(key);if(value)q.set(key,value)}
+   if(resolvedBase==='home'||resolvedBase==='important')q.set('important','1');
+   if(resolvedBase==='category'&&resolvedId)q.set('category',String(resolvedId));
+   if(resolvedBase==='subcategory'&&resolvedId)q.set('subcategory',String(resolvedId));
+   if(resolvedBase==='topic'&&resolvedId)q.set('child',String(resolvedId));
+   if(resolvedBase==='year'&&resolvedId)q.set('year',String(resolvedId));
+   if(['mcq','practice'].includes(resolvedBase)&&resolvedId)q.set('id',String(resolvedId));
+   if(resolvedBase==='mcqs'){
+    const view=String(routeParams.get('view')||'all');
+    if(view==='important')q.set('important','1');
+    else if(view==='repeated')q.set('repeated','1');
+    else if(view==='latest')q.set('latest','1');
+   }
+   return '/mcqs?'+q.toString();
+  };
+  const entityEndpoint=()=>{
+   const q=new URLSearchParams(),adminScope=user&&['admin','super-admin'].includes(workspace);
+   let type=adminScope&&['categories','papers','jobs','years'].includes(section)?section:null;
+   let parent='';
+   if(!adminScope){
+    if(resolvedBase==='categories')type='categories';
+    else if(resolvedBase==='papers')type=routeParams.get('view')==='all'?'years':'papers';
+    else if(resolvedBase==='paper'){type='jobs';parent=String(resolvedId||'')}
+    else if(resolvedBase==='job'){type='years';parent=String(resolvedId||'')}
+    else if(resolvedBase==='jobs')type='jobs';
+   }
+   if(!type)return '';
+   q.set('type',type);q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
+   if(!adminScope)q.set('scope','public');
+   if(parent)q.set('parent',parent);
+   else if(routeParams.get('parent'))q.set('parent',routeParams.get('parent'));
+   if(routeParams.get('country'))q.set('country',routeParams.get('country'));
+   if(routeParams.get('sort'))q.set('sort',routeParams.get('sort'));
+   if(!adminScope&&resolvedBase==='papers'&&routeParams.get('view')==='all')q.set('all_papers','1');
+   return '/entities?'+q.toString();
   };
   let changed=false;
   const load=async key=>{
@@ -162,7 +204,11 @@ window.Auth=(()=>{
    else if(key==='learner')endpoint='/learner/dashboard';
    else if(key==='profile')endpoint='/profile';
    else if(key==='workspace-mcqs')endpoint=workspaceEndpoint();
-   const cacheKey=key==='workspace-mcqs'?key+'|'+endpoint:key;
+   else if(key==='public-mcqs')endpoint=publicMcqEndpoint();
+   else if(key==='entity-page')endpoint=entityEndpoint();
+   if(!endpoint)return false;
+   const variable=new Set(['workspace-mcqs','public-mcqs','entity-page']);
+   const cacheKey=variable.has(key)?key+'|'+endpoint:key;
    const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
    if(fresh)return false;
    if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return false}
@@ -170,6 +216,7 @@ window.Auth=(()=>{
     try{
      const own=generation,data=await request(endpoint);
      if(!['core','public-content','resources','catalog','legal'].includes(key)&&own!==generation)return;
+     if(variable.has(key)&&routeKey!==location.pathname+location.search)return;
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
      if(key==='resources')MCQ.mergeCore(data);
@@ -181,9 +228,13 @@ window.Auth=(()=>{
       if(Array.isArray(data.savedPapers))MCQ.db.savedPapers=data.savedPapers;
      }
      if(key==='profile'&&data.user)setIdentity({...user,...data.user});
-     if(key==='workspace-mcqs'){
+     if(key==='workspace-mcqs'||key==='public-mcqs'){
       if(Array.isArray(data.items))MCQ.db.mcqs=data.items;
-      MCQ.db.mcqPage={page:data.page,pageSize:data.pageSize,total:data.total,hasNext:data.hasNext,server:true,request:endpoint};
+      MCQ.db.mcqPage={page:data.page,pageSize:data.pageSize,total:data.total,hasNext:data.hasNext,server:true,scope:key==='public-mcqs'?'public':'admin',request:endpoint,routeKey};
+     }
+     if(key==='entity-page'){
+      if(Array.isArray(data.items))for(const row of data.items)MCQ.upsert(data.type,row);
+      MCQ.db.entityPage={...data,server:true,request:endpoint,routeKey};
      }
      if(key==='overview')MCQ.db.adminOverview=data||{};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
@@ -204,8 +255,8 @@ window.Auth=(()=>{
   };
   const unique=[...new Set(wants)];
   if(unique.includes('core'))await load('core');
-  if(unique.includes('workspace-mcqs'))await load('workspace-mcqs');
-  await Promise.all(unique.filter(key=>!['core','workspace-mcqs'].includes(key)).map(load));
+  for(const key of ['workspace-mcqs','public-mcqs','entity-page'])if(unique.includes(key))await load(key);
+  await Promise.all(unique.filter(key=>!['core','workspace-mcqs','public-mcqs','entity-page'].includes(key)).map(load));
   return changed;
  }
  function setIdentity(identity){
@@ -331,6 +382,11 @@ window.Auth=(()=>{
   if(result?.deleted?.type){MCQ.remove(result.deleted.type,result.deleted.ids||[]);return}
  }
  function invalidateWorkspaceMcqs(){for(const key of [...loadedSections])if(String(key).startsWith('workspace-mcqs|')){loadedSections.delete(key);sectionLoadedAt.delete(key)}}
+ function invalidatePagedLists(){
+  for(const key of [...loadedSections])if(['workspace-mcqs|','public-mcqs|','entity-page|'].some(prefix=>String(key).startsWith(prefix))){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  loadedSections.delete('core');sectionLoadedAt.delete('core');
+  if(window.MCQ?.db){MCQ.db.entityPage=null;MCQ.db.mcqPage={...(MCQ.db.mcqPage||{}),server:false}}
+ }
  async function command(action,payload){
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
@@ -340,7 +396,8 @@ window.Auth=(()=>{
    if(data.user)setIdentity({...user,...data.user});
    if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
    applyCommandResult(action,data.result,payload);
-   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidateWorkspaceMcqs();
+   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidatePagedLists();
+   if(['form:entity','action:entity-pin','action:entity-delete','action:entity-delete-confirm','action:entity-bulk-delete','action:bulk-hierarchy','action:bulk-categories'].includes(action))invalidatePagedLists();
    if(['action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'].includes(action)){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
    if(data.refresh==='bootstrap'){
     const snapshot=await request('/bootstrap');

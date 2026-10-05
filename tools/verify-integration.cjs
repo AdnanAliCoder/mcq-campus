@@ -84,7 +84,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  const visibilityBlock=auth.slice(auth.indexOf("document.addEventListener('visibilitychange'"),auth.indexOf("document.addEventListener('input'"));
  assert(!visibilityBlock.includes('check()'),'tab restore must not run full check/bootstrap');
  assert(auth.includes("endpoint='/admin/'+key"));
- assert(auth.includes("Promise.all([...new Set(wants)].map(load))"));
+ assert(auth.includes('const unique=[...new Set(wants)]'));
  assert(!auth.includes("wants.push('overview','users')"),'overview must not preload users');
  assert(auth.includes('ensureRouteData'));
 });
@@ -140,4 +140,27 @@ test('Admin MCQ pagination stays low-egress and progressive',()=>{
  assert(services.includes("'importedIds':imported_ids"));
  assert(services.includes("'pageSize':50"));
  assert(views.includes("'ids'"));
+});
+
+
+test('Public and hierarchy lists use click-triggered ten-row database pages',()=>{
+ const auth=fs.readFileSync(path.join(frontend,'assets/js/auth.js'),'utf8');
+ const publicJs=fs.readFileSync(path.join(frontend,'assets/js/public.js'),'utf8');
+ const admin=fs.readFileSync(path.join(frontend,'assets/js/admin.js'),'utf8');
+ const ui=fs.readFileSync(path.join(frontend,'assets/js/ui.js'),'utf8');
+ const services=fs.readFileSync(path.join(root,'core/services.py'),'utf8');
+ const views=fs.readFileSync(path.join(root,'core/views.py'),'utf8');
+ assert(auth.includes("wants.push('public-mcqs')"));
+ assert(auth.includes("wants.push('entity-page')"));
+ assert(auth.includes("q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10))"));
+ assert(auth.includes("return '/entities?'"));
+ assert(publicJs.includes('only 10 load per page'));
+ assert(publicJs.includes('activeServerMcqPage'));
+ assert(publicJs.includes('activeEntityPage'));
+ assert(admin.includes('10 load per page'));
+ assert(ui.includes('Math.floor((current-1)/5)*5+1'));
+ assert(services.includes('def entity_page_data'));
+ assert(services.includes("'siteCounts':site_counts"));
+ assert(services.includes("page_size=10"));
+ assert(views.includes("def entities(request):"));
 });

@@ -530,8 +530,25 @@ def mcqs(request):
         page=int(request.GET.get('page') or 1); page_size=int(request.GET.get('page_size') or (50 if request.user.is_authenticated else 20))
     except (TypeError,ValueError):
         return err('Invalid pagination values.',422)
-    filters={k:request.GET.get(k) for k in ['status','category','paper','job','year','search','owner','author','from','to','id','ids'] if request.GET.get(k)}
+    filters={k:request.GET.get(k) for k in ['public','status','category','subcategory','child','paper','job','year','country','important','repeated','latest','search','owner','author','from','to','id','ids'] if request.GET.get(k)}
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
+
+@profile_api('entities')
+@require_GET
+def entities(request):
+    kind=str(request.GET.get('type') or '')
+    public_only=str(request.GET.get('scope') or '').lower()=='public'
+    if not public_only and not is_admin(request.user):
+        return err('Administrator access is required.',403)
+    try:
+        page=int(request.GET.get('page') or 1)
+        filters={k:request.GET.get(k) for k in ['parent','country','search','sort','all_papers'] if request.GET.get(k)}
+        data=entity_page_data(request.user,kind,page,10,filters,public_only=public_only)
+    except PermissionError as exc:
+        return err(exc,403)
+    except (TypeError,ValueError) as exc:
+        return err(exc,422)
+    return _public_json(request,data) if public_only else JsonResponse(data)
 
 @profile_api('mcq_match')
 @require_GET

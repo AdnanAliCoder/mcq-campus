@@ -26,12 +26,13 @@ window.UI=(()=>{
  const select=(name,label,items,selected='',required=false)=>`<div class="field"><label for="${name}">${esc(label)}</label><select name="${name}" id="${name}" ${required?'required':''}><option value="">Choose ${esc(label.toLowerCase())}</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(selected)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>`;
  const search=(placeholder='Search…',value='',name='q')=>{const suggestions=name==='q'&&window.MCQ?[...new Set([...MCQ.db.categories.map(x=>x.name),...MCQ.db.papers.map(x=>x.name),...MCQ.db.jobs.map(x=>x.name),...(MCQ.db.posts||[]).map(x=>x.title),...(MCQ.db.pdfs||[]).map(x=>x.title||x.name)])].filter(Boolean).slice(0,40):[];const list=suggestions.length?'global-search-suggestions':'';return `<div class="searchbox">${icon('search')}<input aria-label="${esc(placeholder)}" name="${name}" placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off" ${list?`list="${list}"`:''}><button class="btn primary" type="submit">Search</button>${list?`<datalist id="${list}">${suggestions.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>`:''}</div>`};
  const publicSearch=(placeholder='Search MCQs, Past Papers, Jobs, PDFs, Blog...',value='',name='q')=>`<div class="searchbox public-searchbox"><span class="public-search-icon" aria-hidden="true">${icon('search')}</span><input aria-label="${esc(placeholder)}" name="${name}" placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off"><button class="btn primary public-search-submit" type="submit">Search</button></div>`;
- function pager(total,page,size=12,params={},path=App.route.path){
-  const n=Math.max(1,Math.ceil(total/size));if(n<=1)return '';
-  const wanted=[1,n,page-2,page-1,page,page+1,page+2].filter(x=>x>=1&&x<=n);
-  const pages=[...new Set(wanted)].sort((a,b)=>a-b);let last=0;
-  const numbers=pages.map(p=>{const gap=last&&p-last>1?'<span class="page-gap" aria-hidden="true">…</span>':'';last=p;return gap+link(path,String(p),`btn sm ${p===page?'current':''}`,{...params,page:p})}).join('');
-  return `<nav class="pagination" aria-label="Pagination">${page>1?link(path,'‹ Previous','btn sm',{...params,page:page-1}):'<span></span>'}<div class="page-numbers">${numbers}</div>${page<n?link(path,'Next ›','btn sm primary',{...params,page:page+1}):'<span></span>'}<span class="small muted pagination-count">${total} results · Page ${page} of ${n}</span></nav>`
+ function pager(total,page,size=10,params={},path=App.route.path){
+  const count=Math.max(0,Number(total)||0),n=Math.max(1,Math.ceil(count/Math.max(1,Number(size)||10))),current=Math.max(1,Math.min(Number(page)||1,n));
+  if(n<=1)return `<div class="small muted pagination-count">${count.toLocaleString('en-GB')} total</div>`;
+  const start=Math.floor((current-1)/5)*5+1,end=Math.min(n,start+4);
+  const pages=Array.from({length:end-start+1},(_,i)=>start+i);
+  const numbers=pages.map(p=>link(path,String(p),`btn sm ${p===current?'current':''}`,{...params,page:p})).join('');
+  return `<nav class="pagination" aria-label="Pagination">${current>1?link(path,'‹ Previous','btn sm',{...params,page:current-1}):'<span></span>'}<div class="page-numbers">${numbers}</div>${current<n?link(path,'Next ›','btn sm primary',{...params,page:current+1}):'<span></span>'}<span class="small muted pagination-count">${count.toLocaleString('en-GB')} total · Page ${current} of ${n}</span></nav>`
 }
  // Render stored timestamps only; never substitute the current clock for missing data.
  const date=s=>{if(!s)return '—';const value=String(s);if(/^\d{4}-\d{2}-\d{2}$/.test(value))return value+' (time unavailable)';if(!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value))return 'Timestamp timezone unavailable';const d=new Date(value);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Karachi',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}).format(d)+' PKT';};
@@ -54,7 +55,8 @@ window.UI=(()=>{
  }
  function card(type,x,index=0){
   const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','jobs','paper_id','jobs'],jobs:['job','years','job_id','papers'],years:['year',null,null,'MCQs']}[type];
-  let count;if(type==='categories')count=MCQ.publicMcqs().filter(q=>+q.category_id===+x.id).length;else count=conf[1]?MCQ.db[conf[1]].filter(y=>y[conf[2]]===x.id).length:MCQ.publicMcqs().filter(q=>MCQ.ids(q[type==='children'?'child_subcategory_ids':'job_years_ids']).includes(x.id)).length;
+  let count=Number.isFinite(Number(x?.mcq_count))?Number(x.mcq_count):null;
+  if(count===null){if(type==='categories')count=MCQ.publicMcqs().filter(q=>+q.category_id===+x.id).length;else count=conf[1]?MCQ.db[conf[1]].filter(y=>y[conf[2]]===x.id).length:MCQ.publicMcqs().filter(q=>MCQ.ids(q[type==='children'?'child_subcategory_ids':'job_years_ids']).includes(x.id)).length}
   const title=x.name;
   if(['categories','papers','jobs','years'].includes(type)){
    const parentJob=type==='years'?MCQ.get('jobs',x.job_id):null,parentPaper=type==='jobs'?MCQ.get('papers',x.paper_id):type==='years'&&parentJob?MCQ.get('papers',parentJob.paper_id):null;

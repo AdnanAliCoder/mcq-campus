@@ -6,7 +6,8 @@ from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import connection, transaction
-from django.db.models import Count, Q, Max, Window
+from django.db.models import Count, Q, Max, Window, Func, IntegerField, Case, When, Value, F
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 from django.utils.text import slugify
 from .models import *
@@ -385,6 +386,95 @@ def public_legal_data():
     return {'content':state['content']}
 
 
+def _json_array_length(qs,field,alias):
+    function='jsonb_array_length' if connection.vendor=='postgresql' else 'json_array_length'
+    return qs.annotate(**{alias:Func(F(field),function=function,output_field=IntegerField())})
+
+def _approved_public_counts():
+    approved=MCQ.objects.filter(status='approved')
+    important=_json_array_length(approved,'job_ids','_job_count').filter(_job_count__gte=2).count()
+    category_rows=approved.values('category_id').annotate(total=Count('id'))
+    return {
+        'approvedMcqs':approved.count(),
+        'importantMcqs':important,
+        'categories':Category.objects.filter(active=True).count(),
+        'papers':Paper.objects.filter(active=True).count(),
+        'jobs':Job.objects.filter(active=True).count(),
+        'years':JobYear.objects.filter(active=True).count(),
+        'categoryMcqs':{str(row['category_id']):int(row['total'] or 0) for row in category_rows},
+    }
+
+def _entity_mcq_counts(kind,ids,public_only=False):
+    ids=[int(x) for x in ids if int(x)>0]
+    if not ids: return {}
+    base=MCQ.objects.filter(status='approved') if public_only else MCQ.objects.all()
+    if kind=='categories':
+        rows=base.filter(category_id__in=ids).values('category_id').annotate(total=Count('id'))
+        return {int(row['category_id']):int(row['total'] or 0) for row in rows}
+    field={'papers':'paper_ids','jobs':'job_ids','years':'job_year_ids'}.get(kind)
+    if not field: return {}
+    if connection.vendor=='postgresql':
+        return {ident:base.filter(**{field+'__contains':[ident]}).count() for ident in ids}
+    values=list(base.values_list(field,flat=True))
+    out={ident:0 for ident in ids}
+    wanted=set(ids)
+    for raw in values:
+        for value in raw or []:
+            try: ident=int(value)
+            except (TypeError,ValueError): continue
+            if ident in wanted: out[ident]=out.get(ident,0)+1
+    return out
+
+def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=False):
+    require(kind in ENTITY_MODELS,'Unknown record type.')
+    page=max(1,int(page or 1)); page_size=10
+    filters=filters or {}
+    model=ENTITY_MODELS[kind]
+    qs=model.objects.all()
+    if public_only:
+        qs=qs.filter(active=True)
+        if kind=='jobs': qs=qs.filter(paper__active=True)
+        if kind=='years': qs=qs.filter(job__active=True,job__paper__active=True)
+    parent=filters.get('parent')
+    rel=ENTITY_PARENT.get(kind)
+    if parent and rel:
+        try: qs=qs.filter(**{rel[0]:int(parent)})
+        except (TypeError,ValueError): pass
+    if kind=='papers' and filters.get('country'):
+        qs=qs.filter(country=str(filters['country']))
+    if kind=='years' and filters.get('all_papers') and filters.get('country'):
+        qs=qs.filter(job__paper__country=str(filters['country']))
+    if filters.get('search'):
+        qs=qs.filter(name__icontains=str(filters['search']).strip())
+    pins=_pinned_entities().get(kind,[]) if kind in PIN_ENTITY_TYPES else []
+    if pins:
+        ordering=Case(*[When(pk=ident,then=Value(index)) for index,ident in enumerate(pins)],default=Value(9999),output_field=IntegerField())
+        qs=qs.annotate(_pin_order=ordering)
+    if filters.get('all_papers') and kind=='years':
+        qs=qs.select_related('job__paper').annotate(
+            _agency_round=Window(
+                expression=RowNumber(),
+                partition_by=[F('job__paper_id')],
+                order_by=[F('job_id').asc(),F('name').desc(),F('id').asc()],
+            )
+        ).order_by('_agency_round','job__paper__name','job__name','-name','id')
+    elif filters.get('sort')=='new':
+        qs=qs.order_by('-id')
+    elif pins:
+        qs=qs.order_by('_pin_order','name','id')
+    else:
+        qs=qs.order_by('name','id')
+    total=qs.count(); start=(page-1)*page_size
+    objects=list(qs[start:start+page_size])
+    serializers={'categories':category,'subcategories':subcategory,'children':child,'papers':paper,'jobs':job,'years':year}
+    counts=_entity_mcq_counts(kind,[x.id for x in objects],public_only=public_only)
+    items=[]
+    for obj in objects:
+        row=serializers[kind](obj)
+        row['mcq_count']=counts.get(int(obj.id),0)
+        items.append(row)
+    return {'type':kind,'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(items)<total,'filters':filters}
+
 def visible_mcqs(user):
     if is_super(user): return MCQ.objects.all()
     if user_role(user)=='admin': return MCQ.objects.filter(Q(status='approved')|Q(created_by=user)|Q(submitted_by=user)).distinct()
@@ -397,7 +487,7 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     # 50 remains available for the on-demand post-import review page.
     max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
     page_size=max(1,min(int(page_size or 50),max_page_size))
-    qs=visible_mcqs(user)
+    qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
     if filters.get('ids'):
         requested_ids=[]
         for raw in str(filters['ids']).split(',')[:50]:
@@ -416,6 +506,16 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     if filters.get('category'):
         try: qs=qs.filter(category_id=int(filters['category']))
         except (TypeError,ValueError): pass
+    if filters.get('country'):
+        qs=qs.filter(country=str(filters['country']))
+    if filters.get('important'):
+        qs=_json_array_length(qs,'job_ids','_job_count').filter(_job_count__gte=2)
+    if filters.get('repeated'):
+        qs=_json_array_length(qs,'job_year_ids','_year_count').filter(_year_count__gte=2)
+    for key,field in [('subcategory','subcategory_ids'),('child','child_subcategory_ids')]:
+        if filters.get(key):
+            try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
+            except (TypeError,ValueError): pass
     if filters.get('author'):
         if str(filters['author'])=='unknown': qs=qs.filter(created_by__isnull=True)
         else:
@@ -450,7 +550,8 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         if filters.get(key):
             try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
             except (TypeError,ValueError): pass
-    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
+    order=['-created_at','-id'] if filters.get('latest') else ['-id']
+    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by(*order)
     start=(page-1)*page_size
     objects=list(qs[start:start+page_size])
     _attach_important_flags(objects)
@@ -459,19 +560,12 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
 
 def _attach_important_flags(objects):
-    """Compute the final >=2 different Jobs rule in one JobYear query per page."""
-    year_ids=set()
-    for obj in objects:
-        for value in obj.job_year_ids or []:
-            try: year_ids.add(int(value))
-            except (TypeError,ValueError): pass
-    job_by_year=dict(JobYear.objects.filter(pk__in=year_ids).values_list('id','job_id')) if year_ids else {}
+    """Apply the final Important rule from distinct linked Job IDs without extra queries."""
     for obj in objects:
         jobs=set()
-        for value in obj.job_year_ids or []:
-            try: job_id=job_by_year.get(int(value))
-            except (TypeError,ValueError): job_id=None
-            if job_id is not None: jobs.add(job_id)
+        for value in obj.job_ids or []:
+            try: jobs.add(int(value))
+            except (TypeError,ValueError): pass
         obj._important_value=len(jobs)>=2
 
 def snapshot(user):
@@ -481,21 +575,19 @@ def snapshot(user):
     papers=list(Paper.objects.select_related('created_by','updated_by').all().order_by('id'))
     jobs=list(Job.objects.select_related('paper','created_by','updated_by').all().order_by('id'))
     years=list(JobYear.objects.select_related('job__paper','created_by','updated_by').all().order_by('id'))
-    # Bootstrap is intentionally bounded. Full/admin MCQ lists are loaded through
-    # /api/mcqs with pagination instead of downloading the complete table.
-    qs=MCQ.objects.filter(status='approved').select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by('-id')
-    bootstrap_limit=5 if is_admin(user) else 50
-    objects=list(qs[:bootstrap_limit])
-    _attach_important_flags(objects)
-    total=int(objects[0]._page_total) if objects else 0
-    rows=[mcq_list(x) for x in objects]
+    # Public/admin list rows are loaded only for the page the visitor opens.
+    # Bootstrap keeps exact totals and lightweight hierarchy/reference metadata,
+    # but does not preload MCQ rows from other pages.
+    site_counts=_approved_public_counts()
+    rows=[]
+    total=site_counts['approvedMcqs']
     data={
       'schemaVersion':11,
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
       'pageSeo':page_seo_snapshot(),
-      'mcqs':rows,'mcqPage':{'page':1,'pageSize':len(rows),'total':total,'hasNext':len(rows)<total},
+      'mcqs':rows,'mcqPage':{'page':1,'pageSize':0,'total':total,'hasNext':total>0},'siteCounts':site_counts,
     }
     # The permanent SEO index registry is admin-only client data. Public SEO routes
     # resolve indexes on the server and do not need this large map in bootstrap JSON.
