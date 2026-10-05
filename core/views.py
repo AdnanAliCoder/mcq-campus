@@ -530,7 +530,7 @@ def mcqs(request):
         page=int(request.GET.get('page') or 1); page_size=int(request.GET.get('page_size') or (50 if request.user.is_authenticated else 20))
     except (TypeError,ValueError):
         return err('Invalid pagination values.',422)
-    filters={k:request.GET.get(k) for k in ['status','category','subcategory','child','paper','job','year','country','important','repeated','latest','search','owner','author','from','to','id','ids'] if request.GET.get(k)}
+    filters={k:request.GET.get(k) for k in ['public','status','category','subcategory','child','paper','job','year','country','important','repeated','latest','search','owner','author','from','to','id','ids'] if request.GET.get(k)}
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
 
 @profile_api('entities')
