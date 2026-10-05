@@ -560,19 +560,12 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
 
 def _attach_important_flags(objects):
-    """Compute the final >=2 different Jobs rule in one JobYear query per page."""
-    year_ids=set()
-    for obj in objects:
-        for value in obj.job_year_ids or []:
-            try: year_ids.add(int(value))
-            except (TypeError,ValueError): pass
-    job_by_year=dict(JobYear.objects.filter(pk__in=year_ids).values_list('id','job_id')) if year_ids else {}
+    """Apply the final Important rule from distinct linked Job IDs without extra queries."""
     for obj in objects:
         jobs=set()
-        for value in obj.job_year_ids or []:
-            try: job_id=job_by_year.get(int(value))
-            except (TypeError,ValueError): job_id=None
-            if job_id is not None: jobs.add(job_id)
+        for value in obj.job_ids or []:
+            try: jobs.add(int(value))
+            except (TypeError,ValueError): pass
         obj._important_value=len(jobs)>=2
 
 def snapshot(user):
