@@ -1139,8 +1139,8 @@ def extract_adsense(value):
 def save_config(user,payload):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); view=c.get('view'); s=SiteSetting.get_solo(); blob=_site_blob(s)
     if view=='settings':
-        s.site_name=str(v.get('siteName') or 'MCQ Campus')[:120]; s.description=str(v.get('description') or ''); s.country=str(v.get('country') or 'Pakistan')[:80]; blob['mcqEntryCountry']=str(v.get('country') or s.country)[:80]
-    elif view=='seo': s.seo_title=str(v.get('title') or 'MCQ Campus')[:160]; s.seo_description=str(v.get('description') or '')
+        s.site_name=str(v.get('siteName') or 'MCQCampus')[:120]; s.description=str(v.get('description') or ''); s.country=str(v.get('country') or 'Pakistan')[:80]; blob['mcqEntryCountry']=str(v.get('country') or s.country)[:80]
+    elif view=='seo': s.seo_title=str(v.get('title') or 'MCQCampus')[:160]; s.seo_description=str(v.get('description') or '')
     elif view=='content': s.about=str(v.get('about') or ''); s.contact=str(v.get('contact') or '')
     elif view=='roles':
         perms={k:('perm_'+k) in fields for k in PERMISSION_CATALOG}
