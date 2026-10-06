@@ -1194,7 +1194,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             for j in catalog['jobs'] if j.id in catalog['available']
         ]
     elif path=='/pdfs':
-        title='Exam Preparation PDFs'
+        title='Exam Preparation PDFs & Study Resources'
         description='Browse exam preparation PDFs and downloadable study resources for MCQs, past papers and competitive exams.'
         heading='Exam Preparation PDFs'
         intro='Find downloadable preparation resources for competitive exams and MCQ practice.'
