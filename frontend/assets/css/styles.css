@@ -438,7 +438,7 @@
 
 
 /* 2026-09-22 unified statistic-card system
-   Clean academic cards inspired by the supplied reference while preserving MCQ Campus branding. */
+   Clean academic cards inspired by the supplied reference while preserving MCQCampus branding. */
 .stat-card{
   position:relative;
   display:flex;
@@ -973,7 +973,7 @@
 }
 
 /* 2026-09-22 — Reference MCQ structure
-   Keeps MCQ Campus branding, but applies the supplied angular question/option/result structure
+   Keeps MCQCampus branding, but applies the supplied angular question/option/result structure
    wherever interactive MCQs are rendered (home, listings, practice, detail and tests). */
 .mcq-reference-card{
   --mcq-edge:18px;
