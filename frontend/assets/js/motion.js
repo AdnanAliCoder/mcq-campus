@@ -1,4 +1,4 @@
-/* MCQ Campus motion system: small, accessible view transitions and staggered reveals. */
+/* MCQCampus motion system: small, accessible view transitions and staggered reveals. */
 window.MCQMotion=(()=>{
  const reduce=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  const selector=[
