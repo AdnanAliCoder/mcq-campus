@@ -1155,9 +1155,9 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     ]
 
     if path=='/':
-        title='MCQ Campus — Past Papers, Job Papers & MCQ Preparation'
+        title='MCQ Campus — Pakistan Past Papers, MCQs & Exam Preparation'
         description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other past papers, job-wise papers, MCQs, answers and explanations for competitive exam preparation.'
-        heading='Past Papers, Job Papers & MCQ Preparation'
+        heading='Pakistan Past Papers, MCQs & Exam Preparation'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         paper_links=[(f'{_seo_short_name(p.name)} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
         job_links=[
@@ -1176,10 +1176,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         heading='MCQ Categories'
         links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
     elif path=='/papers':
-        title='Past Papers — PPSC, FPSC, SPSC, BPSC, NTS, ATS & More | MCQ Campus'
-        description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other Pakistan past papers by job and year, with linked MCQs, answers and explanations.'
-        heading='Pakistan Past Papers by Organization and Job'
-        intro='Browse PPSC, FPSC, SPSC, BPSC, NTS, ATS and other testing organizations. Open an organization to find its jobs, past-paper years and related MCQs.'
+        title='Pakistan Past Papers — PPSC, FPSC, NTS, SPSC, BPSC & More | MCQ Campus'
+        description='Find PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other Pakistan past papers by job and year. Practice solved MCQs with answers, explanations and test-preparation links.'
+        heading='Pakistan Past Papers by Agency, Job and Year'
+        intro='Browse PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other testing agencies. Choose an agency, job and exam year to reach the exact past paper, solved MCQs and related preparation resources.'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         links=[(f'{_seo_short_name(p.name)} Past Papers — {re.sub(r"[\\[\\]()]+","",p.name).strip()}',catalog['paper_paths'][p.id]) for p in catalog['papers']]
     elif path=='/jobs-exams':
@@ -1278,8 +1278,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             job_slug=_seo_slug(landing_job.name)
             years=list(JobYear.objects.filter(active=True,job_id=landing_job.id).only('name').order_by('-name'))
             heading=f'{paper_search_name} {landing_job.name} Past Papers'
-            title=heading+' | MCQ Campus'
-            description=f'Browse {paper_search_name} {landing_job.name} past papers by exam year, with links to MCQs, answers and explanations.'
+            title=heading+' & Solved MCQs | MCQ Campus'
+            description=f'Browse {paper_search_name} {landing_job.name} past papers by exam year and practice solved MCQs with correct answers, explanations and focused preparation links.'
             intro=f'Explore {len(years)} available past-paper records for {landing_job.name} under {paper.name}. Select an exam year to practise the MCQs linked to that record.'
             links=[(f'Browse {paper_search_name} {landing_job.name}',f'/paper/{paper_slug}/job/{job_slug}')]
             links.extend((y.name,f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in years)
@@ -1288,8 +1288,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             job_ids=[j.id for j in jobs]
             years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
             heading=f'{paper_search_name} Past Papers'
-            title=f'{paper_search_name} Past Papers, Jobs & MCQs | MCQ Campus'
-            description=f'Browse {paper_search_name} past papers for {paper_display_name} by job and exam year. Find job-wise papers and linked MCQs with answers and explanations.'
+            title=f'{paper_search_name} Past Papers, Jobs & Solved MCQs | MCQ Campus'
+            description=f'Browse {paper_search_name} past papers for {paper_display_name} by job and exam year. Find job-wise papers and solved MCQs with answers, explanations and preparation links.'
             intro=f'Explore {paper_search_name} ({paper_display_name}) past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or exam year below to continue your preparation.'
             job_links=[(f'{paper_search_name} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in jobs]
             year_links=[
@@ -1347,10 +1347,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         if paper:
             catalog=catalog if catalog is not None else _seo_past_papers_catalog()
             short=_seo_short_name(paper.name)
-            title=f'{short} Past Papers | MCQ Campus'
-            description=f'Browse {short} past papers by job and exam year, with linked MCQs, correct answers and explanations.'
+            title=f'{short} Past Papers, Jobs & Solved MCQs | MCQ Campus'
+            description=f'Browse {short} past papers by job and exam year. Practice solved MCQs with correct answers and explanations, and continue with related exam-preparation resources.'
             heading=f'{short} Past Papers'
-            intro=f'Explore {short} job-wise past papers and open a job to choose its available exam year.'
+            intro=f'Explore {short} job-wise past papers, choose the exact exam year, and practice the linked solved MCQs. Use related categories, PDFs and preparation pages for wider revision.'
             links=[
                 (f'{short} {j.name} Past Papers',catalog['job_paths'][j.id])
                 for j in catalog['jobs'] if j.paper_id==paper.id and j.id in catalog['available']
@@ -1360,10 +1360,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 job_slug=parts[ji+1] if len(parts)>ji+1 else ''
                 job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),job_slug)
                 if job:
-                    title=f'{short} {job.name} Past Papers | MCQ Campus'
-                    description=f'Browse {short} {job.name} past papers by exam year and practice linked MCQs with answers and explanations.'
+                    title=f'{short} {job.name} Past Papers & Solved MCQs | MCQ Campus'
+                    description=f'Browse {short} {job.name} past papers by exam year and practice solved MCQs with correct answers and explanations for focused test preparation.'
                     heading=f'{short} {job.name} Past Papers'
-                    intro=f'Choose a {short} {job.name} exam year to open its past paper and linked MCQs.'
+                    intro=f'Choose a {short} {job.name} exam year to open the exact past-paper record, practice its linked MCQs, and review repeated or important questions for revision.'
                     links=[
                         (f'{short} {job.name} {_seo_year_search_label(job.name,y.name)} Past Paper',
                          f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}')
@@ -1375,10 +1375,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                         year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('id','name'),year_slug)
                         if year:
                             year_label=_seo_year_search_label(job.name,year.name)
-                            title=f'{short} {job.name} {year_label} Past Paper | MCQ Campus'
-                            description=f'Practice {short} {job.name} {year_label} past paper MCQs with correct answers and explanations.'
+                            title=f'{short} {job.name} {year_label} Solved Past Paper | MCQ Campus'
+                            description=f'Practice {short} {job.name} {year_label} solved past paper MCQs with correct answers and explanations. Review related important questions for test preparation.'
                             heading=f'{short} {job.name} {year_label} Past Paper'
-                            intro=f'Practice MCQs linked to the {short} {job.name} {year_label} past paper and review correct answers with explanations.'
+                            intro=f'Practice MCQs linked to the {short} {job.name} {year_label} past paper, check correct answers and explanations, and continue with related important MCQs and categories.'
                             links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
     elif path.startswith('/mcq/'):
         wanted=path.split('/mcq/',1)[1].strip('/')
@@ -1479,8 +1479,8 @@ def _seo_breadcrumbs(path,catalog=None):
 
 def _seo_jsonld(title,description,canonical,path,catalog=None,links=None):
     graph=[
-        {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQ Campus','url':SEO_ORIGIN+'/','logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
-        {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQ Campus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en'},
+        {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQ Campus','alternateName':'MCQCampus','url':SEO_ORIGIN+'/','description':'Competitive exam preparation platform for Pakistan and India with MCQs, past papers, job-wise exam records and study resources.','areaServed':['Pakistan','India'],'logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
+        {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQ Campus','alternateName':'MCQCampus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en-PK','potentialAction':{'@type':'SearchAction','target':SEO_ORIGIN+'/search?q={search_term_string}','query-input':'required name=search_term_string'}},
         {'@type':'WebPage','@id':canonical+'#webpage','url':canonical,'name':title,'description':description,'isPartOf':{'@id':SEO_ORIGIN+'/#website'},'speakable':{'@type':'SpeakableSpecification','cssSelector':['#main h1','#seo-summary']}},
     ]
     crumbs=_seo_breadcrumbs(path,catalog)
