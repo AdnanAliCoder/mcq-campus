@@ -2625,3 +2625,130 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 
 .admin-seo-fields{margin:18px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft,#f7faf8)}
 .admin-seo-fields h3{margin:0 0 6px}.admin-seo-fields .field:last-child{margin-bottom:0}.admin-static-seo-card form{display:grid;gap:12px}
+
+
+/* 2026-10-06 — persistent public dark mode */
+.theme-toggle{
+  min-width:74px;
+  gap:7px;
+  color:var(--ink);
+}
+.theme-toggle .theme-label{font-size:.72rem;font-weight:750}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --ink:#eef7f4;
+  --muted:#a7bbb5;
+  --green:#36c59b;
+  --green-dark:#24aa84;
+  --mint:#17352d;
+  --bg:#0b1513;
+  --line:#29403a;
+  --white:#111f1b;
+  --dark:#06100e;
+  --red:#ff8e8e;
+  --amber:#f0ba63;
+  --card-surface:#111f1b;
+  background:#0b1513;
+  color:#eef7f4;
+}
+html[data-theme="dark"] body,
+body.dark{
+  background:#0b1513!important;
+  color:#eef7f4!important;
+}
+html[data-theme="dark"] .header,
+html[data-theme="dark"] .reference-header,
+html[data-theme="dark"] .dash-top,
+html[data-theme="dark"] .footer,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .table-wrap,
+html[data-theme="dark"] table,
+html[data-theme="dark"] .public-sidebar,
+html[data-theme="dark"] .user-menu-panel,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] dialog,
+html[data-theme="dark"] .mcq-reference-card{
+  background:#111f1b!important;
+  color:#eef7f4!important;
+  border-color:#29403a!important;
+}
+html[data-theme="dark"] .header{box-shadow:0 1px 0 #29403a}
+html[data-theme="dark"] .brand,
+html[data-theme="dark"] .nav a,
+html[data-theme="dark"] .header-actions,
+html[data-theme="dark"] .page-heading,
+html[data-theme="dark"] .page-heading h1,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] p,
+html[data-theme="dark"] label,
+html[data-theme="dark"] td,
+html[data-theme="dark"] th,
+html[data-theme="dark"] .user-menu-panel,
+html[data-theme="dark"] .user-menu-item{
+  color:#eef7f4;
+}
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .small.muted,
+html[data-theme="dark"] .page-heading p,
+html[data-theme="dark"] .footer p,
+html[data-theme="dark"] .footer-bottom,
+html[data-theme="dark"] .user-menu-head span{
+  color:#a7bbb5!important;
+}
+html[data-theme="dark"] .btn,
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] .searchbox,
+html[data-theme="dark"] .option,
+html[data-theme="dark"] .selection-chip,
+html[data-theme="dark"] .chip{
+  background:#14241f!important;
+  color:#eef7f4!important;
+  border-color:#355047!important;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{color:#81958f}
+html[data-theme="dark"] .btn:hover,
+html[data-theme="dark"] .selection-chip:hover{
+  background:#1a3029!important;
+  color:#fff!important;
+  border-color:#427061!important;
+}
+html[data-theme="dark"] .btn.primary{
+  background:#087e65!important;
+  border-color:#087e65!important;
+  color:#fff!important;
+}
+html[data-theme="dark"] .btn.primary:hover{background:#075b4c!important}
+html[data-theme="dark"] .logo-crop{background:#fff!important}
+html[data-theme="dark"] thead th{background:#10231f!important;color:#eef7f4!important}
+html[data-theme="dark"] tbody tr{border-color:#29403a!important}
+html[data-theme="dark"] tbody tr:hover td{background:#14241f}
+html[data-theme="dark"] .mcq-reference-card .badge{
+  background:#1b2b27!important;
+  border-color:#355047!important;
+  color:#d9e7e2!important;
+}
+html[data-theme="dark"] .mcq-reference-card .mcq-question-label .eyebrow,
+html[data-theme="dark"] .eyebrow,
+html[data-theme="dark"] a:hover{color:#36c59b!important}
+html[data-theme="dark"] .notice,
+html[data-theme="dark"] .empty,
+html[data-theme="dark"] .breadcrumbs,
+html[data-theme="dark"] .sidebar-module{
+  color:#eef7f4;
+}
+html[data-theme="dark"] .theme-toggle{
+  background:#14241f!important;
+  color:#eef7f4!important;
+  border:1px solid #355047!important;
+}
+@media(max-width:600px){
+  .theme-toggle{min-width:42px;padding:8px 10px}
+  .theme-toggle .theme-label{display:none}
+}
