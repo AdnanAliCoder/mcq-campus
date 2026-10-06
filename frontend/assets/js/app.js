@@ -74,6 +74,13 @@ App.quickTimer=McqCarousel.create({advance(){
  function refreshQuestion(id){const q=MCQ.get('mcqs',id),old=document.querySelector(`[data-question="${+id}"]`);if(old){const number=Number(old.dataset.number||1),compact=old.classList.contains('mcq-card-compact');old.outerHTML=Public.questionCard(q,number,compact)}}
  function resetActiveQuestion(exceptId=null){const previous=Number(App.activeQuestionId||0);if(previous&&previous!==Number(exceptId||0)){delete App.answers[previous];delete App.choices[previous];refreshQuestion(previous)}App.activeQuestionId=exceptId?Number(exceptId):null}
  function error(msg,target){if(target)target.innerHTML=`<div class="notice error" role="alert">${e(msg)}</div>`;else UI.toast(msg)}
+ function setTheme(theme,persist=true){
+  const next=theme==='dark'?'dark':'light';
+  document.documentElement.dataset.theme=next;
+  document.body?.classList.toggle('dark',next==='dark');
+  if(persist)try{localStorage.setItem('mcq-campus-theme',next)}catch{}
+  const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=next==='dark'?'#0b1513':'#f6f8f7';
+ }
  function close(){document.getElementById('modal').close()}
  async function copyLink(id,share=false){const url=location.origin+UI.href('mcq/'+id);if(share&&navigator.share){try{await navigator.share({title:'MCQ Campus',text:MCQ.get('mcqs',id)?.question,url});return}catch(err){if(err.name==='AbortError')return}}try{await navigator.clipboard.writeText(url);UI.toast('Question link copied.')}catch{UI.modal('Copy question link',`<p class="small muted">Copy this address. Local file links work only on the same device.</p><input style="width:100%" value="${e(url)}" readonly aria-label="Question link">`);document.querySelector('#modal input').select()}}
  function review(ids,status){if(!ids.length){UI.toast('Select at least one question.');return}MCQ.assert('review');if(status==='approved'){UI.modal('Approve questions',`<p>Make ${ids.length} question${ids.length===1?'':'s'} visible on the public website?</p><form data-form="review" data-ids="${ids.join(',')}" data-status="approved"><button class="btn primary">Approve</button> ${btn('Cancel','close','')}</form>`)}else UI.modal(status==='pending'?'Send back for correction':'Reject questions',`<p>${ids.length} selected question${ids.length===1?'':'s'}.</p><form data-form="review" data-ids="${ids.join(',')}" data-status="${status}">${UI.textarea('reason',status==='pending'?'Correction needed':'Rejection reason','',true)}<button class="btn primary">Confirm</button></form>`)}
@@ -99,6 +106,7 @@ App.quickTimer=McqCarousel.create({advance(){
 	 if(a==='save-paper'){const saved=await MCQ.savePaper(id);App.render();UI.toast(saved?'Paper saved.':'Saved paper removed.')}
  if(a==='workspace-switch'){App.draftKey=null;App.draft=null;App.importRows=null;App.importSummary=null;App.importedIds=[];App.importPage=null;const r=await Auth.switchRole(el.dataset.role);App.go(r==='user'?'dashboard':r+'/overview');App.render()} if(a==='logout'){App.draftKey=null;App.draft=null;App.importRows=null;App.importSummary=null;App.importedIds=[];App.importPage=null;await Auth.logout()}
  if(a==='resend')UI.toast('Resend state preview. No email was sent.');
+ if(a==='theme-toggle'){setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');App.render();return}
  if(a==='latest-jobs-select-all')document.querySelectorAll('.latest-job-row-check').forEach(c=>c.checked=el.checked);
  if(a==='select-all'){document.querySelectorAll('.row-check').forEach(c=>c.checked=el.checked);const allPending=document.querySelector('[data-action="select-all-pending"]');if(allPending&&!el.checked)allPending.checked=false;selectionCount()}
  if(a==='select-all-pending'){document.querySelectorAll('.row-check').forEach(c=>c.checked=el.checked);const pageSelect=document.querySelector('[data-action="select-all"]');if(pageSelect)pageSelect.checked=el.checked;const box=document.getElementById('selection-count');if(box)box.textContent=el.checked?Number(el.dataset.total||0).toLocaleString('en-GB')+' selected':'0 selected'}
@@ -203,7 +211,7 @@ App.quickTimer=McqCarousel.create({advance(){
  window.addEventListener('pagehide',()=>{App.quickTimer.stop();App.quickAnswer=null;});
  window.addEventListener('pageshow',event=>{if(event.persisted)App.render()});
  window.addEventListener('popstate',()=>{document.getElementById('modal')?.open&&close();App.render();window.scrollTo(0,0)});
- document.documentElement.dataset.theme='light';try{localStorage.removeItem('mcq-campus-theme')}catch{}const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content='#f6f8f7';
+ let savedTheme='';try{savedTheme=localStorage.getItem('mcq-campus-theme')||''}catch{}const preferredTheme=savedTheme||((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');setTheme(preferredTheme,false);
  Auth.start();
  // Optional agent navigation mirrors the visible search form; unsupported browsers skip it.
  if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'search_mcq_campus',title:'Search MCQ Campus',description:'Navigate to MCQ search results for a query. Does not answer questions or change records.',inputSchema:{type:'object',properties:{query:{type:'string'}},required:['query'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute(input){if(!input||typeof input.query!=='string'||!input.query.trim())throw Error('A non-empty query is required.');App.go('search',{q:input.query});App.render();return {query:input.query,matches:MCQ.publicMcqs().filter(q=>MCQ.norm(q.question).includes(MCQ.norm(input.query))).length}}})).catch(()=>{})}catch{}}
