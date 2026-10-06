@@ -97,9 +97,12 @@ window.Admin=(()=>{
   const searchBar=`<form class="toolbar admin-library-toolbar admin-google-search" data-form="filter"><div class="searchbox"><span>${icon('search')}</span><input type="search" name="search" value="${e(p.search||'')}" placeholder="Search any MCQ, answer, description or admin…" autocomplete="off"><button class="btn primary sm" type="submit">Search</button></div>${status?`<input type="hidden" name="status" value="${e(status)}">`:''}${p.search?link(url(path),'Clear','btn sm'):''}<span class="small muted">10 MCQs load per page</span></form>`;
   const regularTabs=!superAdmin?`<div class="tabs">${[['All',''],['Pending','pending'],['Approved','approved'],['Rejected','rejected']].map(([label,val])=>link(url(path),label,(status||'')===val?'active':'',val?{status:val}:{})).join('')}</div>`:'';
   const pager=mcqPager(total,page,pageSize,p,url(path));
+  const allPendingSelect=superAdmin&&global&&status==='pending'&&total
+   ?`<label class="check-line"><input type="checkbox" data-action="select-all-pending" data-total="${total}" aria-label="Select all pending MCQs across every page"> Select all ${Number(total).toLocaleString('en-GB')} pending</label>`
+   :'';
   return heading(title,`${Number(total).toLocaleString('en-GB')} total records · ${desc}`,MCQ.allowed('add')?link(url('add'),icon('plus')+' Add MCQ','btn primary'):'')+
    regularTabs+searchBar+
-   `${MCQ.allowed('review')?`<div class="toolbar"><label class="check-line"><input type="checkbox" data-action="select-all" aria-label="Select all visible MCQs"> Select all shown</label><span class="small muted" id="selection-count">0 selected</span>${MCQ.allowed('approve')?btn('Approve selected','bulk-review','sm','data-status="approved"'):''}${MCQ.role()==='super-admin'?btn('Delete selected','bulk-mcq-delete','sm danger'):''}</div>`:''}`+
+   `${MCQ.allowed('review')?`<div class="toolbar"><label class="check-line"><input type="checkbox" data-action="select-all" aria-label="Select all visible MCQs"> Select this page</label>${allPendingSelect}<span class="small muted" id="selection-count">0 selected</span>${MCQ.allowed('approve')?btn('Approve selected','bulk-review','sm','data-status="approved"'):''}${MCQ.role()==='super-admin'?btn('Delete selected','bulk-mcq-delete','sm danger'):''}</div>`:''}`+
    `${pageRows.length?table(pageRows)+pager:empty('No matching questions',global?'No website MCQs match this search.':'Your own collection has no matching MCQs yet.')}`;
  }
  const pickerDefs={category_id:['categories','Category',false],paper_id:['papers','Paper',true],job_ids:['jobs','Job / Post',true],job_years_ids:['years','Job Year',true]};
