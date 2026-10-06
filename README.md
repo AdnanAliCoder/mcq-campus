@@ -1,6 +1,6 @@
-# MCQ Campus — Vercel + Supabase Deployment Package
+# MCQCampus — Vercel + Supabase Deployment Package
 
-This package combines the final animated MCQ Campus frontend with the existing Django backend. It is prepared for **Vercel** deployment and the existing **Supabase PostgreSQL** database.
+This package combines the final animated MCQCampus frontend with the existing Django backend. It is prepared for **Vercel** deployment and the existing **Supabase PostgreSQL** database.
 
 ## What is included
 
