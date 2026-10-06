@@ -38,7 +38,7 @@ class PastPapersSEOTests(TestCase):
         page,html=self.page('/ppsc-past-papers')
         self.assertEqual(page['canonical'],'https://www.mcqcampus.com/ppsc-past-papers')
         self.assertEqual(page['heading'],'PPSC Past Papers')
-        self.assertEqual(page['title'],'PPSC Past Papers, Jobs & MCQs | MCQ Campus')
+        self.assertEqual(page['title'],'PPSC Past Papers, Jobs & MCQs | MCQCampus')
         self.assertIn('https://www.mcqcampus.com/ppsc-past-papers',self.urls('/sitemap-papers.xml'))
         alias,_=self.page('/punjab-public-service-commission-ppsc-past-papers')
         self.assertEqual(alias['canonical'],'https://www.mcqcampus.com/ppsc-past-papers')
@@ -59,7 +59,7 @@ class PastPapersSEOTests(TestCase):
         links=[url for _,rows in page['groups'] for _,url in rows]
         self.assertIn('/paper/punjab-public-service-commission-ppsc/job/assistant/year/2024',links)
         self.assertFalse(any('/sindh-' in url for url in links))
-        self.assertEqual(page['title'],'PPSC Assistant Past Papers & Solved MCQs | MCQ Campus')
+        self.assertEqual(page['title'],'PPSC Assistant Past Papers & Solved MCQs | MCQCampus')
 
     def test_generic_job_aggregates_matching_jobs_across_organizations(self):
         page,_=self.page('/assistant-past-papers')
@@ -139,7 +139,7 @@ class PastPapersSEOTests(TestCase):
         generic_path=catalog['group_paths']['administrative-officer-for-education-and-training-services']
         qualified_path=catalog['job_paths'][job.id]
         page,_=self.page(generic_path)
-        self.assertEqual(page['title'],name+' Past Papers | MCQ Campus')
+        self.assertEqual(page['title'],name+' Past Papers | MCQCampus')
         self.assertEqual(page['robots'],'index,follow')
         self.assertIn('https://www.mcqcampus.com'+qualified_path,self.urls('/sitemap-jobs.xml'))
         self.assertNotIn('https://www.mcqcampus.com'+generic_path,self.urls('/sitemap-jobs.xml'))
