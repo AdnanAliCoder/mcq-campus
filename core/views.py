@@ -717,7 +717,7 @@ def _seo_short_name(value):
 
 def _seo_clean_title(value):
     text=re.sub(r'\s+',' ',str(value or '')).strip()
-    return re.sub(r'\s*(?:\\||-|—)\s*MCQ\s*Campus\s*$','',text,flags=re.I).strip()
+    return re.sub(r'\s*(?:\||-|—)\s*MCQ\s*Campus\s*$','',text,flags=re.I).strip()
 
 def _seo_title(value, limit=60):
     text=_seo_clean_title(value)
