@@ -717,7 +717,13 @@ def _seo_short_name(value):
 
 def _seo_clean_title(value):
     text=re.sub(r'\s+',' ',str(value or '')).strip()
-    return re.sub(r'\s*(?:\\||-|—)\s*MCQ\s*Campus\s*
+    return re.sub(r'\s*(?:\\||-|—)\s*MCQ\s*Campus\s*$','',text,flags=re.I).strip()
+
+def _seo_title(value, limit=60):
+    text=_seo_clean_title(value)
+    if len(text)<=limit:
+        return text
+    return text[:limit-3].rstrip(' -—|,:')+'...'
 
 def _seo_supporting_sections(path,heading,description):
     subject=str(heading or 'MCQCampus').strip()
