@@ -92,6 +92,16 @@ window.Public=(()=>{
     pre=PublicLayout.selectionStack([{html:modeBar},{html:countryBar},{html:orgBar}]);
    }
   }
+  if(type==='paper'&&parent){
+   const short=window.SEO&&SEO.shortName?SEO.shortName(parent.name):String(parent.name||'').replace(/[\\[\\]()]+/g,' ').trim();
+   const prep=`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXAM PREPARATION</p><h2>Prepare with ${e(short)} past papers</h2></div></div><p>Start with the job you are targeting, open the exact exam year, and practise its linked MCQs. Review answers and explanations, then use Important MCQs and subject categories to revise repeated concepts.</p><div class="chips">${link('important','Important MCQs','chip')}${link('categories','Browse MCQ Categories','chip')}${link('pdfs','Preparation PDFs','chip')}</div></section>`;
+   pre+=prep;
+  }
+  if(type==='job'&&parent){
+   const pa=MCQ.get('papers',parent.paper_id),short=pa&&(window.SEO&&SEO.shortName?SEO.shortName(pa.name):String(pa.name||'').split(/\\s+/)[0]),label=((short?short+' ':'')+parent.name).trim();
+   const prep=`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">TEST PREPARATION</p><h2>${e(label)} preparation</h2></div></div><p>Choose a past-paper year below to practise the questions linked with that exam record. After each attempt, review the correct answer and explanation and continue with Important MCQs for repeated-question revision.</p><div class="chips">${link('important','Important MCQs','chip')}${link('mcqs','Practice All MCQs','chip')}${link('categories','Browse Subjects','chip')}</div></section>`;
+   pre+=prep;
+  }
   const entityServer=activeEntityPage(),useServer=!!(entityServer&&entityServer.type===collection),pageSize=10,total=useServer?Number(entityServer.total||0):rows.length;
   if(useServer){rows=Array.isArray(entityServer.items)?entityServer.items:[];page=Math.max(1,Number(entityServer.page)||1)}
   const shown=useServer?rows:rows.slice((page-1)*pageSize,page*pageSize);
