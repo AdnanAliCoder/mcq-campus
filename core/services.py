@@ -1432,7 +1432,19 @@ def command(user,action,payload):
             result['pageSeo']=save_page_seo_entry(user,'mcq',obj.pk,draft.get('page_seo_title'),draft.get('page_seo_description'))
         return result
     if action=='form:review':
-        _,v,c,_=parse_fields(payload); ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]; review_mcqs(user,c.get('ids',''),c.get('status','pending'),v.get('reason','')); rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by'); return {'mcqs':[mcq(x) for x in rows]}
+        _,v,c,_=parse_fields(payload)
+        status=c.get('status','pending'); reason=v.get('reason','')
+        all_pending=str(c.get('allPending') or c.get('all_pending') or '').lower() in {'1','true','yes','on'}
+        if all_pending:
+            require(is_super(user),'Only the Super Admin can approve all pending MCQs.')
+            require(status=='approved','Select-all pending can only be used for approval.')
+            ids=list(MCQ.objects.filter(Q(status='pending')|Q(pending_update__isnull=False)).values_list('id',flat=True))
+            review_mcqs(user,','.join(str(x) for x in ids),status,reason)
+            return {'mcqs':[],'reviewedIds':ids,'reviewedCount':len(ids),'allPending':True,'status':status}
+        ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]
+        review_mcqs(user,c.get('ids',''),status,reason)
+        rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by')
+        return {'mcqs':[mcq(x) for x in rows],'reviewedCount':len(ids),'status':status}
     if action=='form:entity': return save_entity(user,payload)
     if action=='form:user': return save_user(user,payload)
     if action=='form:guide': return save_guide(user,payload)
