@@ -4,8 +4,8 @@ window.SEO=(()=>{
  // Accept the existing Django sitemap spelling as well as the SPA spelling.
  // For example, [2026][Morning] and A & B are slugged differently by each.
  const hierarchySlug=s=>String(s??'').normalize('NFKD').replace(/[^\x00-\x7F]/g,'').toLowerCase().replace(/[^\w\s-]/g,'').trim().replace(/[-\s]+/g,'-').replace(/^[-_]+|[-_]+$/g,'').slice(0,96)||'item';
- const fitTitle=(value,limit=60)=>{const text=String(value||'').replace(/\s+/g,' ').trim();if(text.length<=limit)return text;const suffix=' | '+site();if(text.endsWith(suffix)){const head=text.slice(0,-suffix.length).replace(/[\s\-—|,:]+$/,'');const room=Math.max(12,limit-suffix.length-3);return head.slice(0,room).replace(/[\s\-—|,:]+$/,'')+'...'+suffix}return text.slice(0,limit-3).replace(/[\s\-—|,:]+$/,'')+'...'};
- const site=()=>MCQ?.db?.settings?.siteName||'MCQ Campus';
+ const fitTitle=(value,limit=60)=>{const text=String(value||'').replace(/\s+/g,' ').replace(/\s*(?:\||-|—)\s*MCQ\s*Campus\s*$/i,'').trim();if(text.length<=limit)return text;return text.slice(0,limit-3).replace(/[\s\-—|,:]+$/,'')+'...'};
+ const site=()=>MCQ?.db?.settings?.siteName||'MCQCampus';
  const shortName=value=>{const text=String(value||'').trim(),bracket=[...text.matchAll(/\[([^\]]{2,16})\]/g)].map(m=>m[1].trim()).filter(Boolean);if(bracket.length)return bracket[bracket.length-1];const paren=[...text.matchAll(/\(([^)]{2,16})\)/g)].map(m=>m[1].trim()).filter(x=>/^[A-Z0-9&. -]+$/.test(x));if(paren.length)return paren[paren.length-1];const caps=text.match(/\b[A-Z][A-Z0-9&.-]{1,15}\b/g);return caps?.[caps.length-1]||text};
  const yearLabel=(job,value)=>{
   let text=String(value||'').trim();
@@ -65,8 +65,8 @@ window.SEO=(()=>{
  function descriptor(base,id){
   const discovery=discoveryPage(location.pathname);
   if(discovery)return {...discovery,discovery:true};
-  const get=(t,i)=>MCQ.get(t,i), suffix=' | '+site(); let title=site(),description=MCQ.db.seo.description,robots='index,follow';
-  if(base==='home'){title='MCQ Campus — Pakistan Past Papers, MCQs & Exam Preparation';description='Prepare for PPSC, FPSC, NTS, SPSC, BPSC and other competitive exams with job-wise past papers, solved MCQs, answers and explanations.'}
+  const get=(t,i)=>MCQ.get(t,i), suffix=''; let title=site(),description=MCQ.db.seo.description,robots='index,follow';
+  if(base==='home'){title='MCQCampus — Pakistan Past Papers, MCQs & Exam Preparation';description='Prepare for PPSC, FPSC, NTS, SPSC, BPSC and other competitive exams with job-wise past papers, solved MCQs, answers and explanations.'}
   if(base==='categories'){title='MCQ Categories'+suffix;description='Browse MCQ categories and practise approved questions with answers and explanations.'}
   if(base==='category'){const x=get('categories',id);title=(x?.name||'Category')+' MCQs'+suffix;description=`Practice ${x?.name||'category'} MCQs with answers and explanations.`}
   if(base==='subcategory'){const x=get('subcategories',id);title=(x?.name||'Subcategory')+' MCQs with Answers'+suffix;description=`Practice ${x?.name||'subcategory'} MCQs with correct answers and explanations.`}
@@ -75,7 +75,7 @@ window.SEO=(()=>{
   if(base==='paper'){const x=get('papers',id),short=x?shortName(x.name):'Past Paper';title=short+' Past Papers, Jobs & Solved MCQs'+suffix;description=`Browse ${short} past papers by job and exam year, then practice solved MCQs with correct answers, explanations and related preparation resources.`}
   if(base==='job'){const x=get('jobs',id),p=x&&get('papers',x.paper_id),short=p?shortName(p.name):'';title=((short?short+' ':'')+(x?.name||'Job')+' Past Papers & Solved MCQs')+suffix;description=`Explore ${(short?short+' ':'')}${x?.name||'job'} past papers by year and practice solved MCQs with answers and explanations for focused test preparation.`}
   if(base==='year'){const x=get('years',id),j=x&&get('jobs',x.job_id),p=j&&get('papers',j.paper_id),short=p?shortName(p.name):'',label=yearLabel(j?.name,x?.name);title=((short?short+' ':'')+(j?.name?j.name+' ':'')+label+' Solved Past Paper')+suffix;description=`Practice ${(short?short+' ':'')}${j?.name||'job'} ${label} solved past paper MCQs with correct answers and explanations.`}
-  if(base==='important'){title='Important MCQs for Practice'+suffix;description='Practice MCQs marked important by the MCQ Campus editorial workflow.'}
+  if(base==='important'){title='Important MCQs for Practice'+suffix;description='Practice MCQs marked important by the MCQCampus editorial workflow.'}
   if(base==='mcqs'){title='Practice MCQs with Answers & Explanations'+suffix;description='Practice approved MCQs across categories, jobs and past papers.'}
   if(base==='mcq'||base==='practice'){const q=get('mcqs',id);title=(q?.question||'MCQ').slice(0,70)+suffix;description=(q?.description||`Practice this MCQ and review the correct answer on ${site()}.`).slice(0,155)}
   if(base==='tests'){title='Automatic MCQ Tests'+suffix;description='Attempt an automatically generated 10-question test that rotates between important MCQs, categories and past papers.'}
@@ -88,8 +88,8 @@ window.SEO=(()=>{
   if(base==='posts'){title='Exam Preparation Blog & Updates'+suffix;description='Read exam preparation articles, study guides, updates and useful learning resources.'}
   if(base==='post'){const x=get('posts',id);title=(x?.seo_title||x?.title||'Post')+suffix;description=(x?.seo_description||x?.excerpt||String(x?.body||'').slice(0,155))}
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(base)){const x=MCQ.db.content?.legalPages?.[base];title=(x?.seoTitle||x?.title||base.replace(/-/g,' '))+suffix;description=(x?.metaDescription||description).slice(0,155)}
-  if(base==='faq'){title='Frequently Asked Questions'+suffix;description='Answers to common questions about MCQ Campus, exam preparation content, corrections and official-information verification.'}
-  if(base==='sitemap'){title='Sitemap'+suffix;description='Browse the main MCQ Campus preparation, account, support and legal pages.'}
+  if(base==='faq'){title='Frequently Asked Questions'+suffix;description='Answers to common questions about MCQCampus, exam preparation content, corrections and official-information verification.'}
+  if(base==='sitemap'){title='Sitemap'+suffix;description='Browse the main MCQCampus preparation, account, support and legal pages.'}
   if(['search','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin'].includes(base))robots='noindex,nofollow';
   const pageSeo=MCQ?.db?.pageSeo||{};
   const staticKey={home:'home',mcqs:'mcqs',papers:'past-papers',pdfs:'pdfs',categories:'categories','latest-jobs':'latest-jobs',posts:'blog'}[base];
