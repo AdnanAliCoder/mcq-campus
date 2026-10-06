@@ -59,7 +59,7 @@ class PastPapersSEOTests(TestCase):
         links=[url for _,rows in page['groups'] for _,url in rows]
         self.assertIn('/paper/punjab-public-service-commission-ppsc/job/assistant/year/2024',links)
         self.assertFalse(any('/sindh-' in url for url in links))
-        self.assertEqual(page['title'],'PPSC Assistant Past Papers | MCQ Campus')
+        self.assertEqual(page['title'],'PPSC Assistant Past Papers & Solved MCQs | MCQ Campus')
 
     def test_generic_job_aggregates_matching_jobs_across_organizations(self):
         page,_=self.page('/assistant-past-papers')
