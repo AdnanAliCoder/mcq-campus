@@ -1,5 +1,5 @@
 import json, re
-from django.contrib import mail
+from django.core import mail
 from django.contrib.auth.models import User
 from django.db import connection
 from django.utils import timezone
@@ -770,7 +770,8 @@ class IntegrationTests(TestCase):
         resources=resources_response.json()
         self.assertIn('settings',resources)
         self.assertNotIn('pdfs',resources)
-        self.assertNotIn('seoIndex',resources)
+        self.assertIn('seoIndex',resources)
+        self.assertFalse(any(key.startswith('mcq:') for key in resources['seoIndex']['items']))
         self.assertIn('s-maxage=3600',resources_response['Cache-Control'])
         catalog=self.client.get('/api/public/catalog').json()
         self.assertIn('pdfs',catalog)
@@ -1052,3 +1053,4 @@ class AuthSecurityTests(TestCase):
             self.assertEqual(self.post_json('/api/auth/login',{'email':user.email,'password':'WrongPass!999'}).status_code,422)
         blocked=self.post_json('/api/auth/login',{'email':user.email,'password':'WrongPass!999'})
         self.assertEqual(blocked.status_code,429)
+

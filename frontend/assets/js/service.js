@@ -147,7 +147,7 @@ window.MCQ = (() => {
   if(incoming.rolePermissions)db.rolePermissions=clone(incoming.rolePermissions);
   if(incoming.adSettings)db.adSettings={...db.adSettings,...incoming.adSettings,slots:{...db.adSettings.slots,...(incoming.adSettings.slots||{})}};
   if(incoming.pinnedEntities)db.pinnedEntities={categories:[],papers:[],jobs:[],years:[],...clone(incoming.pinnedEntities)};
-  if(incoming.seoIndex)db.seoIndex={next:Number(incoming.seoIndex.next||1),items:{...(incoming.seoIndex.items||{})}};
+  if(incoming.seoIndex)db.seoIndex={next:Number(incoming.seoIndex.next||1),items:{...(db.seoIndex?.items||{}),...(incoming.seoIndex.items||{})}};
   if(incoming.pageSeo)db.pageSeo={...(incoming.pageSeo||{})};
   if(incoming.currentAffairsConfig)db.currentAffairsConfig={...db.currentAffairsConfig,...incoming.currentAffairsConfig,dailyIds:ids(incoming.currentAffairsConfig.dailyIds||[]),monthlyIds:ids(incoming.currentAffairsConfig.monthlyIds||[])};
   topCache=null;persist();return db;

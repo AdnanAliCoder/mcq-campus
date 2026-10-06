@@ -6,6 +6,7 @@ window.Auth=(()=>{
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=Number.POSITIVE_INFINITY;
+ const serverRoute=(()=>{try{return JSON.parse(document.getElementById('seo-route')?.textContent||'null')}catch{return null}})();
  const ADMIN_PAGE_SIZES=[10],ADMIN_DEFAULT_PAGE_SIZE=10;
 
  function initialRoute(){
@@ -116,7 +117,8 @@ window.Auth=(()=>{
  async function ensureRouteData(path,context={}){
   if(!path)return false;
   const clean=String(path).split('?')[0],parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
-  const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||workspace,resolvedId=context?.id??recordId,routeKey=location.pathname+location.search;
+  const initial=serverRoute?.path===location.pathname.replace(/\/$/,'')?serverRoute:null;
+  const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||initial?.base||workspace,resolvedId=context?.id??initial?.id??recordId,routeKey=location.pathname+location.search;
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
@@ -210,13 +212,15 @@ window.Auth=(()=>{
    const variable=new Set(['workspace-mcqs','public-mcqs','entity-page']);
    const cacheKey=variable.has(key)?key+'|'+endpoint:key;
    const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
-   if(fresh)return false;
-   if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return false}
+   const activePage=key==='entity-page'?MCQ.db.entityPage:MCQ.db.mcqPage;
+   if(fresh&&(!variable.has(key)||(activePage?.request===endpoint&&activePage?.routeKey===routeKey)))return false;
+   if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return load(key)}
    const task=(async()=>{
     try{
      const own=generation,data=await request(endpoint);
      if(!['core','public-content','resources','catalog','legal'].includes(key)&&own!==generation)return;
      if(variable.has(key)&&routeKey!==location.pathname+location.search)return;
+     if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
      if(key==='resources')MCQ.mergeCore(data);
@@ -515,16 +519,17 @@ window.Auth=(()=>{
   finally{restoreButton();}
  },true);
 
- const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','report-resolve','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','ad-toggle','ad-delete']);
+ const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','report-resolve','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','latest-job-bulk-delete','ad-toggle','ad-delete']);
  document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
   event.preventDefault();event.stopImmediatePropagation();
   if(el.dataset.loading==='true')return;
-  const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...'};
+  const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','latest-job-bulk-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...'};
   const restoreButton=setButtonLoading(el,actionLabels[el.dataset.action]||'Working...');
   try{
    let selectedImportRows=App.importRows;if(el.dataset.action==='import-confirm'){const selected=[...document.querySelectorAll('.import-row-check:checked')].map(x=>Number(x.value)).filter(Number.isInteger);if(!selected.length)throw Error('Select at least one MCQ to import.');selectedImportRows=selected.map(i=>App.importRows?.[i]).filter(Boolean);if(selectedImportRows.some(r=>!r?.q))throw Error('Selected import row is missing normalized MCQ data. Re-upload the file.');}const extra={...el.dataset,rows:el.dataset.action==='import-confirm'?selectedImportRows.map(r=>r.q):App.importRows};
    if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
+   if(el.dataset.action==='latest-job-bulk-delete'){MCQ.assert('latestJobDelete');extra.ids=[...document.querySelectorAll('.latest-job-row-check:checked')].map(x=>Number(x.value));if(!extra.ids.length)throw Error('Select at least one job.');if(!window.confirm('Delete '+extra.ids.length+' selected job announcements?'))return;}
    const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){
     App.importSummary=result?.summary||result;
     App.importedIds=(result?.importedIds||result?.mcqs?.map(x=>x.id)||[]).map(Number).filter(Number.isInteger);

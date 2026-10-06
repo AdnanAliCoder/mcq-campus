@@ -21,7 +21,7 @@ from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
-    ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot,
+    ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot, entity_page_data,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -687,7 +687,7 @@ def commands(request):
         seo_actions={'form:mcq','form:review','form:entity','form:post','form:pdf','form:latest-job','action:import-confirm','action:latest-job-toggle','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'}
         if action in seo_actions: response['seoIndex']=seo_index_snapshot()
         if action in {'saveProfile','form:profile','form:user'}: response['user']=user_dict(request.user,request.session)
-        delta_actions={'attempt','toggleBookmark','savePaper','report','saveProfile','changePassword','form:profile','form:password-change','form:mcq','form:review','form:entity','form:user','form:guide','form:post','form:ad','form:pdf','form:latest-job','action:import-confirm','action:report-resolve','action:user-status','action:ad-toggle','action:ad-delete','action:post-delete','action:pdf-delete','action:latest-job-toggle','action:latest-job-delete','action:entity-pin','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'}
+        delta_actions={'attempt','toggleBookmark','savePaper','report','saveProfile','changePassword','form:profile','form:password-change','form:mcq','form:review','form:entity','form:user','form:guide','form:post','form:ad','form:pdf','form:latest-job','action:import-confirm','action:report-resolve','action:user-status','action:ad-toggle','action:ad-delete','action:post-delete','action:pdf-delete','action:latest-job-toggle','action:latest-job-delete','action:latest-job-bulk-delete','action:entity-pin','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'}
         if action not in delta_actions: response['refresh']='bootstrap'
         return JsonResponse(response)
     except PermissionError as e: return err(e,403)
@@ -1642,6 +1642,7 @@ def spa_index(request):
         'settings':s,'seo_title':title,'seo_description':description,'canonical_url':canonical,
         'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_sections':sections,
         'seo_origin':SEO_ORIGIN,'seo_robots':robots,'seo_jsonld':jsonld,'seo_discovery_page':None,
+        'seo_route':{'path':path,'base':resolved['kind'],'id':resolved['key']} if resolved else None,
     },status=status)
     if status==200 and (path=='/' or root in target_roots):
         response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
@@ -1699,3 +1700,4 @@ def llms_txt(request):
         '- Prefer canonical URLs on the www.mcqcampus.com host.\n'
     )
     return _public_text_response(body,'text/plain; charset=utf-8')
+

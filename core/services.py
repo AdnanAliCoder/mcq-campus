@@ -372,9 +372,12 @@ def public_resources_data(user=None):
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
     data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities','pageSeo']}
-    # The global SEO registry can contain thousands of entries. Public pages do not
-    # need it, so only staff receives it; crawler URLs are rendered server-side.
-    if is_admin(user): data['seoIndex']=seo_index_snapshot()
+    # Send hierarchy/catalog indexes, but keep the large MCQ registry paginated.
+    registry=seo_index_snapshot()
+    data['seoIndex']=registry if is_admin(user) else {
+        'next':registry['next'],
+        'items':{k:v for k,v in registry['items'].items() if not k.startswith('mcq:')},
+    }
     return data
 
 def public_catalog_data():
@@ -557,7 +560,11 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     _attach_important_flags(objects)
     total=int(objects[0]._page_total) if objects else (qs.count() if page>1 else 0)
     rows=[mcq_list(x) for x in objects]
-    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total}
+    keys={f"mcq:{x['id']}" for x in rows}
+    registry=_site_blob().get('seoIndex') or {}
+    if any(key not in (registry.get('items') or {}) for key in keys): registry=seo_index_snapshot()
+    indexes={'next':int(registry.get('next') or 1),'items':{k:v for k,v in (registry.get('items') or {}).items() if k in keys}}
+    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total,'seoIndex':indexes}
 
 def _attach_important_flags(objects):
     """Apply the final Important rule from distinct linked Job IDs without extra queries."""
@@ -1467,6 +1474,19 @@ def command(user,action,payload):
         require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); rid=obj.id; name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return {'deleted':{'type':'ads','ids':[rid]}}
     if action=='action:post-delete':
         require(is_super(user) or has_perm(user,'delete_posts')); obj=Post.objects.get(pk=int(payload.get('id'))); rid=obj.id; title=obj.title; obj.delete(); log(user,'Deleted post',title); return {'deleted':{'type':'posts','ids':[rid]}}
+    if action=='action:latest-job-bulk-delete':
+        require(is_super(user) or has_perm(user,'delete_latest_jobs'))
+        ids=payload.get('ids') or []
+        if not isinstance(ids,list) or not ids: raise ValueError('Select at least one job.')
+        selected={int(value) for value in ids}
+        with transaction.atomic():
+            s=SiteSetting.objects.select_for_update().get(pk=SiteSetting.get_solo().pk)
+            blob=_site_blob(s); rows=list(blob.get('latestJobs') or [])
+            removed=[x for x in rows if int(x.get('id',0)) in selected]
+            blob['latestJobs']=[x for x in rows if int(x.get('id',0)) not in selected]
+            _save_site_blob(s,blob); s.updated_by=user; s.save()
+            log(user,'Deleted latest jobs',', '.join(str(x.get('id')) for x in removed))
+        return {'latestJobs':blob['latestJobs'],'count':len(removed)}
     if action in {'action:pdf-delete','action:latest-job-delete','action:latest-job-toggle'}:
         form='pdfs' if action=='action:pdf-delete' else 'latestJobs'; perm='delete_pdfs' if form=='pdfs' else ('delete_latest_jobs' if action.endswith('delete') else 'manage_latest_jobs'); require(is_super(user) or has_perm(user,perm)); s=SiteSetting.get_solo(); blob=_site_blob(s); rows=list(blob.get(form) or []); rid=int(payload.get('id'))
         if action.endswith('toggle'):
@@ -1576,3 +1596,4 @@ def consume_token(user,raw,purpose,max_attempts=5):
     obj.used_at=timezone.now(); obj.save(update_fields=['used_at'])
     OneTimeToken.objects.filter(user=user,purpose=purpose,used_at__isnull=True).exclude(pk=obj.pk).update(used_at=timezone.now())
     return obj.user
+
