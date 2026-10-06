@@ -86,15 +86,34 @@ class Post(OwnedStampedModel):
 
 class SiteSetting(models.Model):
     singleton=models.PositiveSmallIntegerField(primary_key=True,default=1,editable=False)
-    site_name=models.CharField(max_length=120,default='MCQ Campus'); description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.'); country=models.CharField(max_length=80,default='Pakistan')
+    site_name=models.CharField(max_length=120,default='MCQCampus'); description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.'); country=models.CharField(max_length=80,default='Pakistan')
     about=models.TextField(default='',blank=True); contact=models.TextField(default='',blank=True)
-    seo_title=models.CharField(max_length=160,default='MCQ Campus'); seo_description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.')
+    seo_title=models.CharField(max_length=160,default='MCQCampus'); seo_description=models.TextField(default='Explore subjects, practise MCQs and prepare with past papers.')
     admin_permissions=models.JSONField(default=dict,blank=True)
     google_analytics_id=models.CharField(max_length=40,blank=True); analytics_enabled=models.BooleanField(default=False)
     adsense_client_id=models.CharField(max_length=40,blank=True); adsense_enabled=models.BooleanField(default=False)
     updated_at=models.DateTimeField(auto_now=True); updated_by=models.ForeignKey(User,null=True,blank=True,on_delete=models.SET_NULL)
     @classmethod
-    def get_solo(cls): return cls.objects.get_or_create(pk=1)[0]
+    def get_solo(cls):
+        obj,_=cls.objects.get_or_create(pk=1)
+        legacy='MCQ'+' Campus'
+        def branded(value):
+            if isinstance(value,str): return value.replace(legacy,'MCQCampus')
+            if isinstance(value,list): return [branded(item) for item in value]
+            if isinstance(value,dict): return {key:branded(item) for key,item in value.items()}
+            return value
+        changed=[]
+        for field in ('site_name','description','about','contact','seo_title','seo_description'):
+            current=getattr(obj,field)
+            updated=branded(current)
+            if updated!=current:
+                setattr(obj,field,updated); changed.append(field)
+        permissions=branded(obj.admin_permissions)
+        if permissions!=obj.admin_permissions:
+            obj.admin_permissions=permissions; changed.append('admin_permissions')
+        if changed:
+            obj.save(update_fields=[*changed,'updated_at'])
+        return obj
 
 class AdPlacement(OwnedStampedModel):
     PROVIDERS=[('custom','Custom company ad'),('adsense','Google AdSense')]
