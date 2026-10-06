@@ -16,7 +16,7 @@ assert.equal(context.SEO.needsDocumentNavigation('/sitemap'),true);
 assert.equal(context.SEO.needsDocumentNavigation(page.path+'?page=1'),false);
 assert.equal(context.SEO.needsDocumentNavigation('/paper/ppsc'),false);
 context.location.pathname='/papers';
-assert.equal(context.SEO.descriptor('papers').title,'Past Papers & MCQs with Answers | MCQ Campus');
+assert.equal(context.SEO.descriptor('papers').title,'Pakistan Past Papers — PPSC, FPSC, NTS & More | MCQ Campus');
 assert.equal(vm.runInContext("resolveRouteId('job','assistant',x=>x.paper_id===2)",context),'20');
 assert.equal(vm.runInContext("resolveRouteId('job','accountant-auditor',x=>x.paper_id===1)",context),'30');
 assert.equal(vm.runInContext("resolveRouteId('job','accountant-and-auditor',x=>x.paper_id===1)",context),'30');
