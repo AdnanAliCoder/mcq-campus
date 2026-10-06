@@ -106,9 +106,7 @@ window.UI=(()=>{
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
   const navHtml=main.map(([p,l,i])=>link(p,icon(i)+`<span>${esc(l)}</span>`,is(p)?'active':'')).join('');
   const mobileMenu=MCQ.db.session?btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"'):'';
-  const dark=document.documentElement.dataset.theme==='dark';
-  const themeToggle=btn(`${dark?'☀':'☾'}<span class="theme-label">${dark?'Light':'Dark'}</span>`,'theme-toggle','ghost theme-toggle',`aria-label="Switch to ${dark?'light':'dark'} mode" aria-pressed="${dark?'true':'false'}"`);
-  return `<header class="header reference-header"><div class="container header-inner">${brand()}<nav class="nav" id="main-nav" aria-label="Main navigation">${navHtml}${MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth')}</nav><form class="header-search" data-form="search" role="search">${publicSearch('Search MCQs, papers, categories, jobs...',currentQuery)}</form><div class="header-actions">${themeToggle}${userMenu()}${mobileMenu}</div></div></header>`
+  return `<header class="header reference-header"><div class="container header-inner">${brand()}<nav class="nav" id="main-nav" aria-label="Main navigation">${navHtml}${MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth')}</nav><form class="header-search" data-form="search" role="search">${publicSearch('Search MCQs, papers, categories, jobs...',currentQuery)}</form><div class="header-actions">${userMenu()}${mobileMenu}</div></div></header>`
 }
  function footer(){
   const settings=MCQ.db.settings||{},cfg=settings.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),safeUrl=u=>/^https?:\/\//i.test(String(u||''));
