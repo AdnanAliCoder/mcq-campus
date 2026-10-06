@@ -370,7 +370,13 @@ window.Auth=(()=>{
   }
   if(action==='report'&&result?.report){MCQ.upsert('reports',result.report);return}
   if(action==='form:mcq'&&result?.mcq){MCQ.upsert('mcqs',result.mcq);return}
-  if(action==='form:review'&&Array.isArray(result?.mcqs)){result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));return}
+  if(action==='form:review'){
+   if(Array.isArray(result?.mcqs))result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));
+   if(result?.allPending&&result?.status==='approved'){
+    for(const q of MCQ.db.mcqs||[])if(q.status==='pending'||q.pending_update){q.status='approved';q.pending_update=null;q.rejection_reason='';}
+   }
+   return
+  }
   if(action==='form:entity'&&result?.type&&result?.entity){MCQ.upsert(result.type,result.entity);return}
   if(action==='form:user'&&result?.user){MCQ.upsert('users',result.user);if(Number(result.user.id)===Number(user?.id))setIdentity({...user,...result.user});return}
   if(action==='form:guide'&&result?.guide){MCQ.upsert('guides',result.guide);return}
@@ -395,7 +401,8 @@ window.Auth=(()=>{
   if(!user)throw Error('Sign in to save this activity.');
   const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
   const task=(async()=>{
-   const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm',timeout:action==='action:import-confirm'?60000:15000});
+   const longBulkReview=action==='form:review'&&String(payload?.context?.allPending||'').toLowerCase()==='true';
+   const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm'||longBulkReview,timeout:action==='action:import-confirm'?60000:(longBulkReview?120000:15000)});
    if(own!==generation)throw Error('The account changed. Please try again.');
    if(data.user)setIdentity({...user,...data.user});
    if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
