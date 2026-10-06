@@ -97,7 +97,7 @@ def _email_shell(title,lead,content_html,footer):
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#fff;border:1px solid #d7e6df;border-radius:16px;overflow:hidden">
 <tr><td style="background:#087e65;padding:24px 28px;color:#fff"><div style="font-size:13px;letter-spacing:.12em;font-weight:700">MCQ CAMPUS</div><div style="font-size:24px;font-weight:700;margin-top:8px">{escape(title)}</div></td></tr>
 <tr><td style="padding:28px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">{escape(lead)}</p>{content_html}<p style="margin:24px 0 0;color:#607268;font-size:13px;line-height:1.6">{escape(footer)}</p></td></tr>
-</table><p style="font-size:12px;color:#7a8d84;margin:14px 0 0">MCQ Campus · www.mcqcampus.com</p>
+</table><p style="font-size:12px;color:#7a8d84;margin:14px 0 0">MCQCampus · www.mcqcampus.com</p>
 </td></tr></table></body></html>"""
 
 def _send_auth_email(subject,body,email,html=None):
@@ -111,7 +111,7 @@ def _send_auth_email(subject,body,email,html=None):
         return False
 
 def _code_email(code,title,lead,minutes,footer):
-    body=f'MCQ Campus\n\n{lead}\n\nCode: {code}\n\nThis code expires in {minutes} minutes.\n{footer}'
+    body=f'MCQCampus\n\n{lead}\n\nCode: {code}\n\nThis code expires in {minutes} minutes.\n{footer}'
     code_html=escape(str(code))
     html=_email_shell(
         title,lead,
@@ -122,11 +122,11 @@ def _code_email(code,title,lead,minutes,footer):
 
 def _verification_email(code):
     minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
-    return _code_email(code,'Verify your email','Use this 6-digit code to finish creating your MCQ Campus account.',minutes,'Your account will not be created until this code is verified.')
+    return _code_email(code,'Verify your email','Use this 6-digit code to finish creating your MCQCampus account.',minutes,'Your account will not be created until this code is verified.')
 
 def _reset_email(code):
     minutes=getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10)
-    return _code_email(code,'Reset your password','Use this 6-digit code to reset your MCQ Campus password.',minutes,'If you did not request a password reset, you can ignore this email.')
+    return _code_email(code,'Reset your password','Use this 6-digit code to reset your MCQCampus password.',minutes,'If you did not request a password reset, you can ignore this email.')
 
 def _password_change_email(code):
     minutes=getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10)
@@ -134,13 +134,13 @@ def _password_change_email(code):
 
 def _welcome_email(user):
     first=user.first_name or 'Learner'
-    body=(f'Welcome to MCQ Campus, {first}!\n\nYour account is verified and ready. '
+    body=(f'Welcome to MCQCampus, {first}!\n\nYour account is verified and ready. '
           'You can practise MCQs, explore past papers, take tests, save questions, review mistakes, '
           'track progress, and prepare for jobs and competitive exams.\n\nhttps://www.mcqcampus.com')
     html=_email_shell(
-        'Welcome to MCQ Campus',
+        'Welcome to MCQCampus',
         f'Welcome, {first}! Your account has been verified successfully.',
-        '<p style="font-size:15px;line-height:1.7;margin:0 0 16px">You can now use MCQ Campus to:</p>'
+        '<p style="font-size:15px;line-height:1.7;margin:0 0 16px">You can now use MCQCampus to:</p>'
         '<ul style="padding-left:20px;line-height:1.9;color:#314d44">'
         '<li>Practice MCQs with answers and explanations</li>'
         '<li>Explore past papers and job-wise preparation</li>'
@@ -148,7 +148,7 @@ def _welcome_email(user):
         '<li>Save questions and track your learning progress</li>'
         '<li>Access PDFs, current affairs, guides and exam resources</li>'
         '</ul>'
-        '<p style="margin:24px 0 0"><a href="https://www.mcqcampus.com" style="display:inline-block;background:#087e65;color:#fff;text-decoration:none;padding:12px 18px;border-radius:9px;font-weight:700">Open MCQ Campus</a></p>',
+        '<p style="margin:24px 0 0"><a href="https://www.mcqcampus.com" style="display:inline-block;background:#087e65;color:#fff;text-decoration:none;padding:12px 18px;border-radius:9px;font-weight:700">Open MCQCampus</a></p>',
         'We are glad to have you with us. Keep learning at your own pace.',
     )
     return body,html
@@ -258,7 +258,7 @@ def auth_register(request):
             'last_sent_at':now,
         },
     )
-    delivered=_send_email_parts('Your MCQ Campus verification code',_verification_email(code),email)
+    delivered=_send_email_parts('Your MCQCampus verification code',_verification_email(code),email)
     if not delivered:
         return err('Verification email could not be delivered right now. Please try Resend code shortly.',503,{'emailDelivery':'temporary'})
     return JsonResponse({
@@ -282,7 +282,7 @@ def auth_forgot(request):
     u=User.objects.filter(email__iexact=email,is_active=True).first()
     if u:
         code=create_token(u,'reset',getattr(settings,'PASSWORD_RESET_CODE_EXPIRY_MINUTES',10))
-        _send_email_parts('MCQ Campus password reset code',_reset_email(code),email)
+        _send_email_parts('MCQCampus password reset code',_reset_email(code),email)
     return JsonResponse({'completed':True,'message':'If an active account matches that email, a reset code has been sent.'})
 
 @require_POST
@@ -348,7 +348,7 @@ def auth_verify(request):
             prof.role='user'; prof.permissions=[]; prof.email_verified=True
             prof.save(update_fields=['role','permissions','email_verified'])
             pending.delete()
-        _send_email_parts('Welcome to MCQ Campus',_welcome_email(u),u.email)
+        _send_email_parts('Welcome to MCQCampus',_welcome_email(u),u.email)
         return JsonResponse({'completed':True,'message':'Email verified and account created. You can now sign in.'})
 
     # Backward compatibility for accounts created by the older verification flow.
@@ -378,7 +378,7 @@ def auth_resend_verification(request):
             return JsonResponse({**generic,'message':f'Please wait {remaining} seconds before requesting another code.','resendAfter':remaining})
         code=_new_signup_code()
         expiry_minutes=getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10)
-        delivered=_send_email_parts('Your MCQ Campus verification code',_verification_email(code),email)
+        delivered=_send_email_parts('Your MCQCampus verification code',_verification_email(code),email)
         if delivered:
             pending.code_hash=_pending_code_hash(email,code)
             pending.expires_at=timezone.now()+timedelta(minutes=expiry_minutes)
@@ -394,7 +394,7 @@ def auth_resend_verification(request):
         latest=OneTimeToken.objects.filter(user=u,purpose='verify').order_by('-created_at').first()
         if latest and (timezone.now()-latest.created_at).total_seconds()<cooldown: return JsonResponse(generic)
         code=create_token(u,'verify',getattr(settings,'EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES',10))
-        _send_email_parts('Your MCQ Campus verification code',_verification_email(code),email)
+        _send_email_parts('Your MCQCampus verification code',_verification_email(code),email)
     _record_rate('resend',ids)
     return JsonResponse(generic)
 
@@ -422,7 +422,7 @@ def auth_password_change_start(request):
     request.session['pending_password_change_hash']=make_password(new)
     request.session['pending_password_change_user']=request.user.pk
     request.session.modified=True
-    if not _send_email_parts('Confirm your MCQ Campus password change',_password_change_email(code),request.user.email):
+    if not _send_email_parts('Confirm your MCQCampus password change',_password_change_email(code),request.user.email):
         OneTimeToken.objects.filter(user=request.user,purpose='change',used_at__isnull=True).update(used_at=timezone.now())
         request.session.pop('pending_password_change_hash',None)
         request.session.pop('pending_password_change_user',None)
@@ -719,7 +719,7 @@ def _seo_title(value, limit=60):
     text=re.sub(r'\s+',' ',str(value or '')).strip()
     if len(text)<=limit:
         return text
-    suffix=' | MCQ Campus'
+    suffix=' | MCQCampus'
     if text.endswith(suffix):
         head=text[:-len(suffix)].rstrip(' -—|,:')
         room=max(12,limit-len(suffix)-3)
@@ -727,16 +727,16 @@ def _seo_title(value, limit=60):
     return text[:limit-3].rstrip(' -—|,:')+'...'
 
 def _seo_supporting_sections(path,heading,description):
-    subject=str(heading or 'MCQ Campus').strip()
+    subject=str(heading or 'MCQCampus').strip()
     if path=='/':
         return [
-            ('Practice by topic, paper and exam','MCQ Campus organizes preparation around subject categories, past papers, jobs and exam years so learners can move from broad revision to focused practice. Use the main sections to find approved multiple-choice questions, review answers and explanations, and continue into the paper or job that matches the exam you are preparing for.'),
+            ('Practice by topic, paper and exam','MCQCampus organizes preparation around subject categories, past papers, jobs and exam years so learners can move from broad revision to focused practice. Use the main sections to find approved multiple-choice questions, review answers and explanations, and continue into the paper or job that matches the exam you are preparing for.'),
             ('Use answers and explanations for revision','Attempt each question before checking the answer, then use the explanation to understand why the option is correct. Revisit weak areas through category pages, compare questions that appear across different papers or job years, and use important MCQs for faster revision when you are short on time.'),
             ('Explore connected preparation resources','Past-paper pages connect organizations, jobs and exam years with the MCQs linked to those records. You can also browse current opportunities, preparation PDFs and exam-focused articles. These internal links make it easier to continue from one topic to the next without losing the context of your preparation.'),
         ]
     if path.startswith('/mcq/'):
         return [
-            ('Review this question in context',f'This page is part of {subject} on MCQ Campus. Read the question carefully, choose an answer before checking the explanation, and use the related category, paper, job or exam-year links to understand where the question belongs in your wider preparation.'),
+            ('Review this question in context',f'This page is part of {subject} on MCQCampus. Read the question carefully, choose an answer before checking the explanation, and use the related category, paper, job or exam-year links to understand where the question belongs in your wider preparation.'),
             ('Build stronger recall','A useful revision method is to answer from memory first, then compare your choice with the correct answer and explanation. If the question is linked to more than one paper or job year, review those related pages as well because repeated concepts can be useful signals when planning revision.'),
             ('Continue with related MCQs','Use the related links below to practise more questions from the same subject or exam path. Moving between a question, its category and its past-paper hierarchy creates a clearer study trail than practising isolated questions without context.'),
         ]
@@ -765,8 +765,8 @@ def _seo_supporting_sections(path,heading,description):
         ]
     return [
         ('Find the right preparation path',f'{description} Use {subject} as a starting point, then follow the related links to move into categories, past papers, jobs, exam years, PDFs or articles that match your current study goal.'),
-        ('Practise with context','MCQ Campus connects questions with the subjects and exam records they belong to. Answer first, review the explanation second, and then continue into a related page so each practice session builds on the previous one.'),
-        ('Explore more MCQ Campus resources','The related links below provide additional routes into practice MCQs, categories, past papers and exam preparation resources. They are included to help learners and search engines discover the public study content without relying only on JavaScript navigation.'),
+        ('Practise with context','MCQCampus connects questions with the subjects and exam records they belong to. Answer first, review the explanation second, and then continue into a related page so each practice session builds on the previous one.'),
+        ('Explore more MCQCampus resources','The related links below provide additional routes into practice MCQs, categories, past papers and exam preparation resources. They are included to help learners and search engines discover the public study content without relying only on JavaScript navigation.'),
     ]
 
 def _seo_is_past_papers_path(path):
@@ -1146,7 +1146,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     """Build crawler-visible metadata and internal links without requiring JavaScript."""
     title=default_title
     description=default_description
-    heading='MCQ Campus'
+    heading='MCQCampus'
     intro='Practice MCQs with answers and explanations, explore past papers, jobs, categories and exam preparation resources.'
     links=[
         ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
@@ -1155,7 +1155,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     ]
 
     if path=='/':
-        title='MCQ Campus — Pakistan Past Papers, MCQs & Exam Preparation'
+        title='MCQCampus — Pakistan Past Papers, MCQs & Exam Preparation'
         description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other past papers, job-wise papers, MCQs, answers and explanations for competitive exam preparation.'
         heading='Pakistan Past Papers, MCQs & Exam Preparation'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
@@ -1166,24 +1166,24 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         ]
         links=paper_links+job_links+links
     elif path=='/mcqs':
-        title='Practice MCQs with Answers & Explanations | MCQ Campus'
+        title='Practice MCQs with Answers & Explanations | MCQCampus'
         description='Practice approved MCQs with correct answers and explanations across categories, jobs and past papers.'
         heading='Practice MCQs with Answers & Explanations'
         links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:100]]
     elif path=='/categories':
-        title='MCQ Categories | MCQ Campus'
+        title='MCQ Categories | MCQCampus'
         description='Browse MCQ categories and practice questions with answers and explanations for competitive exam preparation.'
         heading='MCQ Categories'
         links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
     elif path=='/papers':
-        title='Pakistan Past Papers — PPSC, FPSC, NTS, SPSC, BPSC & More | MCQ Campus'
+        title='Pakistan Past Papers — PPSC, FPSC, NTS, SPSC, BPSC & More | MCQCampus'
         description='Find PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other Pakistan past papers by job and year. Practice solved MCQs with answers, explanations and test-preparation links.'
         heading='Pakistan Past Papers by Agency, Job and Year'
         intro='Browse PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other testing agencies. Choose an agency, job and exam year to reach the exact past paper, solved MCQs and related preparation resources.'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         links=[(f'{_seo_short_name(p.name)} Past Papers — {re.sub(r"[\\[\\]()]+","",p.name).strip()}',catalog['paper_paths'][p.id]) for p in catalog['papers']]
     elif path=='/jobs-exams':
-        title='Jobs & Exams Preparation — Past Papers and MCQs | MCQ Campus'
+        title='Jobs & Exams Preparation — Past Papers and MCQs | MCQCampus'
         description='Browse competitive exam jobs and prepare with job-wise past papers, repeated MCQs, answers and explanations.'
         heading='Jobs & Exams Preparation'
         # Link directly to the search-intent landing URLs so pages such as
@@ -1195,14 +1195,14 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             for j in catalog['jobs'] if j.id in catalog['available']
         ]
     elif path=='/pdfs':
-        title='Exam Preparation PDFs | MCQ Campus'
+        title='Exam Preparation PDFs | MCQCampus'
         description='Browse exam preparation PDFs and downloadable study resources for MCQs, past papers and competitive exams.'
         heading='Exam Preparation PDFs'
         intro='Find downloadable preparation resources for competitive exams and MCQ practice.'
         pdfs,_=_seo_public_catalog_items()
         links=[(str(x.get('title') or 'Exam Preparation PDF'),f"/pdf/{_seo_slug(x.get('slug') or x.get('title') or x.get('id'))}") for x in pdfs]
     elif path=='/latest-jobs':
-        title='Latest Jobs & Exam Opportunities | MCQ Campus'
+        title='Latest Jobs & Exam Opportunities | MCQCampus'
         description='Browse current job and exam opportunities with organization details, deadlines and preparation links.'
         heading='Latest Jobs & Exam Opportunities'
         intro='Track current opportunities and continue preparation with related MCQs and past papers.'
@@ -1213,8 +1213,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         if item:
             name=str(item.get('title') or item.get('name') or 'Exam Preparation PDF').strip()
             item_description=str(item.get('description') or '').strip()
-            title=f'{name} PDF Download | MCQ Campus'
-            description=(item_description or f'Download {name} PDF for MCQ and competitive exam preparation on MCQ Campus.')[:155]
+            title=f'{name} PDF Download | MCQCampus'
+            description=(item_description or f'Download {name} PDF for MCQ and competitive exam preparation on MCQCampus.')[:155]
             heading=f'{name} PDF'
             intro=item_description or f'Download {name} and continue preparing with related past papers and MCQs.'
             links=[('More Preparation PDFs','/pdfs'),('Past Papers','/papers'),('Practice MCQs','/mcqs')]
@@ -1226,8 +1226,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             name=str(item.get('title') or 'Job Opportunity').strip()
             label=(org+' '+name).strip()
             last=str(item.get('last_date') or '').strip()
-            title=f'{label} Latest Job | MCQ Campus'
-            description=(f'{label} latest job information'+(f', last date {last}' if last else '')+'. View details and related past papers on MCQ Campus.')[:155]
+            title=f'{label} Latest Job | MCQCampus'
+            description=(f'{label} latest job information'+(f', last date {last}' if last else '')+'. View details and related past papers on MCQCampus.')[:155]
             heading=label
             intro=f'Latest recruitment information for {label}.'+(f' Last date: {last}.' if last else '')
             links=[('Latest Jobs','/latest-jobs')]
@@ -1237,14 +1237,14 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                     links.append((f'{org} Past Papers',catalog['paper_paths'][paper.id]))
             links.extend([('Past Papers','/papers'),('Practice MCQs','/mcqs')])
     elif path=='/posts':
-        title='Exam Preparation Blog & Updates | MCQ Campus'
-        description='Read exam preparation articles, study guides, updates and useful resources from MCQ Campus.'
+        title='Exam Preparation Blog & Updates | MCQCampus'
+        description='Read exam preparation articles, study guides, updates and useful resources from MCQCampus.'
         heading='Exam Preparation Blog & Updates'
         links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
     elif path=='/sitemap':
-        title='HTML Sitemap | MCQ Campus'
-        description='Browse public MCQ Campus pages including categories, past papers, jobs, exam years, MCQs and study resources.'
-        heading='MCQ Campus Sitemap'
+        title='HTML Sitemap | MCQCampus'
+        description='Browse public MCQCampus pages including categories, past papers, jobs, exam years, MCQs and study resources.'
+        heading='MCQCampus Sitemap'
         intro='Use this HTML sitemap to discover public study pages without relying on JavaScript navigation.'
         category_links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
@@ -1259,7 +1259,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     elif _seo_job_past_papers_landing(path,catalog):
         matched_jobs=_seo_job_past_papers_landing(path,catalog)
         job_name=matched_jobs[0].name
-        title=f'{job_name} Past Papers | MCQ Campus'
+        title=f'{job_name} Past Papers | MCQCampus'
         description=f'Browse {job_name} past papers by testing organization and exam year. Choose an organization to open its related papers and MCQs.'
         heading=f'{job_name} Past Papers'
         intro=f'Find {job_name} past papers across {len({j.paper_id for j in matched_jobs})} organizations. Choose your organization below to see its available exam years and linked MCQs.'
@@ -1278,7 +1278,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             job_slug=_seo_slug(landing_job.name)
             years=list(JobYear.objects.filter(active=True,job_id=landing_job.id).only('name').order_by('-name'))
             heading=f'{paper_search_name} {landing_job.name} Past Papers'
-            title=heading+' & Solved MCQs | MCQ Campus'
+            title=heading+' & Solved MCQs | MCQCampus'
             description=f'Browse {paper_search_name} {landing_job.name} past papers by exam year and practice solved MCQs with correct answers, explanations and focused preparation links.'
             intro=f'Explore {len(years)} available past-paper records for {landing_job.name} under {paper.name}. Select an exam year to practise the MCQs linked to that record.'
             links=[(f'Browse {paper_search_name} {landing_job.name}',f'/paper/{paper_slug}/job/{job_slug}')]
@@ -1288,7 +1288,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             job_ids=[j.id for j in jobs]
             years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
             heading=f'{paper_search_name} Past Papers'
-            title=f'{paper_search_name} Past Papers, Jobs & Solved MCQs | MCQ Campus'
+            title=f'{paper_search_name} Past Papers, Jobs & Solved MCQs | MCQCampus'
             description=f'Browse {paper_search_name} past papers for {paper_display_name} by job and exam year. Find job-wise papers and solved MCQs with answers, explanations and preparation links.'
             intro=f'Explore {paper_search_name} ({paper_display_name}) past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or exam year below to continue your preparation.'
             job_links=[(f'{paper_search_name} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in jobs]
@@ -1301,8 +1301,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         wanted=path.split('/post/',1)[1].strip('/')
         post=Post.objects.filter(status='published',slug=wanted).only('title','excerpt','body','seo_title','seo_description').first()
         if post:
-            title=(post.seo_title or f'{post.title} | MCQ Campus')
-            description=(post.seo_description or post.excerpt or post.body or 'MCQ Campus exam preparation article.')[:155]
+            title=(post.seo_title or f'{post.title} | MCQCampus')
+            description=(post.seo_description or post.excerpt or post.body or 'MCQCampus exam preparation article.')[:155]
             heading=post.title
             intro=(post.excerpt or description)[:240]
             links=[('Practice MCQs','/mcqs'),('Past Papers','/papers'),('Jobs & Exams','/jobs-exams'),('More Articles','/posts')]
@@ -1310,7 +1310,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         wanted=path.split('/category/',1)[1].strip('/')
         for x in Category.objects.filter(active=True).only('id','name'):
             if _seo_slug(x.name)==wanted:
-                title=f'{x.name} MCQs with Answers | MCQ Campus'
+                title=f'{x.name} MCQs with Answers | MCQCampus'
                 description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
                 heading=f'{x.name} MCQs'
                 sub_links=[(s.name,f'/subcategory/{_seo_slug(s.name)}') for s in Subcategory.objects.filter(active=True,category_id=x.id).only('name').order_by('name')]
@@ -1321,7 +1321,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         wanted=path.split('/subcategory/',1)[1].strip('/')
         for x in Subcategory.objects.filter(active=True,category__active=True).select_related('category').only('id','name','category__name'):
             if _seo_slug(x.name)==wanted:
-                title=f'{x.name} MCQs with Answers | MCQ Campus'
+                title=f'{x.name} MCQs with Answers | MCQCampus'
                 description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
                 heading=f'{x.name} MCQs'
                 topic_links=[
@@ -1335,7 +1335,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         wanted=path.split('/topic/',1)[1].strip('/')
         for x in ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).select_related('subcategory','subcategory__category').only('id','name','subcategory__name','subcategory__category__name'):
             if _seo_slug(x.name)==wanted:
-                title=f'{x.name} MCQs with Answers | MCQ Campus'
+                title=f'{x.name} MCQs with Answers | MCQCampus'
                 description=f'Practice {x.name} multiple choice questions with correct answers and explanations.'
                 heading=f'{x.name} MCQs'
                 links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',child_subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:100]]
@@ -1347,7 +1347,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         if paper:
             catalog=catalog if catalog is not None else _seo_past_papers_catalog()
             short=_seo_short_name(paper.name)
-            title=f'{short} Past Papers, Jobs & Solved MCQs | MCQ Campus'
+            title=f'{short} Past Papers, Jobs & Solved MCQs | MCQCampus'
             description=f'Browse {short} past papers by job and exam year. Practice solved MCQs with correct answers and explanations, and continue with related exam-preparation resources.'
             heading=f'{short} Past Papers'
             intro=f'Explore {short} job-wise past papers, choose the exact exam year, and practice the linked solved MCQs. Use related categories, PDFs and preparation pages for wider revision.'
@@ -1360,7 +1360,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 job_slug=parts[ji+1] if len(parts)>ji+1 else ''
                 job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),job_slug)
                 if job:
-                    title=f'{short} {job.name} Past Papers & Solved MCQs | MCQ Campus'
+                    title=f'{short} {job.name} Past Papers & Solved MCQs | MCQCampus'
                     description=f'Browse {short} {job.name} past papers by exam year and practice solved MCQs with correct answers and explanations for focused test preparation.'
                     heading=f'{short} {job.name} Past Papers'
                     intro=f'Choose a {short} {job.name} exam year to open the exact past-paper record, practice its linked MCQs, and review repeated or important questions for revision.'
@@ -1375,7 +1375,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                         year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('id','name'),year_slug)
                         if year:
                             year_label=_seo_year_search_label(job.name,year.name)
-                            title=f'{short} {job.name} {year_label} Solved Past Paper | MCQ Campus'
+                            title=f'{short} {job.name} {year_label} Solved Past Paper | MCQCampus'
                             description=f'Practice {short} {job.name} {year_label} solved past paper MCQs with correct answers and explanations. Review related important questions for test preparation.'
                             heading=f'{short} {job.name} {year_label} Past Paper'
                             intro=f'Practice MCQs linked to the {short} {job.name} {year_label} past paper, check correct answers and explanations, and continue with related important MCQs and categories.'
@@ -1384,8 +1384,8 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         wanted=path.split('/mcq/',1)[1].strip('/')
         for q in MCQ.objects.filter(status='approved').only('question','description','seo_description','category_id','job_year_ids'):
             if _seo_slug(q.question)==wanted:
-                title=f'{q.question[:70]} | MCQ Campus'
-                description=(q.seo_description or q.description or 'Practice this MCQ with the correct answer and explanation on MCQ Campus.')[:155]
+                title=f'{q.question[:70]} | MCQCampus'
+                description=(q.seo_description or q.description or 'Practice this MCQ with the correct answer and explanation on MCQCampus.')[:155]
                 heading=q.question
                 intro=description
                 links=[('More Practice MCQs','/mcqs')]
@@ -1400,7 +1400,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     support_links=[
         ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
         ('Jobs & Exams','/jobs-exams'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
-        ('Exam Preparation Articles','/posts'),('About MCQ Campus','/about'),('Contact','/contact'),
+        ('Exam Preparation Articles','/posts'),('About MCQCampus','/about'),('Contact','/contact'),
         ('Privacy Policy','/privacy'),('Terms of Service','/terms'),('HTML Sitemap','/sitemap'),
     ]
     merged=[]; seen=set()
@@ -1479,8 +1479,8 @@ def _seo_breadcrumbs(path,catalog=None):
 
 def _seo_jsonld(title,description,canonical,path,catalog=None,links=None):
     graph=[
-        {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQ Campus','alternateName':'MCQCampus','url':SEO_ORIGIN+'/','description':'Competitive exam preparation platform for Pakistan and India with MCQs, past papers, job-wise exam records and study resources.','areaServed':['Pakistan','India'],'logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
-        {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQ Campus','alternateName':'MCQCampus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en-PK','potentialAction':{'@type':'SearchAction','target':SEO_ORIGIN+'/search?q={search_term_string}','query-input':'required name=search_term_string'}},
+        {'@type':'Organization','@id':SEO_ORIGIN+'/#organization','name':'MCQCampus','alternateName':'MCQCampus','url':SEO_ORIGIN+'/','description':'Competitive exam preparation platform for Pakistan and India with MCQs, past papers, job-wise exam records and study resources.','areaServed':['Pakistan','India'],'logo':{'@type':'ImageObject','url':SEO_ORIGIN+'/assets/images/favicon-512.png','width':512,'height':512}},
+        {'@type':'WebSite','@id':SEO_ORIGIN+'/#website','url':SEO_ORIGIN+'/','name':'MCQCampus','alternateName':'MCQCampus','publisher':{'@id':SEO_ORIGIN+'/#organization'},'inLanguage':'en-PK','potentialAction':{'@type':'SearchAction','target':SEO_ORIGIN+'/search?q={search_term_string}','query-input':'required name=search_term_string'}},
         {'@type':'WebPage','@id':canonical+'#webpage','url':canonical,'name':title,'description':description,'isPartOf':{'@id':SEO_ORIGIN+'/#website'},'speakable':{'@type':'SpeakableSpecification','cssSelector':['#main h1','#seo-summary']}},
     ]
     crumbs=_seo_breadcrumbs(path,catalog)
@@ -1520,7 +1520,7 @@ def _seo_discovery_groups(links,catalog):
         elif href.startswith(('/category/','/subcategory/','/topic/')): group='Subjects'
         elif href.startswith('/mcq/'): group='Practice MCQs'
         elif href.startswith('/post/'): group='Articles'
-        else: group='More on MCQ Campus'
+        else: group='More on MCQCampus'
         groups.setdefault(group,[]).append((label,href))
     return list(groups.items())
 
@@ -1536,7 +1536,7 @@ def _seo_discovery_sections(path,heading,description,catalog):
         organizations=len({j.paper_id for j in record['jobs']})
         return [
             (f'{job_name} past papers by organization',
-             f'Browse {job_name} past papers from {organizations} available testing organizations on MCQ Campus. Each organization page keeps its own exam hierarchy so you can move from the job to the relevant paper year without mixing records from another agency.'),
+             f'Browse {job_name} past papers from {organizations} available testing organizations on MCQCampus. Each organization page keeps its own exam hierarchy so you can move from the job to the relevant paper year without mixing records from another agency.'),
             (f'Practice {job_name} MCQs with answers',
              f'Open the organization that matches your target exam, choose an available year, and practise the MCQs linked to that past paper. Review the correct answer and explanation after attempting each question, then use related paper and category links for wider revision.'),
             ('Find the right exam record',
@@ -1558,7 +1558,7 @@ def _seo_discovery_sections(path,heading,description,catalog):
         short=_seo_short_name(paper.name)
         return [
             (f'{short} past papers by job and year',
-             f'Browse {paper.name} past papers through the jobs and exam years currently available on MCQ Campus. Choose a job first when you want role-specific preparation, or open a listed year to reach the MCQs connected with that exam record.'),
+             f'Browse {paper.name} past papers through the jobs and exam years currently available on MCQCampus. Choose a job first when you want role-specific preparation, or open a listed year to reach the MCQs connected with that exam record.'),
             (f'Practice {short} past paper MCQs',
              f'Past-paper pages connect the organization, job and exam year with related multiple-choice questions. Attempt the questions, check the correct answers and explanations, and revisit subject categories where you need more practice.'),
             (f'Explore more {short} exam preparation',
@@ -1570,8 +1570,8 @@ def spa_index(request):
     fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
     s=SiteSetting.objects.only(*fields).filter(pk=1).first()
     if s is None: s=SiteSetting.objects.create(pk=1)
-    default_title=s.seo_title or 'MCQ Campus — Practice MCQs, Past Papers & Exam Preparation'
-    default_description=s.seo_description or 'MCQ Campus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
+    default_title=s.seo_title or 'MCQCampus — Practice MCQs, Past Papers & Exam Preparation'
+    default_description=s.seo_description or 'MCQCampus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
     registry=seo_index_snapshot()
     if path in {'/index.html','/index.php'}:
@@ -1627,7 +1627,7 @@ def spa_index(request):
             description=custom_description
             intro=custom_description
     else:
-        title='Page Not Found | MCQ Campus';description='The requested page could not be found.';heading='Page not found';intro='The address you opened does not match a public MCQ Campus page.';links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/past-papers'),('Home','/')]
+        title='Page Not Found | MCQCampus';description='The requested page could not be found.';heading='Page not found';intro='The address you opened does not match a public MCQCampus page.';links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/past-papers'),('Home','/')]
 
     title=title if landing or custom_title else _seo_title(title)
     canonical_path=resolved['canonical'] if resolved else path
@@ -1659,8 +1659,8 @@ def favicon(request):
 
 def site_manifest(request):
     data={
-        'name':'MCQ Campus',
-        'short_name':'MCQ Campus',
+        'name':'MCQCampus',
+        'short_name':'MCQCampus',
         'description':'Practice MCQs, past papers and exam preparation.',
         'start_url':'/',
         'scope':'/',
@@ -1680,8 +1680,8 @@ def robots_txt(request):
 
 def llms_txt(request):
     body=(
-        '# MCQ Campus\n'
-        '> MCQ Campus is an exam-preparation website for practising MCQs with answers and explanations, browsing past papers, categories, jobs, exam years, PDFs and study articles.\n\n'
+        '# MCQCampus\n'
+        '> MCQCampus is an exam-preparation website for practising MCQs with answers and explanations, browsing past papers, categories, jobs, exam years, PDFs and study articles.\n\n'
         '## Main sections\n'
         f'- [Practice MCQs]({SEO_ORIGIN}/mcqs)\n'
         f'- [MCQ Categories]({SEO_ORIGIN}/categories)\n'
