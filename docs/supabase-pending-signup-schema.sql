@@ -1,4 +1,4 @@
--- MCQ Campus pending signup schema
+-- MCQCampus pending signup schema
 -- Required for verify-before-create registration flow.
 -- Run once in Supabase SQL Editor before using the new signup flow.
 
