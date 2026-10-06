@@ -1,4 +1,4 @@
--- MCQ Campus production OTP schema update
+-- MCQCampus production OTP schema update
 -- Safe additive change for the existing core_onetimetoken table.
 -- Run once in Supabase SQL Editor BEFORE deploying OTP-enabled application code.
 
