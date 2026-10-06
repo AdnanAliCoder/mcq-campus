@@ -9,7 +9,7 @@ const context={console,URLSearchParams,AbortSignal,setTimeout,clearTimeout,setIn
   return {ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>data};},
  App:{route:{path:'mcqs',params:{}},render(){}},UI:{href:x=>'/'+x,toast(){},closeDropdowns(){}}};
 context.addEventListener=()=>{};context.window=context;vm.createContext(context);
-for(const file of ['service.js','auth.js'])vm.runInContext(fs.readFileSync('frontend/assets/js/'+file,'utf8'),context);
+for(const file of ['service.js','auth.js','ui.js'])vm.runInContext(fs.readFileSync('frontend/assets/js/'+file,'utf8'),context);
 (async()=>{
  const visit=async(path,base,id)=>{context.location.pathname='/'+path;await context.Auth.ensureRouteData(path,{base,id});};
  await visit('mcqs','mcqs');assert.equal(context.MCQ.db.mcqs[0].id,1);
@@ -23,5 +23,9 @@ for(const file of ['service.js','auth.js'])vm.runInContext(fs.readFileSync('fron
  await visit('mcqs','mcqs');await visit('past-papers/000003/ppsc-past-papers','paper',3);
  assert.equal(context.MCQ.db.entityPage.routeKey,context.location.pathname);
  assert(requests.length>=before);
+ context.SEO={cleanPath:(kind,id)=>'/'+kind+'/'+id};
+ assert.equal(context.UI.href('paper/3/job/4/year/5'),'/year/5');
+ assert.equal(context.UI.href('paper/3/job/4'),'/job/4');
+ assert.equal(context.UI.date('2026-10-06'),'2026-10-06');
  console.log('PASS MCQs → papers → home → MCQs restores the correct collection; hierarchy requests retain parent identity');
 })().catch(e=>{console.error(e);process.exitCode=1});

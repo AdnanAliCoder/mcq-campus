@@ -5,9 +5,9 @@ window.UI=(()=>{
  const prettyPath=path=>{const parts=String(path||'').replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);if(parts[0]==='home'&&parts.length===1)return '';
   if(window.SEO){
    if(parts.length===1&&parts[0]==='important')return 'mcqs/important-mcqs';
-   if(['mcq','practice','category','paper','job','year','pdf','latest-job','post'].includes(parts[0])&&/^\d+$/.test(parts[1]||''))return SEO.cleanPath(parts[0],Number(parts[1])).replace(/^\//,'');
    if(parts[0]==='paper'&&parts[2]==='job'&&parts[4]==='year'&&/^\d+$/.test(parts[5]||''))return SEO.cleanPath('year',Number(parts[5])).replace(/^\//,'');
    if(parts[0]==='paper'&&parts[2]==='job'&&/^\d+$/.test(parts[3]||''))return SEO.cleanPath('job',Number(parts[3])).replace(/^\//,'');
+   if(['mcq','practice','category','paper','job','year','pdf','latest-job','post'].includes(parts[0])&&/^\d+$/.test(parts[1]||''))return SEO.cleanPath(parts[0],Number(parts[1])).replace(/^\//,'');
    if(parts.length===1&&parts[0]==='papers')return 'past-papers';
    if(parts.length===1&&parts[0]==='pdfs')return 'past-papers/pdfs';
    if(parts.length===1&&parts[0]==='posts')return 'blog';
@@ -55,7 +55,7 @@ window.UI=(()=>{
  }
  function card(type,x,index=0){
   const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','jobs','paper_id','jobs'],jobs:['job','years','job_id','papers'],years:['year',null,null,'MCQs']}[type];
-  let count=Number.isFinite(Number(x?.mcq_count))?Number(x.mcq_count):null;
+  let count=!['papers','jobs'].includes(type)&&Number.isFinite(Number(x?.mcq_count))?Number(x.mcq_count):null;
   if(count===null){if(type==='categories')count=MCQ.publicMcqs().filter(q=>+q.category_id===+x.id).length;else count=conf[1]?MCQ.db[conf[1]].filter(y=>y[conf[2]]===x.id).length:MCQ.publicMcqs().filter(q=>MCQ.ids(q[type==='children'?'child_subcategory_ids':'job_years_ids']).includes(x.id)).length}
   const title=x.name;
   if(['categories','papers','jobs','years'].includes(type)){
@@ -124,4 +124,3 @@ window.UI=(()=>{
  const layout=(body,active='')=>header(active)+adSlot('header_ad')+`<main id="main" tabindex="-1">${body}</main>`+adSlot('footer_ad')+footer();
  return {closeDropdowns,esc,icon,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,userMenu,header,footer,layout};
 })();
-
