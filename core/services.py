@@ -1020,7 +1020,10 @@ def save_mcq(user,draft):
 
 def review_mcqs(user,ids,status,reason=''):
     require(is_super(user) or has_perm(user,'review_mcq'))
-    ids=[int(x) for x in str(ids).split(',') if str(x).strip().isdigit()]
+    if isinstance(ids,(list,tuple,set)):
+        ids=[int(x) for x in ids if str(x).strip().isdigit()]
+    else:
+        ids=[int(x) for x in str(ids).split(',') if str(x).strip().isdigit()]
     if status not in {'approved','rejected','pending'}: raise ValueError('Invalid review status.')
     if status!='approved' and not str(reason).strip(): raise ValueError('A reason is required.')
     for q in MCQ.objects.filter(id__in=ids):
@@ -1439,8 +1442,8 @@ def command(user,action,payload):
             require(is_super(user),'Only the Super Admin can approve all pending MCQs.')
             require(status=='approved','Select-all pending can only be used for approval.')
             ids=list(MCQ.objects.filter(Q(status='pending')|Q(pending_update__isnull=False)).values_list('id',flat=True))
-            review_mcqs(user,','.join(str(x) for x in ids),status,reason)
-            return {'mcqs':[],'reviewedIds':ids,'reviewedCount':len(ids),'allPending':True,'status':status}
+            review_mcqs(user,ids,status,reason)
+            return {'mcqs':[],'reviewedCount':len(ids),'allPending':True,'status':status}
         ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]
         review_mcqs(user,c.get('ids',''),status,reason)
         rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by')
