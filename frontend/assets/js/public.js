@@ -93,12 +93,12 @@ window.Public=(()=>{
    }
   }
   if(type==='paper'&&parent){
-   const short=window.SEO&&SEO.shortName?SEO.shortName(parent.name):String(parent.name||'').replace(/[\\[\\]()]+/g,' ').trim();
+   const short=window.SEO&&SEO.shortName?SEO.shortName(parent.name):String(parent.name||'').replaceAll('[',' ').replaceAll(']',' ').replaceAll('(',' ').replaceAll(')',' ').replace(/\s+/g,' ').trim();
    const prep=`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXAM PREPARATION</p><h2>Prepare with ${e(short)} past papers</h2></div></div><p>Start with the job you are targeting, open the exact exam year, and practise its linked MCQs. Review answers and explanations, then use Important MCQs and subject categories to revise repeated concepts.</p><div class="chips">${link('important','Important MCQs','chip')}${link('categories','Browse MCQ Categories','chip')}${link('pdfs','Preparation PDFs','chip')}</div></section>`;
    pre+=prep;
   }
   if(type==='job'&&parent){
-   const pa=MCQ.get('papers',parent.paper_id),short=pa&&(window.SEO&&SEO.shortName?SEO.shortName(pa.name):String(pa.name||'').split(/\\s+/)[0]),label=((short?short+' ':'')+parent.name).trim();
+   const pa=MCQ.get('papers',parent.paper_id),short=pa&&(window.SEO&&SEO.shortName?SEO.shortName(pa.name):String(pa.name||'').trim().split(' ')[0]),label=((short?short+' ':'')+parent.name).trim();
    const prep=`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">TEST PREPARATION</p><h2>${e(label)} preparation</h2></div></div><p>Choose a past-paper year below to practise the questions linked with that exam record. After each attempt, review the correct answer and explanation and continue with Important MCQs for repeated-question revision.</p><div class="chips">${link('important','Important MCQs','chip')}${link('mcqs','Practice All MCQs','chip')}${link('categories','Browse Subjects','chip')}</div></section>`;
    pre+=prep;
   }
