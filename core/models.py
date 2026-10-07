@@ -1,3 +1,4 @@
+import re
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
@@ -96,9 +97,8 @@ class SiteSetting(models.Model):
     @classmethod
     def get_solo(cls):
         obj,_=cls.objects.get_or_create(pk=1)
-        legacy='MCQ'+' Campus'
         def branded(value):
-            if isinstance(value,str): return value.replace(legacy,'MCQCampus')
+            if isinstance(value,str): return re.sub(r'\bMCQs?\s*Campus\b','MCQCampus',value,flags=re.I)
             if isinstance(value,list): return [branded(item) for item in value]
             if isinstance(value,dict): return {key:branded(item) for key,item in value.items()}
             return value
