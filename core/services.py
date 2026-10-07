@@ -58,11 +58,12 @@ def _canonical_brand_text(value):
 
 def _clean_public_seo_title(value):
     text=re.sub(r'\s+',' ',_canonical_brand_text(value)).strip()
-    return re.sub(r'\s*(?:\||-|—|–)\s*MCQCampus\s*
+    return re.sub(r'\s*(?:\||-|—|–)\s*MCQCampus\s*$','',text,flags=re.I).strip()
+
+def page_seo_snapshot(settings=None):
     settings=settings or SiteSetting.get_solo()
     raw=_site_blob(settings).get('pageSeo') or {}
     return {str(k):{'title':_clean_public_seo_title((v or {}).get('title')),'description':_canonical_brand_text((v or {}).get('description'))} for k,v in raw.items() if isinstance(v,dict)}
-
 def save_page_seo_entry(user,kind,key,title='',description='',settings=None):
     require(is_super(user),'Only the Super Admin can edit public page SEO content.')
     settings=settings or SiteSetting.get_solo(); blob=_site_blob(settings); rows=dict(blob.get('pageSeo') or {})
