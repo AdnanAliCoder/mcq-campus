@@ -116,7 +116,7 @@ class SiteSetting(models.Model):
         return obj
 
 class AdPlacement(OwnedStampedModel):
-    PROVIDERS=[('custom','Custom company ad'),('adsense','Google AdSense')]
+    PROVIDERS=[('custom','Custom company ad'),('adsense','Google AdSense'),('custom_code','Custom Ad Code')]
     PLACEMENTS=[('top_banner','Top banner'),('home_inline','Home inline'),('mcq_inline','MCQ inline'),('sidebar','Sidebar'),('footer','Footer')]
     name=models.CharField(max_length=160); provider=models.CharField(max_length=20,choices=PROVIDERS,default='custom'); placement=models.CharField(max_length=30,choices=PLACEMENTS,default='top_banner')
     title=models.CharField(max_length=180,blank=True); body=models.TextField(blank=True); image_url=models.URLField(blank=True); target_url=models.URLField(blank=True); adsense_slot=models.CharField(max_length=40,blank=True)
