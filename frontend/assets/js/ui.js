@@ -96,6 +96,11 @@ window.UI=(()=>{
   const now=new Date().toISOString().slice(0,10),safe=u=>/^https?:\/\//i.test(String(u||''));
   const ad=(MCQ.db.ads||[]).find(x=>x&&x.enabled!==false&&x.placement===placement&&x.provider!=='adsense'&&(!x.start_date||x.start_date<=now)&&(!x.end_date||x.end_date>=now));
   if(!ad)return '';
+  if(ad.provider==='custom_code'&&ad.code){
+   const code=String(ad.code),dimension=(name,fallback)=>{const m=code.match(new RegExp('(?:[\\\'\"])?'+name+'(?:[\\\'\"])?\\s*[:=]\\s*[\\\'\"]?(\\d{2,5})','i'));return Math.max(80,Math.min(1600,Number(m?.[1]||fallback)))};
+   const width=dimension('width',320),height=dimension('height',250);
+   return \`<aside class="ad-slot ad-slot-\${esc(placement)} ad-slot-custom-code" data-ad-slot="\${esc(placement)}" aria-label="Advertisement"><span class="ad-label">Advertisement</span><iframe class="ad-code-frame" title="Advertisement" srcdoc="\${esc(code)}" width="\${width}" height="\${height}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></aside>\`;
+  }
   const image=safe(ad.image_url)?`<img src="${esc(ad.image_url)}" alt="${esc(ad.brand||'Sponsored advertisement')}">`:'';
   const body=`<span class="ad-label">Sponsored</span>${image}<span class="ad-copy"><strong>${esc(ad.brand||'Advertisement')}</strong>${ad.text?`<small>${esc(ad.text)}</small>`:''}</span>`;
   return `<aside class="ad-slot ad-slot-${esc(placement)}" data-ad-slot="${esc(placement)}" aria-label="Sponsored advertisement">${safe(ad.destination_url)?`<a href="${esc(ad.destination_url)}" target="_blank" rel="sponsored noopener noreferrer">${body}</a>`:body}</aside>`
