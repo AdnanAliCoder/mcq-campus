@@ -289,11 +289,11 @@ window.Auth=(()=>{
    if(!supplied){loadedSections.delete(section);sectionLoadedAt.delete(section)}
   }
  }
- async function check(){
+ async function check({loading=true}={}){
   if(checking)return checking;
   const own=generation;
   checking=(async()=>{
-   backendLoading(true);
+   if(loading)backendLoading(true);
    try{
     const data=await request('/startup');
     if(own!==generation)return;
@@ -301,7 +301,7 @@ window.Auth=(()=>{
     hydrate(data.snapshot||{},data.user||null);
    }catch{
     if(own===generation){clearPrivateState();hydrate({},null);}
-   }finally{backendLoading(false);ready=true;checking=null;}
+   }finally{if(loading)backendLoading(false);ready=true;checking=null;}
   })();
   return checking;
  }
@@ -621,7 +621,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app');if(app)app.innerHTML='';backendLoading(true);try{await check();await ensureRouteData(route());}finally{backendLoading(false)}App.render();}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else{if(app)app.innerHTML='';backendLoading(true);}try{await check({loading:false});await ensureRouteData(route());}finally{if(!authFirst)backendLoading(false)}App.render();}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
