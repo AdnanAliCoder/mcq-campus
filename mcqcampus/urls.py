@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
+from django.views.static import serve
 from core import views
 
 urlpatterns=[
@@ -18,5 +20,6 @@ urlpatterns=[
     path('sitemap-years.xml', views.legacy_sitemap_redirect),
     path('sitemap-mcqs.xml', views.legacy_sitemap_redirect),
     path('sitemap-resources.xml', views.legacy_sitemap_redirect),
+    path('sw.js', serve, {'document_root': settings.BASE_DIR, 'path': 'sw.js'}),
     re_path(r'^(?!api/|django-admin/|assets/).*$', views.spa_index, name='spa-index'),
 ]
