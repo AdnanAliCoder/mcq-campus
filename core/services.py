@@ -207,9 +207,7 @@ def _parse_date(value,end=False):
     except Exception: return None
 
 def _client_ad(x):
-    data={'id':x.id,'brand':x.name,'provider':'direct' if x.provider=='custom' else x.provider,'placement':x.placement,'text':x.body or x.title,'image_url':x.image_url,'destination_url':x.target_url,'enabled':x.active,'start_date':x.starts_at.date().isoformat() if x.starts_at else '','end_date':x.ends_at.date().isoformat() if x.ends_at else '','priority':x.priority,'created_at':iso(x.created_at),'updated_at':iso(x.updated_at)}
-    if x.provider=='custom_code': data['code']=x.body
-    return data
+    return {'id':x.id,'brand':x.name,'provider':'direct' if x.provider=='custom' else x.provider,'placement':x.placement,'text':x.body or x.title,'image_url':x.image_url,'destination_url':x.target_url,'enabled':x.active,'start_date':x.starts_at.date().isoformat() if x.starts_at else '','end_date':x.ends_at.date().isoformat() if x.ends_at else '','priority':x.priority,'created_at':iso(x.created_at),'updated_at':iso(x.updated_at)}
 
 def _entity_impact(typ,rid):
     sets={k:set() for k in ENTITY_MODELS}; sets[typ].add(int(rid))
@@ -1381,7 +1379,6 @@ def save_ad(user,payload):
     obj.name=str(v.get('name') or '').strip(); obj.provider=str(v.get('provider') or 'custom'); obj.placement=str(v.get('placement') or 'top_banner'); obj.title=str(v.get('title') or ''); obj.body=str(v.get('body') or ''); obj.image_url=str(v.get('image_url') or ''); obj.target_url=str(v.get('target_url') or ''); obj.adsense_slot=str(v.get('adsense_slot') or '').strip(); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
     if not obj.name: raise ValueError('Ad name is required.')
     if obj.provider=='adsense' and not obj.adsense_slot: raise ValueError('AdSense slot ID is required.')
-    if obj.provider=='custom_code' and not obj.body.strip(): raise ValueError('Custom ad code is required.')
     obj.save(); log(user,'Saved ad placement',obj.name); return {'ad':ad(obj)}
 
 def command(user,action,payload):
