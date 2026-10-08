@@ -97,7 +97,7 @@ window.UI=(()=>{
   const ad=(MCQ.db.ads||[]).find(x=>x&&x.enabled!==false&&x.placement===placement&&x.provider!=='adsense'&&(!x.start_date||x.start_date<=now)&&(!x.end_date||x.end_date>=now));
   if(!ad)return '';
   if(ad.provider==='custom_code'&&ad.code){
-   const code=String(ad.code),dimension=(name,fallback)=>{const m=code.match(new RegExp('(?:[\\\'\"])?'+name+'(?:[\\\'\"])?\\s*[:=]\\s*[\\\'\"]?(\\d{2,5})','i'));return Math.max(80,Math.min(1600,Number(m?.[1]||fallback)))};
+   const code=String(ad.code),dimension=(name,fallback)=>{const m=code.match(new RegExp(name+'\\s*[:=]\\s*(\\d{2,5})','i'));return Math.max(80,Math.min(1600,Number(m?.[1]||fallback)))};
    const width=dimension('width',320),height=dimension('height',250);
    return \`<aside class="ad-slot ad-slot-\${esc(placement)} ad-slot-custom-code" data-ad-slot="\${esc(placement)}" aria-label="Advertisement"><span class="ad-label">Advertisement</span><iframe class="ad-code-frame" title="Advertisement" srcdoc="\${esc(code)}" width="\${width}" height="\${height}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></aside>\`;
   }
