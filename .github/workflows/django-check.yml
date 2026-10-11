@@ -27,6 +27,18 @@ jobs:
           SECRET_KEY: "ci-check-secret"
           ALLOWED_HOSTS: "127.0.0.1,localhost"
         run: python manage.py check
+      - name: Country access regression tests
+        env:
+          DEBUG: "true"
+          SECRET_KEY: "ci-test-secret"
+          ALLOWED_HOSTS: "127.0.0.1,localhost,testserver"
+        run: >-
+          python manage.py test
+          core.tests.IntegrationTests.test_signup_requires_explicit_country_selection
+          core.tests.IntegrationTests.test_super_admin_can_save_country_logo_metadata
+          core.tests.IntegrationTests.test_super_admin_country_public_preview_scopes_bootstrap
+          core.tests.IntegrationTests.test_super_admin_overview_can_be_scoped_to_a_country
+          --verbosity 2
       - name: Django tests
         env:
           DEBUG: "true"
