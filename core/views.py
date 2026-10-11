@@ -497,8 +497,16 @@ def admin_countries(request):
     raw_site=root.get('_site') or {}
     blob=dict(raw_site) if isinstance(raw_site,dict) else {}
     entries=blob.get('countries')
+    discovered=country_catalog(include_counts=False,include_inactive=True)
     if not isinstance(entries,list):
-        entries=country_catalog(include_counts=False,include_inactive=True)
+        entries=discovered
+    else:
+        configured_names={str((row if isinstance(row,dict) else {'name':row}).get('name') or '').strip().casefold() for row in entries}
+        for row in discovered:
+            name=str(row.get('name') or '').strip()
+            if name and name.casefold() not in configured_names:
+                entries.append({'name':name,'active':row.get('active',True),'pinned':row.get('pinned',False),'sortOrder':row.get('sortOrder',len(entries)*10)})
+                configured_names.add(name.casefold())
     normalized=[]; by_name={}
     for index,raw in enumerate(entries):
         item=raw if isinstance(raw,dict) else {'name':raw,'active':True}
