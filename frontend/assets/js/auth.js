@@ -190,6 +190,7 @@ window.Auth=(()=>{
    if(!type)return '';
    q.set('type',type);q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
    if(!adminScope)q.set('scope','public');
+   if(!adminScope)q.set('page_size','12');
    if(parent)q.set('parent',parent);
    else if(routeParams.get('parent'))q.set('parent',routeParams.get('parent'));
    if(routeParams.get('country'))q.set('country',routeParams.get('country'));
