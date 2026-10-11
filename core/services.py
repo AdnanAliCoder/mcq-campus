@@ -1059,6 +1059,8 @@ def _create_bulk_pending_mcq(user,draft):
     paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(
         draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
     )
+    write_country=country_for_write(user,draft.get('country'))
+    _validate_hierarchy_country(write_country,paper_ids,job_ids,job_year_ids)
     now=timezone.now()
     obj=MCQ(
         id=next_id(MCQ),
@@ -1078,7 +1080,7 @@ def _create_bulk_pending_mcq(user,draft):
         job_ids=job_ids,
         job_year_ids=job_year_ids,
         important=_is_important_hierarchy(job_year_ids),
-        country=str(draft.get('country') or 'Pakistan'),
+        country=write_country,
         status='pending',
         submission_type='new',
         created_by=user,
@@ -1094,9 +1096,12 @@ def save_mcq(user,draft):
     require(is_admin(user) and has_perm(user,'add_mcq'))
     cid=validate_mcq_data(draft); qid=int(draft.get('id') or 0) or None
     existing=MCQ.objects.filter(pk=qid).first() if qid else None
+    write_country=country_for_write(user,draft.get('country'))
     if existing:
         require(is_super(user) or (existing.created_by_id==user.id and existing.status!='approved'))
-    dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip())
+        if not is_super(user):
+            require(str(existing.country or '').casefold()==write_country.casefold(),'This MCQ belongs to another country.')
+    dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip(),country__iexact=write_country)
     if existing: dup=dup.exclude(pk=existing.pk)
     duplicate=dup.first()
     if duplicate:
@@ -1107,7 +1112,8 @@ def save_mcq(user,draft):
         return duplicate
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
     paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids'))
-    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=str(draft.get('country') or 'Pakistan'))
+    _validate_hierarchy_country(write_country,paper_ids,job_ids,job_year_ids)
+    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=write_country)
     now=timezone.now()
     if existing and existing.status=='approved' and not is_super(user):
         proposed={**mcq(existing),**common,'category_id':cid,'paper_id':common['paper_ids'],'job_years_ids':common['job_year_ids'],'updated_at':iso(now),'updated_by':user_name(user),'updated_by_id':user.id}
@@ -1127,7 +1133,10 @@ def review_mcqs(user,ids,status,reason=''):
         ids=[int(x) for x in str(ids).split(',') if str(x).strip().isdigit()]
     if status not in {'approved','rejected','pending'}: raise ValueError('Invalid review status.')
     if status!='approved' and not str(reason).strip(): raise ValueError('A reason is required.')
-    for q in MCQ.objects.filter(id__in=ids):
+    country=country_for_user(user)
+    review_qs=MCQ.objects.filter(id__in=ids)
+    if country: review_qs=review_qs.filter(country__iexact=country)
+    for q in review_qs:
         if q.pending_update:
             pu=q.pending_update
             if status=='approved':
@@ -1157,11 +1166,19 @@ def save_entity(user,payload):
     if icon_url and not re.match(r'^https?://',icon_url,re.I): raise ValueError('Icon URL must start with http:// or https://.')
     icon=str(icon_url or values.get('entity-icon-data') or values.get('entity-icon') or 'grid').strip() or 'grid'; active='entity-active' in fields
     obj=model.objects.filter(pk=rid).first() if rid else None
+    country=country_for_user(user)
+    if country and rid and obj:
+        if typ=='papers': require(str(obj.country or '').casefold()==country.casefold(),'This paper belongs to another country.')
+        elif typ=='jobs': require(str(obj.paper.country or '').casefold()==country.casefold(),'This job belongs to another country.')
+        elif typ=='years': require(str(obj.job.paper.country or '').casefold()==country.casefold(),'This job year belongs to another country.')
     if not obj: obj=model(id=next_id(model),created_by=user)
     obj.name=name; obj.icon=icon; obj.active=active; obj.updated_by=user
-    if typ=='papers': obj.country=str(values.get('entity-country') or 'Pakistan')[:80]
+    if typ=='papers': obj.country=country_for_write(user,values.get('entity-country'))
     if typ in ENTITY_PARENT:
-        fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.'); setattr(obj,fk,pid)
+        fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.')
+        if country and typ=='jobs': require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose a paper from your assigned country.')
+        if country and typ=='years': require(Job.objects.filter(pk=pid,paper__country__iexact=country).exists(),'Choose a job from your assigned country.')
+        setattr(obj,fk,pid)
     obj.save()
     if typ=='papers':
         now=timezone.now()
