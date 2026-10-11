@@ -180,6 +180,11 @@ class IntegrationTests(TestCase):
         signup=self.post_json('/api/auth/register',{'first_name':'Spain','last_name':'Learner','email':'spain@example.com','password':'StrongPass!246','confirm':'StrongPass!246','terms':'on','country':'Spain'})
         self.assertEqual(signup.status_code,422)
 
+    def test_signup_requires_explicit_country_selection(self):
+        response=self.post_json('/api/auth/register',{'first_name':'No','last_name':'Country','email':'nocountry@example.com','password':'ExamplePass123!','confirm':'ExamplePass123!','terms':True})
+        self.assertEqual(response.status_code,422)
+        self.assertIn('country',response.json().get('fields',{}))
+
     def test_super_admin_can_pin_and_reorder_countries(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         self.post_json('/api/admin/countries',{'action':'add','name':'Canada'})
