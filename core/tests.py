@@ -197,6 +197,24 @@ class IntegrationTests(TestCase):
         self.assertLess(names.index('France'),names.index('Australia'))
         self.assertTrue(next(row for row in ordered.json()['countries'] if row['name']=='Pakistan')['pinned'])
 
+    def test_super_admin_overview_can_be_scoped_to_a_country(self):
+        MCQ.objects.create(
+            id=56,question='Country-scoped India question?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',category=self.category,status='approved',country='India',
+            created_by=self.admin,submitted_by=self.admin,
+        )
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        switched=self.post_json('/api/auth/switch-role',{'role':'super-admin'})
+        self.assertEqual(switched.status_code,200)
+        india=self.client.get('/api/admin/overview?country=India')
+        self.assertEqual(india.status_code,200)
+        self.assertEqual(india.json()['mcqs']['total'],1)
+        pakistan=self.client.get('/api/admin/overview?country=Pakistan')
+        self.assertEqual(pakistan.status_code,200)
+        self.assertEqual(pakistan.json()['mcqs']['total'],1)
+        invalid=self.client.get('/api/admin/overview?country=NotACountry')
+        self.assertEqual(invalid.status_code,422)
+
     def test_protected_commands_require_login(self):
         self.client.logout()
         response=self.post_json('/api/commands',{'action':'toggleBookmark','payload':{'args':[self.approved.id]}})
