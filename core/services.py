@@ -55,14 +55,20 @@ def _configured_country_entries():
     configured=_site_blob().get('countries')
     if not isinstance(configured,list): return None
     entries=[]; seen=set()
-    for raw in configured:
+    for index,raw in enumerate(configured):
         item=raw if isinstance(raw,dict) else {'name':raw}
         name=re.sub(r'\s+',' ',str(item.get('name') or '')).strip()[:80]
         key=name.casefold()
         if not name or key in seen: continue
-        seen.add(key); entries.append({'name':name,'active':bool(item.get('active',True))})
+        seen.add(key)
+        try: sort_order=int(item.get('sortOrder',index*10))
+        except (TypeError,ValueError): sort_order=index*10
+        pinned=item.get('pinned',False) is True or str(item.get('pinned',False)).strip().lower() in {'1','true','yes','on'}
+        entries.append({
+            'name':name,'active':bool(item.get('active',True)),
+            'pinned':pinned,'sortOrder':max(0,min(100000,sort_order)),
+        })
     return entries
-
 def country_catalog(user=None,include_counts=True,include_inactive=False):
     configured=_configured_country_entries()
     entries=configured if configured is not None else []
@@ -80,20 +86,27 @@ def country_catalog(user=None,include_counts=True,include_inactive=False):
         for value in values:
             name=re.sub(r'\s+',' ',str(value or '')).strip()[:80]
             if name: discovered.add(name)
-    for name in sorted(discovered,key=lambda v:(v.casefold()!='pakistan',v.casefold())):
+    next_order=max((int(item.get('sortOrder',0)) for item in entries),default=-10)+10
+    for name in sorted(discovered,key=lambda value:(value.casefold()!='pakistan',value.casefold())):
         if name.casefold() not in known:
-            entries.append({'name':name,'active':True}); known.add(name.casefold())
-    for item in entries:
-        if item['name'].casefold()=='pakistan':
-            item['active']=True; break
-    else: entries.insert(0,{'name':'Pakistan','active':True})
+            entries.append({'name':name,'active':True,'pinned':False,'sortOrder':next_order})
+            known.add(name.casefold()); next_order+=10
+    pakistan=next((item for item in entries if item['name'].casefold()=='pakistan'),None)
+    if pakistan:
+        pakistan['active']=True
+    else:
+        entries.insert(0,{'name':'Pakistan','active':True,'pinned':False,'sortOrder':0})
     result=[]
     for item in entries:
         if not include_inactive and not item['active']: continue
-        row={'name':item['name'],'active':bool(item['active'])}
+        row={
+            'name':item['name'],'active':bool(item['active']),
+            'pinned':bool(item.get('pinned',False)),
+            'sortOrder':max(0,min(100000,int(item.get('sortOrder',0)))),
+        }
         if include_counts: row['mcqCount']=counts.get(item['name'].casefold(),0)
         result.append(row)
-    return sorted(result,key=lambda row:(row['name'].casefold()!='pakistan',row['name'].casefold()))
+    return sorted(result,key=lambda row:(not row['pinned'],row['sortOrder'],row['name'].casefold()!='pakistan',row['name'].casefold()))
 
 def country_for_user(user):
     if not user or not getattr(user,'is_authenticated',False) or is_super(user): return ''
@@ -433,10 +446,13 @@ def startup_payload(user,session):
     settings=SiteSetting.objects.only('singleton','site_name','description','country','seo_title','seo_description').filter(pk=1).first()
     if settings is None: settings=SiteSetting.objects.create(pk=1)
     authenticated=bool(user and getattr(user,'is_authenticated',False))
+    countries=country_catalog(user,include_counts=True,include_inactive=is_super(user))
+    # The country selector is a public entry page, so expose the real global approved total
+    # in the lightweight startup payload without loading MCQ rows into the browser.
+    total_mcqs=MCQ.objects.filter(status='approved').count()
     return {'snapshot':{'schemaVersion':12,**_startup_site_state(settings),
-                        'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
+                        'countries':countries,'totalMcqCount':total_mcqs},
             'user':user_identity_dict(user,session) if authenticated else None}
-
 def public_content_data():
     now=timezone.now()
     ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
@@ -711,13 +727,21 @@ def learner_dashboard_data(user):
         'savedPapers':saved,
     }
 
-def admin_overview_data(user,active_role=None):
+def admin_overview_data(user,active_role=None,selected_country=None):
     require(is_admin(user))
     super_view=is_super(user) and active_role=='super-admin'
+    requested=str(selected_country or '').strip()
+    country_filter=''
+    if super_view and requested and requested.casefold()!='all':
+        country_names={item['name'].casefold():item['name'] for item in country_catalog(user,include_counts=False,include_inactive=True)}
+        country_filter=country_names.get(requested.casefold(),'')
     qs=MCQ.objects.all() if super_view else MCQ.objects.filter(created_by=user)
     mine_qs=MCQ.objects.filter(created_by=user)
     country=country_for_user(user)
-    if country and not super_view:
+    if super_view and country_filter:
+        qs=qs.filter(country__iexact=country_filter)
+        mine_qs=mine_qs.filter(country__iexact=country_filter)
+    elif country and not super_view:
         qs=qs.filter(country__iexact=country)
         mine_qs=mine_qs.filter(country__iexact=country)
     counts=qs.aggregate(
@@ -728,14 +752,23 @@ def admin_overview_data(user,active_role=None):
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:5]]
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
-    data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
+    data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0,
+          'activeCountry':country_filter,'countries':country_catalog(user,include_counts=False,include_inactive=True)}
     if super_view:
-        data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
-        people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
-        data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
-        staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
+        reports=Report.objects.exclude(status__in=['resolved','closed'])
+        if country_filter: reports=reports.filter(mcq__country__iexact=country_filter)
+        data['openReports']=reports.count()
+        people=User.objects.all()
+        if country_filter: people=people.filter(profile__country__iexact=country_filter)
+        people_counts=people.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
+        data['staff']=people_counts['staff'] or 0
+        data['learners']=(people_counts['total'] or 0)-data['staff']
+        data['trash']=TrashRecord.objects.count()
+        staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin'])
+        if country_filter: staff=staff.filter(profile__country__iexact=country_filter)
+        staff=staff.order_by('id')[:4]
         data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
-        staff_rows=MCQ.objects.exclude(created_by_id__isnull=True).values('created_by_id').annotate(
+        staff_rows=qs.exclude(created_by_id__isnull=True).values('created_by_id').annotate(
             total=Count('id'),
             pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
             approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),
@@ -743,16 +776,18 @@ def admin_overview_data(user,active_role=None):
         )
         data['staffStats']={str(row['created_by_id']):{key:int(row[key] or 0) for key in ['total','pending','approved','rejected']} for row in staff_rows}
         data['staffCounts']={key:value['total'] for key,value in data['staffStats'].items()}
-        data['unassigned']=MCQ.objects.filter(created_by_id__isnull=True).aggregate(
+        unassigned=qs.filter(created_by_id__isnull=True)
+        data['unassigned']=unassigned.aggregate(
             total=Count('id'),
             pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
             approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),
             rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)),
         )
     elif has_perm(user,'view_reports'):
-        data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
+        reports=Report.objects.exclude(status__in=['resolved','closed'])
+        if country: reports=reports.filter(mcq__country__iexact=country)
+        data['openReports']=reports.count()
     return data
-
 def admin_users_data(user,page=1,page_size=50):
     require(is_super(user) or has_perm(user,'manage_users') or has_perm(user,'manage_admins'))
     page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
