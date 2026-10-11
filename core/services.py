@@ -515,13 +515,7 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     filters=filters or {}
     model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user)
     if country:
-        country_mcqs=MCQ.objects.filter(country__iexact=country)
-        if public_only: country_mcqs=country_mcqs.filter(status='approved')
-        category_ids=country_mcqs.values_list('category_id',flat=True).distinct()
-        if kind=='categories': qs=qs.filter(pk__in=category_ids)
-        elif kind=='subcategories': qs=qs.filter(category_id__in=category_ids)
-        elif kind=='children': qs=qs.filter(subcategory__category_id__in=category_ids)
-        elif kind=='papers': qs=qs.filter(country__iexact=country)
+        if kind=='papers': qs=qs.filter(country__iexact=country)
         elif kind=='jobs': qs=qs.filter(paper__country__iexact=country)
         elif kind=='years': qs=qs.filter(job__paper__country__iexact=country)
     if public_only:
@@ -675,12 +669,6 @@ def snapshot(user):
     jobs_qs=Job.objects.select_related('paper','created_by','updated_by').all()
     years_qs=JobYear.objects.select_related('job__paper','created_by','updated_by').all()
     if country:
-        country_mcqs=MCQ.objects.filter(country__iexact=country)
-        if not is_admin(user): country_mcqs=country_mcqs.filter(status='approved')
-        category_ids=country_mcqs.values_list('category_id',flat=True).distinct()
-        cats_qs=cats_qs.filter(pk__in=category_ids)
-        subs_qs=subs_qs.filter(category_id__in=category_ids)
-        childs_qs=childs_qs.filter(subcategory__category_id__in=category_ids)
         papers_qs=papers_qs.filter(country__iexact=country)
         jobs_qs=jobs_qs.filter(paper__country__iexact=country)
         years_qs=years_qs.filter(job__paper__country__iexact=country)
