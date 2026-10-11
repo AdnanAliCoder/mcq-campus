@@ -318,6 +318,15 @@ window.Auth=(()=>{
   const publicCountryLanding=!user&&b==='home';
   document.body.classList.toggle('country-entry-screen',publicCountryLanding);
   if(authRoutes.has(b)||publicCountryLanding)return true;
+  // A Super Admin may also have an Admin workspace. If they open the Super Admin
+  // URL while their session is in the Admin workspace, switch roles before rendering;
+  // otherwise Admin.render() rejects the route and the dashboard appears unavailable.
+  if(b==='super-admin'&&user.roles?.includes('super-admin')&&user.activeRole!=='super-admin'){
+   switchRole('super-admin').then(()=>{if(base()==='super-admin')App.render()}).catch(error=>{
+    UI.toast(error.message||'Could not open the Super Admin workspace.');
+   });
+   return false;
+  }
   if(!user){
    const next=destination(current);
    history.replaceState(null,'',UI.href('login',next?{next}:{}));
