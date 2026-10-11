@@ -726,10 +726,12 @@ def learner_dashboard_data(user):
 def admin_overview_data(user,active_role=None):
     require(is_admin(user))
     super_view=is_super(user) and active_role=='super-admin'
-    if super_view:
-        qs=MCQ.objects.all()
-    else:
-        qs=MCQ.objects.filter(created_by=user)
+    qs=MCQ.objects.all() if super_view else MCQ.objects.filter(created_by=user)
+    mine_qs=MCQ.objects.filter(created_by=user)
+    country=country_for_user(user)
+    if country and not super_view:
+        qs=qs.filter(country__iexact=country)
+        mine_qs=mine_qs.filter(country__iexact=country)
     counts=qs.aggregate(
         total=Count('id'),
         pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
@@ -737,7 +739,6 @@ def admin_overview_data(user,active_role=None):
         rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)),
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:5]]
-    mine_qs=MCQ.objects.filter(created_by=user)
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
     data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
     if super_view:
@@ -1630,7 +1631,12 @@ def command(user,action,payload):
     if action=='form:password-change':
         raise ValueError('Use the secure password change flow with email verification.')
     if action=='action:report-resolve':
-        require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); r=Report.objects.get(pk=rid); r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)}}
+        require(is_super(user) or has_perm(user,'resolve_reports')); rid=int(payload.get('id')); qs=Report.objects.select_related('mcq').filter(pk=rid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(mcq__country__iexact=country)
+        r=qs.first()
+        if not r: raise ValueError('Report not found.')
+        r.status='resolved'; r.resolved_at=timezone.now(); r.resolved_by=user; r.save(); log(user,'Resolved report',rid); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)}}
     if action=='action:user-status':
         require(is_super(user)); target=User.objects.get(pk=int(payload.get('id')))
         enabling=not target.is_active
