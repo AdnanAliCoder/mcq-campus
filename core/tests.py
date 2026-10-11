@@ -102,8 +102,8 @@ class IntegrationTests(TestCase):
     def test_complete_frontend_entry_loads(self):
         self.client.logout()
         response=self.client.get('/')
-        self.assertEqual(response.status_code,302)
-        self.assertEqual(response['Location'],'/login')
+        self.assertEqual(response.status_code,200)
+        self.assertNotIn('X-Robots-Tag',response)
         response=self.client.get('/login')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
@@ -129,12 +129,16 @@ class IntegrationTests(TestCase):
     def test_login_wall_redirects_pages_and_blocks_private_apis(self):
         self.client.logout()
         page=self.client.get('/')
-        self.assertEqual(page.status_code,302)
-        self.assertEqual(page['Location'],'/login')
+        self.assertEqual(page.status_code,200)
+        self.assertNotIn('X-Robots-Tag',page)
         self.assertEqual(self.client.get('/api/bootstrap').status_code,401)
         self.assertEqual(self.client.get('/api/public/content').status_code,401)
         self.assertEqual(self.client.get('/api/admin/countries').status_code,401)
-        self.assertEqual(self.client.get('/api/startup').status_code,200)
+        startup=self.client.get('/api/startup')
+        self.assertEqual(startup.status_code,200)
+        public_counts={row['name']:row.get('mcqCount') for row in startup.json()['snapshot']['countries']}
+        self.assertIn('Pakistan',public_counts)
+        self.assertIsNotNone(public_counts['Pakistan'])
         self.assertIsNone(self.client.get('/api/auth/session').json()['user'])
         self.assertEqual(self.client.get('/login').status_code,200)
 
