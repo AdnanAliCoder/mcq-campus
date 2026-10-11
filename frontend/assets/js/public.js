@@ -52,8 +52,7 @@ window.Public=(()=>{
  }
  function home(){
   const server=activeServerMcqPage(),site=MCQ.db.siteCounts||{},pageSize=10,page=server?Math.max(1,Number(server.page)||1):1,rows=server?MCQ.publicMcqs():[],importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
-  const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`,today=new Date().toISOString().slice(0,10),latest=(MCQ.db.latestJobs||[]).filter(x=>x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))).slice(0,4);
-  const popularPaperJobs=MCQ.sortPinned('jobs',MCQ.db.jobs.filter(j=>j.active!==false&&MCQ.db.years.some(y=>y.active!==false&&+y.job_id===+j.id))).slice(0,8);
+  const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`;
   const homeStats=[
    {title:'MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
    {title:'Jobs',value:Number(site.jobs||MCQ.db.jobs.filter(x=>x.active!==false).length),iconName:'briefcase',tone:'neutral',subtitle:'Job / post records',path:'jobs-exams'},
