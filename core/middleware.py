@@ -95,6 +95,7 @@ class LoginWallMiddleware:
         '/api/auth/resend-verification','/api/startup',
     }
     AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify'}
+    PUBLIC_ENTRY_PATHS={'/','/home'}
 
     def __init__(self,get_response):
         self.get_response=get_response
@@ -123,6 +124,12 @@ class LoginWallMiddleware:
                 response=HttpResponseRedirect('/')
             else:
                 response=self.get_response(request)
+        elif not authenticated and normalized in self.PUBLIC_ENTRY_PATHS:
+            response=self.get_response(request)
+            response['Cache-Control']='public, max-age=0, s-maxage=60, stale-while-revalidate=300'
+            response['Pragma']=''
+            if 'X-Robots-Tag' in response: del response['X-Robots-Tag']
+            return response
         elif not authenticated:
             response=HttpResponseRedirect('/login')
         else:
