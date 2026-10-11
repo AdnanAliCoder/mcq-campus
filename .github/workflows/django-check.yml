@@ -27,6 +27,8 @@ jobs:
           SECRET_KEY: "ci-check-secret"
           ALLOWED_HOSTS: "127.0.0.1,localhost"
         run: python manage.py check
+      - name: JavaScript syntax check
+        run: node --check frontend/assets/js/public.js && node --check frontend/assets/js/auth.js && node --check frontend/assets/js/admin.js
       - name: Django test suite
         env:
           DEBUG: "false"
