@@ -26,8 +26,10 @@ window.Public=(()=>{
  function mini(q,index){return questionCard(q,index+1,true)}
  function quickCard(){const quick=MCQ.topMcqs(),qi=Math.max(0,Math.min(Number(App.homeQuickIndex||0),Math.max(0,quick.length-1))),q=quick[qi];return q?`<div class="hero-quick mcq-reference-quick"><div class="quick-head"><div>${questionTags(q,{featured:true})}</div>${btn('›','home-quick-next','quick-next-control',`aria-label="Next quick MCQ"`)}</div><div class="quick-question-panel"><h3>${e(q.question)}</h3></div><div class="quick-options">${[1,2,3,4].map((n,i)=>{const text=q['option'+n],chosen=App.quickAnswer?.id===q.id?App.quickAnswer.choice:null,answered=App.quickAnswer?.id===q.id,state=answered?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';return btn(`<span class="letter">${'ABCD'[i]}</span><span class="option-text">${e(text)}</span><span class="option-indicator" aria-hidden="true"></span>`,'home-quick-choose',`quick-option ${state}`,`data-id="${q.id}" data-option="${n}" ${answered?'disabled':''}`)}).join('')}</div>${App.quickAnswer?.id===q.id?`<div class="quick-answer mcq-verified-answer"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>${e(q.correct_answer)}</b></strong></div><p>${e(q.description||'No explanation has been added yet.')}</p>${relationships(q)}</div>`:''}<div class="quick-dots">${quick.map((_,i)=>`<button type="button" class="quick-dot ${i===qi?'active':''}" data-action="home-quick-jump" data-index="${i}" aria-label="Quick MCQ ${i+1}"></button>`).join('')}</div></div>`:'';}
  function countryLanding(){
+  const site=MCQ.db.siteCounts||{};
+  const overallTotal=Math.max(0,Number(site.approvedMcqs||0));
   const source=Array.isArray(MCQ.db.countries)?MCQ.db.countries:[];
-  const countries=(source.length?source:[{name:'Pakistan',active:true,mcqCount:Number(MCQ.db.siteCounts?.approvedMcqs||0)}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  const countries=(source.length?source:[{name:'Pakistan',active:true,mcqCount:overallTotal}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
   const countryCards=countries.map(item=>{
    const name=String(item.name||'').trim();
    const total=Number(item.mcqCount||0).toLocaleString('en-US');
@@ -41,10 +43,14 @@ window.Public=(()=>{
   }).join('');
   return '<main id="main" class="country-entry-page" tabindex="-1">'+
    '<div class="country-entry-shell">'+
-    '<div class="country-entry-brand"><span class="country-entry-brand-mark">'+icon('book')+'</span><span>MCQ<span>Campus</span></span></div>'+
-    '<p class="country-entry-eyebrow">YOUR EXAM PREPARATION STARTS HERE</p>'+
-    '<h1>Choose your country</h1>'+
-    '<p class="country-entry-intro">Select your country to create an account and access the MCQs, past papers and exam resources for that country.</p>'+
+    '<div class="country-entry-brand"><img class="country-entry-logo-image" src="assets/images/logo.png" alt="MCQCampus logo"><span>MCQ<span>Campus</span></span></div>'+
+    '<section class="country-entry-hero">'+
+     '<p class="country-entry-eyebrow">ONE PLATFORM · MULTIPLE COUNTRIES</p>'+
+     '<h1>Exam preparation, built for your country.</h1>'+
+     '<p class="country-entry-intro">Explore MCQs, past papers and exam-preparation resources from recruitment agencies, government departments and examinations across different countries. Choose your country to get started.</p>'+
+     '<div class="country-entry-overall-stat" aria-live="polite"><span class="country-entry-stat-icon" aria-hidden="true">'+icon('book')+'</span><span><strong class="country-entry-total" data-total="'+overallTotal+'">'+overallTotal.toLocaleString('en-US')+'</strong><small>approved MCQs across all countries</small></span></div>'+
+    '</section>'+
+    '<div class="country-entry-country-heading"><div><p class="country-entry-eyebrow">CHOOSE YOUR COUNTRY</p><h2>Start your preparation</h2><p class="country-entry-intro">Select a country to see its relevant exam resources and create your learner account.</p></div><span class="country-entry-country-count">'+countries.length.toLocaleString('en-US')+' '+(countries.length===1?'country':'countries')+'</span></div>'+
     '<div class="country-entry-grid">'+countryCards+'</div>'+
     '<p class="country-entry-login">Already have an account? '+link('login','Sign in','country-entry-signin')+'</p>'+
    '</div>'+
