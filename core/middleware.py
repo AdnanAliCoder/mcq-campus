@@ -1,7 +1,7 @@
 import json, logging, time
 from django.conf import settings
 from django.db import connection
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 
 logger=logging.getLogger('mcqcampus.performance')
 
@@ -83,3 +83,53 @@ class PerformanceTimingMiddleware:
             return response
         finally:
             connection.force_debug_cursor=old_force_debug
+
+
+class LoginWallMiddleware:
+    """Require an authenticated session for every application page and API except sign-in flows."""
+    STATIC_PREFIXES=('/assets/',)
+    STATIC_PATHS={'/favicon.ico','/site.webmanifest','/sw.js'}
+    AUTH_API_PATHS={
+        '/api/auth/session','/api/auth/login','/api/auth/register',
+        '/api/auth/forgot','/api/auth/reset','/api/auth/verify',
+        '/api/auth/resend-verification','/api/startup',
+    }
+    AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify'}
+
+    def __init__(self,get_response):
+        self.get_response=get_response
+
+    def __call__(self,request):
+        path=request.path or '/'
+        if path in self.STATIC_PATHS or path.startswith(self.STATIC_PREFIXES):
+            return self.get_response(request)
+
+        normalized=path.rstrip('/') or '/'
+        authenticated=bool(getattr(getattr(request,'user',None),'is_authenticated',False))
+        if normalized.startswith('/api/'):
+            if normalized in self.AUTH_API_PATHS:
+                response=self.get_response(request)
+            elif not authenticated:
+                response=JsonResponse({'error':'Authentication required.','loginRequired':True},status=401)
+            else:
+                response=self.get_response(request)
+            response['Cache-Control']='private, no-store, max-age=0'
+            response['Pragma']='no-cache'
+            response['X-Robots-Tag']='noindex, nofollow'
+            return response
+
+        if normalized in self.AUTH_PAGE_PATHS:
+            if authenticated:
+                response=HttpResponseRedirect('/')
+            else:
+                response=self.get_response(request)
+        elif not authenticated:
+            response=HttpResponseRedirect('/login')
+        else:
+            response=self.get_response(request)
+
+        # This site is now account-only, so authenticated HTML must not enter a shared CDN cache.
+        response['Cache-Control']='private, no-store, max-age=0'
+        response['Pragma']='no-cache'
+        response['X-Robots-Tag']='noindex, nofollow'
+        return response

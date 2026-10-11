@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.html import escape
 from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .services import (
@@ -22,6 +22,7 @@ from .services import (
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
     ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot, entity_page_data,
+    country_catalog, country_for_user, _site_blob, _save_site_blob,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -236,6 +237,11 @@ def auth_register(request):
     if not d.get('terms'): return err('Accept the terms and privacy information.',422,{'terms':'Required.'})
     try: email=_normalize_email(d.get('email'))
     except ValueError as exc: return err(exc,422,{'email':str(exc)})
+    country=str(d.get('country') or 'Pakistan').strip()[:80] or 'Pakistan'
+    active_countries={item['name'].casefold():item['name'] for item in country_catalog(include_counts=False) if item['active']}
+    if country.casefold() not in active_countries:
+        return err('Choose an available country.',422,{'country':'Choose an available country.'})
+    country=active_countries[country.casefold()]
     if _rate_limited('register',[f'ip:{_client_ip(request)}'],5,60*60): return err('Too many registration attempts. Please try again later.',429)
     _record_rate('register',[f'ip:{_client_ip(request)}'])
     if User.objects.filter(email__iexact=email).exists():
@@ -251,6 +257,7 @@ def auth_register(request):
         defaults={
             'first_name':first_name[:150],
             'last_name':last_name[:150],
+            'country':country,
             'password_hash':make_password(password),
             'code_hash':_pending_code_hash(email,code),
             'expires_at':now+timedelta(minutes=expiry_minutes),
@@ -346,7 +353,8 @@ def auth_verify(request):
             u.save()
             prof=profile_for(u)
             prof.role='user'; prof.permissions=[]; prof.email_verified=True
-            prof.save(update_fields=['role','permissions','email_verified'])
+            prof.country=pending.country or 'Pakistan'
+            prof.save(update_fields=['role','permissions','email_verified','country'])
             pending.delete()
         _send_email_parts('Welcome to MCQCampus',_welcome_email(u),u.email)
         return JsonResponse({'completed':True,'message':'Email verified and account created. You can now sign in.'})
@@ -474,6 +482,58 @@ def public_report(request):
     Report.objects.create(user=request.user if request.user.is_authenticated else None,mcq=mcq,reason=reason)
     return JsonResponse({'completed':True})
 
+@profile_api('admin_countries')
+@require_http_methods(["GET","POST"])
+@login_required_json
+def admin_countries(request):
+    if not is_super(request.user):
+        return err('Only the Super Admin can manage countries.',403)
+    if request.method=='GET':
+        return JsonResponse({'countries':country_catalog(request.user,include_counts=True,include_inactive=True)})
+    d=payload(request)
+    action=str(d.get('action') or 'add').strip().lower()
+    settings=SiteSetting.get_solo()
+    blob=_site_blob(settings)
+    entries=blob.get('countries')
+    if not isinstance(entries,list):
+        entries=country_catalog(include_counts=False,include_inactive=True)
+    normalized=[]; by_name={}
+    for raw in entries:
+        item=raw if isinstance(raw,dict) else {'name':raw,'active':True}
+        name=re.sub(r'\s+',' ',str(item.get('name') or '')).strip()[:80]
+        if not name:
+            continue
+        entry={'name':name,'active':bool(item.get('active',True))}
+        if name.casefold()=='pakistan':
+            entry['active']=True
+        if name.casefold() not in by_name:
+            normalized.append(entry); by_name[name.casefold()]=entry
+    if action=='add':
+        name=re.sub(r'\s+',' ',str(d.get('name') or '')).strip()[:80]
+        if len(name)<2:
+            return err('Enter a country name.',422,{'name':'Required.'})
+        existing=by_name.get(name.casefold())
+        if existing:
+            existing['active']=True
+        else:
+            normalized.append({'name':name,'active':True})
+    elif action=='toggle':
+        name=str(d.get('name') or '').strip().casefold()
+        existing=by_name.get(name)
+        if not existing:
+            return err('Country not found.',404)
+        active=d.get('active') is True or str(d.get('active') or '').lower() in {'1','true','yes','on'}
+        if existing['name'].casefold()=='pakistan':
+            active=True
+        existing['active']=active
+    else:
+        return err('Unsupported country action.',422)
+    blob['countries']=normalized
+    _save_site_blob(settings,blob)
+    settings.updated_by=request.user
+    settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    return JsonResponse({'success':True,'countries':country_catalog(request.user,include_counts=True,include_inactive=True)})
+
 @profile_api('startup')
 @require_GET
 def startup(request):
@@ -557,7 +617,7 @@ def mcq_match(request):
     if not is_admin(request.user): return err('Administrator access is required.',403)
     question=str(request.GET.get('question') or '').strip()
     if len(question)<3: return JsonResponse({'match':None})
-    obj=_bulk_duplicate_mcq(question)
+    obj=_bulk_duplicate_mcq(question,country_for_user(request.user) or None)
     return JsonResponse({'match':mcq(obj) if obj else None})
 
 @require_GET

@@ -1,6 +1,6 @@
 window.Admin=(()=>{
  const {esc:e,icon,link,btn,heading,empty,badge,field,textarea,select}=UI;
- const names={categories:'Categories',papers:'Papers',jobs:'Jobs / Posts',years:'Job years'};
+ const names={categories:'Categories',papers:'Papers',jobs:'Jobs / Posts',years:'Job years',countries:'Countries'};
  const root=()=>MCQ.role()==='super-admin'?'super-admin':'admin';
  const url=p=>root()+'/'+p;
  const ADMIN_MCQ_PAGE_SIZE=10,IMPORT_PAGE_SIZE=50;
@@ -29,7 +29,7 @@ window.Admin=(()=>{
    ? `${navLink('all-mcqs','All MCQs','book')}${navLink('mcqs','My Collection','user')}${navLink('admin-records','Admin Records','shield')}${navLink('add','Add MCQ','plus')}${MCQ.allowed('import')?navLink('import','Bulk import','upload'):''}`
    : `${MCQ.allowed('globalMcqs')?navLink('all-mcqs','All MCQs','book'):''}${navLink('mcqs','My Collection','user')}${MCQ.allowed('add')?navLink('add','Add MCQ','plus'):''}${MCQ.allowed('import')?navLink('import','Bulk import','upload'):''}`;
   const contentLinks=[MCQ.allowed('categories')?navLink('categories','Categories','grid'):'',MCQ.allowed('papers')||MCQ.allowed('jobs')||MCQ.allowed('years')?navLink('papers','Papers','paper'):'',MCQ.allowed('posts')?navLink('posts','Blog','edit'):'',MCQ.allowed('pdfs')?navLink('pdfs-manager','PDFs','download'):'',MCQ.allowed('latestJobs')?navLink('latest-jobs-manager','Latest Jobs','briefcase'):''].filter(Boolean).join('');
-  const systemLinks=MCQ.allowed('system')?navLink('settings','Settings','settings'):'';
+  const systemLinks=(MCQ.allowed('system')?navLink('settings','Settings','settings'):'')+(superAdmin?navLink('countries','Countries','globe'):'');
   const management=(contentLinks?`<div class="nav-label">Content</div>${contentLinks}`:'')+(systemLinks?`<div class="nav-label">System</div>${systemLinks}`:'');
   return `<div class="dash-layout"><aside class="sidebar" id="admin-sidebar">${UI.brand()}<div class="nav-label">${superAdmin?'Super admin':'Content admin'}</div>${navLink('overview','Overview','grid')}<div class="nav-label">Question library</div>${library}${management}</aside><div class="dash-main"><header class="dash-top">${btn(icon('menu'),'sidebar','ghost menu-toggle','aria-label="Toggle admin sidebar" aria-expanded="false" aria-controls="admin-sidebar"')}<span class="small muted">Workspace / <strong>${e(title)}</strong></span><span class="spacer"></span><span class="badge">Database connected</span>${UI.userMenu()}</header><main class="dash-content" id="main" tabindex="-1">${body}</main></div></div>`
  }
@@ -223,15 +223,25 @@ window.Admin=(()=>{
  }
  function latestJobModal(id){
   MCQ.assert('latestJobs');const x=(MCQ.db.latestJobs||[]).find(r=>+r.id===+id)||{},orgs=MCQ.db.papers.filter(r=>r.active!==false).sort((a,b)=>a.name.localeCompare(b.name));UI.modal(id?'Edit Latest Job':'Add Latest Job',`<form data-form="latest-job" data-id="${id||''}">${select('paper_id','Organization / Paper',orgs,x.paper_id||'',true)}${field('title','Job Title',x.title||'','text',true)}${textarea('description','Job page description',x.description||'',false)}${MCQ.role()==='super-admin'?`<section class="admin-seo-fields"><h3>Public page title & description</h3>${field('seo_title','Page / Google Title',x.seo_title||x.title||'','text',false,'maxlength="180"')}${textarea('seo_description','Page / Google Description',x.seo_description||x.description||'',false)}</section>`:''}${field('last_date','Last Date to Apply',x.last_date||'','date',true)}${field('apply_url','Apply URL',x.apply_url||'','url',false,'placeholder="Optional https://…"')}${field('prep_url','Past Papers URL',x.prep_url||'','url',false,'placeholder="Optional MCQ Campus paper/job link"')}<label class="check-line"><input type="checkbox" name="published" ${x.published!==false?'checked':''}> Published</label><p class="small muted">The visible page title/description and Google metadata stay aligned with the fields above.</p><div class="actions"><button class="btn primary" type="submit">Save Job</button>${btn('Cancel','close','')}</div></form>`)}
-  function settingsHub(){
+  function countryManager(){
+  const countries=Array.isArray(MCQ.db.countries)?MCQ.db.countries:[];
+  const cards=countries.map(country=>{
+   const name=String(country.name||'');
+   const active=country.active!==false;
+   return `<article class="country-manager-card"><div class="row"><strong>${e(name)}</strong><span class="badge">${active?'Active':'Disabled'}</span></div><div class="country-mcq-total"><strong>${Number(country.mcqCount||0).toLocaleString('en-US')}</strong><span>approved MCQs</span></div><div class="row"><span class="small muted">Learner signup ${active?'enabled':'disabled'}</span><button type="button" class="btn sm ${active?'ghost':'primary'}" data-country-toggle data-country-name="${e(name)}" data-country-active="${active?'true':'false}">${active?'Disable':'Enable'} country</button></div></article>`;
+  }).join('');
+  return `<section class="page country-management"><div class="section-head"><div><p class="eyebrow">SUPER ADMIN</p><h1>Country management</h1><p class="muted">Add a country to make it available during signup. Approved MCQ totals are calculated from the database and refresh when the page reloads.</p></div></div><div class="card" style="padding:20px;margin-bottom:22px"><h2>Add a country</h2><form data-form="country-create" class="form-grid"><div class="field"><label for="country-new-name">Country name</label><input id="country-new-name" name="name" maxlength="80" autocomplete="country-name" required></div><div class="actions"><button type="submit" class="btn primary">Add country</button></div><p class="auth-error" role="alert" data-country-error></p></form></div><div class="section-head"><div><h2>Available country libraries</h2><p class="small muted">Disabling a country prevents new signups from selecting it. Existing accounts and their data are not deleted.</p></div></div><div class="country-manager-grid">${cards||empty('No country libraries yet','Add a country to make it available to learners.')}</div></section>`;
+ }
+
+ function settingsHub(){
   MCQ.assert('system');const learners=MCQ.db.users.filter(u=>u.role==='user'),staff=MCQ.db.users.filter(u=>['admin','super-admin'].includes(u.role)),trash=(MCQ.db.trash||[]).length;
   const groups=[
    ['Content','Create and manage learner-facing material.',[['posts','Blog','edit',(MCQ.db.posts||[]).length+' posts','posts'],['pdfs-manager','PDF Resources','download',(MCQ.db.pdfs||[]).length+' PDF resources','pdfs'],['latest-jobs-manager','Latest Jobs','briefcase',(MCQ.db.latestJobs||[]).length+' announcements','latestJobs']]],
    ['People','Accounts, staff access and permission control.',[['users','Users','user',learners.length+' learner accounts','users'],['admins','Admins','shield',staff.length+' administrator accounts','admins'],['roles','Roles & Permissions','shield','Global defaults and access model','roles']]],
-   ['Site Config','Branding, public pages, social links and monetization.',[['site-settings','Website Settings','settings','Website name, description and default country','settings'],['page-seo','Page Titles & Descriptions','search','Edit public hub titles and Google descriptions','system'],['footer','Footer Settings','grid','Footer links and visibility','footer'],['legal-pages','Legal Pages','paper','About, Privacy, Terms and policies','legal'],['social-links','Social Links','share','URLs, icons and visibility','social'],['ads','Ads & Analytics','chart','Advertising slots and analytics IDs','ads']]],
+   ['Site Config','Branding, public pages, social links and monetization.',[['site-settings','Website Settings','settings','Website name, description and default country','settings'],...(MCQ.role()==='super-admin'?[['countries','Countries','globe','Manage signup countries and live MCQ totals','system']]:[]),['page-seo','Page Titles & Descriptions','search','Edit public hub titles and Google descriptions','system'],['footer','Footer Settings','grid','Footer links and visibility','footer'],['legal-pages','Legal Pages','paper','About, Privacy, Terms and policies','legal'],['social-links','Social Links','share','URLs, icons and visibility','social'],['ads','Ads & Analytics','chart','Advertising slots and analytics IDs','ads']]],
    ['Data / Safety','Recovery, reporting, backups and collection health.',[['trash','Trash & Recovery','archive',trash+' recovery items','restore'],['backup','Backup / Export','download','Export data safely','backup'],['reports','Reports','flag',(MCQ.db.reports||[]).length+' content reports','reports'],['analytics','Collection Analytics','chart','Website content statistics','analytics']]]
   ];
-  const allowed=([path,title,ic,desc,cap])=>cap==='roles'?MCQ.role()==='super-admin':MCQ.allowed(cap),renderCard=([path,title,ic,desc])=>link(url(path),`<span class="settings-hub-icon">${icon(ic)}</span><span><strong>${e(title)}</strong><small>${e(desc)}</small></span>${icon('arrow')}`,'card settings-hub-card clickable');
+  const allowed=([path,title,ic,desc,cap])=>path==='countries'?MCQ.role()==='super-admin':cap==='roles'?MCQ.role()==='super-admin':MCQ.allowed(cap),renderCard=([path,title,ic,desc])=>link(url(path),`<span class="settings-hub-icon">${icon(ic)}</span><span><strong>${e(title)}</strong><small>${e(desc)}</small></span>${icon('arrow')}`,'card settings-hub-card clickable');
   const summary=[];if(MCQ.allowed('users'))summary.push(UI.statCard({title:'Learners',value:learners.length,iconName:'user',tone:'info',path:url('users')}));if(MCQ.allowed('admins'))summary.push(UI.statCard({title:'Administrators',value:staff.length,iconName:'shield',tone:'primary',path:url('admins')}));if(MCQ.allowed('restore'))summary.push(UI.statCard({title:'Trash Items',value:trash,iconName:'archive',tone:'danger',path:url('trash')}));if(MCQ.allowed('reports'))summary.push(UI.statCard({title:'Reports',value:(MCQ.db.reports||[]).length,iconName:'flag',tone:'warning',path:url('reports')}));
   const hub=groups.map(([title,desc,items])=>{const visible=items.filter(allowed);if(!visible.length)return '';return `<section class="settings-hub-group"><div class="section-head"><div><p class="eyebrow">${e(title.toUpperCase())}</p><h2>${e(title)}</h2><p class="small muted">${e(desc)}</p></div></div><div class="settings-hub-grid">${visible.map(renderCard).join('')}</div></section>`}).join('');
   return heading('Settings','Control areas are grouped by purpose so administrators can find the right workflow quickly.')+(summary.length?`<div class="metric-grid settings-summary">${summary.join('')}</div>`:'')+`${MCQ.allowed('admins')?`<section class="section"><div class="section-head"><div><p class="eyebrow">ADMINISTRATORS</p><h2>Current admin accounts</h2></div>${MCQ.role()==='super-admin'?link(url('admin-records'),'View MCQ records','link'):''}</div><div class="settings-admin-names">${staff.map(u=>`<span class="chip">${icon(u.role==='super-admin'?'shield':'user')} ${e(u.name)}</span>`).join('')}</div></section>`:''}${hub}`;
@@ -277,16 +287,17 @@ window.Admin=(()=>{
  function render(view,id){
   if(!['admin','super-admin'].includes(MCQ.role()))return UI.layout(`<div class="container page">${empty('Sign in required','Use an Admin or Super Admin account to open this workspace.',link('login','Log in','btn primary'))}</div>`);
   const viewCaps={
-   add:'add',edit:'edit','all-mcqs':'globalMcqs','admin-records':'admins','paper-mcqs':'papers',categories:'categories',papers:'papers',jobs:'jobs',years:'years',import:'import',settings:'system','site-settings':'settings',users:'users',admins:'admins',reports:'reports',posts:'posts','pdfs-manager':'pdfs','latest-jobs-manager':'latestJobs','page-seo':'system',footer:'footer','legal-pages':'legal','social-links':'social',trash:'restore',backup:'backup',analytics:'analytics',ads:'ads'
+   add:'add',edit:'edit','all-mcqs':'globalMcqs','admin-records':'admins','paper-mcqs':'papers',categories:'categories',papers:'papers',jobs:'jobs',years:'years',countries:'system',import:'import',settings:'system','site-settings':'settings',users:'users',admins:'admins',reports:'reports',posts:'posts','pdfs-manager':'pdfs','latest-jobs-manager':'latestJobs','page-seo':'system',footer:'footer','legal-pages':'legal','social-links':'social',trash:'restore',backup:'backup',analytics:'analytics',ads:'ads'
   };
   const cap=viewCaps[view];
-  if(App.route.path.startsWith('super-admin')&&MCQ.role()!=='super-admin'||['roles','page-seo'].includes(view)&&MCQ.role()!=='super-admin'||cap&&!MCQ.allowed(cap))return shell(empty('This account does not have access to this area','Ask the Super Admin to grant the required permission for this workspace.',link(url('overview'),'Back to overview','btn')),'Access limited');
+  if(App.route.path.startsWith('super-admin')&&MCQ.role()!=='super-admin'||['roles','page-seo','countries'].includes(view)&&MCQ.role()!=='super-admin'||cap&&!MCQ.allowed(cap))return shell(empty('This account does not have access to this area','Ask the Super Admin to grant the required permission for this workspace.',link(url('overview'),'Back to overview','btn')),'Access limited');
   let body,title=view;
   if(view==='overview')body=overview();
   else if(['mcqs','all-mcqs'].includes(view))body=mcqs(view);
   else if(view==='admin-records')body=adminRecords();
   else if(view==='paper-mcqs')body=paperCollection(id);
   else if(view==='add'||view==='edit')body=form(id);
+  else if(view==='countries')body=countryManager();
   else if(names[view])body=entities(view);
   else if(view==='import')body=importPage();
   else if(view==='settings')body=settingsHub();
@@ -308,6 +319,37 @@ window.Admin=(()=>{
   else body=empty('Page not found','This item is no longer part of the simplified Super Admin navigation.');
   return shell(body,names[view]||({'all-mcqs':'All MCQs','admin-records':'Admin Records','paper-mcqs':'Paper Collection',settings:'Settings','site-settings':'Website Settings','page-seo':'Page Titles & Descriptions','pdfs-manager':'PDF Resources','latest-jobs-manager':'Latest Jobs'}[view])||view.replace(/^./,x=>x.toUpperCase()))
  }
+
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-form="country-create"]');if(!form)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  const error=form.querySelector('[data-country-error]'),button=form.querySelector('[type="submit"]');
+  if(error)error.textContent='';
+  button.disabled=true;
+  try{
+   const result=await Auth.request('/admin/countries',{action:'add',name:form.elements.name.value});
+   MCQ.mergeCore({countries:result.countries||[]});
+   UI.toast('Country added and available for signup.');
+   App.render();
+  }catch(err){if(error)error.textContent=err.message||'Country could not be added.';}
+  finally{button.disabled=false;}
+ },true);
+
+ document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-country-toggle]');if(!button)return;
+  event.preventDefault();
+  const name=button.getAttribute('data-country-name')||'';
+  const active=button.getAttribute('data-country-active')!=='true';
+  button.disabled=true;
+  try{
+   const result=await Auth.request('/admin/countries',{action:'toggle',name,active});
+   MCQ.mergeCore({countries:result.countries||[]});
+   UI.toast(active?'Country enabled for signup.':'Country disabled for new signups.');
+   App.render();
+  }catch(err){UI.toast(err.message||'Country status could not be changed.');}
+  finally{button.disabled=false;}
+ },true);
+
  function updateImportSelection(){
   const checks=[...document.querySelectorAll('.import-row-check')],count=checks.filter(x=>x.checked).length;
   const label=document.getElementById('import-selection-count');if(label)label.textContent=count+' selected';
