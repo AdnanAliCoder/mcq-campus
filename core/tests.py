@@ -185,6 +185,33 @@ class IntegrationTests(TestCase):
         self.assertEqual(response.status_code,422)
         self.assertIn('country',response.json().get('fields',{}))
 
+    def test_super_admin_can_save_country_logo_metadata(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        added=self.post_json('/api/admin/countries',{'action':'add','name':'Japan','icon':'🇯🇵','logoUrl':'https://example.com/japan.png'})
+        self.assertEqual(added.status_code,200)
+        japan=next(row for row in added.json()['countries'] if row['name']=='Japan')
+        self.assertEqual(japan['icon'],'🇯🇵')
+        self.assertEqual(japan['logoUrl'],'https://example.com/japan.png')
+        changed=self.post_json('/api/admin/countries',{'action':'update-branding','name':'Japan','icon':'🗾','logoUrl':'/assets/images/japan.png'})
+        self.assertEqual(changed.status_code,200)
+        japan=next(row for row in changed.json()['countries'] if row['name']=='Japan')
+        self.assertEqual(japan['icon'],'🗾')
+        self.assertEqual(japan['logoUrl'],'/assets/images/japan.png')
+
+    def test_super_admin_country_public_preview_scopes_bootstrap(self):
+        MCQ.objects.create(
+            id=57,question='India preview question?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',category=self.category,status='approved',country='India',
+            created_by=self.admin,submitted_by=self.admin,
+        )
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        switched=self.post_json('/api/auth/switch-role',{'role':'super-admin'})
+        self.assertEqual(switched.status_code,200)
+        response=self.client.get('/api/bootstrap?country=India')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['siteCounts']['approvedMcqs'],1)
+        self.assertTrue(all(row['country'].casefold()=='india' for row in response.json()['papers']))
+
     def test_super_admin_can_pin_and_reorder_countries(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         self.post_json('/api/admin/countries',{'action':'add','name':'Canada'})
