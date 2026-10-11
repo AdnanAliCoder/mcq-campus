@@ -914,13 +914,21 @@ class AuthSecurityTests(TestCase):
         }}
 
     def test_signup_is_pending_until_verified_and_creates_learner_only_after_otp(self):
-        response=self.register(role='super-admin',is_superuser=True,is_staff=True)
+        settings=SiteSetting.get_solo()
+        admin_permissions=dict(settings.admin_permissions or {})
+        site=dict(admin_permissions.get('_site') or {})
+        site['countries']=[{'name':'Pakistan','active':True},{'name':'India','active':True}]
+        admin_permissions['_site']=site
+        settings.admin_permissions=admin_permissions
+        settings.save(update_fields=['admin_permissions'])
+        response=self.register(country='India',role='super-admin',is_superuser=True,is_staff=True)
         self.assertEqual(response.status_code,200)
         self.assertTrue(response.json()['verificationRequired'])
         self.assertFalse(User.objects.filter(email='newlearner@example.com').exists())
         pending=PendingSignup.objects.get(email='newlearner@example.com')
         self.assertEqual(pending.first_name,'New')
         self.assertEqual(pending.last_name,'Learner')
+        self.assertEqual(pending.country,'India')
         code=self.code_from_last_email()
         verified=self.post_json('/api/auth/verify',{'email':pending.email,'code':code})
         self.assertEqual(verified.status_code,200)
@@ -928,6 +936,7 @@ class AuthSecurityTests(TestCase):
         user=User.objects.get(email='newlearner@example.com')
         profile=profile_for(user)
         self.assertEqual(profile.role,'user')
+        self.assertEqual(profile.country,'India')
         self.assertTrue(profile.email_verified)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
