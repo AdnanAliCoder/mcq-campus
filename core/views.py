@@ -497,6 +497,9 @@ def admin_countries(request):
     entries=blob.get('countries')
     if not isinstance(entries,list):
         entries=country_catalog(include_counts=False,include_inactive=True)
+    else:
+        configured_names={str((item if isinstance(item,dict) else {'name':item}).get('name') or '').strip().casefold() for item in entries}
+        entries=list(entries)+[item for item in country_catalog(include_counts=False,include_inactive=True) if item['name'].casefold() not in configured_names]
     normalized=[]; by_name={}
     for raw in entries:
         item=raw if isinstance(raw,dict) else {'name':raw,'active':True}
