@@ -107,7 +107,9 @@ class IntegrationTests(TestCase):
         response=self.client.get('/login')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
-        self.assertIn('styles.css?v=20261011-country-entry-v2',body)
+        self.assertIn('styles.css?v=20261011-country-entry-v3',body)
+        self.assertIn('public.js?v=20261011-country-entry-v3',body)
+        self.assertIn('auth.js?v=20261011-country-entry-v3',body)
         self.assertIn('assets/js/auth.js',body)
         self.assertIn('assets/js/seo.js',body)
         self.assertNotIn('assets/js/seed.js',body)
@@ -173,12 +175,58 @@ class IntegrationTests(TestCase):
         created=self.post_json('/api/admin/countries',{'action':'add','name':'Spain'})
         self.assertEqual(created.status_code,200)
         self.assertIn('Spain',{row['name'] for row in created.json()['countries']})
+        configured=self.post_json('/api/admin/countries',{'action':'configure','name':'Spain','pinned':True,'sortOrder':0})
+        self.assertEqual(configured.status_code,200)
+        spain_configured=next(row for row in configured.json()['countries'] if row['name']=='Spain')
+        self.assertTrue(spain_configured['pinned'])
+        self.assertEqual(spain_configured['sortOrder'],0)
         disabled=self.post_json('/api/admin/countries',{'action':'toggle','name':'Spain','active':False})
         self.assertEqual(disabled.status_code,200)
         spain=next(row for row in disabled.json()['countries'] if row['name']=='Spain')
         self.assertFalse(spain['active'])
         signup=self.post_json('/api/auth/register',{'first_name':'Spain','last_name':'Learner','email':'spain@example.com','password':'StrongPass!246','confirm':'StrongPass!246','terms':'on','country':'Spain'})
         self.assertEqual(signup.status_code,422)
+
+    def test_country_catalog_pinning_order_and_global_mcq_total(self):
+        settings=SiteSetting.objects.get(pk=1)
+        root=dict(settings.admin_permissions or {})
+        site=dict(root.get('_site') or {})
+        site['countries']=[
+            {'name':'Pakistan','active':True,'pinned':False,'sortOrder':20},
+            {'name':'India','active':True,'pinned':True,'sortOrder':100},
+        ]
+        root['_site']=site
+        settings.admin_permissions=root
+        settings.save(update_fields=['admin_permissions'])
+        response=self.client.get('/api/startup')
+        self.assertEqual(response.status_code,200)
+        snapshot=response.json()['snapshot']
+        self.assertEqual(snapshot['totalMcqCount'],MCQ.objects.filter(status='approved').count())
+        countries=snapshot['countries']
+        self.assertEqual(countries[0]['name'],'India')
+        self.assertTrue(countries[0]['pinned'])
+        self.assertEqual(countries[0]['sortOrder'],100)
+        self.assertEqual(next(row for row in countries if row['name']=='Pakistan')['mcqCount'],1)
+
+    def test_super_admin_overview_scopes_statistics_by_country(self):
+        MCQ.objects.create(
+            id=56,question='India-specific dashboard question?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',category=self.category,status='approved',country='India',
+            created_by=self.admin,submitted_by=self.admin,
+        )
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        scoped=self.client.get('/api/admin/overview?country=India')
+        self.assertEqual(scoped.status_code,200)
+        scoped_data=scoped.json()
+        self.assertEqual(scoped_data['activeCountry'],'India')
+        self.assertEqual(scoped_data['mcqs']['total'],1)
+        self.assertEqual(scoped_data['mcqs']['approved'],1)
+        overall=self.client.get('/api/admin/overview')
+        self.assertEqual(overall.status_code,200)
+        overall_data=overall.json()
+        self.assertEqual(overall_data['activeCountry'],'')
+        self.assertEqual(overall_data['mcqs']['total'],4)
+        self.assertEqual(overall_data['mcqs']['approved'],2)
 
     def test_protected_commands_require_login(self):
         self.client.logout()
