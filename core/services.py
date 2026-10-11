@@ -71,8 +71,17 @@ def country_catalog(user=None,include_counts=True,include_inactive=False):
     entries=configured if configured is not None else []
     known={item['name'].casefold() for item in entries}
     discovered={'Pakistan'}
+    count_by_country={}
+    if include_counts:
+        mcq_country_rows=MCQ.objects.values('country').annotate(total=Count('id',filter=Q(status='approved')))
+        for row in mcq_country_rows:
+            name=re.sub(r'\s+',' ',str(row['country'] or '')).strip()[:80]
+            if name:
+                discovered.add(name)
+                count_by_country[name.casefold()]=int(row['total'] or 0)
+    else:
+        discovered.update(re.sub(r'\s+',' ',str(value or '')).strip()[:80] for value in MCQ.objects.values_list('country',flat=True).distinct() if str(value or '').strip())
     for values in (
-        MCQ.objects.values_list('country',flat=True).distinct(),
         Paper.objects.values_list('country',flat=True).distinct(),
         Profile.objects.values_list('country',flat=True).distinct(),
     ):
@@ -90,10 +99,6 @@ def country_catalog(user=None,include_counts=True,include_inactive=False):
             break
     else:
         entries.insert(0,{'name':'Pakistan','active':True})
-    count_by_country={}
-    if include_counts:
-        for row in MCQ.objects.filter(status='approved').values('country').annotate(total=Count('id')):
-            count_by_country[str(row['country'] or '').casefold()]=int(row['total'] or 0)
     result=[]
     for item in entries:
         if not include_inactive and not item['active']:
@@ -1108,7 +1113,7 @@ def save_mcq(user,draft):
     existing=MCQ.objects.filter(pk=qid).first() if qid else None
     if existing:
         require(is_super(user) or (existing.created_by_id==user.id and existing.status!='approved'))
-    dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip())
+    dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip(),country__iexact=country_for_write(user,draft.get('country')))
     if existing: dup=dup.exclude(pk=existing.pk)
     duplicate=dup.first()
     if duplicate:
