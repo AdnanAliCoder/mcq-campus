@@ -509,7 +509,9 @@ def admin_countries(request):
             continue
         try: order=max(0,int(item.get('order',len(normalized)) or 0))
         except (TypeError,ValueError): order=len(normalized)
-        entry={'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':order}
+        logo_url=str(item.get('logoUrl') or '').strip()[:500]
+        logo_url=logo_url if re.match(r'^(https://[^\s]+|/assets/[A-Za-z0-9_./-]+)$',logo_url,re.I) else ''
+        entry={'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':order,'icon':str(item.get('icon') or '').strip()[:16],'logoUrl':logo_url}
         if name.casefold()=='pakistan':
             entry['active']=True; entry['pinned']=True; entry['order']=0
         if name.casefold() not in by_name:
@@ -518,11 +520,23 @@ def admin_countries(request):
         name=re.sub(r'\s+',' ',str(d.get('name') or '')).strip()[:80]
         if len(name)<2:
             return err('Enter a country name.',422,{'name':'Required.'})
+        new_logo=str(d.get('logoUrl') or '').strip()[:500]
+        if new_logo and not re.match(r'^(https://[^\s]+|/assets/[A-Za-z0-9_./-]+)$',new_logo,re.I):
+            return err('Use an HTTPS image URL or a path inside /assets/.',422,{'logoUrl':'Invalid image URL.'})
         existing=by_name.get(name.casefold())
         if existing:
             existing['active']=True
         else:
-            normalized.append({'name':name,'active':True,'pinned':False,'order':max([int(x.get('order',0) or 0) for x in normalized]+[-1])+1})
+            normalized.append({'name':name,'active':True,'pinned':False,'order':max([int(x.get('order',0) or 0) for x in normalized]+[-1])+1,'icon':str(d.get('icon') or '').strip()[:16],'logoUrl':str(d.get('logoUrl') or '').strip()[:500]})
+    elif action=='update-branding':
+        name=str(d.get('name') or '').strip().casefold()
+        existing=by_name.get(name)
+        if not existing: return err('Country not found.',404)
+        icon=str(d.get('icon') or '').strip()[:16]
+        logo_url=str(d.get('logoUrl') or '').strip()[:500]
+        if logo_url and not re.match(r'^(https://[^\s]+|/assets/[A-Za-z0-9_./-]+)$',logo_url,re.I):
+            return err('Use an HTTPS image URL or a path inside /assets/.',422,{'logoUrl':'Invalid image URL.'})
+        existing['icon']=icon;existing['logoUrl']=logo_url
     elif action=='toggle':
         name=str(d.get('name') or '').strip().casefold()
         existing=by_name.get(name)
