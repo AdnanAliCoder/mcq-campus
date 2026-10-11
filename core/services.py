@@ -746,10 +746,12 @@ def learner_dashboard_data(user):
 def admin_overview_data(user,active_role=None):
     require(is_admin(user))
     super_view=is_super(user) and active_role=='super-admin'
-    if super_view:
-        qs=MCQ.objects.all()
-    else:
-        qs=MCQ.objects.filter(created_by=user)
+    qs=MCQ.objects.all() if super_view else MCQ.objects.filter(created_by=user)
+    mine_qs=MCQ.objects.filter(created_by=user)
+    country=country_for_user(user)
+    if country and not super_view:
+        qs=qs.filter(country__iexact=country)
+        mine_qs=mine_qs.filter(country__iexact=country)
     counts=qs.aggregate(
         total=Count('id'),
         pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
@@ -757,11 +759,6 @@ def admin_overview_data(user,active_role=None):
         rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)),
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:5]]
-    mine_qs=MCQ.objects.filter(created_by=user)
-    country=country_for_user(user)
-    if country and not super_view:
-        qs=qs.filter(country__iexact=country)
-        mine_qs=mine_qs.filter(country__iexact=country)
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
     data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
     if super_view:
