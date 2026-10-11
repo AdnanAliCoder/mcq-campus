@@ -86,7 +86,7 @@ class PerformanceTimingMiddleware:
 
 
 class LoginWallMiddleware:
-    """Require an authenticated session for every application page and API except sign-in flows."""
+    """Keep app pages private while allowing the country chooser and sign-in flows."""
     STATIC_PREFIXES=('/assets/',)
     STATIC_PATHS={'/favicon.ico','/site.webmanifest','/sw.js'}
     AUTH_API_PATHS={
