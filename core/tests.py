@@ -119,6 +119,52 @@ class IntegrationTests(TestCase):
         self.assertNotIn('logs',data)
         self.assertNotIn('reports',data)
 
+    def test_login_wall_redirects_pages_and_blocks_private_apis(self):
+        page=self.client.get('/')
+        self.assertEqual(page.status_code,302)
+        self.assertEqual(page['Location'],'/login')
+        self.assertEqual(self.client.get('/api/bootstrap').status_code,401)
+        self.assertEqual(self.client.get('/api/public/content').status_code,401)
+        self.assertEqual(self.client.get('/api/admin/countries').status_code,401)
+        self.assertEqual(self.client.get('/api/startup').status_code,200)
+        self.assertIsNone(self.client.get('/api/auth/session').json()['user'])
+        self.assertEqual(self.client.get('/login').status_code,200)
+
+    def test_country_isolation_applies_to_mcqs_and_live_country_totals(self):
+        india=MCQ.objects.create(
+            id=55,question='India-only question?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',category=self.category,status='approved',country='India',
+            created_by=self.admin,submitted_by=self.admin,
+        )
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        response=self.client.get('/api/mcqs?page_size=50&country=India')
+        self.assertEqual(response.status_code,200)
+        rows=response.json()['items']
+        self.assertIn(self.approved.id,{row['id'] for row in rows})
+        self.assertNotIn(india.id,{row['id'] for row in rows})
+        bootstrap=self.client.get('/api/bootstrap').json()
+        self.assertEqual(bootstrap['siteCounts']['approvedMcqs'],1)
+        counts={row['name']:row['mcqCount'] for row in bootstrap['countries']}
+        self.assertEqual(counts.get('Pakistan'),1)
+        self.assertEqual(counts.get('India'),1)
+        self.post_json('/api/auth/logout',{})
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        global_rows=self.client.get('/api/mcqs?country=India&page_size=50').json()['items']
+        self.assertIn(india.id,{row['id'] for row in global_rows})
+        self.assertNotIn(self.approved.id,{row['id'] for row in global_rows})
+
+    def test_super_admin_can_add_and_disable_country_for_signup(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        created=self.post_json('/api/admin/countries',{'action':'add','name':'Spain'})
+        self.assertEqual(created.status_code,200)
+        self.assertIn('Spain',{row['name'] for row in created.json()['countries']})
+        disabled=self.post_json('/api/admin/countries',{'action':'toggle','name':'Spain','active':False})
+        self.assertEqual(disabled.status_code,200)
+        spain=next(row for row in disabled.json()['countries'] if row['name']=='Spain')
+        self.assertFalse(spain['active'])
+        signup=self.register(email='spain@example.com',country='Spain')
+        self.assertEqual(signup.status_code,422)
+
     def test_protected_commands_require_login(self):
         response=self.post_json('/api/commands',{'action':'toggleBookmark','payload':{'args':[self.approved.id]}})
         self.assertEqual(response.status_code,401)
