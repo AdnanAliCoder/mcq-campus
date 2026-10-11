@@ -539,6 +539,12 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     qs=model.objects.all()
     country=country_for_user(user)
     if country:
+        if kind=='categories':
+            country_category_ids=MCQ.objects.filter(country__iexact=country).values_list('category_id',flat=True).distinct()
+            qs=qs.filter(pk__in=country_category_ids)
+        elif kind=='subcategories':
+            category_ids=MCQ.objects.filter(country__iexact=country).values_list('category_id',flat=True).distinct()
+            qs=qs.filter(category_id__in=category_ids)
         if kind=='papers':
             qs=qs.filter(country__iexact=country)
         elif kind=='jobs':
@@ -750,6 +756,10 @@ def admin_overview_data(user,active_role=None):
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:5]]
     mine_qs=MCQ.objects.filter(created_by=user)
+    country=country_for_user(user)
+    if country and not super_view:
+        qs=qs.filter(country__iexact=country)
+        mine_qs=mine_qs.filter(country__iexact=country)
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
     data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
     if super_view:
@@ -787,6 +797,9 @@ def admin_reports_data(user,page=1,page_size=50):
     require(is_super(user) or has_perm(user,'view_reports'))
     page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
     qs=Report.objects.select_related('user','mcq').order_by('-created_at')
+    country=country_for_user(user)
+    if country:
+        qs=qs.filter(mcq__country__iexact=country)
     total=qs.count(); start=(page-1)*page_size
     reports=[{'id':r.id,'mcq_id':r.mcq_id,'question':r.mcq.question if r.mcq else '','reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in qs[start:start+page_size]]
     contacts=[]
@@ -1144,7 +1157,11 @@ def review_mcqs(user,ids,status,reason=''):
         ids=[int(x) for x in str(ids).split(',') if str(x).strip().isdigit()]
     if status not in {'approved','rejected','pending'}: raise ValueError('Invalid review status.')
     if status!='approved' and not str(reason).strip(): raise ValueError('A reason is required.')
-    for q in MCQ.objects.filter(id__in=ids):
+    country=country_for_user(user)
+    review_qs=MCQ.objects.filter(id__in=ids)
+    if country:
+        review_qs=review_qs.filter(country__iexact=country)
+    for q in review_qs:
         if q.pending_update:
             pu=q.pending_update
             if status=='approved':
@@ -1542,21 +1559,43 @@ def command(user,action,payload):
     }
     action=aliases.get(action,action)
     if action=='attempt':
-        qid,answer=payload.get('args',[None,None]); q=MCQ.objects.filter(pk=qid,status='approved').first();
+        qid,answer=payload.get('args',[None,None]); qs=MCQ.objects.filter(pk=qid,status='approved')
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        q=qs.first()
         if not q: raise ValueError('Question not available.')
         correct=str(q.correct_answer)==str(answer); Attempt.objects.create(user=user,mcq=q,answer=str(answer),correct=correct); return correct
     if action=='toggleBookmark':
-        qid=(payload.get('args') or [None])[0]; q=MCQ.objects.get(pk=qid); obj,created=Bookmark.objects.get_or_create(user=user,mcq=q)
+        qid=(payload.get('args') or [None])[0]; qs=MCQ.objects.filter(pk=qid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        q=qs.first()
+        if not q: raise ValueError('Question not available.')
+        obj,created=Bookmark.objects.get_or_create(user=user,mcq=q)
         if not created: obj.delete(); return False
         return True
     if action=='savePaper':
-        pid=(payload.get('args') or [None])[0]; p=Paper.objects.get(pk=pid); obj,created=SavedPaper.objects.get_or_create(user=user,paper=p)
+        pid=(payload.get('args') or [None])[0]; qs=Paper.objects.filter(pk=pid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        p=qs.first()
+        if not p: raise ValueError('Paper not available.')
+        obj,created=SavedPaper.objects.get_or_create(user=user,paper=p)
         if not created: obj.delete(); return False
         return True
     if action=='report':
-        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.'); r=Report.objects.create(user=user,mcq=MCQ.objects.get(pk=qid),reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
+        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.')
+        qs=MCQ.objects.filter(pk=qid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        q=qs.first()
+        if not q: raise ValueError('Question not available.')
+        r=Report.objects.create(user=user,mcq=q,reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
     if action=='saveProfile':
-        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
+        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user)
+        if is_super(user) and vals.get('country'):
+            prof.country=country_for_write(user,vals.get('country'))
+        _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
     if action=='changePassword':
         raise ValueError('Use the secure password change flow with email verification.')
     if action=='form:mcq':
@@ -2034,7 +2073,11 @@ def review_mcqs(user,ids,status,reason=''):
         ids=[int(x) for x in str(ids).split(',') if str(x).strip().isdigit()]
     if status not in {'approved','rejected','pending'}: raise ValueError('Invalid review status.')
     if status!='approved' and not str(reason).strip(): raise ValueError('A reason is required.')
-    for q in MCQ.objects.filter(id__in=ids):
+    country=country_for_user(user)
+    review_qs=MCQ.objects.filter(id__in=ids)
+    if country:
+        review_qs=review_qs.filter(country__iexact=country)
+    for q in review_qs:
         if q.pending_update:
             pu=q.pending_update
             if status=='approved':
@@ -2432,21 +2475,43 @@ def command(user,action,payload):
     }
     action=aliases.get(action,action)
     if action=='attempt':
-        qid,answer=payload.get('args',[None,None]); q=MCQ.objects.filter(pk=qid,status='approved').first();
+        qid,answer=payload.get('args',[None,None]); qs=MCQ.objects.filter(pk=qid,status='approved')
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        q=qs.first()
         if not q: raise ValueError('Question not available.')
         correct=str(q.correct_answer)==str(answer); Attempt.objects.create(user=user,mcq=q,answer=str(answer),correct=correct); return correct
     if action=='toggleBookmark':
-        qid=(payload.get('args') or [None])[0]; q=MCQ.objects.get(pk=qid); obj,created=Bookmark.objects.get_or_create(user=user,mcq=q)
+        qid=(payload.get('args') or [None])[0]; qs=MCQ.objects.filter(pk=qid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        q=qs.first()
+        if not q: raise ValueError('Question not available.')
+        obj,created=Bookmark.objects.get_or_create(user=user,mcq=q)
         if not created: obj.delete(); return False
         return True
     if action=='savePaper':
-        pid=(payload.get('args') or [None])[0]; p=Paper.objects.get(pk=pid); obj,created=SavedPaper.objects.get_or_create(user=user,paper=p)
+        pid=(payload.get('args') or [None])[0]; qs=Paper.objects.filter(pk=pid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        p=qs.first()
+        if not p: raise ValueError('Paper not available.')
+        obj,created=SavedPaper.objects.get_or_create(user=user,paper=p)
         if not created: obj.delete(); return False
         return True
     if action=='report':
-        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.'); r=Report.objects.create(user=user,mcq=MCQ.objects.get(pk=qid),reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
+        qid,reason=payload.get('args',[None,'']); require(str(reason).strip(),'Enter a report reason.')
+        qs=MCQ.objects.filter(pk=qid)
+        country=country_for_user(user)
+        if country: qs=qs.filter(country__iexact=country)
+        q=qs.first()
+        if not q: raise ValueError('Question not available.')
+        r=Report.objects.create(user=user,mcq=q,reason=str(reason)); return {'report':{'id':r.id,'mcq_id':r.mcq_id,'reason':r.reason,'status':r.status,'by_id':user.id,'by':user_name(user),'at':iso(r.created_at)}}
     if action=='saveProfile':
-        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user); prof.country=str(vals.get('country') or prof.country); _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
+        vals=(payload.get('args') or [{}])[0] or {}; user.first_name=str(vals.get('name') or user_name(user)); new_email=str(vals.get('email') or user.email).strip().lower(); require('@' in new_email,'Enter a valid email.'); require(not User.objects.exclude(pk=user.pk).filter(email=new_email).exists(),'That email is already in use.'); user.email=new_email; user.username=new_email; user.save(); prof=profile_for(user)
+        if is_super(user) and vals.get('country'):
+            prof.country=country_for_write(user,vals.get('country'))
+        _save_profile_payload(prof,vals); prof.save(); return user_profile_dict(user)
     if action=='changePassword':
         raise ValueError('Use the secure password change flow with email verification.')
     if action=='form:mcq':
