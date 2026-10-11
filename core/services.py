@@ -438,6 +438,7 @@ def startup_payload(user,session):
     if settings is None: settings=SiteSetting.objects.create(pk=1)
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     return {'snapshot':{'schemaVersion':12,**_startup_site_state(settings),
+                        'siteCounts':{'approvedMcqs':MCQ.objects.filter(status='approved').count()},
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
             'user':user_identity_dict(user,session) if authenticated else None}
 
