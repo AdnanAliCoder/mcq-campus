@@ -622,7 +622,12 @@ def profile_detail(request):
 
 @profile_api('bootstrap')
 @require_GET
-def bootstrap(request): return JsonResponse(snapshot(request.user),safe=True)
+def bootstrap(request):
+    selected_country=request.GET.get('country') or ''
+    if selected_country and not (is_super(request.user) and request.session.get('active_role')=='super-admin'):
+        return err('Only the Super Admin can preview another country.',403)
+    try: return JsonResponse(snapshot(request.user,selected_country),safe=True)
+    except ValueError as exc: return err(exc,422)
 
 @profile_api('mcqs')
 @require_GET
