@@ -1174,11 +1174,24 @@ def save_entity(user,payload):
     if icon_url and not re.match(r'^https?://',icon_url,re.I): raise ValueError('Icon URL must start with http:// or https://.')
     icon=str(icon_url or values.get('entity-icon-data') or values.get('entity-icon') or 'grid').strip() or 'grid'; active='entity-active' in fields
     obj=model.objects.filter(pk=rid).first() if rid else None
+    country=country_for_user(user)
+    if country and rid and obj:
+        if typ=='papers':
+            require(str(obj.country or '').casefold()==country.casefold(),'This paper belongs to another country.')
+        elif typ=='jobs':
+            require(str(obj.paper.country or '').casefold()==country.casefold(),'This job belongs to another country.')
+        elif typ=='years':
+            require(str(obj.job.paper.country or '').casefold()==country.casefold(),'This job year belongs to another country.')
     if not obj: obj=model(id=next_id(model),created_by=user)
     obj.name=name; obj.icon=icon; obj.active=active; obj.updated_by=user
-    if typ=='papers': obj.country=str(values.get('entity-country') or 'Pakistan')[:80]
+    if typ=='papers': obj.country=country_for_write(user,values.get('entity-country'))
     if typ in ENTITY_PARENT:
-        fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.'); setattr(obj,fk,pid)
+        fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.')
+        if country and typ=='jobs':
+            require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose a paper from your assigned country.')
+        if country and typ=='years':
+            require(Job.objects.filter(pk=pid,paper__country__iexact=country).exists(),'Choose a job from your assigned country.')
+        setattr(obj,fk,pid)
     obj.save()
     if typ=='papers':
         now=timezone.now()
@@ -1990,7 +2003,7 @@ def save_mcq(user,draft):
     existing=MCQ.objects.filter(pk=qid).first() if qid else None
     if existing:
         require(is_super(user) or (existing.created_by_id==user.id and existing.status!='approved'))
-    dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip())
+    dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip(),country__iexact=country_for_write(user,draft.get('country')))
     if existing: dup=dup.exclude(pk=existing.pk)
     duplicate=dup.first()
     if duplicate:
@@ -2051,11 +2064,24 @@ def save_entity(user,payload):
     if icon_url and not re.match(r'^https?://',icon_url,re.I): raise ValueError('Icon URL must start with http:// or https://.')
     icon=str(icon_url or values.get('entity-icon-data') or values.get('entity-icon') or 'grid').strip() or 'grid'; active='entity-active' in fields
     obj=model.objects.filter(pk=rid).first() if rid else None
+    country=country_for_user(user)
+    if country and rid and obj:
+        if typ=='papers':
+            require(str(obj.country or '').casefold()==country.casefold(),'This paper belongs to another country.')
+        elif typ=='jobs':
+            require(str(obj.paper.country or '').casefold()==country.casefold(),'This job belongs to another country.')
+        elif typ=='years':
+            require(str(obj.job.paper.country or '').casefold()==country.casefold(),'This job year belongs to another country.')
     if not obj: obj=model(id=next_id(model),created_by=user)
     obj.name=name; obj.icon=icon; obj.active=active; obj.updated_by=user
-    if typ=='papers': obj.country=str(values.get('entity-country') or 'Pakistan')[:80]
+    if typ=='papers': obj.country=country_for_write(user,values.get('entity-country'))
     if typ in ENTITY_PARENT:
-        fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.'); setattr(obj,fk,pid)
+        fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.')
+        if country and typ=='jobs':
+            require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose a paper from your assigned country.')
+        if country and typ=='years':
+            require(Job.objects.filter(pk=pid,paper__country__iexact=country).exists(),'Choose a job from your assigned country.')
+        setattr(obj,fk,pid)
     obj.save()
     if typ=='papers':
         now=timezone.now()
