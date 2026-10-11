@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS core_pendingsignup (
     email varchar(254) NOT NULL UNIQUE,
     first_name varchar(150) NOT NULL,
     last_name varchar(150) NOT NULL,
+    country varchar(80) NOT NULL DEFAULT 'Pakistan',
     password_hash varchar(128) NOT NULL,
     code_hash varchar(64) NOT NULL,
     expires_at timestamptz NOT NULL,
@@ -23,3 +24,7 @@ CREATE INDEX IF NOT EXISTS core_pendingsignup_expires_at_idx
     ON core_pendingsignup (expires_at);
 
 COMMIT;
+
+-- Safe additive upgrade for existing Supabase databases.
+ALTER TABLE core_pendingsignup
+    ADD COLUMN IF NOT EXISTS country varchar(80) NOT NULL DEFAULT 'Pakistan';
