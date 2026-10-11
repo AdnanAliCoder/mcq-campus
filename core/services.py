@@ -699,9 +699,20 @@ def _attach_important_flags(objects):
 
 def snapshot(user):
     country=country_for_user(user)
-    cats=list(Category.objects.select_related('created_by','updated_by').all().order_by('id'))
-    subs=list(Subcategory.objects.select_related('created_by','updated_by').all().order_by('id'))
-    childs=list(ChildCategory.objects.select_related('created_by','updated_by').all().order_by('id'))
+    cats_qs=Category.objects.select_related('created_by','updated_by').all()
+    subs_qs=Subcategory.objects.select_related('created_by','updated_by').all()
+    childs_qs=ChildCategory.objects.select_related('created_by','updated_by').all()
+    if country:
+        country_mcqs=MCQ.objects.filter(country__iexact=country)
+        if not is_admin(user):
+            country_mcqs=country_mcqs.filter(status='approved')
+        country_category_ids=country_mcqs.values_list('category_id',flat=True).distinct()
+        cats_qs=cats_qs.filter(pk__in=country_category_ids)
+        subs_qs=subs_qs.filter(category_id__in=country_category_ids)
+        childs_qs=childs_qs.filter(subcategory__category_id__in=country_category_ids)
+    cats=list(cats_qs.order_by('id'))
+    subs=list(subs_qs.order_by('id'))
+    childs=list(childs_qs.order_by('id'))
     papers_qs=Paper.objects.select_related('created_by','updated_by').all()
     jobs_qs=Job.objects.select_related('paper','created_by','updated_by').all()
     years_qs=JobYear.objects.select_related('job__paper','created_by','updated_by').all()
