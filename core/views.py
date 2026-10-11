@@ -543,7 +543,7 @@ def admin_countries(request):
         if not isinstance(order_names,list): return err('Country order must be a list of country names.',422)
         requested=[]; seen=set()
         for value in order_names:
-            key=re.sub(r'\\s+',' ',str(value or '')).strip().casefold()
+            key=re.sub(r'\s+',' ',str(value or '')).strip().casefold()
             if key in by_name and key not in seen:
                 requested.append(by_name[key]); seen.add(key)
         requested.extend(item for item in normalized if item['name'].casefold() not in seen)
