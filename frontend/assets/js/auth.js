@@ -629,7 +629,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else{if(app)app.innerHTML='';backendLoading(true);}try{await check({loading:false});await ensureRouteData(route());}finally{if(!authFirst)backendLoading(false)}App.render();}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else{if(app)app.innerHTML='';backendLoading(true);}try{await check({loading:false});if(!authFirst)await ensureRouteData(route());}finally{if(!authFirst)backendLoading(false)}App.render();}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
