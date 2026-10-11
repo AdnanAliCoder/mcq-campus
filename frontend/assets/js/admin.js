@@ -61,10 +61,13 @@ window.Admin=(()=>{
    {title:'Open Reports',value:openReports,iconName:'flag',tone:openReports?'warning':'neutral',path:url('reports'),subtitle:'Content issues'}
   ];
   const mineTotal=summary.mine?.total??mine.length,minePending=summary.mine?.pending??statusCount(mine,'pending'),mineApproved=summary.mine?.approved??statusCount(mine,'approved');
+  const scopedPapers=selectedCountry?d.papers.filter(x=>String(x.country||'').toLowerCase()===selectedCountry.toLowerCase()):d.papers;
+  const scopedJobs=selectedCountry?d.jobs.filter(x=>{const paper=d.papers.find(p=>Number(p.id)===Number(x.paper_id));return String(paper?.country||'').toLowerCase()===selectedCountry.toLowerCase()}):d.jobs;
+  const scopedYears=selectedCountry?d.years.filter(x=>{const job=d.jobs.find(j=>Number(j.id)===Number(x.job_id)),paper=d.papers.find(p=>Number(p.id)===Number(job?.paper_id));return String(paper?.country||'').toLowerCase()===selectedCountry.toLowerCase()}):d.years;
   const controlRows=[
    [icon('book'),'Question Library',`${total} total · ${pending} waiting`,url('all-mcqs')],
    [icon('shield'),'Admin Records',`${staffTotal} administrator account${staffTotal===1?'':'s'}`,url('admin-records')],
-   [icon('paper'),'Papers & Jobs',`${d.papers.length} organizations · ${d.jobs.length} jobs · ${d.years.length} paper records`,url('papers')],
+   [icon('paper'),'Papers & Jobs',`${scopedPapers.length} organizations · ${scopedJobs.length} jobs · ${scopedYears.length} paper records`,url('papers')],
    [icon('settings'),'System Settings',`${learners} learners`,url('settings')]
   ];
   const countryScopeControl=MCQ.role()==='super-admin'?(`<form data-form="overview-country-scope" class="overview-country-scope"><label for="overview-country-select" class="small muted">Dashboard country</label><select id="overview-country-select" name="country"><option value="">All countries</option>${(d.countries||[]).filter(x=>x.active!==false).map(x=>`<option value="${e(x.name)}" ${String(x.name)===selectedCountry?'selected':''}>${e(x.name)}</option>`).join('')}</select><button class="btn sm" type="submit">Apply</button></form>`):'';
