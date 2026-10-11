@@ -29,6 +29,7 @@ class IntegrationTests(TestCase):
         return self.client.post(path,data=json.dumps(data),content_type='application/json')
 
     def test_seo_sitemap_index_exposes_hierarchy_sitemaps(self):
+        self.client.force_login(self.owner)
         response=self.client.get('/sitemap.xml')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
@@ -39,6 +40,7 @@ class IntegrationTests(TestCase):
         self.assertIn('/sitemap-mcqs.xml',body)
 
     def test_category_subcategory_topic_pages_have_unique_server_seo(self):
+        self.client.force_login(self.owner)
         sub=Subcategory.objects.create(id=110,name='Operating Systems',category=self.category)
         child=ChildCategory.objects.create(id=120,name='Process Management',subcategory=sub)
         self.approved.subcategory_ids=[sub.id]
@@ -54,6 +56,7 @@ class IntegrationTests(TestCase):
         self.assertIn('/topic/process-management',self.client.get('/sitemap-categories.xml').content.decode())
 
     def test_paper_job_year_pages_have_distinct_search_titles_and_sitemaps(self):
+        self.client.force_login(self.owner)
         job=Job.objects.create(id=300,name='Assistant',paper=self.paper)
         year=JobYear.objects.create(id=400,name='2026',job=job)
         self.approved.paper_ids=[self.paper.id]
@@ -73,6 +76,7 @@ class IntegrationTests(TestCase):
         self.assertIn('/paper/ppsc/job/assistant/year/2026',self.client.get('/sitemap-years.xml').content.decode())
 
     def test_unknown_public_entity_routes_are_404_and_noindex(self):
+        self.client.force_login(self.owner)
         for path in [
             '/category/not-a-real-category',
             '/paper/not-a-real-paper',
@@ -92,17 +96,25 @@ class IntegrationTests(TestCase):
 
     def test_complete_frontend_entry_loads(self):
         response=self.client.get('/')
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(response['Location'],'/login')
+        response=self.client.get('/login')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
+        self.assertIn('styles.css?v=20261011-country-access-v1',body)
         self.assertIn('assets/js/auth.js',body)
         self.assertIn('assets/js/seo.js',body)
         self.assertNotIn('assets/js/seed.js',body)
 
-    def test_public_bootstrap_exposes_only_public_content(self):
+    def test_bootstrap_requires_authentication(self):
         response=self.client.get('/api/bootstrap')
-        self.assertEqual(response.status_code,200)
-        data=response.json()
-        self.assertEqual([row['id'] for row in data['mcqs']],[self.approved.id])
+        self.assertEqual(response.status_code,401)
+        self.assertTrue(response.json()['loginRequired'])
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        authenticated=self.client.get('/api/bootstrap')
+        self.assertEqual(authenticated.status_code,200)
+        data=authenticated.json()
+        self.assertEqual(data['mcqPage']['total'],1)
         self.assertNotIn('users',data)
         self.assertNotIn('logs',data)
         self.assertNotIn('reports',data)
@@ -590,6 +602,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(response.json()['match']['id'],self.approved.id)
 
     def test_mcq_endpoint_is_paginated_and_bootstrap_is_bounded(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         more=[MCQ(id=1000+i,question=f'Bulk question {i}?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',created_by=self.admin,submitted_by=self.admin) for i in range(60)]
         MCQ.objects.bulk_create(more)
         response=self.client.get('/api/mcqs?page=1&page_size=20')
@@ -600,17 +613,17 @@ class IntegrationTests(TestCase):
         self.assertGreaterEqual(data['total'],61)
         self.assertTrue(data['hasNext'])
         capped=self.client.get('/api/mcqs?page=1&page_size=1000').json()
-        self.assertEqual(capped['pageSize'],30)
+        self.assertEqual(capped['pageSize'],50)
         with CaptureQueriesContext(connection) as list_queries:
             self.client.get('/api/mcqs?page=1&page_size=20')
         self.assertLessEqual(len(list_queries),5)
-        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         bootstrap=self.client.get('/api/bootstrap').json()
         self.assertLessEqual(len(bootstrap['mcqs']),5)
         self.assertGreaterEqual(bootstrap['mcqPage']['total'],61)
         self.assertIn('mcqPage',bootstrap)
 
     def test_public_mcq_pages_load_ten_rows_with_exact_database_total(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         more=[MCQ(id=2100+i,question=f'Public page question {i}?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',created_by=self.admin,submitted_by=self.admin) for i in range(24)]
         MCQ.objects.bulk_create(more)
         data=self.client.get('/api/mcqs?public=1&page=2&page_size=10').json()
@@ -620,6 +633,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(all(row['status']=='approved' for row in data['items']))
 
     def test_public_important_pages_use_two_distinct_job_ids(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         job1=Job.objects.create(id=710,name='Important Job One',paper=self.paper)
         job2=Job.objects.create(id=711,name='Important Job Two',paper=self.paper)
         self.approved.job_ids=[job1.id,job2.id]
@@ -631,6 +645,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(row['important'])
 
     def test_public_entity_pages_load_ten_records_and_keep_total(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         Category.objects.bulk_create([Category(id=3000+i,name=f'Category {i}',icon='grid') for i in range(15)])
         first=self.client.get('/api/entities?type=categories&scope=public&page=1').json()
         second=self.client.get('/api/entities?type=categories&scope=public&page=2').json()
@@ -753,6 +768,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(profile_response.json()['user']['avatar'].startswith('data:image/png;base64,'))
 
     def test_public_bootstrap_query_count_is_bounded(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         with CaptureQueriesContext(connection) as queries:
             response=self.client.get('/api/bootstrap')
         self.assertEqual(response.status_code,200)
@@ -762,6 +778,7 @@ class IntegrationTests(TestCase):
             self.assertNotIn(key,data)
 
     def test_public_content_is_lazy(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         data=self.client.get('/api/public/content').json()
         self.assertIn('posts',data)
         self.assertIn('guides',data)
@@ -772,7 +789,7 @@ class IntegrationTests(TestCase):
         self.assertNotIn('pdfs',resources)
         self.assertIn('seoIndex',resources)
         self.assertFalse(any(key.startswith('mcq:') for key in resources['seoIndex']['items']))
-        self.assertIn('s-maxage=3600',resources_response['Cache-Control'])
+        self.assertIn('private, no-store',resources_response['Cache-Control'])
         catalog=self.client.get('/api/public/catalog').json()
         self.assertIn('pdfs',catalog)
         self.assertIn('latestJobs',catalog)
@@ -780,6 +797,7 @@ class IntegrationTests(TestCase):
         self.assertIn('content',legal)
 
     def test_empty_content_bootstrap_remains_well_formed(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         MCQ.objects.all().delete()
         Category.objects.all().delete()
         Paper.objects.all().delete()
@@ -801,6 +819,7 @@ class IntegrationTests(TestCase):
 
 
     def test_public_contact_and_report(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         self.assertEqual(self.post_json('/api/contact',{'name':'Visitor','email':'visitor@example.com','message':'Please help.'}).status_code,200)
         self.assertEqual(self.post_json('/api/report',{'id':self.approved.id,'reason':'Check wording.'}).status_code,200)
         self.assertEqual(ContactMessage.objects.count(),1)
