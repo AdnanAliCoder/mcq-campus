@@ -491,17 +491,19 @@ def _approved_public_counts(country=None):
     papers=Paper.objects.filter(active=True)
     jobs=Job.objects.filter(active=True)
     years=JobYear.objects.filter(active=True)
+    categories=Category.objects.filter(active=True)
     if country:
         approved=approved.filter(country__iexact=country)
         papers=papers.filter(country__iexact=country)
         jobs=jobs.filter(paper__country__iexact=country)
         years=years.filter(job__paper__country__iexact=country)
+        categories=categories.filter(pk__in=approved.values('category_id').distinct())
     important=_json_array_length(approved,'job_ids','_job_count').filter(_job_count__gte=2).count()
     category_rows=approved.values('category_id').annotate(total=Count('id'))
     return {
         'approvedMcqs':approved.count(),
         'importantMcqs':important,
-        'categories':Category.objects.filter(active=True).count(),
+        'categories':categories.count(),
         'papers':papers.count(),
         'jobs':jobs.count(),
         'years':years.count(),
