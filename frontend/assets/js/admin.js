@@ -22,7 +22,7 @@ window.Admin=(()=>{
   const numbers=state.numbers.map(p=>btn(String(p),'import-page',`sm ${p===state.current?'current':''}`,`data-page="${p}"`)).join('');
   return `<nav class="pagination" aria-label="Imported MCQ pagination">${state.current>1?btn('‹ Previous','import-page','sm',`data-page="${state.current-1}"`):'<span></span>'}<div class="page-numbers">${numbers}</div>${state.current<state.pages?btn('Next ›','import-page','sm primary',`data-page="${state.current+1}"`):'<span></span>'}<span class="small muted pagination-count">${Number(total).toLocaleString('en-GB')} total imported MCQs · Page ${state.current}</span></nav>`;
  }
- const navLink=(p,title,i)=>link(url(p),icon(i)+e(title),'item '+(App.route.path===url(p)?'active':''));
+ const navLink=(p,title,i)=>link(url(p),icon(i)+e(title),'item '+(App.route.path===url(p)?'active':''),MCQ.role()==='super-admin'&&App.route.params?.country?{country:App.route.params.country}:{}));
  function shell(body,title){
   const superAdmin=MCQ.role()==='super-admin';
   const library=superAdmin
@@ -53,26 +53,30 @@ window.Admin=(()=>{
   const openReports=summary.openReports??(d.reports||[]).filter(r=>!['resolved','closed'].includes(String(r.status||'').toLowerCase())).length;
   const staff=(d.users&&d.users.length?d.users.filter(u=>['admin','super-admin'].includes(u.role)):(summary.staffPreview||[])),learners=summary.learners??d.users.filter(u=>u.role==='user').length,trash=summary.trash??(d.trash||[]).length,staffTotal=summary.staff??staff.length;
   const recent=(Array.isArray(summary.recent)&&summary.recent.length?summary.recent:d.mcqs).slice(0,5);
+  const activeCountry=String(summary.activeCountry||'').trim();
+  const scopeParams=activeCountry?{country:activeCountry}:{};
+  const countryOptions=[{name:'All countries',value:'all'},...(Array.isArray(summary.countries)&&summary.countries.length?summary.countries:(d.countries||[])).map(row=>({name:row.name,value:row.name}))];
+  const selector='<form data-form="admin-country-filter" class="admin-country-filter card"><div class="field"><label for="admin-overview-country">Dashboard data scope</label><select id="admin-overview-country" name="country">'+countryOptions.map(row=>'<option value="'+e(row.value)+'" '+((activeCountry?activeCountry===row.value:row.value==='all')?'selected':'')+'>'+e(row.name)+'</option>').join('')+'</select><small>'+(activeCountry?'Showing statistics for '+e(activeCountry)+'.':'Showing overall platform statistics across every country.')+'</small></div><button type="submit" class="btn primary">'+icon('globe')+' Apply country</button></form>';
   const top=[
-   {title:'Website MCQs',value:total,iconName:'book',tone:'primary',path:url('all-mcqs'),subtitle:'Complete collection'},
-   {title:'Pending',value:pending,iconName:'clock',tone:'info',path:url('all-mcqs'),params:{status:'pending'},subtitle:'Needs a decision'},
-   {title:'Approved',value:approved,iconName:'check',tone:'success',path:url('all-mcqs'),params:{status:'approved'},subtitle:'Live-ready MCQs'},
-   {title:'Open Reports',value:openReports,iconName:'flag',tone:openReports?'warning':'neutral',path:url('reports'),subtitle:'Content issues'}
+   {title:'Website MCQs',value:total,iconName:'book',tone:'primary',path:url('all-mcqs'),params:scopeParams,subtitle:activeCountry?activeCountry+' collection':'Complete collection'},
+   {title:'Pending',value:pending,iconName:'clock',tone:'info',path:url('all-mcqs'),params:{...scopeParams,status:'pending'},subtitle:'Needs a decision'},
+   {title:'Approved',value:approved,iconName:'check',tone:'success',path:url('all-mcqs'),params:{...scopeParams,status:'approved'},subtitle:'Live-ready MCQs'},
+   {title:'Open Reports',value:openReports,iconName:'flag',tone:openReports?'warning':'neutral',path:url('reports'),params:scopeParams,subtitle:'Content issues'}
   ];
   const mineTotal=summary.mine?.total??mine.length,minePending=summary.mine?.pending??statusCount(mine,'pending'),mineApproved=summary.mine?.approved??statusCount(mine,'approved');
   const controlRows=[
    [icon('book'),'Question Library',`${total} total · ${pending} waiting`,url('all-mcqs')],
    [icon('shield'),'Admin Records',`${staffTotal} administrator account${staffTotal===1?'':'s'}`,url('admin-records')],
-   [icon('paper'),'Papers & Jobs',`${d.papers.length} organizations · ${d.jobs.length} jobs · ${d.years.length} paper records`,url('papers')],
+   [icon('paper'),'Papers & Jobs',`${activeCountry?d.papers.filter(p=>String(p.country||'Pakistan').toLowerCase()===activeCountry.toLowerCase()).length:d.papers.length} organizations · ${activeCountry?d.jobs.filter(j=>d.papers.some(p=>Number(p.id)===Number(j.paper_id)&&String(p.country||'Pakistan').toLowerCase()===activeCountry.toLowerCase())).length:d.jobs.length} jobs · ${activeCountry?d.years.filter(y=>d.jobs.some(j=>Number(j.id)===Number(y.job_id)&&d.papers.some(p=>Number(p.id)===Number(j.paper_id)&&String(p.country||'Pakistan').toLowerCase()===activeCountry.toLowerCase()))).length:d.years.length} paper records`,url('papers')],
    [icon('settings'),'System Settings',`${learners} learners`,url('settings')]
   ];
-  return heading('Super Admin Overview','Review website content, track ownership, and open the main control areas from one compact command centre.',`<div class="actions overview-head-actions">${link(url('add'),icon('plus')+' Add MCQ','btn primary')}${link(url('all-mcqs'),icon('clock')+' Pending','btn',{status:'pending'})}${link(url('settings'),icon('settings')+' Settings','btn')}</div>`)+
-   `<div class="metric-grid admin-primary-metrics overview-top-metrics">${top.map(x=>UI.statCard({...x,className:'overview-stat'})).join('')}</div>`+
+  return heading('Super Admin Overview','Review and manage one country at a time, or switch to the complete MCQCampus platform.',`<div class="actions overview-head-actions">${link(url('add'),icon('plus')+' Add MCQ','btn primary',scopeParams)}${link(url('all-mcqs'),icon('clock')+' Pending','btn',{...scopeParams,status:'pending'})}${link(url('settings'),icon('settings')+' Settings','btn',scopeParams)}</div>`)+
+   `<div class="metric-grid admin-primary-metrics overview-top-metrics">${top.map(x=>UI.statCard({...x,className:'overview-stat'})).join('')}</div>`+selector+
    `<div class="overview-command-grid">`+
     `<section class="card overview-command-card"><div class="overview-card-head"><div><p class="eyebrow">MY COLLECTION</p><h2>${e(me.name||'Super Admin')}</h2></div>${link(url('mcqs'),'Open '+icon('arrow'),'link')}</div><div class="overview-mini-stats"><div><strong>${mineTotal}</strong><span>Added</span></div><div><strong>${minePending}</strong><span>Pending</span></div><div><strong>${mineApproved}</strong><span>Approved</span></div></div><p class="small muted">Only MCQs created by your Super Admin account are counted here.</p></section>`+
     `<section class="card overview-command-card"><div class="overview-card-head"><div><p class="eyebrow">ADMIN OWNERSHIP</p><h2>Admin Records</h2></div>${link(url('admin-records'),'All records '+icon('arrow'),'link')}</div><div class="admin-record-mini">${staff.slice(0,4).map(u=>{const rows=d.mcqs.filter(q=>Number(q.created_by_id)===Number(u.id)),count=(summary.staffCounts||{})[u.id]??rows.length;return `<a href="${e(UI.href(url('all-mcqs'),{author:u.id}))}" class="admin-record-mini-row"><span><strong>${e(u.name)}</strong><small>${e(u.role==='super-admin'?'Super Admin':'Admin')}</small></span><b>${count}</b></a>`}).join('')||'<p class="muted small">No administrator accounts.</p>'}</div></section>`+
    `</div>`+
-   `<section class="overview-authority-section"><div class="section-head"><div><p class="eyebrow">CONTROL AREAS</p><h2>Super Admin authority map</h2><p class="small muted">Each area opens the existing management workflow instead of duplicating it on the overview.</p></div></div><div class="overview-authority-grid">${controlRows.map(([ic,title,desc,path])=>link(path,`<span class="overview-authority-icon">${ic}</span><span><strong>${e(title)}</strong><small>${e(desc)}</small></span>${icon('arrow')}`,'overview-authority-item')).join('')}</div></section>`+
+   `<section class="overview-authority-section"><div class="section-head"><div><p class="eyebrow">CONTROL AREAS</p><h2>Super Admin authority map</h2><p class="small muted">Each area opens the existing management workflow instead of duplicating it on the overview.</p></div></div><div class="overview-authority-grid">${controlRows.map(([ic,title,desc,path])=>link(path,`<span class="overview-authority-icon">${ic}</span><span><strong>${e(title)}</strong><small>${e(desc)}</small></span>${icon('arrow')}`,'overview-authority-item',scopeParams)).join('')}</div></section>`+
    `<section class="overview-recent-section"><div class="section-head"><div><p class="eyebrow">LATEST SUBMISSIONS</p><h2>Recent website MCQs</h2></div>${link(url('all-mcqs'),'View all','link')}</div>${recent.length?table(recent,false):empty('No MCQs yet')}</section>`;
  }
   function submissionBadge(q){if(q.pending_update)return badge('UPDATE','warning');if(q.submission_type==='duplicate')return badge('DUPLICATE','danger');return badge(q.status==='pending'?'NEW':(q.submission_type||q.status),q.status==='pending'?'success':q.status)}
@@ -227,10 +231,11 @@ window.Admin=(()=>{
   const countries=Array.isArray(MCQ.db.countries)?MCQ.db.countries:[];
   const cards=countries.map(country=>{
    const name=String(country.name||'');
-   const active=country.active!==false;
-   return `<article class="country-manager-card"><div class="row"><strong>${e(name)}</strong><span class="badge">${active?'Active':'Disabled'}</span></div><div class="country-mcq-total"><strong>${Number(country.mcqCount||0).toLocaleString('en-US')}</strong><span>approved MCQs</span></div><div class="row"><span class="small muted">Learner signup ${active?'enabled':'disabled'}</span><button type="button" class="btn sm ${active?'ghost':'primary'}" data-country-toggle data-country-name="${e(name)}" data-country-active="${active?'true':'false}">${active?'Disable':'Enable'} country</button></div></article>`;
+   const active=country.active!==false,pinned=country.pinned===true;
+   const order=Math.max(0,Number(country.sortOrder||0));
+   return `<article class="country-manager-card"><div class="row"><strong>${e(name)}</strong><span class="badge">${active?'Active':'Disabled'}</span></div><div class="country-mcq-total"><strong>${Number(country.mcqCount||0).toLocaleString('en-US')}</strong><span>approved MCQs</span></div><div class="row"><span class="small muted">Learner signup ${active?'enabled':'disabled'}</span><button type="button" class="btn sm ${active?'ghost':'primary'}" data-country-toggle data-country-name="${e(name)}" data-country-active="${active?'true':'false}">${active?'Disable':'Enable'} country</button></div><form data-form="country-config" data-country-name="${e(name)}" class="country-manager-display-form"><label class="pin-choice"><input type="checkbox" name="pinned" ${pinned?"checked":""}> Pin country</label><div class="field"><label for="country-order-${e(MCQ.slug(name))}">Display order</label><input id="country-order-${e(MCQ.slug(name))}" type="number" min="0" max="100000" step="1" name="sortOrder" value="${order}" required></div><button type="submit" class="btn sm country-manager-save">Save display</button></form></article>`;
   }).join('');
-  return `<section class="page country-management"><div class="section-head"><div><p class="eyebrow">SUPER ADMIN</p><h1>Country management</h1><p class="muted">Add a country to make it available during signup. Approved MCQ totals are calculated from the database and refresh when the page reloads.</p></div></div><div class="card" style="padding:20px;margin-bottom:22px"><h2>Add a country</h2><form data-form="country-create" class="form-grid"><div class="field"><label for="country-new-name">Country name</label><input id="country-new-name" name="name" maxlength="80" autocomplete="country-name" required></div><div class="actions"><button type="submit" class="btn primary">Add country</button></div><p class="auth-error" role="alert" data-country-error></p></form></div><div class="section-head"><div><h2>Available country libraries</h2><p class="small muted">Disabling a country prevents new signups from selecting it. Existing accounts and their data are not deleted.</p></div></div><div class="country-manager-grid">${cards||empty('No country libraries yet','Add a country to make it available to learners.')}</div></section>`;
+  return `<section class="page country-management"><div class="section-head"><div><p class="eyebrow">SUPER ADMIN</p><h1>Country management</h1><p class="muted">Add and order country libraries, pin important destinations, and control new learner registrations. The landing page uses the saved display order automatically.</p></div></div><div class="card" style="padding:20px;margin-bottom:22px"><h2>Add a country</h2><form data-form="country-create" class="form-grid"><div class="field"><label for="country-new-name">Country name</label><input id="country-new-name" name="name" maxlength="80" autocomplete="country-name" required></div><div class="actions"><button type="submit" class="btn primary">Add country</button></div><p class="auth-error" role="alert" data-country-error></p></form></div><div class="section-head"><div><h2>Available country libraries</h2><p class="small muted">Pin important countries and use a smaller display-order number to place a country earlier. Disabling a country prevents new signups and does not delete existing data.</p></div></div><div class="country-manager-grid">${cards||empty('No country libraries yet','Add a country to make it available to learners.')}</div></section>`;
  }
 
  function settingsHub(){
@@ -321,6 +326,27 @@ window.Admin=(()=>{
  }
 
  document.addEventListener('submit',async event=>{
+  const filter=event.target.closest('form[data-form="admin-country-filter"]');
+  if(filter){
+   event.preventDefault();event.stopImmediatePropagation();
+   const selected=String(filter.elements.country?.value||'all');
+   App.go(url('overview'),selected&&selected!=='all'?{country:selected}:{});
+   return;
+  }
+  const config=event.target.closest('form[data-form="country-config"]');
+  if(config){
+   event.preventDefault();event.stopImmediatePropagation();
+   const button=config.querySelector('[type="submit"]'),name=config.dataset.countryName||'';
+   button.disabled=true;
+   try{
+    const result=await Auth.request('/admin/countries',{action:'configure',name,pinned:config.elements.pinned.checked,sortOrder:config.elements.sortOrder.value});
+    MCQ.mergeCore({countries:result.countries||[]});
+    UI.toast('Country display settings saved.');
+    App.render();
+   }catch(err){UI.toast(err.message||'Country display settings could not be saved.');}
+   finally{button.disabled=false;}
+   return;
+  }
   const form=event.target.closest('form[data-form="country-create"]');if(!form)return;
   event.preventDefault();event.stopImmediatePropagation();
   const error=form.querySelector('[data-country-error]'),button=form.querySelector('[type="submit"]');
