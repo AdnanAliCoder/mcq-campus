@@ -1,5 +1,5 @@
 /* Same-origin Django authentication and API adapter.
-   Application pages require a signed-in session; auth routes remain public. */
+   Country selection and auth screens are public; app sections require a signed-in session. */
 window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
