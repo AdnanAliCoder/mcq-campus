@@ -60,7 +60,9 @@ def _configured_country_entries():
         name=re.sub(r'\s+',' ',str(item.get('name') or '')).strip()[:80]
         key=name.casefold()
         if not name or key in seen: continue
-        seen.add(key); entries.append({'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':max(0,int(item.get('order',len(entries)) or 0))})
+        try: order=max(0,int(item.get('order',len(entries)) or 0))
+        except (TypeError,ValueError): order=len(entries)
+        seen.add(key); entries.append({'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':order})
     return entries
 
 def country_catalog(user=None,include_counts=True,include_inactive=False):
