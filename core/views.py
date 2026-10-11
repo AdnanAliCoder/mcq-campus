@@ -237,7 +237,8 @@ def auth_register(request):
     if not d.get('terms'): return err('Accept the terms and privacy information.',422,{'terms':'Required.'})
     try: email=_normalize_email(d.get('email'))
     except ValueError as exc: return err(exc,422,{'email':str(exc)})
-    country=str(d.get('country') or 'Pakistan').strip()[:80] or 'Pakistan'
+    country=str(d.get('country') or '').strip()[:80]
+    if not country: return err('Choose a country on the landing page before signing up.',422,{'country':'Required.'})
     active_countries={item['name'].casefold():item['name'] for item in country_catalog(include_counts=False) if item['active']}
     if country.casefold() not in active_countries:
         return err('Choose an available country.',422,{'country':'Choose an available country.'})
