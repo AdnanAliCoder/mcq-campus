@@ -297,10 +297,10 @@ window.Admin=(()=>{
   else if(view==='admin-records')body=adminRecords();
   else if(view==='paper-mcqs')body=paperCollection(id);
   else if(view==='add'||view==='edit')body=form(id);
+  else if(view==='countries')body=countryManager();
   else if(names[view])body=entities(view);
   else if(view==='import')body=importPage();
   else if(view==='settings')body=settingsHub();
-  else if(view==='countries')body=countryManager();
   else if(view==='site-settings')body=config('settings');
   else if(view==='page-seo')body=pageSeoSettings();
   else if(view==='users'||view==='admins')body=users(view);
