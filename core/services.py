@@ -711,12 +711,19 @@ def learner_dashboard_data(user):
         'savedPapers':saved,
     }
 
-def admin_overview_data(user,active_role=None):
+def admin_overview_data(user,active_role=None,selected_country=''):
     require(is_admin(user))
     super_view=is_super(user) and active_role=='super-admin'
     qs=MCQ.objects.all() if super_view else MCQ.objects.filter(created_by=user)
     mine_qs=MCQ.objects.filter(created_by=user)
     country=country_for_user(user)
+    selected_country=re.sub(r'\\s+',' ',str(selected_country or '')).strip()[:80]
+    if super_view and selected_country:
+        allowed={row['name'].casefold():row['name'] for row in country_catalog(user,include_counts=False,include_inactive=True)}
+        if selected_country.casefold() not in allowed: raise ValueError('Choose a country from the country catalog.')
+        selected_country=allowed[selected_country.casefold()]
+        qs=qs.filter(country__iexact=selected_country)
+        mine_qs=mine_qs.filter(country__iexact=selected_country)
     if country and not super_view:
         qs=qs.filter(country__iexact=country)
         mine_qs=mine_qs.filter(country__iexact=country)
@@ -730,12 +737,20 @@ def admin_overview_data(user,active_role=None):
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
     data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
     if super_view:
-        data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
-        people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
+        report_qs=Report.objects.exclude(status__in=['resolved','closed'])
+        if selected_country: report_qs=report_qs.filter(mcq__country__iexact=selected_country)
+        data['openReports']=report_qs.count()
+        people_qs=User.objects.all()
+        if selected_country: people_qs=people_qs.filter(profile__country__iexact=selected_country)
+        people=people_qs.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
         data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
-        staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
+        staff_qs=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin'])
+        if selected_country: staff_qs=staff_qs.filter(profile__country__iexact=selected_country)
+        staff=staff_qs.order_by('id')[:4]
         data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
-        staff_rows=MCQ.objects.exclude(created_by_id__isnull=True).values('created_by_id').annotate(
+        staff_mcqs=MCQ.objects.exclude(created_by_id__isnull=True)
+        if selected_country: staff_mcqs=staff_mcqs.filter(country__iexact=selected_country)
+        staff_rows=staff_mcqs.values('created_by_id').annotate(
             total=Count('id'),
             pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
             approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),
@@ -743,7 +758,9 @@ def admin_overview_data(user,active_role=None):
         )
         data['staffStats']={str(row['created_by_id']):{key:int(row[key] or 0) for key in ['total','pending','approved','rejected']} for row in staff_rows}
         data['staffCounts']={key:value['total'] for key,value in data['staffStats'].items()}
-        data['unassigned']=MCQ.objects.filter(created_by_id__isnull=True).aggregate(
+        unassigned_qs=MCQ.objects.filter(created_by_id__isnull=True)
+        if selected_country: unassigned_qs=unassigned_qs.filter(country__iexact=selected_country)
+        data['unassigned']=unassigned_qs.aggregate(
             total=Count('id'),
             pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
             approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),
