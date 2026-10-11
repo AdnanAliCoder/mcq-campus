@@ -27,25 +27,29 @@ window.Public=(()=>{
  function quickCard(){const quick=MCQ.topMcqs(),qi=Math.max(0,Math.min(Number(App.homeQuickIndex||0),Math.max(0,quick.length-1))),q=quick[qi];return q?`<div class="hero-quick mcq-reference-quick"><div class="quick-head"><div>${questionTags(q,{featured:true})}</div>${btn('›','home-quick-next','quick-next-control',`aria-label="Next quick MCQ"`)}</div><div class="quick-question-panel"><h3>${e(q.question)}</h3></div><div class="quick-options">${[1,2,3,4].map((n,i)=>{const text=q['option'+n],chosen=App.quickAnswer?.id===q.id?App.quickAnswer.choice:null,answered=App.quickAnswer?.id===q.id,state=answered?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';return btn(`<span class="letter">${'ABCD'[i]}</span><span class="option-text">${e(text)}</span><span class="option-indicator" aria-hidden="true"></span>`,'home-quick-choose',`quick-option ${state}`,`data-id="${q.id}" data-option="${n}" ${answered?'disabled':''}`)}).join('')}</div>${App.quickAnswer?.id===q.id?`<div class="quick-answer mcq-verified-answer"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>${e(q.correct_answer)}</b></strong></div><p>${e(q.description||'No explanation has been added yet.')}</p>${relationships(q)}</div>`:''}<div class="quick-dots">${quick.map((_,i)=>`<button type="button" class="quick-dot ${i===qi?'active':''}" data-action="home-quick-jump" data-index="${i}" aria-label="Quick MCQ ${i+1}"></button>`).join('')}</div></div>`:'';}
  function countryLanding(){
   const source=Array.isArray(MCQ.db.countries)?MCQ.db.countries:[];
-  const countries=source.length?source:[{name:'Pakistan',active:true,mcqCount:Number(MCQ.db.siteCounts?.approvedMcqs||0)}];
-  const account=window.Auth?.user||{};
-  const assigned=String(account.country||'Pakistan');
-  const superAdmin=(account.roles||[]).includes('super-admin')||MCQ.role()==='super-admin';
+  const countries=(source.length?source:[{name:'Pakistan',active:true,mcqCount:Number(MCQ.db.siteCounts?.approvedMcqs||0)}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
   const countryCards=countries.map(item=>{
-   const name=String(item.name||'').trim();if(!name)return '';
-   const own=name.toLocaleLowerCase()===assigned.toLocaleLowerCase();
-   const canOpen=superAdmin||own;
-   const inactive=item.active===false;
+   const name=String(item.name||'').trim();
    const total=Number(item.mcqCount||0).toLocaleString('en-US');
-   const status=inactive?'Inactive':(canOpen?(own?'Your country':'Super Admin access'):'Available with another country account');
-   const action=canOpen?link('mcqs','Open MCQ library '+icon('arrow'),'btn primary',{country:name}):'<span class="country-locked-label">'+icon('shield')+' Account country only</span>';
-   const content=`<article class="card country-card ${own?'country-card-current':''} ${inactive?'country-card-inactive':''}"><div class="country-card-top"><span class="country-card-icon">${icon('globe')}</span><span class="country-card-status">${e(status)}</span></div><h2>${e(name)}</h2><div class="country-mcq-total"><strong>${total}</strong><span>approved MCQs</span></div><p>${own?'Your study library is filtered to this country.':(superAdmin?'Review this country’s question library and totals.':'Country library and questions are separated by account country.')}</p><div class="country-card-action">${action}</div></article>`;
-   return content;
+   const target=UI.href('register',{country:name});
+   return '<a class="country-entry-card" href="'+e(target)+'" aria-label="Sign up for '+e(name)+'">'+
+    '<span class="country-entry-flag" aria-hidden="true">'+UI.countryFlag(name)+'</span>'+
+    '<h2>'+e(name)+'</h2>'+
+    '<p><strong>'+total+'</strong> approved MCQs</p>'+
+    '<span class="country-entry-action">Continue with '+e(name)+' '+icon('arrow')+'</span>'+
+   '</a>';
   }).join('');
-  const total= countries.reduce((sum,item)=>sum+Number(item.mcqCount||0),0);
-  return UI.layout(`<div class="container page country-landing"><section class="country-landing-hero"><p class="eyebrow">MCQCAMPUS · COUNTRY LIBRARIES</p><h1>Choose your exam-preparation library</h1><p>Each country has its own MCQ collection. Counts update automatically as approved questions are added, and learner accounts only open their assigned country.</p><div class="country-landing-summary"><div><strong>${countries.length}</strong><span>countries</span></div><div><strong>${total.toLocaleString('en-US')}</strong><span>approved MCQs across countries</span></div></div></section><section class="section country-library-section"><div class="section-head"><div><p class="eyebrow">AVAILABLE LIBRARIES</p><h2>Explore by country</h2></div></div><div class="grid country-card-grid">${countryCards}</div></section></div>`,'home');
+  return '<main id="main" class="country-entry-page" tabindex="-1">'+
+   '<div class="country-entry-shell">'+
+    '<div class="country-entry-brand"><span class="country-entry-brand-mark">'+icon('book')+'</span><span>MCQ<span>Campus</span></span></div>'+
+    '<p class="country-entry-eyebrow">YOUR EXAM PREPARATION STARTS HERE</p>'+
+    '<h1>Choose your country</h1>'+
+    '<p class="country-entry-intro">Select your country to create an account and access the MCQs, past papers and exam resources for that country.</p>'+
+    '<div class="country-entry-grid">'+countryCards+'</div>'+
+    '<p class="country-entry-login">Already have an account? '+link('login','Sign in','country-entry-signin')+'</p>'+
+   '</div>'+
+  '</main>';
  }
-
  function home(){
   const server=activeServerMcqPage(),site=MCQ.db.siteCounts||{},pageSize=10,page=server?Math.max(1,Number(server.page)||1):1,rows=server?MCQ.publicMcqs():[],importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
   const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`,today=new Date().toISOString().slice(0,10),latest=(MCQ.db.latestJobs||[]).filter(x=>x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))).slice(0,4);
