@@ -511,7 +511,7 @@ def _entity_mcq_counts(kind,ids,public_only=False,country=None):
 
 def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=False):
     require(kind in ENTITY_MODELS,'Unknown record type.')
-    page=max(1,int(page or 1)); page_size=10
+    page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 10),12 if public_only else 10))
     filters=filters or {}
     model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user)
     if country:
