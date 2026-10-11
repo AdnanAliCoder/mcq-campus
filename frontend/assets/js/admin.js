@@ -225,12 +225,13 @@ window.Admin=(()=>{
   MCQ.assert('latestJobs');const x=(MCQ.db.latestJobs||[]).find(r=>+r.id===+id)||{},orgs=MCQ.db.papers.filter(r=>r.active!==false).sort((a,b)=>a.name.localeCompare(b.name));UI.modal(id?'Edit Latest Job':'Add Latest Job',`<form data-form="latest-job" data-id="${id||''}">${select('paper_id','Organization / Paper',orgs,x.paper_id||'',true)}${field('title','Job Title',x.title||'','text',true)}${textarea('description','Job page description',x.description||'',false)}${MCQ.role()==='super-admin'?`<section class="admin-seo-fields"><h3>Public page title & description</h3>${field('seo_title','Page / Google Title',x.seo_title||x.title||'','text',false,'maxlength="180"')}${textarea('seo_description','Page / Google Description',x.seo_description||x.description||'',false)}</section>`:''}${field('last_date','Last Date to Apply',x.last_date||'','date',true)}${field('apply_url','Apply URL',x.apply_url||'','url',false,'placeholder="Optional https://…"')}${field('prep_url','Past Papers URL',x.prep_url||'','url',false,'placeholder="Optional MCQ Campus paper/job link"')}<label class="check-line"><input type="checkbox" name="published" ${x.published!==false?'checked':''}> Published</label><p class="small muted">The visible page title/description and Google metadata stay aligned with the fields above.</p><div class="actions"><button class="btn primary" type="submit">Save Job</button>${btn('Cancel','close','')}</div></form>`)}
   function countryManager(){
   const countries=Array.isArray(MCQ.db.countries)?MCQ.db.countries:[];
-  const cards=countries.map(country=>{
+  const cards=countries.map((country,index)=>{
    const name=String(country.name||'');
    const active=country.active!==false;
-   return `<article class="country-manager-card"><div class="row"><strong>${e(name)}</strong><span class="badge">${active?'Active':'Disabled'}</span></div><div class="country-mcq-total"><strong>${Number(country.mcqCount||0).toLocaleString('en-US')}</strong><span>approved MCQs</span></div><div class="row"><span class="small muted">Learner signup ${active?'enabled':'disabled'}</span><button type="button" class="btn sm ${active?'ghost':'primary'}" data-country-toggle data-country-name="${e(name)}" data-country-active="${active?'true':'false}">${active?'Disable':'Enable'} country</button></div></article>`;
+   const pinned=country.pinned===true||name.toLowerCase()==='pakistan';
+   return `<article class="country-manager-card"><div class="row"><strong>${e(name)}</strong><span class="badge">${active?'Active':'Disabled'}</span></div><div class="country-mcq-total"><strong>${Number(country.mcqCount||0).toLocaleString('en-US')}</strong><span>approved MCQs</span></div><div class="row"><span class="small muted">${pinned?'Pinned on landing page':'Shown by saved order'}</span><button type="button" class="btn sm ${pinned?'primary':'ghost'}" data-country-pin data-country-name="${e(name)}" data-country-pinned="${pinned?'true':'false'}" ${name.toLowerCase()==='pakistan'?'disabled':''}>${pinned?'★ Pinned':'☆ Pin country'}</button></div><div class="row"><span class="small muted">Position ${index+1}</span><div class="actions"><button type="button" class="btn sm ghost" data-country-move="-1" data-country-name="${e(name)}" ${index<=1?'disabled':''} aria-label="Move ${e(name)} up">↑</button><button type="button" class="btn sm ghost" data-country-move="1" data-country-name="${e(name)}" ${index===countries.length-1?'disabled':''} aria-label="Move ${e(name)} down">↓</button></div></div><div class="row"><span class="small muted">Learner signup ${active?'enabled':'disabled'}</span><button type="button" class="btn sm ${active?'ghost':'primary'}" data-country-toggle data-country-name="${e(name)}" data-country-active="${active?'true':'false'}">${active?'Disable':'Enable'} country</button></div></article>`;
   }).join('');
-  return `<section class="page country-management"><div class="section-head"><div><p class="eyebrow">SUPER ADMIN</p><h1>Country management</h1><p class="muted">Add a country to make it available during signup. Approved MCQ totals are calculated from the database and refresh when the page reloads.</p></div></div><div class="card" style="padding:20px;margin-bottom:22px"><h2>Add a country</h2><form data-form="country-create" class="form-grid"><div class="field"><label for="country-new-name">Country name</label><input id="country-new-name" name="name" maxlength="80" autocomplete="country-name" required></div><div class="actions"><button type="submit" class="btn primary">Add country</button></div><p class="auth-error" role="alert" data-country-error></p></form></div><div class="section-head"><div><h2>Available country libraries</h2><p class="small muted">Disabling a country prevents new signups from selecting it. Existing accounts and their data are not deleted.</p></div></div><div class="country-manager-grid">${cards||empty('No country libraries yet','Add a country to make it available to learners.')}</div></section>`;
+  return `<section class="page country-management"><div class="section-head"><div><p class="eyebrow">SUPER ADMIN</p><h1>Country management</h1><p class="muted">Add countries, control signup availability, pin priority countries, and change the order shown on the public landing page. Approved MCQ totals are calculated from the database.</p></div></div><div class="card" style="padding:20px;margin-bottom:22px"><h2>Add a country</h2><form data-form="country-create" class="form-grid"><div class="field"><label for="country-new-name">Country name</label><input id="country-new-name" name="name" maxlength="80" autocomplete="country-name" required></div><div class="actions"><button type="submit" class="btn primary">Add country</button></div><p class="auth-error" role="alert" data-country-error></p></form></div><div class="section-head"><div><h2>Available country libraries</h2><p class="small muted">Disabling a country prevents new signups from selecting it. Existing accounts and their data are not deleted. Pakistan remains first.</p></div></div><div class="country-manager-grid">${cards||empty('No country libraries yet','Add a country to make it available to learners.')}</div></section>`;
  }
 
  function settingsHub(){
@@ -336,6 +337,28 @@ window.Admin=(()=>{
  },true);
 
  document.addEventListener('click',async event=>{
+  const pinButton=event.target.closest('[data-country-pin]');
+  if(pinButton){
+   event.preventDefault();
+   const name=pinButton.getAttribute('data-country-name')||'';
+   const pinned=pinButton.getAttribute('data-country-pinned')!=='true';
+   pinButton.disabled=true;
+   try{const result=await Auth.request('/admin/countries',{action:'pin',name,pinned});MCQ.mergeCore({countries:result.countries||[]});UI.toast(pinned?'Country pinned on the landing page.':'Country unpinned.');App.render();}
+   catch(err){UI.toast(err.message||'Country pin could not be changed.');}
+   finally{pinButton.disabled=false;}
+   return;
+  }
+  const moveButton=event.target.closest('[data-country-move]');
+  if(moveButton){
+   event.preventDefault();
+   const name=moveButton.getAttribute('data-country-name')||'',delta=Number(moveButton.getAttribute('data-country-move')||0);
+   const rows=[...(MCQ.db.countries||[])],index=rows.findIndex(row=>String(row.name||'')===name),target=index+delta;
+   if(index<0||target<1||target>=rows.length)return;
+   [rows[index],rows[target]]=[rows[target],rows[index]];
+   try{const result=await Auth.request('/admin/countries',{action:'reorder',order:rows.map(row=>row.name)});MCQ.mergeCore({countries:result.countries||[]});UI.toast('Country order saved.');App.render();}
+   catch(err){UI.toast(err.message||'Country order could not be saved.');}
+   return;
+  }
   const button=event.target.closest('[data-country-toggle]');if(!button)return;
   event.preventDefault();
   const name=button.getAttribute('data-country-name')||'';
