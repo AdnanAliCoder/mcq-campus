@@ -2737,3 +2737,9 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
  .auth-form form[data-form="auth-register"]{grid-template-columns:minmax(0,1fr)}
  .auth-form form[data-form="auth-register"]>.field,.auth-form form[data-form="auth-register"]>.check-line,.auth-form form[data-form="auth-register"]>[data-auth-error],.auth-form form[data-form="auth-register"]>button[type="submit"]{grid-column:1}
 }
+
+/* Country scope control in the Super Admin overview. */
+.overview-country-scope{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:var(--white)}
+.overview-country-scope label{white-space:nowrap}
+.overview-country-scope select{max-width:190px;min-width:125px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--white);color:var(--ink)}
+@media(max-width:650px){.overview-country-scope{width:100%;justify-content:space-between}.overview-country-scope select{flex:1;max-width:none}}
