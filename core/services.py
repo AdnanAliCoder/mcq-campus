@@ -734,9 +734,17 @@ def snapshot(user):
 
 def learner_dashboard_data(user):
     require(bool(user and getattr(user,'is_authenticated',False)))
-    attempts=list(Attempt.objects.filter(user=user).order_by('-created_at')[:100])
-    bookmarks=list(Bookmark.objects.filter(user=user).values_list('mcq_id',flat=True))
-    saved=list(SavedPaper.objects.filter(user=user).values_list('paper_id',flat=True))
+    country=country_for_user(user)
+    attempts_qs=Attempt.objects.filter(user=user)
+    bookmarks_qs=Bookmark.objects.filter(user=user)
+    saved_qs=SavedPaper.objects.filter(user=user)
+    if country:
+        attempts_qs=attempts_qs.filter(mcq__country__iexact=country)
+        bookmarks_qs=bookmarks_qs.filter(mcq__country__iexact=country)
+        saved_qs=saved_qs.filter(paper__country__iexact=country)
+    attempts=list(attempts_qs.order_by('-created_at')[:100])
+    bookmarks=list(bookmarks_qs.values_list('mcq_id',flat=True))
+    saved=list(saved_qs.values_list('paper_id',flat=True))
     return {
         'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in attempts],
         'bookmarks':bookmarks,
