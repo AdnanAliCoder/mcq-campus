@@ -22,7 +22,7 @@ from .services import (
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
     ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot, entity_page_data,
-    country_catalog, _site_blob, _save_site_blob,
+    country_catalog, country_for_user, _site_blob, _save_site_blob,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -617,7 +617,7 @@ def mcq_match(request):
     if not is_admin(request.user): return err('Administrator access is required.',403)
     question=str(request.GET.get('question') or '').strip()
     if len(question)<3: return JsonResponse({'match':None})
-    obj=_bulk_duplicate_mcq(question)
+    obj=_bulk_duplicate_mcq(question,country_for_user(request.user) or None)
     return JsonResponse({'match':mcq(obj) if obj else None})
 
 @require_GET
