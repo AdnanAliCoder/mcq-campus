@@ -498,12 +498,19 @@ def admin_countries(request):
     if not isinstance(entries,list):
         entries=country_catalog(include_counts=False,include_inactive=True)
     normalized=[]; by_name={}
-    for raw in entries:
+    for index,raw in enumerate(entries):
         item=raw if isinstance(raw,dict) else {'name':raw,'active':True}
         name=re.sub(r'\s+',' ',str(item.get('name') or '')).strip()[:80]
         if not name:
             continue
-        entry={'name':name,'active':bool(item.get('active',True))}
+        try: sort_order=int(item.get('sortOrder',index*10))
+        except (TypeError,ValueError): sort_order=index*10
+        pin_value=item.get('pinned',False)
+        entry={
+            'name':name,'active':bool(item.get('active',True)),
+            'pinned':pin_value is True or str(pin_value).strip().lower() in {'1','true','yes','on'},
+            'sortOrder':max(0,min(100000,sort_order)),
+        }
         if name.casefold()=='pakistan':
             entry['active']=True
         if name.casefold() not in by_name:
@@ -516,7 +523,9 @@ def admin_countries(request):
         if existing:
             existing['active']=True
         else:
-            normalized.append({'name':name,'active':True})
+            next_order=max((item['sortOrder'] for item in normalized),default=-10)+10
+            entry={'name':name,'active':True,'pinned':False,'sortOrder':next_order}
+            normalized.append(entry); by_name[name.casefold()]=entry
     elif action=='toggle':
         name=str(d.get('name') or '').strip().casefold()
         existing=by_name.get(name)
@@ -526,6 +535,18 @@ def admin_countries(request):
         if existing['name'].casefold()=='pakistan':
             active=True
         existing['active']=active
+    elif action=='configure':
+        name=str(d.get('name') or '').strip().casefold()
+        existing=by_name.get(name)
+        if not existing:
+            return err('Country not found.',404)
+        if 'pinned' in d:
+            pin_value=d.get('pinned')
+            existing['pinned']=pin_value is True or str(pin_value).strip().lower() in {'1','true','yes','on'}
+        if 'sortOrder' in d:
+            try: sort_order=int(d.get('sortOrder'))
+            except (TypeError,ValueError): return err('Display order must be a whole number.',422,{'sortOrder':'Enter a whole number.'})
+            existing['sortOrder']=max(0,min(100000,sort_order))
     else:
         return err('Unsupported country action.',422)
     blob['countries']=normalized
@@ -647,7 +668,7 @@ def learner_dashboard(request):
 @require_GET
 @login_required_json
 def admin_overview(request):
-    try: return JsonResponse(admin_overview_data(request.user,request.session.get('active_role')))
+    try: return JsonResponse(admin_overview_data(request.user,request.session.get('active_role'),request.GET.get('country')))
     except PermissionError as e: return err(e,403)
 
 @profile_api('admin_users')
