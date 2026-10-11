@@ -664,8 +664,13 @@ def _attach_important_flags(objects):
             except (TypeError,ValueError): pass
         obj._important_value=len(jobs)>=2
 
-def snapshot(user):
+def snapshot(user,selected_country=''):
     country=country_for_user(user)
+    selected_country=re.sub(r'\s+',' ',str(selected_country or '')).strip()[:80]
+    if selected_country and is_super(user):
+        allowed={row['name'].casefold():row['name'] for row in country_catalog(user,include_counts=False,include_inactive=False)}
+        if selected_country.casefold() not in allowed: raise ValueError('Choose an active country from the country catalog.')
+        country=allowed[selected_country.casefold()]
     cats_qs=Category.objects.select_related('created_by','updated_by').all()
     subs_qs=Subcategory.objects.select_related('created_by','updated_by').all()
     childs_qs=ChildCategory.objects.select_related('created_by','updated_by').all()
@@ -673,6 +678,8 @@ def snapshot(user):
     jobs_qs=Job.objects.select_related('paper','created_by','updated_by').all()
     years_qs=JobYear.objects.select_related('job__paper','created_by','updated_by').all()
     if country:
+        if is_super(user) and selected_country:
+            cats_qs=cats_qs.filter(pk__in=MCQ.objects.filter(country__iexact=country,status='approved').values('category_id').distinct())
         papers_qs=papers_qs.filter(country__iexact=country)
         jobs_qs=jobs_qs.filter(paper__country__iexact=country)
         years_qs=years_qs.filter(job__paper__country__iexact=country)
