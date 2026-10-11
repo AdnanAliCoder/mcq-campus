@@ -135,7 +135,7 @@ window.MCQ = (() => {
  function hydrate(snapshot,user){const seed=initial(),incoming=clone(snapshot||{}),pages=Object.fromEntries(Object.entries(seed.content.legalPages).map(([key,value])=>[key,{...value,...(incoming.content?.legalPages?.[key]||{})}]));db={...seed,...incoming,settings:{...seed.settings,...(incoming.settings||{}),footer:{...seed.settings.footer,...(incoming.settings?.footer||{})},socialLinks:{...seed.settings.socialLinks,...(incoming.settings?.socialLinks||{})},contact:{...seed.settings.contact,...(incoming.settings?.contact||{})}},content:{...seed.content,...(incoming.content||{}),legalPages:pages},seo:{...seed.seo,...(incoming.seo||{})},adSettings:{...seed.adSettings,...(incoming.adSettings||{}),slots:{...seed.adSettings.slots,...(incoming.adSettings?.slots||{})}},currentAffairsConfig:{...seed.currentAffairsConfig,...(incoming.currentAffairsConfig||{}),dailyIds:ids(incoming.currentAffairsConfig?.dailyIds||[]),monthlyIds:ids(incoming.currentAffairsConfig?.monthlyIds||[])},tests:Array.isArray(incoming.tests)?incoming.tests:seed.tests,pdfs:Array.isArray(incoming.pdfs)?incoming.pdfs:seed.pdfs,latestJobs:Array.isArray(incoming.latestJobs)?incoming.latestJobs:seed.latestJobs,session:clone(user)};topCache=null;}
  function mergeCore(snapshot){
   const incoming=clone(snapshot||{});
-  for(const key of ['categories','subcategories','children','papers','jobs','years','mcqs','posts','guides','ads','pdfs','latestJobs','tests']){
+  for(const key of ['countries','categories','subcategories','children','papers','jobs','years','mcqs','posts','guides','ads','pdfs','latestJobs','tests']){
    if(Array.isArray(incoming[key]))db[key]=incoming[key];
   }
   if(incoming.mcqPage)db.mcqPage=clone(incoming.mcqPage);
