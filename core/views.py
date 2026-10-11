@@ -503,9 +503,11 @@ def admin_countries(request):
         name=re.sub(r'\s+',' ',str(item.get('name') or '')).strip()[:80]
         if not name:
             continue
-        entry={'name':name,'active':bool(item.get('active',True))}
+        try: order=max(0,int(item.get('order',len(normalized)) or 0))
+        except (TypeError,ValueError): order=len(normalized)
+        entry={'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':order}
         if name.casefold()=='pakistan':
-            entry['active']=True
+            entry['active']=True; entry['pinned']=True; entry['order']=0
         if name.casefold() not in by_name:
             normalized.append(entry); by_name[name.casefold()]=entry
     if action=='add':
@@ -516,7 +518,7 @@ def admin_countries(request):
         if existing:
             existing['active']=True
         else:
-            normalized.append({'name':name,'active':True})
+            normalized.append({'name':name,'active':True,'pinned':False,'order':max([int(x.get('order',0) or 0) for x in normalized]+[-1])+1})
     elif action=='toggle':
         name=str(d.get('name') or '').strip().casefold()
         existing=by_name.get(name)
@@ -526,6 +528,27 @@ def admin_countries(request):
         if existing['name'].casefold()=='pakistan':
             active=True
         existing['active']=active
+    elif action=='pin':
+        name=str(d.get('name') or '').strip().casefold()
+        existing=by_name.get(name)
+        if not existing: return err('Country not found.',404)
+        pinned=d.get('pinned') is True or str(d.get('pinned') or '').lower() in {'1','true','yes','on'}
+        if existing['name'].casefold()=='pakistan': pinned=True
+        existing['pinned']=pinned
+    elif action=='reorder':
+        order_names=d.get('order')
+        if not isinstance(order_names,list): return err('Country order must be a list of country names.',422)
+        requested=[]; seen=set()
+        for value in order_names:
+            key=re.sub(r'\\s+',' ',str(value or '')).strip().casefold()
+            if key in by_name and key not in seen:
+                requested.append(by_name[key]); seen.add(key)
+        requested.extend(item for item in normalized if item['name'].casefold() not in seen)
+        normalized=requested
+        for index,item in enumerate(normalized):
+            item['order']=index
+            if item['name'].casefold()=='pakistan':
+                item['pinned']=True; item['order']=0
     else:
         return err('Unsupported country action.',422)
     blob['countries']=normalized
