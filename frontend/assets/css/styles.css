@@ -2700,3 +2700,62 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 .country-manager-card{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--white)}
 .country-manager-card .row{align-items:center;justify-content:space-between;gap:12px}
 @media(max-width:600px){.country-landing-hero{border-radius:18px}.country-card{padding:18px}.country-landing-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.country-landing-summary>div{min-width:0;padding:12px}}
+
+
+/* Country-entry refresh: retain MCQCampus branding and keep the entry flow compact. */
+.country-entry-brand{gap:12px;margin-bottom:28px}
+.country-entry-brand>span:last-child{font-size:24px}
+.country-entry-brand>span:last-child em{font-style:normal;color:var(--green)}
+.country-entry-logo{width:46px;height:46px;display:grid;place-items:center;overflow:hidden;border-radius:11px;background:#fff;border:1px solid var(--line);box-shadow:0 5px 16px #0c45380a}
+.country-entry-logo img{width:100%;height:100%;object-fit:contain}
+.country-entry-page h1{max-width:880px;margin:0 auto;font-size:clamp(30px,4vw,46px)}
+.country-entry-overall{display:flex;align-items:center;justify-content:center;gap:18px;max-width:720px;margin:0 auto 34px;padding:22px 30px;border:1px solid #cfe5d9;border-radius:18px;background:linear-gradient(135deg,#fff 0%,#f0faf5 100%);box-shadow:0 12px 28px #0c453808;text-align:left}
+.country-entry-overall-icon{display:grid;place-items:center;width:54px;height:54px;flex:0 0 54px;border-radius:15px;background:var(--dark);color:#fff}
+.country-entry-overall-icon .icon{width:26px;height:26px}
+.country-entry-overall-copy{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.country-entry-overall-label{font-size:.78rem;font-weight:750;color:var(--green-dark);letter-spacing:.04em;text-transform:uppercase}
+.country-entry-total-value{display:block;color:var(--dark);font-size:clamp(34px,5vw,48px);line-height:1.1;font-weight:850;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.country-entry-overall-caption{color:var(--muted);font-size:.82rem}
+.country-entry-section-head{display:flex;justify-content:center;text-align:center;margin:0 0 20px}
+.country-entry-section-head h2{margin:0 0 7px;font-size:clamp(22px,3vw,30px);color:var(--dark)}
+.country-entry-section-head p:last-child{margin:0;color:var(--muted);font-size:.9rem}
+.country-entry-grid{gap:15px}
+.country-entry-card{position:relative;min-height:196px;padding:24px 17px 20px}
+.country-entry-card.is-pinned{border-color:#9bcdb7;box-shadow:0 9px 26px #0b60420b}
+.country-entry-pin{position:absolute;top:11px;right:11px;display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:#e4f5eb;color:var(--green-dark);font-size:.68rem;font-weight:800}
+.country-entry-pin .icon{width:12px;height:12px;fill:currentColor}
+.country-entry-empty{grid-column:1/-1;padding:26px;border:1px dashed var(--line);border-radius:14px;background:#fff;text-align:center;color:var(--muted)}
+.country-entry-note{margin:17px auto 0;text-align:center;color:var(--muted);font-size:.78rem;max-width:700px}
+.auth-register-form .auth-register-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;margin-top:12px}
+.auth-register-form .field{min-width:0;margin-bottom:12px}
+.auth-register-form .selected-country-field{min-height:71px;display:flex;flex-direction:row;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:9px;background:#f8fbf9}
+.auth-register-form .selected-country-field .selected-country-flag{font-size:23px}
+.auth-register-form .selected-country-copy{min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.auth-register-form .selected-country-copy label{font-size:.7rem;color:var(--muted);font-weight:600}
+.auth-register-form .selected-country-copy strong{font-size:.9rem;overflow-wrap:anywhere}
+.auth-register-form .selected-country-change{margin-left:auto;font-size:.72rem;color:var(--green);font-weight:750;white-space:nowrap}
+.auth-register-terms{margin:3px 0 14px}
+.auth-register-form .check-line{align-items:flex-start}
+.auth-selected-country-note{display:flex;align-items:center;gap:11px;padding:10px 12px;margin:12px 0 18px;border:1px solid #cfe5d9;border-radius:10px;background:#f1faf5}
+.auth-selected-country-note>span{font-size:25px}
+.auth-selected-country-note div{display:flex;flex-direction:column;line-height:1.35}
+.auth-selected-country-note small{font-size:.72rem;color:var(--muted)}
+.auth-selected-country-note strong{font-size:.9rem;color:var(--dark)}
+.admin-country-filter{display:flex;align-items:end;gap:12px;margin-bottom:22px;padding:16px}
+.admin-country-filter .field{margin:0;min-width:min(100%,290px);flex:1}
+.admin-country-filter .field label{font-size:.8rem;font-weight:750}
+.country-manager-display-form{display:grid;grid-template-columns:minmax(0,1fr) 95px;align-items:end;gap:10px;padding-top:10px;border-top:1px solid var(--line)}
+.country-manager-display-form .field{margin:0}
+.country-manager-display-form .pin-choice{display:flex;align-items:center;gap:7px;font-size:.8rem;font-weight:700;padding-bottom:10px}
+.country-manager-display-form .pin-choice input{accent-color:var(--green)}
+.country-manager-display-form .country-manager-save{grid-column:1/-1;justify-self:start}
+@media(max-width:600px){
+ .country-entry-overall{align-items:flex-start;padding:18px;gap:13px}
+ .country-entry-overall-icon{width:45px;height:45px;flex-basis:45px}
+ .country-entry-total-value{font-size:34px}
+ .auth-register-form .auth-register-fields{grid-template-columns:1fr;gap:0}
+ .auth-register-form .field{margin-bottom:11px}
+ .admin-country-filter{align-items:stretch;flex-direction:column}
+ .country-manager-display-form{grid-template-columns:1fr}
+ .country-manager-display-form .country-manager-save{grid-column:auto}
+}
