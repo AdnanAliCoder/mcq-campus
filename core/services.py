@@ -437,7 +437,15 @@ def _startup_site_state(settings):
 def startup_payload(user,session):
     settings=SiteSetting.objects.only('singleton','site_name','description','country','seo_title','seo_description').filter(pk=1).first()
     if settings is None: settings=SiteSetting.objects.create(pk=1)
-    return {'snapshot':{'schemaVersion':11,**_startup_site_state(settings)},'user':user_identity_dict(user,session) if user and getattr(user,'is_authenticated',False) else None}
+    authenticated=bool(user and getattr(user,'is_authenticated',False))
+    return {
+        'snapshot':{
+            'schemaVersion':12,
+            **_startup_site_state(settings),
+            'countries':country_catalog(user,include_counts=authenticated,include_inactive=is_super(user)),
+        },
+        'user':user_identity_dict(user,session) if authenticated else None,
+    }
 
 def public_content_data():
     now=timezone.now()
@@ -1082,7 +1090,7 @@ def _create_bulk_pending_mcq(user,draft):
         job_ids=job_ids,
         job_year_ids=job_year_ids,
         important=_is_important_hierarchy(job_year_ids),
-        country=str(draft.get('country') or 'Pakistan'),
+        country=country_for_write(user,draft.get('country')),
         status='pending',
         submission_type='new',
         created_by=user,
@@ -1111,7 +1119,7 @@ def save_mcq(user,draft):
         return duplicate
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
     paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids'))
-    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=str(draft.get('country') or 'Pakistan'))
+    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=country_for_write(user,draft.get('country')))
     now=timezone.now()
     if existing and existing.status=='approved' and not is_super(user):
         proposed={**mcq(existing),**common,'category_id':cid,'paper_id':common['paper_ids'],'job_years_ids':common['job_year_ids'],'updated_at':iso(now),'updated_by':user_name(user),'updated_by_id':user.id}
@@ -1646,7 +1654,7 @@ def command(user,action,payload):
             summary['duplicates']+=group['duplicates']
             question=str(draft.get('question') or '')[:160]
             try:
-                duplicate=_bulk_duplicate_mcq(draft.get('question'))
+                duplicate=_bulk_duplicate_mcq(draft.get('question'),country_for_write(user,draft.get('country')))
                 if duplicate:
                     result=_stage_bulk_mcq_hierarchy_update(user,duplicate,draft)
                     if result in {'pending','pending-update'}:
@@ -1959,7 +1967,7 @@ def _create_bulk_pending_mcq(user,draft):
         job_ids=job_ids,
         job_year_ids=job_year_ids,
         important=_is_important_hierarchy(job_year_ids),
-        country=str(draft.get('country') or 'Pakistan'),
+        country=country_for_write(user,draft.get('country')),
         status='pending',
         submission_type='new',
         created_by=user,
@@ -1988,7 +1996,7 @@ def save_mcq(user,draft):
         return duplicate
     common={k:str(draft.get(k,'')).strip() for k in ['question','option1','option2','option3','option4','correct_answer','description','source','seo_description']}
     paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids'))
-    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=str(draft.get('country') or 'Pakistan'))
+    common.update(category_id=cid,subcategory_ids=normalize_ids(draft.get('subcategory_ids')),child_subcategory_ids=normalize_ids(draft.get('child_subcategory_ids')),paper_ids=paper_ids,job_ids=job_ids,job_year_ids=job_year_ids,important=_is_important_hierarchy(job_year_ids),country=country_for_write(user,draft.get('country')))
     now=timezone.now()
     if existing and existing.status=='approved' and not is_super(user):
         proposed={**mcq(existing),**common,'category_id':cid,'paper_id':common['paper_ids'],'job_years_ids':common['job_year_ids'],'updated_at':iso(now),'updated_by':user_name(user),'updated_by_id':user.id}
@@ -2523,7 +2531,7 @@ def command(user,action,payload):
             summary['duplicates']+=group['duplicates']
             question=str(draft.get('question') or '')[:160]
             try:
-                duplicate=_bulk_duplicate_mcq(draft.get('question'))
+                duplicate=_bulk_duplicate_mcq(draft.get('question'),country_for_write(user,draft.get('country')))
                 if duplicate:
                     result=_stage_bulk_mcq_hierarchy_update(user,duplicate,draft)
                     if result in {'pending','pending-update'}:
