@@ -62,7 +62,9 @@ def _configured_country_entries():
         if not name or key in seen: continue
         try: order=max(0,int(item.get('order',len(entries)) or 0))
         except (TypeError,ValueError): order=len(entries)
-        seen.add(key); entries.append({'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':order})
+        logo_url=str(item.get('logoUrl') or '').strip()[:500];logo_url=logo_url if re.match(r'^(https://[^\s]+|/assets/[A-Za-z0-9_./-]+)$',logo_url,re.I) else ''
+        icon=str(item.get('icon') or '').strip()[:16]
+        seen.add(key); entries.append({'name':name,'active':bool(item.get('active',True)),'pinned':bool(item.get('pinned',False)),'order':order,'icon':icon,'logoUrl':logo_url})
     return entries
 
 def country_catalog(user=None,include_counts=True,include_inactive=False):
@@ -92,7 +94,7 @@ def country_catalog(user=None,include_counts=True,include_inactive=False):
     result=[]
     for item in entries:
         if not include_inactive and not item['active']: continue
-        row={'name':item['name'],'active':bool(item['active']),'pinned':bool(item.get('pinned',False)),'order':int(item.get('order',len(result)) or 0)}
+        row={'name':item['name'],'active':bool(item['active']),'pinned':bool(item.get('pinned',False)),'order':int(item.get('order',len(result)) or 0),'icon':str(item.get('icon') or '')[:16],'logoUrl':str(item.get('logoUrl') or '')[:500]}
         if include_counts: row['mcqCount']=counts.get(item['name'].casefold(),0)
         result.append(row)
     return sorted(result,key=lambda row:(row['name'].casefold()!='pakistan',not row['pinned'],row['order'],row['name'].casefold()))
