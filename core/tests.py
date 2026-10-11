@@ -706,7 +706,7 @@ class IntegrationTests(TestCase):
         row=next(row for row in data['items'] if row['id']==self.approved.id)
         self.assertTrue(row['important'])
 
-    def test_public_entity_pages_load_ten_records_and_keep_total(self):
+    def test_public_entity_pages_load_twelve_records_and_keep_total(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         Category.objects.bulk_create([Category(id=3000+i,name=f'Category {i}',icon='grid') for i in range(15)])
         first=self.client.get('/api/entities?type=categories&scope=public&page=1&page_size=12').json()
