@@ -602,8 +602,10 @@ def entities(request):
         return err('Administrator access is required.',403)
     try:
         page=int(request.GET.get('page') or 1)
+        page_size=int(request.GET.get('page_size') or (12 if public_only else 10))
+        page_size=max(1,min(page_size,12 if public_only else 10))
         filters={k:request.GET.get(k) for k in ['parent','country','search','sort','all_papers'] if request.GET.get(k)}
-        data=entity_page_data(request.user,kind,page,10,filters,public_only=public_only)
+        data=entity_page_data(request.user,kind,page,page_size,filters,public_only=public_only)
     except PermissionError as exc:
         return err(exc,403)
     except (TypeError,ValueError) as exc:
