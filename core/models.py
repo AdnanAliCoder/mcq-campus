@@ -129,6 +129,7 @@ class PendingSignup(models.Model):
     email=models.EmailField(unique=True)
     first_name=models.CharField(max_length=150)
     last_name=models.CharField(max_length=150)
+    country=models.CharField(max_length=80,default='Pakistan')
     password_hash=models.CharField(max_length=128)
     code_hash=models.CharField(max_length=64)
     expires_at=models.DateTimeField()
