@@ -473,24 +473,34 @@ def _json_array_length(qs,field,alias):
     function='jsonb_array_length' if connection.vendor=='postgresql' else 'json_array_length'
     return qs.annotate(**{alias:Func(F(field),function=function,output_field=IntegerField())})
 
-def _approved_public_counts():
+def _approved_public_counts(country=None):
     approved=MCQ.objects.filter(status='approved')
+    papers=Paper.objects.filter(active=True)
+    jobs=Job.objects.filter(active=True)
+    years=JobYear.objects.filter(active=True)
+    if country:
+        approved=approved.filter(country__iexact=country)
+        papers=papers.filter(country__iexact=country)
+        jobs=jobs.filter(paper__country__iexact=country)
+        years=years.filter(job__paper__country__iexact=country)
     important=_json_array_length(approved,'job_ids','_job_count').filter(_job_count__gte=2).count()
     category_rows=approved.values('category_id').annotate(total=Count('id'))
     return {
         'approvedMcqs':approved.count(),
         'importantMcqs':important,
         'categories':Category.objects.filter(active=True).count(),
-        'papers':Paper.objects.filter(active=True).count(),
-        'jobs':Job.objects.filter(active=True).count(),
-        'years':JobYear.objects.filter(active=True).count(),
+        'papers':papers.count(),
+        'jobs':jobs.count(),
+        'years':years.count(),
         'categoryMcqs':{str(row['category_id']):int(row['total'] or 0) for row in category_rows},
     }
 
-def _entity_mcq_counts(kind,ids,public_only=False):
+def _entity_mcq_counts(kind,ids,public_only=False,country=None):
     ids=[int(x) for x in ids if int(x)>0]
     if not ids: return {}
     base=MCQ.objects.filter(status='approved') if public_only else MCQ.objects.all()
+    if country:
+        base=base.filter(country__iexact=country)
     if kind=='categories':
         rows=base.filter(category_id__in=ids).values('category_id').annotate(total=Count('id'))
         return {int(row['category_id']):int(row['total'] or 0) for row in rows}
@@ -514,6 +524,14 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     filters=filters or {}
     model=ENTITY_MODELS[kind]
     qs=model.objects.all()
+    country=country_for_user(user)
+    if country:
+        if kind=='papers':
+            qs=qs.filter(country__iexact=country)
+        elif kind=='jobs':
+            qs=qs.filter(paper__country__iexact=country)
+        elif kind=='years':
+            qs=qs.filter(job__paper__country__iexact=country)
     if public_only:
         qs=qs.filter(active=True)
         if kind=='jobs': qs=qs.filter(paper__active=True)
@@ -523,10 +541,10 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     if parent and rel:
         try: qs=qs.filter(**{rel[0]:int(parent)})
         except (TypeError,ValueError): pass
-    if kind=='papers' and filters.get('country'):
-        qs=qs.filter(country=str(filters['country']))
-    if kind=='years' and filters.get('all_papers') and filters.get('country'):
-        qs=qs.filter(job__paper__country=str(filters['country']))
+    if not country and kind=='papers' and filters.get('country'):
+        qs=qs.filter(country__iexact=str(filters['country']))
+    if not country and kind=='years' and filters.get('all_papers') and filters.get('country'):
+        qs=qs.filter(job__paper__country__iexact=str(filters['country']))
     if filters.get('search'):
         qs=qs.filter(name__icontains=str(filters['search']).strip())
     pins=_pinned_entities().get(kind,[]) if kind in PIN_ENTITY_TYPES else []
@@ -550,7 +568,7 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     total=qs.count(); start=(page-1)*page_size
     objects=list(qs[start:start+page_size])
     serializers={'categories':category,'subcategories':subcategory,'children':child,'papers':paper,'jobs':job,'years':year}
-    counts=_entity_mcq_counts(kind,[x.id for x in objects],public_only=public_only)
+    counts=_entity_mcq_counts(kind,[x.id for x in objects],public_only=public_only,country=country or None)
     items=[]
     for obj in objects:
         row=serializers[kind](obj)
@@ -565,12 +583,15 @@ def visible_mcqs(user):
 
 def mcq_page(user,page=1,page_size=50,filters=None):
     filters=filters or {}; page=max(1,int(page or 1))
+    country=country_for_user(user)
     # Admin list endpoints are deliberately capped so a stale URL cannot pull thousands
     # of full MCQ rows and drive database/network egress. The UI uses 10-row pages;
     # 50 remains available for the on-demand post-import review page.
     max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
+    if country:
+        qs=qs.filter(country__iexact=country)
     if filters.get('ids'):
         requested_ids=[]
         for raw in str(filters['ids']).split(',')[:50]:
@@ -589,8 +610,8 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     if filters.get('category'):
         try: qs=qs.filter(category_id=int(filters['category']))
         except (TypeError,ValueError): pass
-    if filters.get('country'):
-        qs=qs.filter(country=str(filters['country']))
+    if filters.get('country') and not country:
+        qs=qs.filter(country__iexact=str(filters['country']))
     if filters.get('important'):
         qs=_json_array_length(qs,'job_ids','_job_count').filter(_job_count__gte=2)
     if filters.get('repeated'):
@@ -656,20 +677,29 @@ def _attach_important_flags(objects):
         obj._important_value=len(jobs)>=2
 
 def snapshot(user):
+    country=country_for_user(user)
     cats=list(Category.objects.select_related('created_by','updated_by').all().order_by('id'))
     subs=list(Subcategory.objects.select_related('created_by','updated_by').all().order_by('id'))
     childs=list(ChildCategory.objects.select_related('created_by','updated_by').all().order_by('id'))
-    papers=list(Paper.objects.select_related('created_by','updated_by').all().order_by('id'))
-    jobs=list(Job.objects.select_related('paper','created_by','updated_by').all().order_by('id'))
-    years=list(JobYear.objects.select_related('job__paper','created_by','updated_by').all().order_by('id'))
+    papers_qs=Paper.objects.select_related('created_by','updated_by').all()
+    jobs_qs=Job.objects.select_related('paper','created_by','updated_by').all()
+    years_qs=JobYear.objects.select_related('job__paper','created_by','updated_by').all()
+    if country:
+        papers_qs=papers_qs.filter(country__iexact=country)
+        jobs_qs=jobs_qs.filter(paper__country__iexact=country)
+        years_qs=years_qs.filter(job__paper__country__iexact=country)
+    papers=list(papers_qs.order_by('id'))
+    jobs=list(jobs_qs.order_by('id'))
+    years=list(years_qs.order_by('id'))
     # Public/admin list rows are loaded only for the page the visitor opens.
     # Bootstrap keeps exact totals and lightweight hierarchy/reference metadata,
     # but does not preload MCQ rows from other pages.
-    site_counts=_approved_public_counts()
+    site_counts=_approved_public_counts(country or None)
     rows=[]
     total=site_counts['approvedMcqs']
     data={
-      'schemaVersion':11,
+      'schemaVersion':12,
+      'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user)),
       'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
