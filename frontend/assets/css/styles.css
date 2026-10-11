@@ -2700,3 +2700,40 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 .country-manager-card{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--white)}
 .country-manager-card .row{align-items:center;justify-content:space-between;gap:12px}
 @media(max-width:600px){.country-landing-hero{border-radius:18px}.country-card{padding:18px}.country-landing-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.country-landing-summary>div{min-width:0;padding:12px}}
+
+
+/* Multi-country landing page refinements — reuse the existing MCQCampus visual system. */
+.country-entry-brand{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:25px;font-size:1.35rem;font-weight:800;letter-spacing:-.04em;color:var(--ink)}
+.country-entry-brand>span:last-child>span{color:var(--green)}
+.country-entry-logo-image{width:44px;height:44px;object-fit:contain;border-radius:9px;background:#fff}
+.country-entry-hero{padding:clamp(22px,4vw,38px);border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,#fff 0%,#eef9f4 64%,#e6f5f0 100%);box-shadow:var(--shadow);text-align:left}
+.country-entry-hero h1{max-width:760px;margin:6px 0 14px;font-size:clamp(30px,4.2vw,48px);line-height:1.12;letter-spacing:-.04em}
+.country-entry-hero .country-entry-intro{max-width:780px;margin:0;color:var(--muted);font-size:1rem;line-height:1.75}
+.country-entry-overall-stat{display:inline-flex;align-items:center;gap:14px;margin-top:24px;padding:14px 20px;border:1px solid #cfe7db;border-radius:15px;background:#ffffffd9}
+.country-entry-stat-icon{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:#dff3e8;color:var(--green)}
+.country-entry-stat-icon .icon{width:22px;height:22px}
+.country-entry-total{display:block;color:var(--green-dark);font-size:clamp(25px,3vw,34px);line-height:1.2;font-variant-numeric:tabular-nums;animation:country-total-enter .65s ease-out both}
+.country-entry-overall-stat small{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}
+.country-entry-country-heading{display:flex;align-items:end;justify-content:space-between;gap:18px;margin:30px 0 18px;text-align:left}
+.country-entry-country-heading h2{margin:0 0 7px;font-size:clamp(22px,3vw,29px)}
+.country-entry-country-heading .country-entry-eyebrow{margin-bottom:7px}
+.country-entry-country-heading .country-entry-intro{margin:0;color:var(--muted);font-size:.9rem}
+.country-entry-country-count{white-space:nowrap;border:1px solid var(--line);border-radius:999px;background:#fff;padding:7px 12px;color:var(--muted);font-size:.8rem}
+.country-entry-card{position:relative;min-width:0;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.country-entry-card:hover,.country-entry-card:focus-visible{transform:translateY(-3px);border-color:#8acbb3;box-shadow:0 12px 28px #087e6514}
+.country-entry-card h2{overflow-wrap:anywhere}
+.country-entry-login{margin-top:24px}
+.auth-form form[data-form="auth-register"]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px;row-gap:0}
+.auth-form form[data-form="auth-register"]>.field{min-width:0;margin-bottom:13px}
+.auth-form form[data-form="auth-register"]>.field input,.auth-form form[data-form="auth-register"]>.field select{width:100%;min-width:0}
+.auth-form form[data-form="auth-register"]>.check-line,.auth-form form[data-form="auth-register"]>[data-auth-error],.auth-form form[data-form="auth-register"]>button[type="submit"]{grid-column:1/-1}
+.auth-form form[data-form="auth-register"]>.check-line{margin:3px 0 14px;line-height:1.5}
+.auth-form form[data-form="auth-register"]>button[type="submit"]{margin-top:8px}
+@keyframes country-total-enter{from{opacity:.2;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){
+ .country-entry-hero{padding:22px 18px}
+ .country-entry-country-heading{align-items:flex-start;flex-direction:column}
+ .country-entry-overall-stat{width:100%}
+ .auth-form form[data-form="auth-register"]{grid-template-columns:minmax(0,1fr)}
+ .auth-form form[data-form="auth-register"]>.field,.auth-form form[data-form="auth-register"]>.check-line,.auth-form form[data-form="auth-register"]>[data-auth-error],.auth-form form[data-form="auth-register"]>button[type="submit"]{grid-column:1}
+}
