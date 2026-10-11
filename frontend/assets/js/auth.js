@@ -1,5 +1,5 @@
 /* Same-origin Django authentication and API adapter.
-   Public MCQ pages remain readable; account and administration routes are protected. */
+   Application pages require a signed-in session; auth routes remain public. */
 window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
@@ -309,8 +309,16 @@ window.Auth=(()=>{
   if(!ready){document.getElementById('app').setAttribute('aria-busy','true');return false;}
   document.getElementById('app').removeAttribute('aria-busy');
   const current=route(),b=base();
-  if(authRoutes.has(b)||!protectedRoutes.has(b))return true;
-  if(!user){const next=destination(current);history.replaceState(null,'',UI.href('login',next?{next}:{}));App.route={path:'login',params:next?{next}:{}};document.getElementById('app').innerHTML=view('login');return false;}
+  document.body.classList.toggle('auth-screen',authRoutes.has(b));
+  if(authRoutes.has(b))return true;
+  if(!user){
+   const next=destination(current);
+   history.replaceState(null,'',UI.href('login',next?{next}:{}));
+   App.route={path:'login',params:next?{next}:{}};
+   document.body.classList.add('auth-screen');
+   document.getElementById('app').innerHTML=view('login');
+   return false;
+  }
   if(!allowed(current)){history.replaceState(null,'',UI.href(landing()));return false;}
   return true;
  }
@@ -344,7 +352,7 @@ window.Auth=(()=>{
   const titles={login:'Welcome back',register:'Your next chapter',forgot:'Forgot your password?',reset:'Choose a new password',verify:'Email verification'};
   let form='';
   if(type==='login')form=`<p class="muted small">Sign in with your existing MCQCampus account.</p><form data-form="auth-login">${field('email','Email address','email','email')}${field('password','Password','password','current-password')}<div class="actions" style="margin-bottom:20px"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span>${UI.link('forgot','Forgot password?','link')}</div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small" style="margin-top:18px">New here? ${UI.link('register','Create an account','link')}</p>`;
-  if(type==='register')form=`<p class="small muted">Create your learner account. All fields marked * are required.</p><form data-form="auth-register">${field('first_name','First name','text','given-name','',true)}${field('last_name','Last name','text','family-name','',true)}${field('email','Email address','email','email','',true)}${field('password','Password','password','new-password','',true)}${field('confirm','Confirm password','password','new-password','',true)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')} <span class="required-mark" aria-hidden="true">*</span></label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send verification code</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
+  if(type==='register')form=`<p class="small muted">Create your learner account. All fields marked * are required.</p><form data-form="auth-register">${field('first_name','First name','text','given-name','',true)}${field('last_name','Last name','text','family-name','',true)}${field('email','Email address','email','email','',true)}<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>${(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(c=>c.active!==false).map(c=>`<option value="${UI.esc(c.name)}" ${String(c.name).toLowerCase()==='pakistan'?'selected':''}>${UI.esc(c.name)}</option>`).join('')}</select></div>${field('password','Password','password','new-password','',true)}${field('confirm','Confirm password','password','new-password','',true)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')} <span class="required-mark" aria-hidden="true">*</span></label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send verification code</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
   if(type==='forgot')form=`<p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form>`;
   if(type==='reset')form=`<p class="muted">Enter the reset code from your email and choose a new password.</p><form data-form="auth-reset">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
   if(type==='verify'){form=`<p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify & create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;setTimeout(()=>syncVerificationTimer(emailParam),0)}
@@ -621,7 +629,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else{if(app)app.innerHTML='';backendLoading(true);}try{await check({loading:false});await ensureRouteData(route());}finally{if(!authFirst)backendLoading(false)}App.render();}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else{if(app)app.innerHTML='';backendLoading(true);}try{await check({loading:false});await ensureRouteData(route());}finally{if(!authFirst)backendLoading(false)}App.render();}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
