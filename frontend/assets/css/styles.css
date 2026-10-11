@@ -2760,3 +2760,5 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 .country-branding-form .field input{width:100%;min-width:0}
 @media(max-width:760px){.country-entry-search-wrap{margin-bottom:16px}.country-entry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:460px){.country-entry-grid{grid-template-columns:1fr}}
+
+.country-entry-backend-warning{max-width:760px;margin:0 auto 20px;padding:14px 16px;border:1px solid #e6c58c;border-radius:12px;background:#fff9ed;color:#805b17;font-size:14px;line-height:1.55}
