@@ -36,7 +36,7 @@ window.Public=(()=>{
     '<span class="country-entry-flag" aria-hidden="true">'+UI.countryFlag(name)+'</span>'+
     '<h2>'+e(name)+'</h2>'+
     '<p><strong>'+total+'</strong> approved MCQs</p>'+
-    '<span class="country-entry-action">Continue with '+e(name)+' '+icon('arrow')+'</span>'+
+    '<span class="country-entry-action">Sign up with '+e(name)+' '+icon('arrow')+'</span>'+
    '</a>';
   }).join('');
   return '<main id="main" class="country-entry-page" tabindex="-1">'+
