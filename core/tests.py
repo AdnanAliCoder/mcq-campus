@@ -25,6 +25,10 @@ class IntegrationTests(TestCase):
         cls.pending=MCQ.objects.create(id=2,question='Pending question?',option1='A',option2='B',option3='C',option4='D',correct_answer='B',category=cls.category,status='pending',created_by=cls.admin,submitted_by=cls.admin)
         cls.rejected=MCQ.objects.create(id=3,question='Rejected question?',option1='A',option2='B',option3='C',option4='D',correct_answer='C',category=cls.category,status='rejected',created_by=cls.admin,submitted_by=cls.admin)
 
+    def setUp(self):
+        # Most integration cases exercise authenticated content workflows.
+        self.client.force_login(self.owner)
+
     def post_json(self,path,data):
         return self.client.post(path,data=json.dumps(data),content_type='application/json')
 
@@ -91,10 +95,12 @@ class IntegrationTests(TestCase):
             self.assertIn('name="robots" content="noindex,nofollow"',response.content.decode(),path)
 
     def test_private_routes_are_server_noindex(self):
+        self.client.logout()
         body=self.client.get('/login').content.decode()
         self.assertIn('name="robots" content="noindex,nofollow"',body)
 
     def test_complete_frontend_entry_loads(self):
+        self.client.logout()
         response=self.client.get('/')
         self.assertEqual(response.status_code,302)
         self.assertEqual(response['Location'],'/login')
@@ -107,6 +113,7 @@ class IntegrationTests(TestCase):
         self.assertNotIn('assets/js/seed.js',body)
 
     def test_bootstrap_requires_authentication(self):
+        self.client.logout()
         response=self.client.get('/api/bootstrap')
         self.assertEqual(response.status_code,401)
         self.assertTrue(response.json()['loginRequired'])
@@ -120,6 +127,7 @@ class IntegrationTests(TestCase):
         self.assertNotIn('reports',data)
 
     def test_login_wall_redirects_pages_and_blocks_private_apis(self):
+        self.client.logout()
         page=self.client.get('/')
         self.assertEqual(page.status_code,302)
         self.assertEqual(page['Location'],'/login')
@@ -166,6 +174,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(signup.status_code,422)
 
     def test_protected_commands_require_login(self):
+        self.client.logout()
         response=self.post_json('/api/commands',{'action':'toggleBookmark','payload':{'args':[self.approved.id]}})
         self.assertEqual(response.status_code,401)
 
@@ -173,21 +182,21 @@ class IntegrationTests(TestCase):
         response=self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         self.assertEqual(response.status_code,200)
         self.assertEqual(response.json()['user']['activeRole'],'user')
-        self.assertEqual(len(self.client.get('/api/bootstrap').json()['mcqs']),1)
+        self.assertEqual(self.client.get('/api/bootstrap').json()['mcqPage']['total'],1)
         self.assertEqual(self.post_json('/api/auth/logout',{}).status_code,200)
         self.assertIsNone(self.client.get('/api/auth/session').json()['user'])
 
     def test_admin_and_super_admin_visibility(self):
         self.post_json('/api/auth/login',{'email':'admin@example.com','password':'AdminPass123'})
         admin_data=self.client.get('/api/bootstrap').json()
-        self.assertEqual({row['id'] for row in admin_data['mcqs']},{1})
+        self.assertEqual(admin_data['mcqPage']['total'],1)
         self.assertNotIn('users',admin_data)
         admin_mcqs=self.client.get('/api/mcqs?page_size=50').json()
         self.assertEqual({row['id'] for row in admin_mcqs['items']},{1,2,3})
         self.client.logout()
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         owner_data=self.client.get('/api/bootstrap').json()
-        self.assertEqual({row['id'] for row in owner_data['mcqs']},{1})
+        self.assertEqual(owner_data['mcqPage']['total'],1)
         self.assertNotIn('users',owner_data)
         users=self.client.get('/api/admin/users').json()
         self.assertEqual(len(users['items']),3)
@@ -776,6 +785,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(self.client.get('/api/health/performance').status_code,404)
 
     def test_learner_dashboard_is_focused_and_authenticated(self):
+        self.client.logout()
         self.assertEqual(self.client.get('/api/learner/dashboard').status_code,401)
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         data=self.client.get('/api/learner/dashboard').json()
