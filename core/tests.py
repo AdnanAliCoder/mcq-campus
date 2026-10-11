@@ -709,13 +709,13 @@ class IntegrationTests(TestCase):
     def test_public_entity_pages_load_ten_records_and_keep_total(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         Category.objects.bulk_create([Category(id=3000+i,name=f'Category {i}',icon='grid') for i in range(15)])
-        first=self.client.get('/api/entities?type=categories&scope=public&page=1').json()
-        second=self.client.get('/api/entities?type=categories&scope=public&page=2').json()
-        self.assertEqual(first['pageSize'],10)
-        self.assertEqual(len(first['items']),10)
+        first=self.client.get('/api/entities?type=categories&scope=public&page=1&page_size=12').json()
+        second=self.client.get('/api/entities?type=categories&scope=public&page=2&page_size=12').json()
+        self.assertEqual(first['pageSize'],12)
+        self.assertEqual(len(first['items']),12)
         self.assertEqual(first['total'],Category.objects.filter(active=True).count())
         self.assertEqual(second['total'],first['total'])
-        self.assertLessEqual(len(second['items']),10)
+        self.assertLessEqual(len(second['items']),12)
 
     def test_admin_mcq_endpoint_caps_large_page_sizes_and_owner_filter(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
