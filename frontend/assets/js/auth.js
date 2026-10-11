@@ -210,12 +210,14 @@ window.Auth=(()=>{
    else if(key==='workspace-mcqs')endpoint=workspaceEndpoint();
    else if(key==='public-mcqs')endpoint=publicMcqEndpoint();
    else if(key==='entity-page')endpoint=entityEndpoint();
+   else if(key==='overview'&&workspace==='super-admin'&&routeParams.get('country'))endpoint+='?country='+encodeURIComponent(String(routeParams.get('country')));
    if(!endpoint)return false;
-   const variable=new Set(['workspace-mcqs','public-mcqs','entity-page']);
+   const variable=new Set(['workspace-mcqs','public-mcqs','entity-page','overview']);
    const cacheKey=variable.has(key)?key+'|'+endpoint:key;
    const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
    const activePage=key==='entity-page'?MCQ.db.entityPage:MCQ.db.mcqPage;
-   if(fresh&&(!variable.has(key)||(activePage?.request===endpoint&&activePage?.routeKey===routeKey)))return false;
+   const matchingRouteData=key==='overview'?(MCQ.db.adminOverview?.request===endpoint&&MCQ.db.adminOverview?.routeKey===routeKey):(activePage?.request===endpoint&&activePage?.routeKey===routeKey);
+   if(fresh&&(!variable.has(key)||matchingRouteData))return false;
    if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return load(key)}
    const task=(async()=>{
     try{
@@ -242,7 +244,7 @@ window.Auth=(()=>{
       if(Array.isArray(data.items))for(const row of data.items)MCQ.upsert(data.type,row);
       MCQ.db.entityPage={...data,server:true,request:endpoint,routeKey};
      }
-     if(key==='overview')MCQ.db.adminOverview=data||{};
+     if(key==='overview')MCQ.db.adminOverview={...(data||{}),request:endpoint,routeKey};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
      if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
      if(key==='trash')MCQ.db.trash=Array.isArray(data.items)?data.items:[];
