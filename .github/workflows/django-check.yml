@@ -3,6 +3,8 @@ name: Django Check
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -25,3 +27,9 @@ jobs:
           SECRET_KEY: "ci-check-secret"
           ALLOWED_HOSTS: "127.0.0.1,localhost"
         run: python manage.py check
+      - name: Django test suite
+        env:
+          DEBUG: "false"
+          SECRET_KEY: "ci-check-secret"
+          ALLOWED_HOSTS: "127.0.0.1,localhost"
+        run: python manage.py test
