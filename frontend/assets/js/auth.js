@@ -302,9 +302,10 @@ window.Auth=(()=>{
     const data=await request('/startup');
     if(own!==generation)return;
     csrf=data.csrfToken||'';
+    window.__mcqStartupError='';
     hydrate(data.snapshot||{},data.user||null);
    }catch{
-    if(own===generation){clearPrivateState();hydrate({},null);}
+    if(own===generation){window.__mcqStartupError='MCQCampus could not load data from the server. Refresh the page or try again shortly.';clearPrivateState();hydrate({},null);}
    }finally{if(loading)backendLoading(false);ready=true;checking=null;}
   })();
   return checking;
@@ -371,7 +372,7 @@ window.Auth=(()=>{
   if(type==='forgot')form=`<p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form>`;
   if(type==='reset')form=`<p class="muted">Enter the reset code from your email and choose a new password.</p><form data-form="auth-reset">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
   if(type==='verify'){form=`<p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify & create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;setTimeout(()=>syncVerificationTimer(emailParam),0)}
-  return UI.layout(`<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>${titles[type]}</h1>${form}</div></div></div>`);
+  return UI.layout(`<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>${titles[type]}</h1>${window.__mcqStartupError?'<p class="auth-error" role="alert">'+UI.esc(window.__mcqStartupError)+'</p>':''}${form}</div></div></div>`);
  }
 
  const pendingCommands=new Map();
