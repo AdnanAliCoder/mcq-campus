@@ -149,7 +149,7 @@ window.Auth=(()=>{
    const q=new URLSearchParams();
    q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
    q.set('page_size',String(section==='edit'?1:ADMIN_DEFAULT_PAGE_SIZE));
-   for(const key of ['status','category','paper','job','year','author','from','to','search']){
+   for(const key of ['status','category','paper','job','year','author','from','to','search','country']){
     const value=routeParams.get(key);if(value)q.set(key,value);
    }
    if(section==='mcqs')q.set('owner','me');
@@ -201,6 +201,7 @@ window.Auth=(()=>{
   const load=async key=>{
    let endpoint='/admin/'+key;
    if(key==='core')endpoint='/bootstrap';
+   else if(key==='overview'){const country=routeParams.get('country');endpoint='/admin/overview'+(country?'?country='+encodeURIComponent(country):'')}
    else if(key==='public-content')endpoint='/public/content';
    else if(key==='resources')endpoint='/public/resources';
    else if(key==='catalog')endpoint='/public/catalog';
@@ -211,10 +212,10 @@ window.Auth=(()=>{
    else if(key==='public-mcqs')endpoint=publicMcqEndpoint();
    else if(key==='entity-page')endpoint=entityEndpoint();
    if(!endpoint)return false;
-   const variable=new Set(['workspace-mcqs','public-mcqs','entity-page']);
+   const variable=new Set(['workspace-mcqs','public-mcqs','entity-page','overview']);
    const cacheKey=variable.has(key)?key+'|'+endpoint:key;
    const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
-   const activePage=key==='entity-page'?MCQ.db.entityPage:MCQ.db.mcqPage;
+   const activePage=key==='entity-page'?MCQ.db.entityPage:key==='overview'?MCQ.db.adminOverview:MCQ.db.mcqPage;
    if(fresh&&(!variable.has(key)||(activePage?.request===endpoint&&activePage?.routeKey===routeKey)))return false;
    if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return load(key)}
    const task=(async()=>{
@@ -242,7 +243,7 @@ window.Auth=(()=>{
       if(Array.isArray(data.items))for(const row of data.items)MCQ.upsert(data.type,row);
       MCQ.db.entityPage={...data,server:true,request:endpoint,routeKey};
      }
-     if(key==='overview')MCQ.db.adminOverview=data||{};
+     if(key==='overview')MCQ.db.adminOverview={...(data||{}),request:endpoint,routeKey};
      if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
      if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
      if(key==='trash')MCQ.db.trash=Array.isArray(data.items)?data.items:[];
