@@ -493,7 +493,9 @@ def admin_countries(request):
     d=payload(request)
     action=str(d.get('action') or 'add').strip().lower()
     settings=SiteSetting.get_solo()
-    blob=_site_blob(settings)
+    root=settings.admin_permissions if isinstance(settings.admin_permissions,dict) else {}
+    raw_site=root.get('_site') or {}
+    blob=dict(raw_site) if isinstance(raw_site,dict) else {}
     entries=blob.get('countries')
     if not isinstance(entries,list):
         entries=country_catalog(include_counts=False,include_inactive=True)
@@ -550,7 +552,9 @@ def admin_countries(request):
     else:
         return err('Unsupported country action.',422)
     blob['countries']=normalized
-    _save_site_blob(settings,blob)
+    root=dict(root)
+    root['_site']=blob
+    settings.admin_permissions=root
     settings.updated_by=request.user
     settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
     return JsonResponse({'success':True,'countries':country_catalog(request.user,include_counts=True,include_inactive=True)})
