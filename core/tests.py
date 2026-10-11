@@ -184,15 +184,17 @@ class IntegrationTests(TestCase):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         self.post_json('/api/admin/countries',{'action':'add','name':'Canada'})
         self.post_json('/api/admin/countries',{'action':'add','name':'Australia'})
+        self.post_json('/api/admin/countries',{'action':'add','name':'France'})
         pinned=self.post_json('/api/admin/countries',{'action':'pin','name':'Canada','pinned':True})
         self.assertEqual(pinned.status_code,200)
         canada=next(row for row in pinned.json()['countries'] if row['name']=='Canada')
         self.assertTrue(canada['pinned'])
-        ordered=self.post_json('/api/admin/countries',{'action':'reorder','order':['Pakistan','Australia','Canada']})
+        ordered=self.post_json('/api/admin/countries',{'action':'reorder','order':['Pakistan','France','Australia','Canada']})
         self.assertEqual(ordered.status_code,200)
         names=[row['name'] for row in ordered.json()['countries']]
         self.assertEqual(names.index('Pakistan'),0)
-        self.assertLess(names.index('Australia'),names.index('Canada'))
+        self.assertEqual(names.index('Canada'),1)
+        self.assertLess(names.index('France'),names.index('Australia'))
         self.assertTrue(next(row for row in ordered.json()['countries'] if row['name']=='Pakistan')['pinned'])
 
     def test_protected_commands_require_login(self):
