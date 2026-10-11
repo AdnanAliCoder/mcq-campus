@@ -170,7 +170,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(disabled.status_code,200)
         spain=next(row for row in disabled.json()['countries'] if row['name']=='Spain')
         self.assertFalse(spain['active'])
-        signup=self.register(email='spain@example.com',country='Spain')
+        signup=self.post_json('/api/auth/register',{'first_name':'Spain','last_name':'Learner','email':'spain@example.com','password':'StrongPass!246','confirm':'StrongPass!246','terms':'on','country':'Spain'})
         self.assertEqual(signup.status_code,422)
 
     def test_protected_commands_require_login(self):
