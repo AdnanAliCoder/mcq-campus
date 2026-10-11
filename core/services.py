@@ -719,7 +719,7 @@ def admin_overview_data(user,active_role=None,selected_country=''):
     qs=MCQ.objects.all() if super_view else MCQ.objects.filter(created_by=user)
     mine_qs=MCQ.objects.filter(created_by=user)
     country=country_for_user(user)
-    selected_country=re.sub(r'\\s+',' ',str(selected_country or '')).strip()[:80]
+    selected_country=re.sub(r'\s+',' ',str(selected_country or '')).strip()[:80]
     if super_view and selected_country:
         allowed={row['name'].casefold():row['name'] for row in country_catalog(user,include_counts=False,include_inactive=True)}
         if selected_country.casefold() not in allowed: raise ValueError('Choose a country from the country catalog.')
