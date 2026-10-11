@@ -2700,3 +2700,19 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 .country-manager-card{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--white)}
 .country-manager-card .row{align-items:center;justify-content:space-between;gap:12px}
 @media(max-width:600px){.country-landing-hero{border-radius:18px}.country-card{padding:18px}.country-landing-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.country-landing-summary>div{min-width:0;padding:12px}}
+
+/* 2026-10-11: compact country marker and paginated three-column PDF cards */
+.brand{position:relative;padding-right:8px}
+.brand-country-marker{position:absolute;top:-4px;right:-6px;display:inline-flex;align-items:center;justify-content:center;line-height:1;pointer-events:none}
+.brand-country-code{display:inline;font-size:9px;font-weight:850;letter-spacing:.02em;color:var(--green-dark);background:#fff;padding:1px 2px;border-radius:3px}
+.brand-country-flag{display:none;font-size:18px;line-height:1}
+.pdf-direct-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pdf-direct-card{display:flex;flex-direction:column;align-items:stretch;gap:12px;height:100%;min-width:0;padding:18px}
+.pdf-direct-card>img{width:100%;height:170px;object-fit:cover;border-radius:10px;margin:0}
+.pdf-direct-copy{min-width:0;overflow-wrap:anywhere}
+.pdf-direct-copy h2{font-size:1.05rem;line-height:1.35;overflow-wrap:anywhere}
+.pdf-direct-action{justify-self:stretch;align-self:flex-start;margin-top:auto;padding-top:6px}
+.pdf-direct-action .btn{max-width:100%;white-space:normal}
+@media(max-width:1050px){.pdf-direct-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.brand-country-code{display:none}.brand-country-flag{display:inline}.brand-country-marker{top:-5px;right:-5px}.pdf-direct-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pdf-direct-card{padding:13px}.pdf-direct-card>img{height:140px}}
+@media(max-width:520px){.pdf-direct-list{grid-template-columns:1fr}}
