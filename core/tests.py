@@ -107,7 +107,7 @@ class IntegrationTests(TestCase):
         response=self.client.get('/login')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
-        self.assertIn('styles.css?v=20261011-country-entry-v2',body)
+        self.assertIn('styles.css?v=20261011-country-search-logo-v1',body)
         self.assertIn('assets/js/auth.js',body)
         self.assertIn('assets/js/seo.js',body)
         self.assertNotIn('assets/js/seed.js',body)
@@ -240,10 +240,10 @@ class IntegrationTests(TestCase):
         self.assertEqual(switched.status_code,200)
         india=self.client.get('/api/admin/overview?country=India')
         self.assertEqual(india.status_code,200)
-        self.assertEqual(india.json()['mcqs']['total'],1)
+        self.assertEqual(india.json()['mcqs']['total'],MCQ.objects.filter(country__iexact='India').count())
         pakistan=self.client.get('/api/admin/overview?country=Pakistan')
         self.assertEqual(pakistan.status_code,200)
-        self.assertEqual(pakistan.json()['mcqs']['total'],1)
+        self.assertEqual(pakistan.json()['mcqs']['total'],MCQ.objects.filter(country__iexact='Pakistan').count())
         invalid=self.client.get('/api/admin/overview?country=NotACountry')
         self.assertEqual(invalid.status_code,422)
 
@@ -979,7 +979,7 @@ class AuthSecurityTests(TestCase):
         return match.group(1)
 
     def register(self,email='newlearner@example.com',password='StrongPass!246',**extra):
-        payload={'first_name':'New','last_name':'Learner','email':email,'password':password,'confirm':password,'terms':'on',**extra}
+        payload={'first_name':'New','last_name':'Learner','email':email,'password':password,'confirm':password,'terms':'on','country':'Pakistan',**extra}
         return self.post_json('/api/auth/register',payload)
 
     def verified_user(self,email,role='user',is_staff=False,is_superuser=False):
