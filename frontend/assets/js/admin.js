@@ -53,8 +53,9 @@ window.Admin=(()=>{
   const openReports=summary.openReports??(d.reports||[]).filter(r=>!['resolved','closed'].includes(String(r.status||'').toLowerCase())).length;
   const staff=(d.users&&d.users.length?d.users.filter(u=>['admin','super-admin'].includes(u.role)):(summary.staffPreview||[])),learners=summary.learners??d.users.filter(u=>u.role==='user').length,trash=summary.trash??(d.trash||[]).length,staffTotal=summary.staff??staff.length;
   const recent=(Array.isArray(summary.recent)&&summary.recent.length?summary.recent:d.mcqs).slice(0,5);
+  const selectedCountry=MCQ.role()==='super-admin'?String(new URLSearchParams(location.search).get('country')||''):'';
   const top=[
-   {title:'Website MCQs',value:total,iconName:'book',tone:'primary',path:url('all-mcqs'),subtitle:'Complete collection'},
+   {title:selectedCountry?selectedCountry+' MCQs':'Website MCQs',value:total,iconName:'book',tone:'primary',path:url('all-mcqs'),subtitle:selectedCountry?'Selected country collection':'Complete collection'},
    {title:'Pending',value:pending,iconName:'clock',tone:'info',path:url('all-mcqs'),params:{status:'pending'},subtitle:'Needs a decision'},
    {title:'Approved',value:approved,iconName:'check',tone:'success',path:url('all-mcqs'),params:{status:'approved'},subtitle:'Live-ready MCQs'},
    {title:'Open Reports',value:openReports,iconName:'flag',tone:openReports?'warning':'neutral',path:url('reports'),subtitle:'Content issues'}
@@ -66,7 +67,8 @@ window.Admin=(()=>{
    [icon('paper'),'Papers & Jobs',`${d.papers.length} organizations · ${d.jobs.length} jobs · ${d.years.length} paper records`,url('papers')],
    [icon('settings'),'System Settings',`${learners} learners`,url('settings')]
   ];
-  return heading('Super Admin Overview','Review website content, track ownership, and open the main control areas from one compact command centre.',`<div class="actions overview-head-actions">${link(url('add'),icon('plus')+' Add MCQ','btn primary')}${link(url('all-mcqs'),icon('clock')+' Pending','btn',{status:'pending'})}${link(url('settings'),icon('settings')+' Settings','btn')}</div>`)+
+  const countryScopeControl=MCQ.role()==='super-admin'?(`<form data-form="overview-country-scope" class="overview-country-scope"><label for="overview-country-select" class="small muted">Dashboard country</label><select id="overview-country-select" name="country"><option value="">All countries</option>${(d.countries||[]).filter(x=>x.active!==false).map(x=>`<option value="${e(x.name)}" ${String(x.name)===selectedCountry?'selected':''}>${e(x.name)}</option>`).join('')}</select><button class="btn sm" type="submit">Apply</button></form>`):'';
+  return heading('Super Admin Overview',selectedCountry?'Review metrics and records for '+selectedCountry+'. Choose another country or return to all countries.':'Review website content, track ownership, and open the main control areas from one compact command centre.',`<div class="actions overview-head-actions">${countryScopeControl}${link(url('add'),icon('plus')+' Add MCQ','btn primary')}${link(url('all-mcqs'),icon('clock')+' Pending','btn',{status:'pending'})}${link(url('settings'),icon('settings')+' Settings','btn')}</div>`)+
    `<div class="metric-grid admin-primary-metrics overview-top-metrics">${top.map(x=>UI.statCard({...x,className:'overview-stat'})).join('')}</div>`+
    `<div class="overview-command-grid">`+
     `<section class="card overview-command-card"><div class="overview-card-head"><div><p class="eyebrow">MY COLLECTION</p><h2>${e(me.name||'Super Admin')}</h2></div>${link(url('mcqs'),'Open '+icon('arrow'),'link')}</div><div class="overview-mini-stats"><div><strong>${mineTotal}</strong><span>Added</span></div><div><strong>${minePending}</strong><span>Pending</span></div><div><strong>${mineApproved}</strong><span>Approved</span></div></div><p class="small muted">Only MCQs created by your Super Admin account are counted here.</p></section>`+
@@ -320,6 +322,13 @@ window.Admin=(()=>{
   else body=empty('Page not found','This item is no longer part of the simplified Super Admin navigation.');
   return shell(body,names[view]||({'all-mcqs':'All MCQs','admin-records':'Admin Records','paper-mcqs':'Paper Collection',settings:'Settings','site-settings':'Website Settings','page-seo':'Page Titles & Descriptions','pdfs-manager':'PDF Resources','latest-jobs-manager':'Latest Jobs'}[view])||view.replace(/^./,x=>x.toUpperCase()))
  }
+
+ document.addEventListener('submit',event=>{
+  const form=event.target.closest('form[data-form="overview-country-scope"]');if(!form)return;
+  event.preventDefault();
+  const country=String(form.elements.country.value||'').trim();
+  location.href=UI.href('super-admin/overview',country?{country}:{});
+ },true);
 
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form="country-create"]');if(!form)return;
