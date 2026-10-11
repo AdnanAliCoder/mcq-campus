@@ -200,7 +200,7 @@ window.Auth=(()=>{
   let changed=false;
   const load=async key=>{
    let endpoint='/admin/'+key;
-   if(key==='core')endpoint='/bootstrap';
+   if(key==='core')endpoint='/bootstrap'+(workspace==='home'&&user?.roles?.includes('super-admin')&&routeParams.get('country')?'?country='+encodeURIComponent(String(routeParams.get('country'))):'');
    else if(key==='public-content')endpoint='/public/content';
    else if(key==='resources')endpoint='/public/resources';
    else if(key==='catalog')endpoint='/public/catalog';
