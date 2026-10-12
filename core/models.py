@@ -26,7 +26,14 @@ def profile_for(user):
 def user_role(user):
     if not user or not getattr(user,'is_authenticated',False): return 'user'
     if user.is_superuser: return 'super-admin'
-    p=profile_for(user); return p.role if p else ('admin' if user.is_staff else 'user')
+    p=profile_for(user)
+    permissions=p.permissions or [] if p else []
+    # Keep elevated account access consistent even if an older profile still says "user".
+    if 'super_admin_permission' in permissions: return 'super-admin'
+    if p and p.role in {'admin','super-admin'}: return p.role
+    # Django staff accounts are administrative accounts even if their legacy Profile role was never updated.
+    if getattr(user,'is_staff',False): return 'admin'
+    return p.role if p else 'user'
 def user_permissions(user):
     p=profile_for(user); return p.permissions or [] if p else []
 def user_name(user):
