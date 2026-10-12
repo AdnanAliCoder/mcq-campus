@@ -123,7 +123,10 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const navHtml=main.map(([p,l,i])=>link(p,icon(i)+`<span>${esc(l)}</span>`,is(p)?'active':'')).join('');
   const mobileMenu=MCQ.db.session?btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"'):'';
   const country=String(MCQ.db.session?.country||window.Auth?.user?.country||'').trim();
-  const countryBadge=country?'<div class="header-country-badge" aria-label="Your country"><span class="header-country-flag">'+countryFlag(country)+'</span><span class="header-country-name">'+esc(country)+'</span></div>':'';
+  const countryKey=country.toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ').trim();
+  const countryCodes={'pakistan':'PK','india':'IN','united states':'US','united states of america':'US','usa':'US','us':'US','united kingdom':'GB','uk':'GB','great britain':'GB','canada':'CA','australia':'AU','new zealand':'NZ','united arab emirates':'AE','uae':'AE','bangladesh':'BD','sri lanka':'LK','nepal':'NP','afghanistan':'AF','china':'CN','saudi arabia':'SA','malaysia':'MY','indonesia':'ID','nigeria':'NG','south africa':'ZA','germany':'DE','france':'FR','philippines':'PH','egypt':'EG','qatar':'QA','oman':'OM','kuwait':'KW','turkey':'TR','türkiye':'TR','japan':'JP','singapore':'SG','italy':'IT','spain':'ES','brazil':'BR','ireland':'IE','kenya':'KE','iran':'IR','iraq':'IQ'};
+  const countryCode=/^[a-z]{2}$/i.test(country)?country.toUpperCase():(countryCodes[countryKey]||country.slice(0,2).toUpperCase());
+  const countryBadge=country?'<span class="header-country-badge" title="'+esc(country)+'" aria-label="Country: '+esc(country)+'"><span class="header-country-code">'+esc(countryCode)+'</span></span>':'';
   return `<header class="header reference-header"><div class="container header-inner">${brand()}${countryBadge}<nav class="nav" id="main-nav" aria-label="Main navigation">${navHtml}${MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth')}</nav><form class="header-search" data-form="search" role="search">${publicSearch('Search MCQs, papers, categories, jobs...',currentQuery)}</form><div class="header-actions">${userMenu()}${mobileMenu}</div></div></header>`
 }
  function footer(){
