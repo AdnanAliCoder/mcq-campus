@@ -107,7 +107,7 @@ class IntegrationTests(TestCase):
         response=self.client.get('/login')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
-        self.assertIn('styles.css?v=20261012-auth-role-fix-v1',body)
+        self.assertIn('styles.css?v=20261012-auth-role-fix-v2',body)
         self.assertIn('assets/js/auth.js',body)
         self.assertIn('assets/js/seo.js',body)
         self.assertNotIn('assets/js/seed.js',body)
