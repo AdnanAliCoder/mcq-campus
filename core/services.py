@@ -93,7 +93,8 @@ def country_catalog(user=None,include_counts=True,include_inactive=False):
         row={'name':item['name'],'active':bool(item['active'])}
         if include_counts: row['mcqCount']=counts.get(item['name'].casefold(),0)
         result.append(row)
-    return sorted(result,key=lambda row:(row['name'].casefold()!='pakistan',row['name'].casefold()))
+    # Preserve the Super Admin's configured country order for the landing page.
+    return result
 
 def country_for_user(user):
     if not user or not getattr(user,'is_authenticated',False) or is_super(user): return ''

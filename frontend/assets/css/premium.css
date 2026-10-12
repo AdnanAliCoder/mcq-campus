@@ -1,0 +1,164 @@
+/* MCQCampus premium frontend foundation.
+   This stylesheet intentionally layers over the established UI to avoid changing behavior. */
+:root{
+  --ink:#172b3b;
+  --muted:#667987;
+  --green:#087e65;
+  --green-dark:#075b4c;
+  --mint:#def5ec;
+  --bg:#f5f8fb;
+  --line:#dfe7ee;
+  --white:#fff;
+  --dark:#102b3f;
+  --radius:18px;
+  --shadow:0 14px 38px rgba(18,43,61,.075);
+}
+body{background:var(--bg);color:var(--ink)}
+#app{min-height:100vh}
+.container{max-width:1280px}
+.header{
+  background:rgba(255,255,255,.94);
+  border-bottom-color:rgba(211,225,232,.88);
+  box-shadow:0 6px 24px rgba(18,43,61,.035);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px)
+}
+.header-inner{height:78px}
+.brand{letter-spacing:-.045em}
+.logo-crop{border:1px solid rgba(220,231,236,.85);border-radius:12px}
+.nav a{transition:color .16s ease,border-color .16s ease}
+.btn{
+  border-radius:12px;
+  transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease,border-color .16s ease
+}
+.btn:not(:disabled):hover{transform:translateY(-1px)}
+.btn.primary{
+  background:linear-gradient(135deg,#087e65 0%,#0b8d73 100%);
+  border-color:#087e65;
+  box-shadow:0 7px 17px rgba(8,126,101,.17)
+}
+.btn.primary:hover{
+  background:linear-gradient(135deg,#076c58 0%,#087e65 100%);
+  box-shadow:0 10px 22px rgba(8,126,101,.23)
+}
+.btn.dark{background:linear-gradient(135deg,#102b3f,#183f50)}
+.searchbox{
+  border-color:#d5e2e9;
+  border-radius:14px;
+  box-shadow:0 8px 22px rgba(18,43,61,.045)
+}
+.searchbox:focus-within{
+  outline:3px solid rgba(8,126,101,.14);
+  outline-offset:2px
+}
+.card,.mcq-card,.article{
+  border-color:var(--line);
+  box-shadow:0 5px 18px rgba(18,43,61,.035)
+}
+.card.clickable{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.card.clickable:hover{
+  transform:translateY(-3px);
+  box-shadow:0 14px 30px rgba(18,43,61,.08);
+  border-color:#abd8ca
+}
+.home-hero-compact .home-hero-copy{
+  border-color:#d9e8e5;
+  border-radius:24px;
+  padding:clamp(26px,4vw,42px);
+  background:
+    radial-gradient(circle at 94% 10%,rgba(8,126,101,.10),transparent 29%),
+    linear-gradient(135deg,#fff 0%,#f3faf8 100%);
+  box-shadow:0 18px 42px rgba(18,43,61,.055)
+}
+.home-hero-compact h1{letter-spacing:-.052em}
+.home-stats .stat{border-radius:15px;box-shadow:0 3px 12px rgba(18,43,61,.025)}
+.home-stats .stat:hover{border-color:#b7d9cf}
+.home-category-nav{border-radius:18px}
+.home-cat-group{border-radius:12px;transition:border-color .16s ease,background-color .16s ease}
+.home-cat-group:hover{border-color:#c5ded5;background:#f8fcfa}
+.page{padding-top:32px}
+.page-heading h1{letter-spacing:-.05em}
+.field input,.field select,.field textarea,
+.control,input:not([type=checkbox]):not([type=radio]),textarea,select{
+  border-radius:11px
+}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{
+  outline-color:#168c77
+}
+.auth-layout{
+  max-width:1020px;
+  border-radius:24px;
+  border-color:#dce6ec;
+  box-shadow:0 22px 65px rgba(16,43,63,.10)
+}
+.auth-story{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(36,177,141,.22),transparent 42%),
+    linear-gradient(145deg,#102b3f 0%,#163d4c 100%);
+  padding:clamp(30px,4vw,54px)
+}
+.auth-story h2{letter-spacing:-.05em}
+.auth-form{padding:clamp(26px,4vw,44px)}
+.country-entry-page{
+  background:
+    radial-gradient(ellipse at 8% 0%,rgba(38,178,146,.13),transparent 34%),
+    radial-gradient(ellipse at 96% 8%,rgba(21,139,188,.10),transparent 30%),
+    linear-gradient(180deg,#f7fbfd 0%,#fff 100%)
+}
+.country-entry-shell{width:min(1320px,100%)}
+.country-entry-brand{margin-bottom:clamp(28px,4vw,42px)}
+.country-entry-logo{
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(16,67,98,.09)
+}
+.country-entry-country-section{max-width:1120px}
+.country-entry-grid{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));
+  gap:18px
+}
+.country-entry-card{
+  min-height:194px;
+  border-color:#dce8ee;
+  border-radius:20px;
+  box-shadow:0 10px 28px rgba(16,67,98,.055)
+}
+.country-entry-card:hover,.country-entry-card:focus-visible{
+  transform:translateY(-4px);
+  border-color:#86cbb7;
+  box-shadow:0 18px 34px rgba(16,67,98,.105)
+}
+.country-entry-card h2{letter-spacing:-.035em}
+.country-entry-card-arrow{
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  background:#edf8f5;
+  color:#0b8069;
+  transition:transform .16s ease,background-color .16s ease
+}
+.country-entry-card:hover .country-entry-card-arrow{transform:translateX(3px);background:#def5ec}
+.country-entry-country-count{border-color:#d9e7ed;color:#5e7888}
+.country-entry-footer{color:#718391}
+.footer{border-top-color:#dfe8ed}
+@media(max-width:850px){
+  .header-inner{height:72px}
+  .home-hero-compact .home-hero-copy{border-radius:20px}
+  .country-entry-country-section{max-width:100%}
+}
+@media(max-width:600px){
+  .container{padding-left:18px;padding-right:18px}
+  .header{box-shadow:0 3px 16px rgba(18,43,61,.03)}
+  .home-hero-compact{padding-top:24px}
+  .home-hero-compact .home-hero-copy{padding:25px 22px}
+  .home-hero-actions .btn{min-height:44px}
+  .auth-layout{border-radius:18px;box-shadow:0 12px 32px rgba(16,43,63,.075)}
+  .auth-story{padding:25px 23px}
+  .auth-form{padding:25px 22px}
+  .country-entry-grid{grid-template-columns:1fr;gap:13px}
+  .country-entry-card{min-height:156px;border-radius:17px}
+}
+@media(prefers-reduced-motion:reduce){
+  .btn,.card.clickable,.country-entry-card,.country-entry-card-arrow,.home-cat-group{transition:none!important}
+}
