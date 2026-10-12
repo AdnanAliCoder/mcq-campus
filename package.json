@@ -5,6 +5,6 @@
   "scripts": {
     "dev": "python manage.py runserver",
     "start": "python manage.py runserver",
-    "test": "node tools/verify-integration.cjs && node tools/verify-interactions.cjs"
+    "test": "node tools/verify-integration.cjs && node tools/verify-interactions.cjs && node tools/verify-country-landing.cjs"
   }
 }
