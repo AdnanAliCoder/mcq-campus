@@ -433,7 +433,8 @@ def startup_payload(user,session):
     settings=SiteSetting.objects.only('singleton','site_name','description','country','seo_title','seo_description').filter(pk=1).first()
     if settings is None: settings=SiteSetting.objects.create(pk=1)
     authenticated=bool(user and getattr(user,'is_authenticated',False))
-    return {'snapshot':{'schemaVersion':12,**_startup_site_state(settings),
+    return {'snapshot':{'schemaVersion':13,**_startup_site_state(settings),
+                        'totalApprovedMcqs':MCQ.objects.filter(status='approved').count(),
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
             'user':user_identity_dict(user,session) if authenticated else None}
 
