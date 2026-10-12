@@ -11,11 +11,12 @@ def _profile_extra(p):
     return extra
 
 def user_identity_dict(u,session=None):
-    p=profile_for(u); role=user_role(u); permissions=p.permissions or []; elevated=role=='super-admin' or 'super_admin_permission' in permissions; roles=['user']
+    p=profile_for(u); role=user_role(u); permissions=p.permissions or []; elevated=role=='super-admin'
+    roles=['user']
     if role in {'admin','super-admin'}: roles.append('admin')
     if elevated: roles.append('super-admin')
-    active=(session or {}).get('active_role') or ('super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user')
-    if active not in roles: active=roles[-1]
+    active=(session or {}).get('active_role') or ('super-admin' if elevated else 'admin' if role=='admin' else 'user')
+    if active not in roles: active='super-admin' if elevated else roles[-1]
     return {'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':permissions,'country':p.country,'status':'active' if u.is_active else 'disabled'}
 
 def user_admin_dict(u,session=None):
