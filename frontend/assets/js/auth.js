@@ -31,7 +31,7 @@ window.Auth=(()=>{
   const path=value.split('?')[0];
   return /^[a-z0-9][a-z0-9_-]*(?:\/[a-z0-9_-]+)*$/i.test(path)&&!authRoutes.has(path.split('/')[0])?value:null;
  }
- function landing(){return user?.roles?.includes('super-admin')?'super-admin/overview':user?.roles?.includes('admin')?'admin/overview':'dashboard';}
+ function landing(){return user?.roles?.includes('super-admin')?'super-admin/overview':user?.roles?.includes('admin')?'admin/overview':'home';}
  function allowed(value){
   const [b,section]=value.split('?')[0].split('/');
   if(!protectedRoutes.has(b))return true;
@@ -633,7 +633,7 @@ window.Auth=(()=>{
     await request('/auth/logout',{});
     clearPrivateState();
     ready=true;
-    App.go('login');
+    App.go('home');
    }finally{
     backendLoading(false);
     majorTransition=null;
