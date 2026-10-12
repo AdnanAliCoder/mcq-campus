@@ -2766,3 +2766,16 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
  .country-entry-footer{align-items:flex-start;flex-direction:column;gap:8px;margin-top:40px}
 }
 @media(prefers-reduced-motion:reduce){.country-entry-card{transition:none}}
+
+
+/* Compact ISO country code beside the existing brand; this is not a navigation tab. */
+.header-country-badge{
+ display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+ width:27px;height:20px;padding:0;margin-left:-7px;margin-right:12px;
+ border:1px solid #cfe5f1;border-radius:6px;background:#eef8fc;color:#176b91;
+ font-size:10px;font-weight:850;line-height:1;letter-spacing:.04em;
+}
+.header-country-code{display:block}
+@media(max-width:760px){
+ .header-country-badge{width:25px;height:19px;margin-left:-9px;margin-right:7px}
+}
