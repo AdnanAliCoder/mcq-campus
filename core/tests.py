@@ -145,6 +145,21 @@ class IntegrationTests(TestCase):
         self.assertIsNone(self.client.get('/api/auth/session').json()['user'])
         self.assertEqual(self.client.get('/login').status_code,200)
 
+    def test_public_startup_exposes_live_global_approved_mcq_total(self):
+        MCQ.objects.create(
+            id=56,question='Approved India question?',option1='A',option2='B',option3='C',option4='D',
+            correct_answer='A',category=self.category,status='approved',country='India',
+            created_by=self.admin,submitted_by=self.admin,
+        )
+        response=self.client.get('/api/startup')
+        self.assertEqual(response.status_code,200)
+        snapshot=response.json()['snapshot']
+        self.assertEqual(snapshot['totalApprovedMcqs'],2)
+        counts={row['name']:row['mcqCount'] for row in snapshot['countries']}
+        self.assertEqual(counts['Pakistan'],1)
+        self.assertEqual(counts['India'],1)
+        self.assertEqual(MCQ.objects.filter(status='approved').count(),snapshot['totalApprovedMcqs'])
+
     def test_country_isolation_applies_to_mcqs_and_live_country_totals(self):
         india=MCQ.objects.create(
             id=55,question='India-only question?',option1='A',option2='B',option3='C',option4='D',
