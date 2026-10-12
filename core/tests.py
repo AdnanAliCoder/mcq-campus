@@ -107,7 +107,7 @@ class IntegrationTests(TestCase):
         response=self.client.get('/login')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
-        self.assertIn('styles.css?v=20261011-country-entry-v2',body)
+        self.assertIn('styles.css?v=20261012-auth-role-fix-v1',body)
         self.assertIn('assets/js/auth.js',body)
         self.assertIn('assets/js/seo.js',body)
         self.assertNotIn('assets/js/seed.js',body)
@@ -182,6 +182,46 @@ class IntegrationTests(TestCase):
         global_rows=self.client.get('/api/mcqs?country=India&page_size=50').json()['items']
         self.assertIn(india.id,{row['id'] for row in global_rows})
         self.assertNotIn(self.approved.id,{row['id'] for row in global_rows})
+
+    def test_super_admin_permission_resolves_to_super_admin_role_and_workspace(self):
+        delegated=User.objects.create_user(
+            username='delegated-super@example.com',
+            email='delegated-super@example.com',
+            password='StrongPass123',
+            is_staff=False,
+        )
+        profile=profile_for(delegated)
+        profile.role='user'
+        profile.permissions=['super_admin_permission']
+        profile.email_verified=True
+        profile.save()
+        self.client.logout()
+        response=self.post_json('/api/auth/login',{'email':'delegated-super@example.com','password':'StrongPass123'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['user']['role'],'super-admin')
+        self.assertIn('super-admin',response.json()['user']['roles'])
+        self.assertEqual(response.json()['user']['activeRole'],'super-admin')
+        overview=self.client.get('/api/admin/overview')
+        self.assertEqual(overview.status_code,200)
+        self.assertEqual(overview.json()['mcqs']['total'],3)
+
+    def test_staff_profile_with_legacy_learner_role_resolves_to_admin(self):
+        staff=User.objects.create_user(
+            username='legacy-staff@example.com',
+            email='legacy-staff@example.com',
+            password='StrongPass123',
+            is_staff=True,
+        )
+        profile=profile_for(staff)
+        profile.role='user'
+        profile.email_verified=True
+        profile.save()
+        self.client.logout()
+        response=self.post_json('/api/auth/login',{'email':'legacy-staff@example.com','password':'StrongPass123'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['user']['role'],'admin')
+        self.assertIn('admin',response.json()['user']['roles'])
+        self.assertEqual(response.json()['user']['activeRole'],'admin')
 
     def test_super_admin_can_add_and_disable_country_for_signup(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
