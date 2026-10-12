@@ -25,3 +25,13 @@ jobs:
           SECRET_KEY: "ci-check-secret"
           ALLOWED_HOSTS: "127.0.0.1,localhost"
         run: python manage.py check
+      - name: Test authentication role resolution
+        env:
+          DEBUG: "false"
+          SECRET_KEY: "ci-check-secret"
+          ALLOWED_HOSTS: "127.0.0.1,localhost"
+        run: >-
+          python manage.py test
+          core.tests.IntegrationTests.test_super_admin_permission_resolves_to_super_admin_role_and_workspace
+          core.tests.IntegrationTests.test_staff_profile_with_legacy_learner_role_resolves_to_admin
+          --verbosity 2
