@@ -214,7 +214,8 @@ def auth_login(request):
     phase=time.perf_counter()
     login(request,user)
     role=user_role(user)
-    request.session['active_role']='super-admin' if role=='super-admin' else 'admin' if role=='admin' else 'user'
+    # A super-admin permission must activate the Super Admin workspace on a fresh login.
+    request.session['active_role']='super-admin' if is_super(user) else 'admin' if role=='admin' else 'user'
     request.session.set_expiry(60*60*24*30 if d.get('remember') else 60*60*2)
     session_prepare_ms=(time.perf_counter()-phase)*1000
     phase=time.perf_counter()
