@@ -27,6 +27,8 @@ jobs:
           SECRET_KEY: "ci-check-secret"
           ALLOWED_HOSTS: "127.0.0.1,localhost"
         run: python manage.py check
+      - name: Validate frontend JavaScript syntax
+        run: for file in frontend/assets/js/*.js; do node --check "$file"; done
       - name: Test authentication role resolution
         env:
           DEBUG: "false"
@@ -37,6 +39,7 @@ jobs:
           core.tests.IntegrationTests.test_super_admin_permission_resolves_to_super_admin_role_and_workspace
           core.tests.IntegrationTests.test_staff_profile_with_legacy_learner_role_resolves_to_admin
           core.tests.IntegrationTests.test_super_admin_country_workspace_scopes_dashboard_mcqs_and_entities
+          core.tests.IntegrationTests.test_active_country_scopes_public_content_catalog_and_student_site
           --verbosity 2
       - name: Test cache utilities
         env:
