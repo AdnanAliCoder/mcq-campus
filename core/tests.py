@@ -6,7 +6,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, TrashRecord, OneTimeToken, PendingSignup, profile_for
+from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, TrashRecord, OneTimeToken, PendingSignup, Guide, Post, profile_for
+from .cache_utils import invalidate_mcqcampus_cache
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -248,6 +249,88 @@ class IntegrationTests(TestCase):
         self.assertNotIn(self.category.id,{row['id'] for row in categories})
         global_rows=self.client.get('/api/mcqs?page_size=50').json()['items']
         self.assertGreater(len(global_rows),len(rows))
+
+    def test_active_country_scopes_public_content_catalog_and_student_site(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        added=self.post_json('/api/admin/countries',{'action':'add','name':'USA'})
+        self.assertEqual(added.status_code,200)
+        usa_category=Category.objects.create(id=301,name='US General',icon='grid')
+        usa_paper=Paper.objects.create(id=201,name='US Civil Service',country='USA',icon='paper')
+        usa_mcq=MCQ.objects.create(id=401,question='USA country scoped MCQ?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=usa_category,status='approved',country='USA',paper_ids=[usa_paper.id],created_by=self.admin,submitted_by=self.admin)
+        pk_mcq=MCQ.objects.create(id=402,question='Pakistan country scoped MCQ?',option1='A',option2='B',option3='C',option4='D',correct_answer='B',category=self.category,status='approved',country='Pakistan',paper_ids=[self.paper.id],created_by=self.admin,submitted_by=self.admin)
+        usa_post=Post.objects.create(title='USA Blog Update',slug='usa-blog-country-scope',body='USA content',excerpt='USA content',category='USA Exams',status='published',created_by=self.admin,updated_by=self.admin)
+        pk_post=Post.objects.create(title='Pakistan Blog Update',slug='pakistan-blog-country-scope',body='Pakistan content',excerpt='Pakistan content',category='Pakistan Exams',status='published',created_by=self.admin,updated_by=self.admin)
+        usa_guide=Guide.objects.create(name='USA Study Guide',tag='STUDY SKILLS',summary='USA summary',body='USA guide body',published=True,created_by=self.admin,updated_by=self.admin)
+        pk_guide=Guide.objects.create(name='Pakistan Study Guide',tag='STUDY SKILLS',summary='PK summary',body='PK guide body',published=True,created_by=self.admin,updated_by=self.admin)
+        settings_obj=SiteSetting.get_solo()
+        root=dict(settings_obj.admin_permissions or {})
+        site=dict(root.get('_site') or {})
+        country_map=dict(site.get('entityCountries') or {})
+        country_map.update({
+            'categories':{str(usa_category.id):'USA'},
+            'posts':{str(usa_post.id):'USA',str(pk_post.id):'Pakistan'},
+            'guides':{str(usa_guide.id):'USA',str(pk_guide.id):'Pakistan'},
+            'ads':{},
+        })
+        site['entityCountries']=country_map
+        site['pdfs']=[
+            {'id':901,'title':'USA Exam PDF','slug':'usa-exam-pdf','description':'USA PDF','download_url':'https://example.com/usa.pdf','country':'USA','active':True},
+            {'id':902,'title':'Pakistan Exam PDF','slug':'pakistan-exam-pdf','description':'Pakistan PDF','download_url':'https://example.com/pakistan.pdf','country':'Pakistan','active':True},
+        ]
+        site['latestJobs']=[
+            {'id':911,'title':'USA Latest Job','slug':'usa-latest-job','country':'USA','paper_id':usa_paper.id,'last_date':'2099-12-31','published':True},
+            {'id':912,'title':'Pakistan Latest Job','slug':'pakistan-latest-job','country':'Pakistan','paper_id':self.paper.id,'last_date':'2099-12-31','published':True},
+        ]
+        root['_site']=site
+        settings_obj.admin_permissions=root
+        settings_obj.save(update_fields=['admin_permissions','updated_at'])
+        invalidate_mcqcampus_cache('public-content','public-catalog','public-resources','public-counts','country-catalog')
+
+        changed=self.post_json('/api/admin/active-country',{'country':'USA'})
+        self.assertEqual(changed.status_code,200)
+        public_content=self.client.get('/api/public/content').json()
+        self.assertEqual([x['title'] for x in public_content['posts']],['USA Blog Update'])
+        self.assertEqual([x['name'] for x in public_content['guides']],['USA Study Guide'])
+        catalog=self.client.get('/api/public/catalog').json()
+        self.assertEqual([x['title'] for x in catalog['pdfs']],['USA Exam PDF'])
+        self.assertEqual([x['title'] for x in catalog['latestJobs']],['USA Latest Job'])
+        admin_content=self.client.get('/api/admin/content').json()
+        self.assertEqual([x['title'] for x in admin_content['posts']],['USA Blog Update'])
+        self.assertEqual([x['name'] for x in admin_content['guides']],['USA Study Guide'])
+        self.assertEqual([x['title'] for x in admin_content['pdfs']],['USA Exam PDF'])
+        self.assertEqual([x['title'] for x in admin_content['latestJobs']],['USA Latest Job'])
+        overview=self.client.get('/api/admin/overview').json()
+        self.assertEqual(overview['contentCounts']['blogPosts'],1)
+        self.assertEqual(overview['contentCounts']['guides'],1)
+        self.assertEqual(overview['contentCounts']['pdfs'],1)
+        self.assertEqual(overview['contentCounts']['latestJobs'],1)
+        public_mcqs=self.client.get('/api/mcqs?public=1&page_size=50').json()['items']
+        self.assertEqual({x['id'] for x in public_mcqs},{usa_mcq.id})
+        public_categories=self.client.get('/api/entities?type=categories&scope=public').json()['items']
+        self.assertIn(usa_category.id,{x['id'] for x in public_categories})
+        self.assertNotIn(self.category.id,{x['id'] for x in public_categories})
+
+        self.post_json('/api/admin/active-country',{'country':'Pakistan'})
+        pk_content=self.client.get('/api/public/content').json()
+        self.assertEqual([x['title'] for x in pk_content['posts']],['Pakistan Blog Update'])
+        pk_catalog=self.client.get('/api/public/catalog').json()
+        self.assertEqual([x['title'] for x in pk_catalog['pdfs']],['Pakistan Exam PDF'])
+        self.assertEqual([x['title'] for x in pk_catalog['latestJobs']],['Pakistan Latest Job'])
+        pk_mcqs=self.client.get('/api/mcqs?public=1&page_size=50').json()['items']
+        self.assertEqual({x['id'] for x in pk_mcqs},{self.approved.id,pk_mcq.id})
+
+        learner_profile=profile_for(self.learner)
+        learner_profile.country='USA'
+        learner_profile.save(update_fields=['country'])
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        learner_content=self.client.get('/api/public/content').json()
+        self.assertEqual([x['title'] for x in learner_content['posts']],['USA Blog Update'])
+        learner_catalog=self.client.get('/api/public/catalog').json()
+        self.assertEqual([x['title'] for x in learner_catalog['pdfs']],['USA Exam PDF'])
+        learner_mcqs=self.client.get('/api/mcqs?public=1&page_size=50').json()['items']
+        self.assertEqual({x['id'] for x in learner_mcqs},{usa_mcq.id})
+        learner_entities=self.client.get('/api/entities?type=papers&scope=public').json()['items']
+        self.assertEqual({x['id'] for x in learner_entities},{usa_paper.id})
 
     def test_super_admin_can_add_and_disable_country_for_signup(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
