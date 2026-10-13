@@ -244,6 +244,8 @@ class IntegrationTests(TestCase):
         self.assertEqual({row['id'] for row in rows},{usa_approved.id,usa_pending.id})
         papers=self.client.get('/api/entities?type=papers&admin_scope=1').json()['items']
         self.assertEqual({row['id'] for row in papers},{usa_paper.id})
+        categories=self.client.get('/api/entities?type=categories&admin_scope=1').json()['items']
+        self.assertNotIn(self.category.id,{row['id'] for row in categories})
         global_rows=self.client.get('/api/mcqs?page_size=50').json()['items']
         self.assertGreater(len(global_rows),len(rows))
 

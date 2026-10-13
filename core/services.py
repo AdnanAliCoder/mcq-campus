@@ -58,7 +58,8 @@ def _entity_country_map(settings=None):
     return {'categories':dict(categories) if isinstance(categories,dict) else {}}
 
 def _category_country(category_id,settings=None):
-    return str(_entity_country_map(settings)['categories'].get(str(category_id),'Both') or 'Both').strip() or 'Both'
+    # Legacy categories predate country mapping and belong to Pakistan unless explicitly shared.
+    return str(_entity_country_map(settings)['categories'].get(str(category_id),'Pakistan') or 'Pakistan').strip() or 'Pakistan'
 
 def _category_allowed(category_id,country,settings=None):
     if not country: return True
@@ -68,9 +69,10 @@ def _category_allowed(category_id,country,settings=None):
 def _country_category_ids(country,settings=None):
     if not country: return list(Category.objects.values_list('id',flat=True))
     mapping=_entity_country_map(settings)['categories']
-    allowed={int(raw_id) for raw_id,name in mapping.items() if str(name or 'Both').casefold() in {'both',str(country).casefold()} and str(raw_id).isdigit()}
+    allowed={int(raw_id) for raw_id,name in mapping.items() if str(name or 'Pakistan').casefold() in {'both',str(country).casefold()} and str(raw_id).isdigit()}
     mapped_ids={int(raw_id) for raw_id in mapping if str(raw_id).isdigit()}
-    allowed.update(Category.objects.exclude(pk__in=mapped_ids).values_list('id',flat=True))
+    if str(country).casefold()=='pakistan':
+        allowed.update(Category.objects.exclude(pk__in=mapped_ids).values_list('id',flat=True))
     return list(allowed)
 
 def _entity_matches_country(kind,ident,country):
@@ -625,7 +627,7 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     items=[]
     for obj in objects:
         row=serializers[kind](obj)
-        if kind=='categories': row['country']=str(category_country_map.get(str(obj.id),'Both') or 'Both')
+        if kind=='categories': row['country']=str(category_country_map.get(str(obj.id),'Pakistan') or 'Pakistan')
         row['mcq_count']=counts.get(int(obj.id),0)
         items.append(row)
     return {'type':kind,'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(items)<total,'filters':filters}
@@ -757,7 +759,7 @@ def snapshot(user,active_country=None,active_role=None):
       'schemaVersion':13,
       'activeCountry':country if is_super(user) and active_role=='super-admin' else '',
       'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user)),
-      'categories':[{**category(x),'country':str(category_country_map.get(str(x.id),'Both') or 'Both')} for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
+      'categories':[{**category(x),'country':str(category_country_map.get(str(x.id),'Pakistan') or 'Pakistan')} for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
       'pageSeo':page_seo_snapshot(),
