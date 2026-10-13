@@ -1572,7 +1572,10 @@ def save_site_form(user,form,payload,active_country=None):
     elif form=='ad-config':
         require(is_super(user) or has_perm(user,'manage_ads')); ad=extract_adsense(v.get('adsenseClient')); ga=extract_ga(v.get('analyticsId')); slots={k[5:]:str(val or '') for k,val in v.items() if k.startswith('slot_')}; blob['adSettings']={'enabled':'enabled' in fields,'adsenseClient':ad,'analyticsId':ga,'slots':slots}; s.adsense_client_id=ad; s.adsense_enabled=bool(ad) and 'enabled' in fields; s.google_analytics_id=ga; s.analytics_enabled=bool(ga)
     elif form=='direct-ad':
-        require(is_super(user) or has_perm(user,'manage_ads')); brand=str(v.get('brand') or '').strip(); require(brand,'Brand name is required.'); obj=AdPlacement(name=brand,provider='custom',placement=str(v.get('placement') or 'home_ad'),title=brand,body=str(v.get('text') or ''),image_url=str(v.get('image_url') or ''),target_url=str(v.get('destination_url') or ''),active=True,starts_at=_parse_date(v.get('start_date')),ends_at=_parse_date(v.get('end_date'),True),created_by=user,updated_by=user); obj.save(); log(user,'Saved direct ad',brand); return {'id':obj.id}
+        require(is_super(user) or has_perm(user,'manage_ads')); brand=str(v.get('brand') or '').strip(); require(brand,'Brand name is required.')
+        obj=AdPlacement(name=brand,provider='custom',placement=str(v.get('placement') or 'home_ad'),title=brand,body=str(v.get('text') or ''),image_url=str(v.get('image_url') or ''),target_url=str(v.get('destination_url') or ''),active=True,starts_at=_parse_date(v.get('start_date')),ends_at=_parse_date(v.get('end_date'),True),created_by=user,updated_by=user); obj.save()
+        entity_map=_entity_country_map(s); entity_map['ads'][str(obj.pk)]=country; blob['entityCountries']=entity_map
+        log(user,'Saved direct ad',brand); return {'id':obj.id}
     elif form=='pdf':
         require(is_super(user) or has_perm(user,'manage_pdfs'))
         rows=list(blob.get('pdfs') or [])
@@ -1668,6 +1671,7 @@ def save_site_form(user,form,payload,active_country=None):
             entity_map=_entity_country_map(s); entity_map['posts'][str(obj.pk)]=country
             site_blob=_site_blob(s); site_blob['entityCountries']=entity_map; _save_site_blob(s,site_blob); s.admin_permissions={**(s.admin_permissions or {}),'_site':site_blob}
             count+=1
+        s.updated_by=user; s.save(update_fields=['admin_permissions','updated_by','updated_at'])
         log(user,'Bulk Blog import',f'{count} post(s) processed'); return {'processed':count}
     elif form=='bulk-categories':
         require(is_admin(user) and has_perm(user,'manage_categories')); count=0
@@ -1905,7 +1909,7 @@ def command(user,action,payload,active_country=None):
             blob['latestJobs']=[x for x in rows if int(x.get('id',0)) not in selected]
             _save_site_blob(s,blob); s.updated_by=user; s.save()
             log(user,'Deleted latest jobs',', '.join(str(x.get('id')) for x in removed))
-        return {'latestJobs':blob['latestJobs'],'count':len(removed)}
+        return {'latestJobs':_country_scoped_site_rows('latestJobs',blob['latestJobs'],country or None,s),'count':len(removed)}
     if action in {'action:pdf-delete','action:latest-job-delete','action:latest-job-toggle'}:
         form='pdfs' if action=='action:pdf-delete' else 'latestJobs'; perm='delete_pdfs' if form=='pdfs' else ('delete_latest_jobs' if action.endswith('delete') else 'manage_latest_jobs'); require(is_super(user) or has_perm(user,perm)); s=SiteSetting.get_solo(); blob=_site_blob(s); rows=list(blob.get(form) or []); rid=int(payload.get('id')); country=_workspace_country(user,active_country)
         target=next((x for x in rows if int(x.get('id',0))==rid),None)
