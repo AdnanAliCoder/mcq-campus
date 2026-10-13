@@ -66,6 +66,7 @@ window.Admin=(()=>{
    [icon('book'),'Question Library',`${total} total · ${pending} waiting`,url('all-mcqs')],
    [icon('shield'),'Admin Records',`${staffTotal} administrator account${staffTotal===1?'':'s'}`,url('admin-records')],
    [icon('paper'),'Papers & Jobs',`${d.papers.length} organizations · ${d.jobs.length} jobs · ${d.years.length} paper records`,url('papers')],
+   [icon('file-text'),'Public Content',`${Number(summary.contentCounts?.latestJobs||0)} latest jobs · ${Number(summary.contentCounts?.blogPosts||0)} blog posts · ${Number(summary.contentCounts?.pdfs||0)} PDFs · ${Number(summary.contentCounts?.guides||0)} guides`,url('posts')],
    [icon('settings'),'System Settings',`${learners} learners`,url('settings')]
   ];
   return heading('Super Admin Overview','Review website content, track ownership, and open the main control areas from one compact command centre.',`<div class="actions overview-head-actions">${link(url('add'),icon('plus')+' Add MCQ','btn primary')}${link(url('all-mcqs'),icon('clock')+' Pending','btn',{status:'pending'})}${link(url('settings'),icon('settings')+' Settings','btn')}</div>`)+
