@@ -976,7 +976,7 @@ def admin_overview_data(user,active_role=None,active_country=None):
         people_q=User.objects.select_related('profile').all()
         if country: people_q=people_q.filter(profile__country__iexact=country)
         people=people_q.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
-        data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
+        data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=_country_trash_count(country or None)
         staff=people_q.filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
         data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
         data['contentCounts']=_country_content_counts(country or None)
@@ -1024,13 +1024,16 @@ def admin_reports_data(user,page=1,page_size=50,active_country=None):
         contacts=[{'id':x.id,'name':x.name,'email':x.email,'message':x.message,'at':iso(x.created_at)} for x in ContactMessage.objects.order_by('-created_at')[:50]]
     return {'items':reports,'contacts':contacts,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
 
-def admin_trash_data(user,page=1,page_size=50):
+def admin_trash_data(user,page=1,page_size=50,active_country=None):
     require(is_super(user))
     page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
+    country=_workspace_country(user,active_country)
     qs=TrashRecord.objects.select_related('deleted_by').order_by('-deleted_at')
-    total=qs.count(); start=(page-1)*page_size
-    items=[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id} for x in qs[start:start+page_size]]
-    return {'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
+    records=list(qs)
+    if country: records=[x for x in records if _trash_matches_country(x,country)]
+    total=len(records); selected=records[(page-1)*page_size:page*page_size]
+    items=[{'id':x.id,'type':x.kind,'name':x.name,'mcqs':(x.payload or {}).get('mcqs',[]),'entities':(x.payload or {}).get('entities',{}),'deleted_at':iso(x.deleted_at),'deleted_by':user_name(x.deleted_by) if x.deleted_by else 'System','deleted_by_id':x.deleted_by_id,'country':next(iter(_trash_record_countries(x)), 'Pakistan')} for x in selected]
+    return {'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':(page*page_size)<total}
 
 def admin_logs_data(user,page=1,page_size=50):
     require(is_super(user) or has_perm(user,'view_logs'))
@@ -2015,9 +2018,9 @@ def command(user,action,payload,active_country=None):
         tr,deleted_ids=_delete_mcqs_to_trash(user,requested)
         return {'deleted':{'type':'mcqs','ids':deleted_ids},'trashId':tr.id,'count':len(deleted_ids)}
     if action in {'action:trash-restore-many','action:trash-bulk-restore'}:
-        return _restore_trash_many(user,payload.get('ids') or [payload.get('id')])
+        return _restore_trash_many(user,payload.get('ids') or [payload.get('id')],active_country=active_country)
     if action in {'action:trash-permanent-delete','action:trash-bulk-delete'}:
-        return _delete_trash_permanently(user,payload.get('ids') or [payload.get('id')])
+        return _delete_trash_permanently(user,payload.get('ids') or [payload.get('id')],active_country=active_country)
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
@@ -2028,7 +2031,7 @@ def command(user,action,payload,active_country=None):
                 if _delete_entity(user,typ,ident) is not None: count+=1
         return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
     if action in {'action:trash-restore','action:restore-trash'}:
-        rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
+        rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid),active_country=active_country); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
     if action=='action:import-confirm':
         require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
         summary={'imported':0,'updated':0,'merged':0,'duplicates':0,'invalid':0,'failed':0,'errors':[]}
