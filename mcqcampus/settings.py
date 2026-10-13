@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
 DEBUG = os.getenv('DEBUG', 'false').lower() in {'1','true','yes','on'}
 PERFORMANCE_LOGGING = os.getenv('PERFORMANCE_LOGGING', 'false').lower() in {'1','true','yes','on'}
+REDIS_URL = os.getenv('REDIS_URL', '').strip()
 PUBLIC_CANONICAL_HOST = os.getenv('PUBLIC_CANONICAL_HOST','www.mcqcampus.com').strip().lower()
 PUBLIC_CANONICAL_ORIGIN = 'https://' + PUBLIC_CANONICAL_HOST
 VERCEL_DEFAULT_HOST = os.getenv('VERCEL_DEFAULT_HOST','mcq-campus.vercel.app').strip().lower()
@@ -60,6 +61,34 @@ def _db():
     cfg.setdefault('OPTIONS',{})['prepare_threshold']=None
     return cfg
 DATABASES={'default':_db()}
+
+# Redis is optional in local development. On the Oracle VM, set REDIS_URL to
+# redis://127.0.0.1:6379/1 so cached values are shared across app workers.
+# Cache access in core.cache_utils is deliberately best-effort: cache failures
+# must never prevent normal database-backed requests from completing.
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'mcqcampus',
+            'OPTIONS': {
+                'socket_connect_timeout': 0.2,
+                'socket_timeout': 0.2,
+                'health_check_interval': 30,
+            },
+        },
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'mcqcampus-local-cache',
+            'TIMEOUT': 300,
+            'OPTIONS': {'MAX_ENTRIES': 1000},
+        },
+    }
 
 AUTH_PASSWORD_VALIDATORS=[
     {'NAME':'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

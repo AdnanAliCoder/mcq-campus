@@ -41,6 +41,10 @@ For Vercel, use Supabase **Connect → Transaction pooler** (`:6543`) rather tha
 For email-based verification/password reset, configure the optional email variables shown in `.env.example`.
 
 
+## Redis cache on a persistent server
+
+On an Oracle Ubuntu VM where Redis is installed and bound to localhost, set `REDIS_URL=redis://127.0.0.1:6379/1` in the environment used by the Django service, then restart the application service. Install dependencies from `requirements.txt` after pulling the code. The app uses Django's built-in Redis cache backend when `REDIS_URL` is present and local-memory cache otherwise. Cache reads/writes are best-effort; Redis being temporarily unavailable should fall back to uncached database results. Public data/count caches use short TTLs and version invalidation after recognized successful writes. Authentication/session/private account responses are not placed in these shared cache groups.
+
 ## Performance diagnostics
 
 For temporary performance investigation, set `PERFORMANCE_LOGGING=true` in the relevant Vercel environment and redeploy. The application then logs only endpoint names, elapsed milliseconds, query counts when Django exposes them, response byte sizes, and safe login phase durations. It does **not** log passwords, cookies, CSRF/session tokens, request form values, `DATABASE_URL`, or database credentials.

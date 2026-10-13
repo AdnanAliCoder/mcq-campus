@@ -10,6 +10,7 @@ from django.db.models import Count, Q, Max, Window, Func, IntegerField, Case, Wh
 from django.db.models.functions import RowNumber
 from django.utils import timezone
 from django.utils.text import slugify
+from .cache_utils import cached_value
 from .models import *
 from .serializers import *
 
@@ -63,7 +64,7 @@ def _configured_country_entries():
         seen.add(key); entries.append({'name':name,'active':bool(item.get('active',True))})
     return entries
 
-def country_catalog(user=None,include_counts=True,include_inactive=False):
+def _country_catalog_uncached(user=None,include_counts=True,include_inactive=False):
     configured=_configured_country_entries()
     entries=configured if configured is not None else []
     known={item['name'].casefold() for item in entries}
@@ -94,6 +95,10 @@ def country_catalog(user=None,include_counts=True,include_inactive=False):
         if include_counts: row['mcqCount']=counts.get(item['name'].casefold(),0)
         result.append(row)
     return sorted(result,key=lambda row:(row['name'].casefold()!='pakistan',row['name'].casefold()))
+
+def country_catalog(user=None,include_counts=True,include_inactive=False):
+    identity={'include_counts':bool(include_counts),'include_inactive':bool(include_inactive)}
+    return cached_value('country-catalog',identity,lambda:_country_catalog_uncached(user,include_counts,include_inactive),timeout=30 if include_counts else 60)
 
 def country_for_user(user):
     if not user or not getattr(user,'is_authenticated',False) or is_super(user): return ''
@@ -434,11 +439,11 @@ def startup_payload(user,session):
     if settings is None: settings=SiteSetting.objects.create(pk=1)
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     return {'snapshot':{'schemaVersion':13,**_startup_site_state(settings),
-                        'totalApprovedMcqs':MCQ.objects.filter(status='approved').count(),
+                        'totalApprovedMcqs':cached_value('public-counts',{'metric':'approved-total'},lambda:MCQ.objects.filter(status='approved').count(),timeout=30),
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
             'user':user_identity_dict(user,session) if authenticated else None}
 
-def public_content_data():
+def _public_content_data_uncached():
     now=timezone.now()
     ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
     return {
@@ -447,7 +452,7 @@ def public_content_data():
       'ads':[_client_ad(x) for x in ads_q[:50]],
     }
 
-def public_resources_data(user=None):
+def _public_resources_data_uncached(user=None):
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
     data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities','pageSeo']}
@@ -459,20 +464,33 @@ def public_resources_data(user=None):
     }
     return data
 
-def public_catalog_data():
+def _public_catalog_data_uncached():
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
     return {k:state[k] for k in ['pdfs','latestJobs','currentAffairsConfig']}
 
-def public_legal_data():
+def _public_legal_data_uncached():
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
     return {'content':state['content']}
+
+
+def public_content_data():
+    return cached_value('public-content',{},_public_content_data_uncached,timeout=60)
+
+def public_resources_data(user=None):
+    return cached_value('public-resources',{'administrator':bool(is_admin(user))},lambda:_public_resources_data_uncached(user),timeout=60)
+
+def public_catalog_data():
+    return cached_value('public-catalog',{},_public_catalog_data_uncached,timeout=120)
+
+def public_legal_data():
+    return cached_value('public-legal',{},_public_legal_data_uncached,timeout=120)
 
 
 def _json_array_length(qs,field,alias):
     function='jsonb_array_length' if connection.vendor=='postgresql' else 'json_array_length'
     return qs.annotate(**{alias:Func(F(field),function=function,output_field=IntegerField())})
 
-def _approved_public_counts(country=None):
+def _approved_public_counts_uncached(country=None):
     approved=MCQ.objects.filter(status='approved')
     papers=Paper.objects.filter(active=True); jobs=Job.objects.filter(active=True); years=JobYear.objects.filter(active=True)
     categories=Category.objects.filter(active=True)
@@ -487,6 +505,10 @@ def _approved_public_counts(country=None):
     return {'approvedMcqs':approved.count(),'importantMcqs':important,'categories':categories.count(),
             'papers':papers.count(),'jobs':jobs.count(),'years':years.count(),
             'categoryMcqs':{str(row['category_id']):int(row['total'] or 0) for row in category_rows}}
+
+def _approved_public_counts(country=None):
+    identity={'country':str(country or '').strip().casefold()}
+    return cached_value('public-counts',identity,lambda:_approved_public_counts_uncached(country),timeout=30)
 
 def _entity_mcq_counts(kind,ids,public_only=False,country=None):
     ids=[int(x) for x in ids if int(x)>0]

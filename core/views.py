@@ -17,6 +17,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
+from .cache_utils import invalidate_mcqcampus_cache
 from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
@@ -533,6 +534,7 @@ def admin_countries(request):
     _save_site_blob(settings,blob)
     settings.updated_by=request.user
     settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    invalidate_mcqcampus_cache('country-catalog','public-resources')
     return JsonResponse({'success':True,'countries':country_catalog(request.user,include_counts=True,include_inactive=True)})
 
 @profile_api('startup')
@@ -709,6 +711,7 @@ def admin_mcq_delete(request):
     d=payload(request)
     try:
         tr,deleted_ids=_delete_mcqs_to_trash(request.user,d.get('ids') or [d.get('id')])
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources')
         return JsonResponse({'success':True,'deletedIds':deleted_ids,'trashId':tr.id,'count':len(deleted_ids)})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -720,6 +723,7 @@ def admin_trash_restore(request):
     d=payload(request)
     try:
         result=_restore_trash_many(request.user,d.get('ids') or [d.get('id')])
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources')
         return JsonResponse({'success':True,**result})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -731,9 +735,51 @@ def admin_trash_delete(request):
     d=payload(request)
     try:
         result=_delete_trash_permanently(request.user,d.get('ids') or [d.get('id')])
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources')
         return JsonResponse({'success':True,**result})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
+
+def _invalidate_caches_after_command(action):
+    action=str(action or '')
+    mcq_actions={
+        'form:mcq','form:review','action:import-confirm','action:mcq-delete',
+        'action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore',
+        'action:restore-trash','action:trash-restore-many','action:trash-bulk-restore',
+        'action:trash-permanent-delete','action:trash-bulk-delete',
+    }
+    entity_actions={
+        'form:entity','form:bulk-hierarchy','form:bulk-categories',
+        'action:entity-pin','action:entity-delete-confirm',
+        'action:entity-bulk-delete','action:bulk-hierarchy','action:bulk-categories',
+        'form:profile','form:user',
+    }
+    resource_actions={
+        'form:settings','form:seo','form:roles','form:config','form:page-seo',
+        'form:footer-settings','form:social-links','form:ad-config',
+        'form:entity','form:bulk-hierarchy','form:bulk-categories',
+        'form:mcq','form:review','form:post','form:guide','form:bulk-posts',
+        'action:entity-pin','action:import-confirm',
+    }
+    content_actions={'form:post','form:guide','form:ad','form:bulk-posts','action:post-delete','action:ad-toggle','action:ad-delete'}
+    catalog_actions={'form:pdf','form:latest-job','form:bulk-pdfs','form:bulk-latest-jobs','action:pdf-delete','action:latest-job-toggle','action:latest-job-delete','action:latest-job-bulk-delete'}
+    legal_actions={'form:legal-page','form:settings'}
+    groups=set()
+    if action in mcq_actions:
+        groups.update({'public-counts','country-catalog','public-resources'})
+    if action in entity_actions:
+        groups.update({'public-counts','country-catalog','public-resources'})
+    if action in resource_actions:
+        groups.add('public-resources')
+    if action in content_actions:
+        groups.add('public-content')
+    if action in catalog_actions:
+        groups.add('public-catalog')
+    if action in legal_actions:
+        groups.add('public-legal')
+    if groups:
+        invalidate_mcqcampus_cache(*sorted(groups))
+
 
 @profile_api('commands')
 @require_POST
@@ -742,6 +788,7 @@ def commands(request):
     d=payload(request); action=d.get('action'); p=d.get('payload') or {}
     try:
         result=command(request.user,action,p)
+        _invalidate_caches_after_command(action)
         if action in {'changePassword','form:password-change'}:
             update_session_auth_hash(request,request.user)
         response={'success':True,'result':result}
