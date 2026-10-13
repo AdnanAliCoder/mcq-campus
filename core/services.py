@@ -445,8 +445,9 @@ def _delete_mcqs_to_trash(user,ids):
     rows=list(MCQ.objects.filter(pk__in=clean).order_by('id'))
     require(rows,'No matching MCQs were found.')
     payload=[_serialize_mcq(x) for x in rows]
+    countries=sorted({str(x.country or 'Pakistan').strip() or 'Pakistan' for x in rows},key=str.casefold)
     label=rows[0].question[:120] if len(rows)==1 else f'{len(rows)} MCQs'
-    tr=TrashRecord.objects.create(kind='mcqs',name=label,payload={'entities':{},'mcqs':payload},deleted_by=user)
+    tr=TrashRecord.objects.create(kind='mcqs',name=label,payload={'country':countries[0] if len(countries)==1 else '','countries':countries,'entities':{},'mcqs':payload},deleted_by=user)
     MCQ.objects.filter(pk__in=[x.id for x in rows]).delete()
     log(user,'Deleted MCQs',f'{len(rows)} MCQ(s) moved to Trash')
     return tr,[x.id for x in rows]
@@ -465,11 +466,20 @@ def _delete_entity(user,typ,rid):
         settings=SiteSetting.get_solo(); blob=_site_blob(settings); pins=_pinned_entities(settings)
         pins[typ]=[x for x in (pins.get(typ) or []) if int(x)!=int(rid)]
         blob['pinnedEntities']=pins; _save_site_blob(settings,blob); settings.updated_by=user; settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
-    tr=TrashRecord.objects.create(kind=typ,name=root.name,payload={'entities':entities,'mcqs':mcq_rows},deleted_by=user)
+    if typ=='categories': trash_country=_category_country(root.id)
+    elif typ=='papers': trash_country=str(root.country or 'Pakistan')
+    elif typ=='subcategories': trash_country=_category_country(root.category_id)
+    elif typ=='children':
+        parent_category=Subcategory.objects.filter(pk=root.subcategory_id).values_list('category_id',flat=True).first()
+        trash_country=_category_country(parent_category) if parent_category else 'Pakistan'
+    elif typ=='jobs': trash_country=str(Paper.objects.filter(pk=root.paper_id).values_list('country',flat=True).first() or 'Pakistan')
+    elif typ=='years': trash_country=str(Paper.objects.filter(pk=Job.objects.filter(pk=root.job_id).values_list('paper_id',flat=True).first()).values_list('country',flat=True).first() or 'Pakistan')
+    else: trash_country='Pakistan'
+    tr=TrashRecord.objects.create(kind=typ,name=root.name,payload={'country':trash_country,'countries':[trash_country],'entities':entities,'mcqs':mcq_rows},deleted_by=user)
     log(user,'Deleted '+typ,f'{root.name} · {len(mcq_rows)} MCQ(s) moved to recovery')
     return tr
 
-def _restore_trash_many(user,ids):
+def _restore_trash_many(user,ids,active_country=None):
     require(is_super(user))
     clean=[]
     for value in ids or []:
@@ -481,10 +491,11 @@ def _restore_trash_many(user,ids):
     require(clean,'Select at least one Trash record.')
     restored=0
     for tr in list(TrashRecord.objects.filter(pk__in=clean).order_by('deleted_at')):
-        _restore_trash(user,tr); restored+=1
+        require(_trash_matches_country(tr,active_country),'One or more Trash records belong to another country. Switch the active country to recover them.')
+        _restore_trash(user,tr,active_country=active_country); restored+=1
     return {'restored':restored,'ids':clean,'deleted':{'type':'trash','ids':clean}}
 
-def _delete_trash_permanently(user,ids):
+def _delete_trash_permanently(user,ids,active_country=None):
     require(is_super(user))
     clean=[]
     for value in ids or []:
@@ -494,14 +505,16 @@ def _delete_trash_permanently(user,ids):
         except (TypeError,ValueError):
             pass
     require(clean,'Select at least one Trash record.')
-    qs=TrashRecord.objects.filter(pk__in=clean)
-    found=list(qs.values_list('id',flat=True))
-    qs.delete()
+    records=list(TrashRecord.objects.filter(pk__in=clean))
+    require(all(_trash_matches_country(record,active_country) for record in records),'One or more Trash records belong to another country. Switch the active country and try again.')
+    found=[record.id for record in records]
+    TrashRecord.objects.filter(pk__in=found).delete()
     if found: log(user,'Permanently deleted Trash',f'{len(found)} recovery record(s) permanently deleted')
     return {'deleted':{'type':'trash','ids':found},'count':len(found)}
 
-def _restore_trash(user,tr):
+def _restore_trash(user,tr,active_country=None):
     require(is_super(user))
+    require(_trash_matches_country(tr,active_country),'This Trash record belongs to another country. Switch the active country and try again.')
     entities=(tr.payload or {}).get('entities') or {}
     for typ in ['categories','papers','subcategories','jobs','children','years']:
         model=ENTITY_MODELS[typ]
