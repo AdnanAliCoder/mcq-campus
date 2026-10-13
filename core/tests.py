@@ -278,7 +278,7 @@ class IntegrationTests(TestCase):
             {'id':902,'title':'Pakistan Exam PDF','slug':'pakistan-exam-pdf','description':'Pakistan PDF','download_url':'https://example.com/pakistan.pdf','country':'Pakistan','active':True},
         ]
         site['latestJobs']=[
-            {'id':911,'title':'USA Latest Job','slug':'usa-latest-job','country':'USA','paper_id':usa_paper.id,'last_date':'2099-12-31','published':True},
+            {'id':911,'title':'USA Latest Job','slug':'usa-latest-job','paper_id':usa_paper.id,'last_date':'2099-12-31','published':True},
             {'id':912,'title':'Pakistan Latest Job','slug':'pakistan-latest-job','country':'Pakistan','paper_id':self.paper.id,'last_date':'2099-12-31','published':True},
         ]
         root['_site']=site
