@@ -115,6 +115,69 @@ def _country_pinned_entities(country,settings=None):
         out[kind]=[ident for ident in values if _entity_matches_country(kind,ident,country)]
     return out
 
+def _trash_record_countries(record,settings=None):
+    payload=record.payload if isinstance(record.payload,dict) else {}
+    explicit=payload.get('countries')
+    if isinstance(explicit,list) and explicit:
+        countries={str(value or 'Pakistan').strip() or 'Pakistan' for value in explicit}
+        return countries
+    if payload.get('country'):
+        return {str(payload.get('country')).strip() or 'Pakistan'}
+    countries=set()
+    entities=payload.get('entities') if isinstance(payload.get('entities'),dict) else {}
+    paper_countries={}
+    jobs_papers={}
+    sub_categories={}
+    for row in entities.get('papers') or []:
+        try:
+            paper_countries[int(row.get('id'))]=str(row.get('country') or 'Pakistan')
+            countries.add(paper_countries[int(row.get('id'))])
+        except (TypeError,ValueError): pass
+    for row in entities.get('jobs') or []:
+        try: jobs_papers[int(row.get('id'))]=int(row.get('paper_id'))
+        except (TypeError,ValueError): pass
+    for row in entities.get('subcategories') or []:
+        try: sub_categories[int(row.get('id'))]=int(row.get('category_id'))
+        except (TypeError,ValueError): pass
+    for row in (payload.get('mcqs') or []):
+        if isinstance(row,dict):
+            countries.add(str(row.get('country') or 'Pakistan').strip() or 'Pakistan')
+    for row in entities.get('categories') or []:
+        try: countries.add(_category_country(int(row.get('id')),settings))
+        except (TypeError,ValueError): countries.add('Pakistan')
+    for row in entities.get('subcategories') or []:
+        try: countries.add(_category_country(int(row.get('category_id')),settings))
+        except (TypeError,ValueError): countries.add('Pakistan')
+    for row in entities.get('children') or []:
+        try:
+            sid=int(row.get('subcategory_id'))
+            cid=sub_categories.get(sid) or Subcategory.objects.filter(pk=sid).values_list('category_id',flat=True).first()
+            countries.add(_category_country(cid,settings) if cid else 'Pakistan')
+        except (TypeError,ValueError): countries.add('Pakistan')
+    for row in entities.get('jobs') or []:
+        try:
+            pid=jobs_papers.get(int(row.get('id'))) or int(row.get('paper_id'))
+            value=paper_countries.get(pid) or Paper.objects.filter(pk=pid).values_list('country',flat=True).first() or 'Pakistan'
+            countries.add(str(value))
+        except (TypeError,ValueError): countries.add('Pakistan')
+    for row in entities.get('years') or []:
+        try:
+            jid=int(row.get('job_id')); pid=jobs_papers.get(jid) or Job.objects.filter(pk=jid).values_list('paper_id',flat=True).first()
+            value=paper_countries.get(pid) or Paper.objects.filter(pk=pid).values_list('country',flat=True).first() or 'Pakistan'
+            countries.add(str(value))
+        except (TypeError,ValueError): countries.add('Pakistan')
+    return countries or {'Pakistan'}
+
+def _trash_matches_country(record,country,settings=None):
+    if not country: return True
+    selected=str(country).strip().casefold()
+    return all(str(value or 'Pakistan').strip().casefold() in {selected,'both'} for value in _trash_record_countries(record,settings))
+
+def _country_trash_count(country,settings=None):
+    if not country: return TrashRecord.objects.count()
+    settings=settings or SiteSetting.get_solo()
+    return sum(1 for record in TrashRecord.objects.only('id','kind','payload').iterator() if _trash_matches_country(record,country,settings))
+
 def _country_content_counts(country,settings=None):
     settings=settings or SiteSetting.get_solo(); site=_site_blob(settings)
     return {
