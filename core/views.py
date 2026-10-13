@@ -557,17 +557,17 @@ def _public_json(request,data):
 @profile_api('public_content')
 @require_GET
 def public_content(request):
-    return _public_json(request,public_content_data())
+    return _public_json(request,public_content_data(_request_content_country(request)))
 
 @profile_api('public_resources')
 @require_GET
 def public_resources(request):
-    return _public_json(request,public_resources_data(request.user))
+    return _public_json(request,public_resources_data(request.user,_request_content_country(request)))
 
 @profile_api('public_catalog')
 @require_GET
 def public_catalog(request):
-    return _public_json(request,public_catalog_data())
+    return _public_json(request,public_catalog_data(_request_content_country(request)))
 
 @profile_api('public_legal')
 @require_GET
@@ -581,6 +581,23 @@ def profile_detail(request):
     data=user_profile_dict(request.user,request.session)
     if request.session.get_expiry_date(): data['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse({'user':data})
+
+def _request_content_country(request):
+    # Country selection is persistent on learner profiles. The Super Admin's
+    # selected workspace controls preview/public data while in that workspace.
+    if is_super(request.user) and (request.session.get('active_role') or 'super-admin')=='super-admin':
+        return _request_active_country(request)
+    profile_country=country_for_user(request.user)
+    if profile_country:
+        return profile_country
+    requested=str(request.GET.get('country') or '').strip()
+    options=[row for row in country_catalog(include_counts=False,include_inactive=False) if row.get('active',True)]
+    allowed={str(row['name']).casefold():str(row['name']) for row in options}
+    if requested.casefold() in allowed:
+        return allowed[requested.casefold()]
+    settings_obj=SiteSetting.get_solo()
+    default=str(settings_obj.country or 'Pakistan').strip()
+    return allowed.get(default.casefold(),allowed.get('pakistan',options[0]['name'] if options else 'Pakistan'))
 
 def _request_active_country(request):
     if not is_super(request.user):
@@ -648,6 +665,8 @@ def mcqs(request):
         if role=='super-admin':
             selected=_request_active_country(request)
             if selected: filters['country']=selected
+    elif filters.get('public'):
+        filters['country']=country_for_user(request.user) or _request_content_country(request)
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
 
 @profile_api('entities')
@@ -661,7 +680,9 @@ def entities(request):
         page=int(request.GET.get('page') or 1)
         filters={k:request.GET.get(k) for k in ['parent','country','search','sort','all_papers'] if request.GET.get(k)}
         active_country=''
-        if not public_only and request.GET.get('admin_scope')=='1' and is_super(request.user):
+        if public_only:
+            active_country=_request_content_country(request)
+        elif request.GET.get('admin_scope')=='1' and is_super(request.user):
             role=request.session.get('active_role') or 'super-admin'
             if role=='super-admin': active_country=_request_active_country(request)
         data=entity_page_data(request.user,kind,page,10,filters,public_only=public_only,active_country=active_country)
@@ -718,7 +739,10 @@ def admin_overview(request):
 @require_GET
 @login_required_json
 def admin_users(request):
-    try: return JsonResponse(admin_users_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    try:
+        active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+        active_country=_request_active_country(request) if active_role=='super-admin' else ''
+        return JsonResponse(admin_users_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50,active_country=active_country))
     except PermissionError as e: return err(e,403)
     except (TypeError,ValueError): return err('Invalid pagination values.',422)
 
@@ -726,7 +750,10 @@ def admin_users(request):
 @require_GET
 @login_required_json
 def admin_reports(request):
-    try: return JsonResponse(admin_reports_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    try:
+        active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+        active_country=_request_active_country(request) if active_role=='super-admin' else ''
+        return JsonResponse(admin_reports_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50,active_country=active_country))
     except PermissionError as e: return err(e,403)
     except (TypeError,ValueError): return err('Invalid pagination values.',422)
 
@@ -750,7 +777,10 @@ def admin_logs(request):
 @require_GET
 @login_required_json
 def admin_content(request):
-    try: return JsonResponse(admin_content_data(request.user))
+    try:
+        active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+        active_country=_request_active_country(request) if active_role=='super-admin' else ''
+        return JsonResponse(admin_content_data(request.user,active_country=active_country))
     except PermissionError as e: return err(e,403)
 
 @profile_api('auth_switch_role')
