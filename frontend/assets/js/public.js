@@ -4,6 +4,18 @@ window.Public=(()=>{
  const jobPath=x=>{const p=x&&MCQ.get('papers',x.paper_id);return p?'paper/'+p.id+'/job/'+x.id:'job/'+x.id};
  const pageCopy=(kind,key,title,desc)=>{const row=(MCQ.db.pageSeo||{})[kind+':'+String(key)]||{};return {title:String(row.title||title||''),desc:String(row.description||desc||'')}};
  const staticCopy=(key,title,desc)=>pageCopy('static',key,title,desc);
+ const fixedPublicCountry=()=>{
+  const user=window.Auth?.user||MCQ.db.session||{};
+  if(String(user.activeRole||'')==='super-admin'&&(user.roles||[]).includes('super-admin'))return String(MCQ.db.activeCountry||'').trim();
+  return String(user.country||'').trim();
+ };
+ const publicCountryNames=()=>{
+  const fixed=fixedPublicCountry();if(fixed)return [fixed];
+  const configured=(MCQ.db.countries||[]).filter(x=>x&&x.active!==false).map(x=>String(x.name||'').trim()).filter(Boolean);
+  const paperCountries=(MCQ.db.papers||[]).filter(x=>x.active!==false).map(x=>String(x.country||'').trim()).filter(Boolean);
+  const names=[...new Set([...configured,...paperCountries])].filter(x=>x.toLowerCase()!=='both');
+  return names.length?names:['Pakistan'];
+ };
  const activeServerMcqPage=()=>{const p=MCQ.db.mcqPage||{};return p.server===true&&p.scope==='public'&&p.routeKey===location.pathname+location.search?p:null};
  const activeEntityPage=()=>{const p=MCQ.db.entityPage||{};return p.server===true&&p.routeKey===location.pathname+location.search?p:null};
  const pastPapersPath=x=>{const org=MCQ.get('papers',x.paper_id),job=MCQ.db.jobs.find(j=>j.active!==false&&Number(j.paper_id)===Number(x.paper_id)&&MCQ.norm(j.name)===MCQ.norm(x.title));return job?jobPath(job):org?'paper/'+org.id:'papers'};
@@ -102,22 +114,24 @@ window.Public=(()=>{
    return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre,main,sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
   }
   const map={categories:['categories','All categories','Choose a category to open its MCQ collection.'],papers:['papers','Past Papers','Browse organizations and exams, then jobs/posts and years.'],paper:['jobs','Jobs / Posts','Select a job or post to see available years.'],job:['years','Job Years / Past Papers','Choose a Job Year / past-paper record.'],jobs:['jobs','Jobs','Browse job and recruitment preparation records.']};
-  const conf=map[type];if(!conf)return notFound();let [collection,title,desc]=conf;let rows=MCQ.db[collection].filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy)),trail=[],name=title,parent;const params=App.route.params,country=params.country||'';
+  const conf=map[type];if(!conf)return notFound();let [collection,title,desc]=conf;let rows=MCQ.db[collection].filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy)),trail=[],name=title,parent;const params=App.route.params,lockedCountry=fixedPublicCountry(),country=lockedCountry||params.country||'';
   if(id){const parentType={paper:'papers',job:'jobs'}[type];parent=MCQ.get(parentType,id);if(!parent)return notFound();name=parent.name;const rel=MCQ.parents[collection];rows=rows.filter(x=>x[rel[1]]===+id);if(type==='paper'){trail=[['Past Papers','papers']];const displayName=String(parent.name||'').replace(/[\[\]()]+/g,' ').replace(/\s+/g,' ').trim();title=displayName+' Past Papers';desc='Browse '+displayName+' past papers by job and exam year. Select a job below to view available paper years and practice linked MCQs with answers and explanations.'}if(type==='job'){const pa=MCQ.get('papers',parent.paper_id);if(!pa)return notFound();trail=[['Past Papers','papers'],[pa.name,window.SEO?SEO.cleanPath('paper',pa.id):'paper/'+pa.id]];const shortName=window.SEO&&SEO.shortName?SEO.shortName(pa.name):(String(pa.name||'').match(/\[([^\]]+)\]/)?.[1]||String(pa.name||'').split(/\s+/)[0]);title=(shortName?shortName+' ':'')+parent.name+' Past Papers';desc='Browse '+title+' by exam year. Select a paper year below to practice its linked MCQs with correct answers and explanations.'}}
   if(type==='papers'&&country)rows=rows.filter(x=>(x.country||MCQ.db.settings.country||'Pakistan')===country);
   if(type==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||MCQ.db.settings.country||'Pakistan')===country);
   rows=['categories','papers','jobs','years'].includes(collection)?MCQ.sortPinned(collection,rows):[...rows].sort((a,b)=>a.name.localeCompare(b.name));let page=App.page(rows.length);
   const jobSummary='';
   let pre='';if(type==='categories'){
-   pre=PublicLayout.selectionBar([{label:'All',path:'categories',params:{},active:!country},{label:'Pakistan',path:'categories',params:{country:'Pakistan'},active:country==='Pakistan'},{label:'India',path:'categories',params:{country:'India'},active:country==='India'}],'Category country');
+   const categoryCountryItems=lockedCountry?[{label:lockedCountry,path:'categories',params:{country:lockedCountry},active:true}]:[{label:'All',path:'categories',params:{},active:!country},...publicCountryNames().map(name=>({label:name,path:'categories',params:{country:name},active:country===name}))];
+   pre=PublicLayout.selectionBar(categoryCountryItems,'Category country');
   }if(type==='papers'){
    const allPapersView=params.view==='all';
    const modeBar=PublicLayout.selectionBar([
     {label:'Agencies Wise',path:'papers',params:country?{country}:{},active:!allPapersView},
     {label:'All Papers',path:'papers',params:{...(country?{country}:{}),view:'all'},active:allPapersView}
    ],'Past paper browse mode');
-   const countries=[...new Set(['Pakistan','India',...MCQ.db.papers.filter(x=>x.active!==false).map(x=>x.country).filter(Boolean)])];
-   const countryBar=PublicLayout.selectionBar([{label:'All',path:'papers',params:allPapersView?{view:'all'}:{},active:!country},...countries.map(c=>({label:c,path:'papers',params:{...(allPapersView?{view:'all'}:{}),country:c},active:country===c}))],'Past paper country');
+   const countries=publicCountryNames();
+   const paperCountryItems=lockedCountry?[{label:lockedCountry,path:'papers',params:{...(allPapersView?{view:'all'}:{}),country:lockedCountry},active:true}]:[{label:'All',path:'papers',params:allPapersView?{view:'all'}:{},active:!country},...countries.map(c=>({label:c,path:'papers',params:{...(allPapersView?{view:'all'}:{}),country:c},active:country===c}))];
+   const countryBar=PublicLayout.selectionBar(paperCountryItems,'Past paper country');
    if(allPapersView){
     const eligible=MCQ.db.years.filter(x=>x.active!==false).filter(x=>{const j=MCQ.get('jobs',x.job_id),pa=j&&MCQ.get('papers',j.paper_id);if(!j||j.active===false||!pa||pa.active===false)return false;if(!country)return true;return (pa.country||MCQ.db.settings.country||'Pakistan')===country});
     // Round-robin by agency/paper: take one job-year from each agency in turn.
@@ -190,7 +204,7 @@ window.Public=(()=>{
  }
  function listing(type,id){
   if(type==='search')return searchResults();
-  const server=activeServerMcqPage(),p=App.route.params,site=MCQ.db.siteCounts||{},pageSize=10;
+  const server=activeServerMcqPage(),routeParams=App.route.params,fixedCountry=fixedPublicCountry(),p=fixedCountry?{...routeParams,country:fixedCountry}:routeParams,site=MCQ.db.siteCounts||{},pageSize=10;
   let rows=server?MCQ.publicMcqs():MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved MCQs with country, collection and category filters.',trail=[['MCQs']],record;let listHeader='';
   if(type==='mcqs'){const copy=staticCopy('mcqs',title,desc);title=copy.title;desc=copy.desc}
   if(type==='topic'){
@@ -217,7 +231,12 @@ window.Public=(()=>{
   let pre='';if(type==='mcqs'||type==='important'){
    const base=Object.fromEntries(Object.entries(p).filter(([k])=>!['view','page','category'].includes(k))),categoryCounts=site.categoryMcqs||{},categories=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).map(c=>({...c,count:Number(categoryCounts[String(c.id)]||0)})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name)).slice(0,6);
    const countryBase=Object.fromEntries(Object.entries(base).filter(([k])=>k!=='country'));
-   const countryBar=PublicLayout.selectionBar([{label:'All Countries',path:'mcqs',params:{...countryBase,...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})},active:!p.country},{label:'Pakistan',path:'mcqs',params:{...countryBase,country:'Pakistan',...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})},active:p.country==='Pakistan'},{label:'India',path:'mcqs',params:{...countryBase,country:'India',...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})},active:p.country==='India'}],'Country');
+   const lockedCountry=fixedPublicCountry();
+   const baseCountryParams={...countryBase,...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})};
+   const countryItems=lockedCountry
+    ?[{label:lockedCountry,path:'mcqs',params:{...baseCountryParams,country:lockedCountry},active:true}]
+    :[{label:'All Countries',path:'mcqs',params:baseCountryParams,active:!p.country},...publicCountryNames().map(name=>({label:name,path:'mcqs',params:{...baseCountryParams,country:name},active:p.country===name}))];
+   const countryBar=PublicLayout.selectionBar(countryItems,'Country');
    const viewBar=PublicLayout.selectionBar([['all','All'],['important','Important'],['repeated','Most Repeated'],['latest','Latest']].map(([v,l])=>({label:l,path:'mcqs',params:{...base,...(p.category?{category:p.category}:{}),...(v==='all'?{}:{view:v})},active:view===v})),'MCQ collections');
    const catBar=PublicLayout.selectionBar([{label:'Categories',path:'categories',params:p.country?{country:p.country}:{},active:false},...categories.map(c=>({label:c.name.replace('Computer Science','Computer'),path:'mcqs',params:{...base,...(view!=='all'?{view}:{}),category:c.id},active:+p.category===c.id}))],'MCQ categories','selection-bar-secondary');
    pre=PublicLayout.selectionStack([{html:countryBar},{html:viewBar},{html:catBar}]);
