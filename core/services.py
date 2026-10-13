@@ -1575,6 +1575,7 @@ def save_site_form(user,form,payload,active_country=None):
         require(is_super(user) or has_perm(user,'manage_ads')); brand=str(v.get('brand') or '').strip(); require(brand,'Brand name is required.')
         obj=AdPlacement(name=brand,provider='custom',placement=str(v.get('placement') or 'home_ad'),title=brand,body=str(v.get('text') or ''),image_url=str(v.get('image_url') or ''),target_url=str(v.get('destination_url') or ''),active=True,starts_at=_parse_date(v.get('start_date')),ends_at=_parse_date(v.get('end_date'),True),created_by=user,updated_by=user); obj.save()
         entity_map=_entity_country_map(s); entity_map['ads'][str(obj.pk)]=country; blob['entityCountries']=entity_map
+        _save_site_blob(s,blob); s.updated_by=user; s.save(update_fields=['admin_permissions','updated_by','updated_at'])
         log(user,'Saved direct ad',brand); return {'id':obj.id}
     elif form=='pdf':
         require(is_super(user) or has_perm(user,'manage_pdfs'))
