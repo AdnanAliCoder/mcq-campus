@@ -71,8 +71,19 @@ def _workspace_country(user,active_country=None):
 def _content_country_name(kind,row,settings=None):
     ident=row.get('id') if isinstance(row,dict) else getattr(row,'pk',None)
     explicit=row.get('country') if isinstance(row,dict) else getattr(row,'country',None)
-    if explicit: value=explicit
-    else: value=_entity_country_map(settings).get(kind,{}).get(str(ident),'Pakistan')
+    mapped=_entity_country_map(settings).get(kind,{})
+    if explicit:
+        value=explicit
+    elif str(ident) in mapped:
+        value=mapped[str(ident)]
+    elif kind=='latestJobs' and isinstance(row,dict):
+        try:
+            paper_id=int(row.get('paper_id') or 0)
+            value=Paper.objects.filter(pk=paper_id).values_list('country',flat=True).first() or 'Pakistan'
+        except (TypeError,ValueError):
+            value='Pakistan'
+    else:
+        value='Pakistan'
     return re.sub(r'\s+',' ',str(value or 'Pakistan')).strip()[:80] or 'Pakistan'
 
 def _country_mapped_queryset(kind,queryset,country,settings=None):
