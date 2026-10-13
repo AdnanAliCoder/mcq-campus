@@ -82,16 +82,15 @@ window.Public=(()=>{
  }
  function home(){
   const server=activeServerMcqPage(),site=MCQ.db.siteCounts||{},pageSize=10,page=server?Math.max(1,Number(server.page)||1):1,rows=server?MCQ.publicMcqs():[],importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
-  const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`,today=new Date().toISOString().slice(0,10),latest=(MCQ.db.latestJobs||[]).filter(x=>x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))).slice(0,4);
-  const popularPaperJobs=MCQ.sortPinned('jobs',MCQ.db.jobs.filter(j=>j.active!==false&&MCQ.db.years.some(y=>y.active!==false&&+y.job_id===+j.id))).slice(0,8);
+  const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`;
   const homeStats=[
    {title:'MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
    {title:'Jobs',value:Number(site.jobs||MCQ.db.jobs.filter(x=>x.active!==false).length),iconName:'briefcase',tone:'neutral',subtitle:'Job / post records',path:'jobs-exams'},
-   {title:'Past Papers',value:Number(site.years||MCQ.db.years.filter(x=>x.active!==false).length),iconName:'paper',tone:'neutral',subtitle:'Job-year paper records',path:'papers?view=all'},
+   {title:'Past Papers',value:Number(site.years||MCQ.db.years.filter(x=>x.active!==false).length),iconName:'paper',tone:'neutral',subtitle:'Job-year paper records',path:'papers'},
    {title:'Categories',value:Number(site.categories||MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).length),iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
   const homeSeo=staticCopy('home','Practice smarter. Prepare with purpose.','Start with important MCQs, then explore past papers, categories and exam-focused preparation.');
-  return UI.layout(`<div class="container"><section class="hero home-hero-compact"><div class="home-hero-copy"><p class="eyebrow">COMPETITIVE EXAM PREPARATION</p><h1>${e(homeSeo.title)}</h1><p class="hero-copy">${e(homeSeo.desc)}</p>${heroActions}</div><div class="home-stats home-top-stats">${homeStats.map(x=>UI.statCard(x)).join('')}</div></section>${UI.adSlot('home_top_ad')}<section class="section home-content-grid home-content-priority"><div><div class="section-head"><div><p class="eyebrow">PRACTICE</p><h2>Important MCQs</h2><p class="small muted">${importantTotal.toLocaleString('en-GB')} total important MCQs · only 10 load per page</p></div>${link('mcqs','Browse all MCQs','link')}</div><div class="home-mcq-list">${rows.length?rows.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1,true)).join(''):empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.')}</div>${UI.pager(importantTotal,page,pageSize,App.route.params,'home')}</div><aside class="home-category-nav card"><div class="section-head"><div><p class="eyebrow">EXPLORE</p><h2>Categories</h2></div></div><div class="home-cat-boxes">${cats.map(c=>`<div class="home-cat-group"><div class="home-cat-title">${link('category/'+c.id,`<span class="home-cat-icon">${UI.entityIcon(c,'grid')}</span><span>${e(c.name)}</span>${icon('arrow')}`)}</div><div class="home-sub-list"><span class="home-sub-link">${Number(categoryCounts[String(c.id)]||0).toLocaleString('en-GB')} MCQs</span></div></div>`).join('')}</div>${link('categories','View all categories '+icon('arrow'),'btn home-cat-more')}</aside></section>${UI.adSlot('home_middle_ad')}<section class="section home-popular-papers"><div class="section-head"><div><p class="eyebrow">PAST PAPERS</p><h2>Popular Job-wise Past Papers</h2><p class="small muted">Open a job, choose the exact exam year, and practise its linked solved MCQs.</p></div>${link('papers','Browse all past papers','link')}</div>${popularPaperJobs.length?`<div class="grid paper-grid">${popularPaperJobs.map(j=>{const pa=MCQ.get('papers',j.paper_id),short=pa&&(window.SEO&&SEO.shortName?SEO.shortName(pa.name):String(pa.name||'').trim().split(' ')[0]),years=MCQ.db.years.filter(y=>y.active!==false&&+y.job_id===+j.id).length;return link('job/'+j.id,`<article class="card clickable"><p class="eyebrow">${e(short||'Exam')}</p><h3>${e(j.name)} Past Papers</h3><p class="small muted">${years} exam record${years===1?'':'s'} available</p><span class="content-cta">View papers ${icon('arrow')}</span></article>`)}).join('')}</div>`:empty('Past papers are being added','Available job-wise papers will appear here automatically.',link('papers','Browse Past Papers','btn primary'))}</section><section class="section"><div class="section-head"><div><p class="eyebrow">LATEST OPPORTUNITIES</p><h2>Latest Jobs</h2></div>${link('latest-jobs','View all latest jobs','link')}</div>${latest.length?`<div class="latest-jobs-list">${latest.map(latestJobCard).join('')}</div>`:empty('No active latest jobs','New published job announcements will appear here automatically.')}</section></div>`,'home')
+  return UI.layout(`<div class="container"><section class="hero home-hero-compact"><div class="home-hero-copy"><p class="eyebrow">COMPETITIVE EXAM PREPARATION</p><h1>${e(homeSeo.title)}</h1><p class="hero-copy">${e(homeSeo.desc)}</p>${heroActions}</div><div class="home-stats home-top-stats">${homeStats.map(x=>UI.statCard(x)).join('')}</div></section>${UI.adSlot('home_top_ad')}<section class="section home-content-grid home-content-priority"><div><div class="section-head"><div><p class="eyebrow">PRACTICE</p><h2>Important MCQs</h2><p class="small muted">${importantTotal.toLocaleString('en-GB')} total important MCQs · only 10 load per page</p></div>${link('mcqs','Browse all MCQs','link')}</div><div class="home-mcq-list">${rows.length?rows.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1,true)).join(''):empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.')}</div>${UI.pager(importantTotal,page,pageSize,App.route.params,'home')}</div><aside class="home-category-nav card"><div class="section-head"><div><p class="eyebrow">EXPLORE</p><h2>Categories</h2></div></div><div class="home-cat-boxes">${cats.map(c=>`<div class="home-cat-group"><div class="home-cat-title">${link('category/'+c.id,`<span class="home-cat-icon">${UI.entityIcon(c,'grid')}</span><span>${e(c.name)}</span>${icon('arrow')}`)}</div><div class="home-sub-list"><span class="home-sub-link">${Number(categoryCounts[String(c.id)]||0).toLocaleString('en-GB')} MCQs</span></div></div>`).join('')}</div>${link('categories','View all categories '+icon('arrow'),'btn home-cat-more')}</aside></section>${UI.adSlot('home_middle_ad')}</div>`,'home')
  }
 
  function browse(type,id){
@@ -114,42 +113,13 @@ window.Public=(()=>{
    return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre,main,sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
   }
   const map={categories:['categories','All categories','Choose a category to open its MCQ collection.'],papers:['papers','Past Papers','Browse organizations and exams, then jobs/posts and years.'],paper:['jobs','Jobs / Posts','Select a job or post to see available years.'],job:['years','Job Years / Past Papers','Choose a Job Year / past-paper record.'],jobs:['jobs','Jobs','Browse job and recruitment preparation records.']};
-  const conf=map[type];if(!conf)return notFound();let [collection,title,desc]=conf;let rows=MCQ.db[collection].filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy)),trail=[],name=title,parent;const params=App.route.params,lockedCountry=fixedPublicCountry(),country=lockedCountry||params.country||'';
+  const conf=map[type];if(!conf)return notFound();let [collection,title,desc]=conf;let rows=MCQ.db[collection].filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy)),trail=[],name=title,parent;const params=App.route.params,lockedCountry=fixedPublicCountry(),country=lockedCountry||'';
   if(id){const parentType={paper:'papers',job:'jobs'}[type];parent=MCQ.get(parentType,id);if(!parent)return notFound();name=parent.name;const rel=MCQ.parents[collection];rows=rows.filter(x=>x[rel[1]]===+id);if(type==='paper'){trail=[['Past Papers','papers']];const displayName=String(parent.name||'').replace(/[\[\]()]+/g,' ').replace(/\s+/g,' ').trim();title=displayName+' Past Papers';desc='Browse '+displayName+' past papers by job and exam year. Select a job below to view available paper years and practice linked MCQs with answers and explanations.'}if(type==='job'){const pa=MCQ.get('papers',parent.paper_id);if(!pa)return notFound();trail=[['Past Papers','papers'],[pa.name,window.SEO?SEO.cleanPath('paper',pa.id):'paper/'+pa.id]];const shortName=window.SEO&&SEO.shortName?SEO.shortName(pa.name):(String(pa.name||'').match(/\[([^\]]+)\]/)?.[1]||String(pa.name||'').split(/\s+/)[0]);title=(shortName?shortName+' ':'')+parent.name+' Past Papers';desc='Browse '+title+' by exam year. Select a paper year below to practice its linked MCQs with correct answers and explanations.'}}
   if(type==='papers'&&country)rows=rows.filter(x=>(x.country||MCQ.db.settings.country||'Pakistan')===country);
   if(type==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||MCQ.db.settings.country||'Pakistan')===country);
   rows=['categories','papers','jobs','years'].includes(collection)?MCQ.sortPinned(collection,rows):[...rows].sort((a,b)=>a.name.localeCompare(b.name));let page=App.page(rows.length);
   const jobSummary='';
-  let pre='';if(type==='categories'){
-   const categoryCountryItems=lockedCountry?[{label:lockedCountry,path:'categories',params:{country:lockedCountry},active:true}]:[{label:'All',path:'categories',params:{},active:!country},...publicCountryNames().map(name=>({label:name,path:'categories',params:{country:name},active:country===name}))];
-   pre=PublicLayout.selectionBar(categoryCountryItems,'Category country');
-  }if(type==='papers'){
-   const allPapersView=params.view==='all';
-   const modeBar=PublicLayout.selectionBar([
-    {label:'Agencies Wise',path:'papers',params:country?{country}:{},active:!allPapersView},
-    {label:'All Papers',path:'papers',params:{...(country?{country}:{}),view:'all'},active:allPapersView}
-   ],'Past paper browse mode');
-   const countries=publicCountryNames();
-   const paperCountryItems=lockedCountry?[{label:lockedCountry,path:'papers',params:{...(allPapersView?{view:'all'}:{}),country:lockedCountry},active:true}]:[{label:'All',path:'papers',params:allPapersView?{view:'all'}:{},active:!country},...countries.map(c=>({label:c,path:'papers',params:{...(allPapersView?{view:'all'}:{}),country:c},active:country===c}))];
-   const countryBar=PublicLayout.selectionBar(paperCountryItems,'Past paper country');
-   if(allPapersView){
-    const eligible=MCQ.db.years.filter(x=>x.active!==false).filter(x=>{const j=MCQ.get('jobs',x.job_id),pa=j&&MCQ.get('papers',j.paper_id);if(!j||j.active===false||!pa||pa.active===false)return false;if(!country)return true;return (pa.country||MCQ.db.settings.country||'Pakistan')===country});
-    // Round-robin by agency/paper: take one job-year from each agency in turn.
-    // Every eligible job-year remains in the result; agencies with many records continue
-    // appearing on later rounds instead of occupying one large consecutive block.
-    const agencyBuckets=new Map();
-    eligible.forEach(y=>{const j=MCQ.get('jobs',y.job_id),paperId=Number(j.paper_id)||0;if(!agencyBuckets.has(paperId))agencyBuckets.set(paperId,new Map());const jobBuckets=agencyBuckets.get(paperId),jobId=Number(y.job_id)||0;if(!jobBuckets.has(jobId))jobBuckets.set(jobId,[]);jobBuckets.get(jobId).push(y)});
-    const agencies=[...agencyBuckets.entries()].sort((a,b)=>{const pa=MCQ.get('papers',a[0]),pb=MCQ.get('papers',b[0]);return String(pa?.name||'').localeCompare(String(pb?.name||''))});
-    const agencyQueues=agencies.map(([,jobMap])=>{const jobs=[...jobMap.entries()].sort((a,b)=>String(MCQ.get('jobs',a[0])?.name||'').localeCompare(String(MCQ.get('jobs',b[0])?.name||''))).map(([,ys])=>ys.sort((a,b)=>String(b.name||'').localeCompare(String(a.name||''))));const queue=[];let more=true;while(more){more=false;for(const ys of jobs){if(ys.length){queue.push(ys.shift());more=true}}}return queue});
-    rows=[];let more=true;while(more){more=false;for(const queue of agencyQueues){if(queue.length){rows.push(queue.shift());more=true}}}
-    collection='years';name='All Past Papers';page=App.page(rows.length);
-    pre=PublicLayout.selectionStack([{html:modeBar},{html:countryBar}]);
-   }else{
-    const visiblePapers=MCQ.sortPinned('papers',MCQ.db.papers.filter(x=>x.active!==false&&(!country||(x.country||MCQ.db.settings.country||'Pakistan')===country)).map(x=>({...x,_jobs:MCQ.db.jobs.filter(j=>j.active!==false&&j.paper_id===x.id).length})).filter(x=>x._jobs)).slice(0,10);
-    const orgBar=PublicLayout.selectionBar([{label:'Organizations',path:'papers',params:country?{country}:{},active:true},...visiblePapers.map(x=>({label:x.name.match(/\b(PPSC|FPSC|NTS|SSC|UPSC|SPSC|KPPSC|BPSC|ETEA|FIA|ASF)\b/i)?.[1]||x.name.split(/\s+/).slice(0,2).join(' '),path:window.SEO?SEO.cleanPath('paper',x.id):'paper/'+x.id,active:false}))],'Organizations','selection-bar-secondary');
-    pre=PublicLayout.selectionStack([{html:modeBar},{html:countryBar},{html:orgBar}]);
-   }
-  }
+  let pre='';
   if(type==='paper'&&parent){
    const short=window.SEO&&SEO.shortName?SEO.shortName(parent.name):String(parent.name||'').replaceAll('[',' ').replaceAll(']',' ').replaceAll('(',' ').replaceAll(')',' ').replace(/\s+/g,' ').trim();
    const prep=`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXAM PREPARATION</p><h2>Prepare with ${e(short)} past papers</h2></div></div><p>Start with the job you are targeting, open the exact exam year, and practise its linked MCQs. Review answers and explanations, then use Important MCQs and subject categories to revise repeated concepts.</p><div class="chips">${link('important','Important MCQs','chip')}${link('categories','Browse MCQ Categories','chip')}${link('pdfs','Preparation PDFs','chip')}</div></section>`;
@@ -160,10 +130,10 @@ window.Public=(()=>{
    const prep=`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">TEST PREPARATION</p><h2>${e(label)} preparation</h2></div></div><p>Choose a past-paper year below to practise the questions linked with that exam record. After each attempt, review the correct answer and explanation and continue with Important MCQs for repeated-question revision.</p><div class="chips">${link('important','Important MCQs','chip')}${link('mcqs','Practice All MCQs','chip')}${link('categories','Browse Subjects','chip')}</div></section>`;
    pre+=prep;
   }
-  const entityServer=activeEntityPage(),useServer=!!(entityServer&&entityServer.type===collection),pageSize=10,total=useServer?Number(entityServer.total||0):rows.length;
+  const entityServer=activeEntityPage(),useServer=!!(entityServer&&entityServer.type===collection),pageSize=['papers','categories'].includes(collection)?12:10,total=useServer?Number(entityServer.total||0):rows.length;
   if(useServer){rows=Array.isArray(entityServer.items)?entityServer.items:[];page=Math.max(1,Number(entityServer.page)||1)}
   const shown=useServer?rows:rows.slice((page-1)*pageSize,page*pageSize);
-  const main=`${jobSummary}${UI.adSlot(type==='job'?'paper_ad':'public_page_top')}<p class="small muted result-count">${total.toLocaleString('en-GB')} ${collection==='years'?'paper records':collection} · 10 per page</p>${shown.length?`<div class="grid ${['papers','jobs','years'].includes(collection)?'paper-grid':''}">${shown.map((x,i)=>card(collection,x,(page-1)*pageSize+i)).join('')}</div>${UI.pager(total,page,pageSize,params)}`:empty(type==='papers'&&country?'No past papers for '+country:'No records available here','Try another section or return to the previous page.',type==='papers'?link('papers','Browse all past papers','btn primary'):link('categories','Browse categories','btn primary'))}`;
+  const main=`${jobSummary}${UI.adSlot(type==='job'?'paper_ad':'public_page_top')}<p class="small muted result-count">${total.toLocaleString('en-GB')} ${collection==='years'?'paper records':collection} · ${pageSize} per page</p>${shown.length?`<div class="grid ${['papers','jobs','years'].includes(collection)?'paper-grid':''}">${shown.map((x,i)=>card(collection,x,(page-1)*pageSize+i)).join('')}</div>${UI.pager(total,page,pageSize,params)}`:empty(type==='papers'&&country?'No past papers for '+country:'No records available here','Try another section or return to the previous page.',type==='papers'?link('papers','Browse all past papers','btn primary'):link('categories','Browse categories','btn primary'))}`;
   let finalTitle=typeof title==='string'&&title!==conf?.[1]?title:name,finalDesc=desc;
   if(type==='paper'&&parent){const copy=pageCopy('paper',parent.id,finalTitle,finalDesc);finalTitle=copy.title;finalDesc=copy.desc}
   else if(type==='job'&&parent){const copy=pageCopy('job',parent.id,finalTitle,finalDesc);finalTitle=copy.title;finalDesc=copy.desc}
@@ -204,8 +174,8 @@ window.Public=(()=>{
  }
  function listing(type,id){
   if(type==='search')return searchResults();
-  const server=activeServerMcqPage(),routeParams=App.route.params,fixedCountry=fixedPublicCountry(),p=fixedCountry?{...routeParams,country:fixedCountry}:routeParams,site=MCQ.db.siteCounts||{},pageSize=10;
-  let rows=server?MCQ.publicMcqs():MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved MCQs with country, collection and category filters.',trail=[['MCQs']],record;let listHeader='';
+  const server=activeServerMcqPage(),routeParams=App.route.params,fixedCountry=fixedPublicCountry(),p=fixedCountry?{page:routeParams.page,country:fixedCountry}:{page:routeParams.page},site=MCQ.db.siteCounts||{},pageSize=10;
+  let rows=server?MCQ.publicMcqs():MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved practice MCQs with correct answers and explanations.',trail=[['MCQs']],record;let listHeader='';
   if(type==='mcqs'){const copy=staticCopy('mcqs',title,desc);title=copy.title;desc=copy.desc}
   if(type==='topic'){
    record=MCQ.get('children',id);if(!record)return notFound();const su=MCQ.get('subcategories',record.subcategory_id),ca=su&&MCQ.get('categories',su.category_id);
@@ -226,23 +196,9 @@ window.Public=(()=>{
    if(p.country)rows=rows.filter(q=>questionCountry(q)===p.country);
   }
   const total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
-  const active=[];if(p.country)active.push('Country: '+p.country);if(p.paper)active.push('Exam: '+(MCQ.get('papers',p.paper)?.name||p.paper));if(p.job)active.push('Job: '+(MCQ.get('jobs',p.job)?.name||p.job));if(p.year)active.push('Year: '+(MCQ.get('years',p.year)?.name||p.year));if(p.category)active.push('Category: '+(MCQ.get('categories',p.category)?.name||p.category));
-  const activeSummary=active.length?`<div class="active-filter-summary" aria-label="Active selection"><strong>Selected</strong><div class="chips">${active.map(x=>`<span class="chip">${e(x)}</span>`).join('')}</div></div>`:'';
-  let pre='';if(type==='mcqs'||type==='important'){
-   const base=Object.fromEntries(Object.entries(p).filter(([k])=>!['view','page','category'].includes(k))),categoryCounts=site.categoryMcqs||{},categories=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).map(c=>({...c,count:Number(categoryCounts[String(c.id)]||0)})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name)).slice(0,6);
-   const countryBase=Object.fromEntries(Object.entries(base).filter(([k])=>k!=='country'));
-   const lockedCountry=fixedPublicCountry();
-   const baseCountryParams={...countryBase,...(view!=='all'?{view}:{}),...(p.category?{category:p.category}:{})};
-   const countryItems=lockedCountry
-    ?[{label:lockedCountry,path:'mcqs',params:{...baseCountryParams,country:lockedCountry},active:true}]
-    :[{label:'All Countries',path:'mcqs',params:baseCountryParams,active:!p.country},...publicCountryNames().map(name=>({label:name,path:'mcqs',params:{...baseCountryParams,country:name},active:p.country===name}))];
-   const countryBar=PublicLayout.selectionBar(countryItems,'Country');
-   const viewBar=PublicLayout.selectionBar([['all','All'],['important','Important'],['repeated','Most Repeated'],['latest','Latest']].map(([v,l])=>({label:l,path:'mcqs',params:{...base,...(p.category?{category:p.category}:{}),...(v==='all'?{}:{view:v})},active:view===v})),'MCQ collections');
-   const catBar=PublicLayout.selectionBar([{label:'Categories',path:'categories',params:p.country?{country:p.country}:{},active:false},...categories.map(c=>({label:c.name.replace('Computer Science','Computer'),path:'mcqs',params:{...base,...(view!=='all'?{view}:{}),category:c.id},active:+p.category===c.id}))],'MCQ categories','selection-bar-secondary');
-   pre=PublicLayout.selectionStack([{html:countryBar},{html:viewBar},{html:catBar}]);
-  }
+  let pre='';
   const label=view==='important'?'important MCQs':view==='repeated'?'repeated MCQs':'MCQs';
-  const main=`${listHeader}${activeSummary}${UI.adSlot('mcq_top_ad')}<p class="small muted mcq-count">${total.toLocaleString('en-GB')} total ${label} · only 10 load per page</p>${shown.length?shown.map((q,i)=>`${questionCard(q,(page-1)*pageSize+i+1,false,type==='year'?+id:null)}${i===4?UI.adSlot('mcq_inline_ad'):''}`).join(''):empty(server?(view==='repeated'?'No repeated MCQs found':'No MCQs found for this selection.'):'Loading MCQs…','Choose another option or browse all MCQs.',link('mcqs','Browse All MCQs','btn primary'))}${UI.adSlot('mcq_bottom_ad')}${UI.pager(total,page,pageSize,p,App.route.path)}`;
+  const main=`${listHeader}${UI.adSlot('mcq_top_ad')}<p class="small muted mcq-count">${total.toLocaleString('en-GB')} total ${label} · only 10 load per page</p>${shown.length?shown.map((q,i)=>`${questionCard(q,(page-1)*pageSize+i+1,false,type==='year'?+id:null)}${i===4?UI.adSlot('mcq_inline_ad'):''}`).join(''):empty(server?(view==='repeated'?'No repeated MCQs found':'No MCQs found for this selection.'):'Loading MCQs…','Choose another option or browse all MCQs.',link('mcqs','Browse All MCQs','btn primary'))}${UI.adSlot('mcq_bottom_ad')}${UI.pager(total,page,pageSize,p,App.route.path)}`;
   let sidebarKind='mcqs',ctx={};if(type==='year'){sidebarKind='papers';ctx={parent:record,type}};
   return PublicLayout.page({trail,title,desc,pre,main,sidebar:PublicLayout.smart(sidebarKind,ctx),active:type==='year'?'papers':'mcqs',sidebarLabel:'Related / Browse'});
  }
@@ -387,9 +343,9 @@ window.Public=(()=>{
   return PublicLayout.page({trail:[['Jobs & Exams']],title:'Jobs & Exams Preparation',desc:'Browse jobs and competitive exams across agencies. Open a job to view available past-paper years and linked MCQs.',main,sidebar:PublicLayout.smart('jobs'),active:'jobs-exams',sidebarLabel:'Related / Browse'});
  }
  function pdfs(){
-  const rows=(MCQ.db.pdfs||[]).filter(x=>x.active!==false),safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||''));
-  const cards=rows.map(pdfResourceCard).join('');
-  const main=`${UI.adSlot('pdf_ad')}${rows.length?`<div class="pdf-direct-list">${cards}</div>`:empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')}`;
+  const rows=(MCQ.db.pdfs||[]).filter(x=>x.active!==false),safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||'')),pageSize=12,page=App.page(rows.length,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const cards=shown.map(pdfResourceCard).join('');
+  const main=`${UI.adSlot('pdf_ad')}${rows.length?`<div class="pdf-resource-grid">${cards}</div>${UI.pager(rows.length,page,pageSize,App.route.params,'pdfs')}`:empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')}`;
   const copy=staticCopy('pdfs','Exam Preparation PDFs','Browse preparation PDFs, open each resource on its own page, and download the file directly.');
   return PublicLayout.page({trail:[['PDFs']],title:copy.title,desc:copy.desc,main,sidebar:PublicLayout.smart('pdfs'),active:'pdfs',sidebarLabel:'Related / Browse'});
  }

@@ -685,7 +685,8 @@ def entities(request):
         elif request.GET.get('admin_scope')=='1' and is_super(request.user):
             role=request.session.get('active_role') or 'super-admin'
             if role=='super-admin': active_country=_request_active_country(request)
-        data=entity_page_data(request.user,kind,page,10,filters,public_only=public_only,active_country=active_country)
+        page_size=12 if public_only and kind in ('categories','papers') else 10
+        data=entity_page_data(request.user,kind,page,page_size,filters,public_only=public_only,active_country=active_country)
     except PermissionError as exc:
         return err(exc,403)
     except (TypeError,ValueError) as exc:
