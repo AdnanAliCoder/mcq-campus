@@ -547,8 +547,10 @@ def startup_payload(user,session):
     selected=country_for_user(user)
     if not selected and is_super(user) and (session or {}).get('active_role')=='super-admin':
         selected=str((session or {}).get('active_country') or settings.country or 'Pakistan')
+    count_qs=MCQ.objects.filter(status='approved')
+    if selected: count_qs=count_qs.filter(country__iexact=selected)
     return {'snapshot':{'schemaVersion':13,**_startup_site_state(settings,selected or None),
-                        'totalApprovedMcqs':cached_value('public-counts',{'metric':'approved-total'},lambda:MCQ.objects.filter(status='approved').count(),timeout=30),
+                        'totalApprovedMcqs':cached_value('public-counts',{'metric':'approved-total','country':selected.casefold()},lambda:count_qs.count(),timeout=30),
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
             'user':user_identity_dict(user,session) if authenticated else None}
 
@@ -1719,13 +1721,20 @@ def save_page_seo_form(user,payload):
     log(user,'Updated page SEO',f'{kind}:{key}')
     return {'pageSeo':rows}
 
-def save_ad(user,payload):
+def save_ad(user,payload,active_country=None):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=AdPlacement.objects.filter(pk=rid).first() if rid else AdPlacement(created_by=user)
+    settings=SiteSetting.get_solo(); country=_workspace_country(user,active_country) or str(settings.country or 'Pakistan')
+    entity_map=_entity_country_map(settings)
+    current=_content_country_name('ads',obj,settings) if rid and obj.pk else country
+    require(not country or current.casefold() in {country.casefold(),'both'},'This ad belongs to another country. Switch the active country to edit it.')
     obj.name=str(v.get('name') or '').strip(); obj.provider=str(v.get('provider') or 'custom'); obj.placement=str(v.get('placement') or 'top_banner'); obj.title=str(v.get('title') or ''); obj.body=str(v.get('body') or ''); obj.image_url=str(v.get('image_url') or ''); obj.target_url=str(v.get('target_url') or ''); obj.adsense_slot=str(v.get('adsense_slot') or '').strip(); obj.priority=int(v.get('priority') or 0); obj.active='active' in fields; obj.updated_by=user
     if not obj.name: raise ValueError('Ad name is required.')
     if obj.provider=='adsense' and not obj.adsense_slot: raise ValueError('AdSense slot ID is required.')
     if obj.provider=='custom_code' and not obj.body.strip(): raise ValueError('Custom ad code is required.')
-    obj.save(); log(user,'Saved ad placement',obj.name); return {'ad':ad(obj)}
+    obj.save()
+    entity_map['ads'][str(obj.pk)]=current if current.casefold()=='both' else country
+    blob=_site_blob(settings); blob['entityCountries']=entity_map; _save_site_blob(settings,blob); settings.updated_by=user; settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    log(user,'Saved ad placement',obj.name); return {'ad':{**ad(obj),'country':entity_map['ads'][str(obj.pk)]}}
 
 def command(user,action,payload,active_country=None):
     action=str(action or '').strip()
@@ -1845,7 +1854,7 @@ def command(user,action,payload,active_country=None):
     if action=='form:bulk-posts':
         result=save_site_form(user,'bulk-posts',payload,active_country=active_country); country=_workspace_country(user,active_country) or None; settings_obj=SiteSetting.get_solo(); posts_q=_country_mapped_queryset('posts',Post.objects.filter(status='published'),country,settings_obj).order_by('-updated_at'); return {'processed':(result or {}).get('processed',0),'posts':[_mapped_content_row('posts',x,settings_obj) for x in posts_q[:100]]}
     if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories'}: return save_site_form(user,action[5:],payload,active_country=active_country)
-    if action=='form:ad': return save_ad(user,payload)
+    if action=='form:ad': return save_ad(user,payload,active_country=active_country)
     if action=='form:contact':
         _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
     if action=='form:profile':
@@ -1869,11 +1878,17 @@ def command(user,action,payload,active_country=None):
         if not enabling: _invalidate_user_sessions(target.pk)
         return {'user':user_dict(target)}
     if action=='action:ad-toggle':
-        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); obj.active=not obj.active; obj.updated_by=user; obj.save(); return {'ad':ad(obj)}
+        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); settings=SiteSetting.get_solo(); country=_workspace_country(user,active_country)
+        require(not country or _content_country_name('ads',obj,settings).casefold() in {country.casefold(),'both'},'This ad belongs to another country.')
+        obj.active=not obj.active; obj.updated_by=user; obj.save(); return {'ad':{**ad(obj),'country':_content_country_name('ads',obj,settings)}}
     if action=='action:ad-delete':
-        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); rid=obj.id; name=obj.name; obj.delete(); log(user,'Deleted ad placement',name); return {'deleted':{'type':'ads','ids':[rid]}}
+        require(is_super(user) or has_perm(user,'manage_ads')); obj=AdPlacement.objects.get(pk=int(payload.get('id'))); settings=SiteSetting.get_solo(); country=_workspace_country(user,active_country)
+        require(not country or _content_country_name('ads',obj,settings).casefold() in {country.casefold(),'both'},'This ad belongs to another country.')
+        rid=obj.id; name=obj.name; obj.delete(); blob=_site_blob(settings); mapping=_entity_country_map(settings); mapping['ads'].pop(str(rid),None); blob['entityCountries']=mapping; _save_site_blob(settings,blob); settings.save(update_fields=['admin_permissions','updated_at']); log(user,'Deleted ad placement',name); return {'deleted':{'type':'ads','ids':[rid]}}
     if action=='action:post-delete':
-        require(is_super(user) or has_perm(user,'delete_posts')); obj=Post.objects.get(pk=int(payload.get('id'))); rid=obj.id; title=obj.title; obj.delete(); log(user,'Deleted post',title); return {'deleted':{'type':'posts','ids':[rid]}}
+        require(is_super(user) or has_perm(user,'delete_posts')); obj=Post.objects.get(pk=int(payload.get('id'))); settings=SiteSetting.get_solo(); country=_workspace_country(user,active_country)
+        require(not country or _content_country_name('posts',obj,settings).casefold() in {country.casefold(),'both'},'This blog post belongs to another country.')
+        rid=obj.id; title=obj.title; obj.delete(); blob=_site_blob(settings); mapping=_entity_country_map(settings); mapping['posts'].pop(str(rid),None); blob['entityCountries']=mapping; _save_site_blob(settings,blob); settings.save(update_fields=['admin_permissions','updated_at']); log(user,'Deleted post',title); return {'deleted':{'type':'posts','ids':[rid]}}
     if action=='action:latest-job-bulk-delete':
         require(is_super(user) or has_perm(user,'delete_latest_jobs'))
         ids=payload.get('ids') or []
@@ -1882,18 +1897,27 @@ def command(user,action,payload,active_country=None):
         with transaction.atomic():
             s=SiteSetting.objects.select_for_update().get(pk=SiteSetting.get_solo().pk)
             blob=_site_blob(s); rows=list(blob.get('latestJobs') or [])
+            country=_workspace_country(user,active_country)
+            by_id={int(x.get('id',0)):x for x in rows}
+            require(selected.issubset(by_id),'One or more selected latest jobs were not found.')
+            require(not country or all(_content_country_name('latestJobs',by_id[ident],s).casefold() in {country.casefold(),'both'} for ident in selected),'One or more latest jobs belong to another country.')
             removed=[x for x in rows if int(x.get('id',0)) in selected]
             blob['latestJobs']=[x for x in rows if int(x.get('id',0)) not in selected]
             _save_site_blob(s,blob); s.updated_by=user; s.save()
             log(user,'Deleted latest jobs',', '.join(str(x.get('id')) for x in removed))
         return {'latestJobs':blob['latestJobs'],'count':len(removed)}
     if action in {'action:pdf-delete','action:latest-job-delete','action:latest-job-toggle'}:
-        form='pdfs' if action=='action:pdf-delete' else 'latestJobs'; perm='delete_pdfs' if form=='pdfs' else ('delete_latest_jobs' if action.endswith('delete') else 'manage_latest_jobs'); require(is_super(user) or has_perm(user,perm)); s=SiteSetting.get_solo(); blob=_site_blob(s); rows=list(blob.get(form) or []); rid=int(payload.get('id'))
+        form='pdfs' if action=='action:pdf-delete' else 'latestJobs'; perm='delete_pdfs' if form=='pdfs' else ('delete_latest_jobs' if action.endswith('delete') else 'manage_latest_jobs'); require(is_super(user) or has_perm(user,perm)); s=SiteSetting.get_solo(); blob=_site_blob(s); rows=list(blob.get(form) or []); rid=int(payload.get('id')); country=_workspace_country(user,active_country)
+        target=next((x for x in rows if int(x.get('id',0))==rid),None)
+        require(target is not None,'Record not found.')
+        require(not country or _content_country_name(form,target,s).casefold() in {country.casefold(),'both'},'This record belongs to another country.')
         if action.endswith('toggle'):
             for x in rows:
                 if int(x.get('id',0))==rid: x['published']=not bool(x.get('published',True)); x['updated_at']=timezone.now().isoformat()
-        else: rows=[x for x in rows if int(x.get('id',0))!=rid]
-        blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save(); return {form:rows}
+        else:
+            rows=[x for x in rows if int(x.get('id',0))!=rid]
+        blob[form]=rows; _save_site_blob(s,blob); s.updated_by=user; s.save()
+        return {form:_country_scoped_site_rows(form,rows,country or None,s)}
     if action=='action:entity-pin':
         return {'pinnedEntities':_set_entity_pin(user,payload.get('type'),payload.get('id'),str(payload.get('mode') or 'pin'))}
     if action in {'action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete'}:
