@@ -54,12 +54,75 @@ def _save_site_blob(settings,blob):
 
 def _entity_country_map(settings=None):
     raw=_site_blob(settings).get('entityCountries') or {}
-    categories=raw.get('categories') if isinstance(raw,dict) else {}
-    return {'categories':dict(categories) if isinstance(categories,dict) else {}}
+    if not isinstance(raw,dict): raw={}
+    return {kind:(dict(raw.get(kind) or {}) if isinstance(raw.get(kind),dict) else {}) for kind in ('categories','posts','guides','ads')}
 
 def _category_country(category_id,settings=None):
     # Legacy categories predate country mapping and belong to Pakistan unless explicitly shared.
     return str(_entity_country_map(settings)['categories'].get(str(category_id),'Pakistan') or 'Pakistan').strip() or 'Pakistan'
+
+def _workspace_country(user,active_country=None):
+    profile_country=country_for_user(user)
+    if profile_country: return profile_country
+    if is_super(user) and str(active_country or '').strip():
+        return re.sub(r'\\s+',' ',str(active_country)).strip()[:80]
+    return ''
+
+def _content_country_name(kind,row,settings=None):
+    ident=row.get('id') if isinstance(row,dict) else getattr(row,'pk',None)
+    explicit=row.get('country') if isinstance(row,dict) else getattr(row,'country',None)
+    if explicit: value=explicit
+    else: value=_entity_country_map(settings).get(kind,{}).get(str(ident),'Pakistan')
+    return re.sub(r'\\s+',' ',str(value or 'Pakistan')).strip()[:80] or 'Pakistan'
+
+def _country_mapped_queryset(kind,queryset,country,settings=None):
+    if not country or kind not in {'posts','guides','ads'}: return queryset
+    mapping=_entity_country_map(settings).get(kind,{})
+    selected=str(country).strip().casefold()
+    if selected=='pakistan':
+        excluded=[]
+        for key,value in mapping.items():
+            try: ident=int(key)
+            except (TypeError,ValueError): continue
+            if str(value or 'Pakistan').strip().casefold() not in {'pakistan','both'}: excluded.append(ident)
+        return queryset.exclude(pk__in=excluded)
+    allowed=[]
+    for key,value in mapping.items():
+        try: ident=int(key)
+        except (TypeError,ValueError): continue
+        if str(value or 'Pakistan').strip().casefold() in {selected,'both'}: allowed.append(ident)
+    return queryset.filter(pk__in=allowed)
+
+def _country_scoped_site_rows(kind,rows,country,settings=None):
+    items=[]
+    for raw in rows or []:
+        if not isinstance(raw,dict): continue
+        item=dict(raw); assigned=_content_country_name(kind,item,settings)
+        item['country']=assigned
+        if not country or assigned.casefold() in {str(country).strip().casefold(),'both'}: items.append(item)
+    return items
+
+def _mapped_content_row(kind,obj,settings=None):
+    row=post(obj) if kind=='posts' else guide(obj)
+    row['country']=_content_country_name(kind,obj,settings)
+    return row
+
+def _country_pinned_entities(country,settings=None):
+    pins=_pinned_entities(settings)
+    if not country: return pins
+    out={}
+    for kind,values in pins.items():
+        out[kind]=[ident for ident in values if _entity_matches_country(kind,ident,country)]
+    return out
+
+def _country_content_counts(country,settings=None):
+    settings=settings or SiteSetting.get_solo(); site=_site_blob(settings)
+    return {
+      'blogPosts':_country_mapped_queryset('posts',Post.objects.filter(status='published'),country,settings).count(),
+      'guides':_country_mapped_queryset('guides',Guide.objects.filter(published=True),country,settings).count(),
+      'pdfs':len(_country_scoped_site_rows('pdfs',site.get('pdfs') or [],country,settings)),
+      'latestJobs':len(_country_scoped_site_rows('latestJobs',site.get('latestJobs') or [],country,settings)),
+    }
 
 def _category_allowed(category_id,country,settings=None):
     if not country: return True
@@ -470,9 +533,10 @@ def _client_site_state(settings):
       'pdfs':site.get('pdfs') or [],'latestJobs':site.get('latestJobs') or [],'currentAffairsConfig':current,'pinnedEntities':_pinned_entities(settings),'pageSeo':page_seo_snapshot(settings),
     }
 
-def _startup_site_state(settings):
+def _startup_site_state(settings,country=None):
+    selected=str(country or settings.country or 'Pakistan')
     return {
-      'settings':{'siteName':settings.site_name,'description':settings.description,'country':settings.country,'mcqEntryCountry':settings.country},
+      'settings':{'siteName':settings.site_name,'description':settings.description,'country':selected,'mcqEntryCountry':selected},
       'seo':{'title':settings.seo_title,'description':settings.seo_description},
     }
 
@@ -480,24 +544,34 @@ def startup_payload(user,session):
     settings=SiteSetting.objects.only('singleton','site_name','description','country','seo_title','seo_description').filter(pk=1).first()
     if settings is None: settings=SiteSetting.objects.create(pk=1)
     authenticated=bool(user and getattr(user,'is_authenticated',False))
-    return {'snapshot':{'schemaVersion':13,**_startup_site_state(settings),
+    selected=country_for_user(user)
+    if not selected and is_super(user) and (session or {}).get('active_role')=='super-admin':
+        selected=str((session or {}).get('active_country') or settings.country or 'Pakistan')
+    return {'snapshot':{'schemaVersion':13,**_startup_site_state(settings,selected or None),
                         'totalApprovedMcqs':cached_value('public-counts',{'metric':'approved-total'},lambda:MCQ.objects.filter(status='approved').count(),timeout=30),
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
             'user':user_identity_dict(user,session) if authenticated else None}
 
-def _public_content_data_uncached():
+def _public_content_data_uncached(country=None):
+    settings=SiteSetting.get_solo()
     now=timezone.now()
     ads_q=AdPlacement.objects.filter(active=True).filter(Q(starts_at__isnull=True)|Q(starts_at__lte=now)).filter(Q(ends_at__isnull=True)|Q(ends_at__gte=now)).order_by('-priority','id')
+    posts_q=_country_mapped_queryset('posts',Post.objects.filter(status='published'),country,settings).order_by('-updated_at')
+    guides_q=_country_mapped_queryset('guides',Guide.objects.filter(published=True),country,settings).order_by('-updated_at')
+    ads_q=_country_mapped_queryset('ads',ads_q,country,settings)
     return {
-      'posts':[post(x) for x in Post.objects.filter(status='published').order_by('-updated_at')[:50]],
-      'guides':[guide(x) for x in Guide.objects.filter(published=True).order_by('-updated_at')[:50]],
-      'ads':[_client_ad(x) for x in ads_q[:50]],
+      'posts':[_mapped_content_row('posts',x,settings) for x in posts_q[:50]],
+      'guides':[_mapped_content_row('guides',x,settings) for x in guides_q[:50]],
+      'ads':[{**_client_ad(x),'country':_content_country_name('ads',x,settings)} for x in ads_q[:50]],
     }
 
-def _public_resources_data_uncached(user=None):
+def _public_resources_data_uncached(user=None,country=None):
     settings=SiteSetting.get_solo()
     state=_client_site_state(settings)
     data={k:state[k] for k in ['settings','seo','rolePermissions','adSettings','pinnedEntities','pageSeo']}
+    if country:
+        data['settings']={**data['settings'],'country':country,'mcqEntryCountry':country}
+        data['pinnedEntities']=_country_pinned_entities(country,settings)
     # Send hierarchy/catalog indexes, but keep the large MCQ registry paginated.
     registry=seo_index_snapshot()
     data['seoIndex']=registry if is_admin(user) else {
@@ -506,23 +580,34 @@ def _public_resources_data_uncached(user=None):
     }
     return data
 
-def _public_catalog_data_uncached():
+def _public_catalog_data_uncached(country=None):
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
-    return {k:state[k] for k in ['pdfs','latestJobs','currentAffairsConfig']}
+    pdfs=_country_scoped_site_rows('pdfs',state['pdfs'],country,settings)
+    latest_jobs=_country_scoped_site_rows('latestJobs',state['latestJobs'],country,settings)
+    current=dict(state['currentAffairsConfig'] or {})
+    if country:
+        for key in ('dailyIds','monthlyIds'):
+            if isinstance(current.get(key),list):
+                eligible=set(MCQ.objects.filter(country__iexact=country).values_list('id',flat=True))
+                current[key]=[ident for ident in current[key] if str(ident).isdigit() and int(ident) in eligible]
+    return {'pdfs':pdfs,'latestJobs':latest_jobs,'currentAffairsConfig':current}
 
 def _public_legal_data_uncached():
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
     return {'content':state['content']}
 
 
-def public_content_data():
-    return cached_value('public-content',{},_public_content_data_uncached,timeout=60)
+def public_content_data(country=None):
+    identity={'country':str(country or '').strip().casefold()}
+    return cached_value('public-content',identity,lambda:_public_content_data_uncached(country),timeout=60)
 
-def public_resources_data(user=None):
-    return cached_value('public-resources',{'administrator':bool(is_admin(user))},lambda:_public_resources_data_uncached(user),timeout=60)
+def public_resources_data(user=None,country=None):
+    identity={'administrator':bool(is_admin(user)),'country':str(country or '').strip().casefold()}
+    return cached_value('public-resources',identity,lambda:_public_resources_data_uncached(user,country),timeout=60)
 
-def public_catalog_data():
-    return cached_value('public-catalog',{},_public_catalog_data_uncached,timeout=120)
+def public_catalog_data(country=None):
+    identity={'country':str(country or '').strip().casefold()}
+    return cached_value('public-catalog',identity,lambda:_public_catalog_data_uncached(country),timeout=120)
 
 def public_legal_data():
     return cached_value('public-legal',{},_public_legal_data_uncached,timeout=120)
@@ -751,7 +836,8 @@ def snapshot(user,active_country=None,active_role=None):
     # Public/admin list rows are loaded only for the page the visitor opens.
     # Bootstrap keeps exact totals and lightweight hierarchy/reference metadata,
     # but does not preload MCQ rows from other pages.
-    site_counts=_approved_public_counts(country or None)
+    site_counts=dict(_approved_public_counts(country or None))
+    site_counts.update(_country_content_counts(country or None))
     rows=[]
     total=site_counts['approvedMcqs']
     category_country_map=_entity_country_map()['categories']
@@ -804,15 +890,18 @@ def admin_overview_data(user,active_role=None,active_country=None):
     )
     recent=[mcq_list(x) for x in qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-updated_at','-id')[:5]]
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
-    data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
+    data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0,'contentCounts':{}}
     if super_view:
         reports=Report.objects.exclude(status__in=['resolved','closed'])
         if country: reports=reports.filter(mcq__country__iexact=country)
         data['openReports']=reports.count()
-        people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
+        people_q=User.objects.select_related('profile').all()
+        if country: people_q=people_q.filter(profile__country__iexact=country)
+        people=people_q.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
         data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
-        staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
+        staff=people_q.filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
         data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
+        data['contentCounts']=_country_content_counts(country or None)
         staff_qs=MCQ.objects.exclude(created_by_id__isnull=True)
         if country: staff_qs=staff_qs.filter(country__iexact=country)
         staff_rows=staff_qs.values('created_by_id').annotate(
@@ -835,20 +924,20 @@ def admin_overview_data(user,active_role=None,active_country=None):
         data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
     return data
 
-def admin_users_data(user,page=1,page_size=50):
+def admin_users_data(user,page=1,page_size=50,active_country=None):
     require(is_super(user) or has_perm(user,'manage_users') or has_perm(user,'manage_admins'))
     page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
     qs=User.objects.select_related('profile').order_by('id')
-    country=country_for_user(user)
+    country=_workspace_country(user,active_country)
     if country: qs=qs.filter(profile__country__iexact=country)
     total=qs.count(); start=(page-1)*page_size
     return {'items':[user_admin_dict(x) for x in qs[start:start+page_size]],'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
 
-def admin_reports_data(user,page=1,page_size=50):
+def admin_reports_data(user,page=1,page_size=50,active_country=None):
     require(is_super(user) or has_perm(user,'view_reports'))
     page=max(1,int(page or 1)); page_size=max(1,min(int(page_size or 50),100))
     qs=Report.objects.select_related('user','mcq').order_by('-created_at')
-    country=country_for_user(user)
+    country=_workspace_country(user,active_country)
     if country: qs=qs.filter(mcq__country__iexact=country)
     total=qs.count(); start=(page-1)*page_size
     reports=[{'id':r.id,'mcq_id':r.mcq_id,'question':r.mcq.question if r.mcq else '','reason':r.reason,'status':r.status,'by_id':r.user_id,'by':user_name(r.user) if r.user else 'Visitor','at':iso(r.created_at)} for r in qs[start:start+page_size]]
@@ -874,12 +963,22 @@ def admin_logs_data(user,page=1,page_size=50):
     items=[{'id':x.id,'action':x.action,'detail':x.detail,'by':user_name(x.user) if x.user else 'System','by_id':x.user_id,'at':iso(x.created_at)} for x in qs[start:start+page_size]]
     return {'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+page_size<total}
 
-def admin_content_data(user):
+def admin_content_data(user,active_country=None):
     require(is_admin(user))
+    settings=SiteSetting.get_solo()
+    country=_workspace_country(user,active_country)
     posts_q=Post.objects.all() if has_perm(user,'manage_posts') or is_super(user) else Post.objects.filter(status='published')
     guides_q=Guide.objects.all() if has_perm(user,'manage_guides') or is_super(user) else Guide.objects.filter(published=True)
     ads_q=AdPlacement.objects.all().order_by('-priority','id') if has_perm(user,'manage_ads') or is_super(user) else AdPlacement.objects.none()
-    return {'posts':[post(x) for x in posts_q.order_by('-updated_at')[:100]],'guides':[guide(x) for x in guides_q.order_by('-updated_at')[:100]],'ads':[_client_ad(x) for x in ads_q[:100]]}
+    posts_q=_country_mapped_queryset('posts',posts_q,country,settings)
+    guides_q=_country_mapped_queryset('guides',guides_q,country,settings)
+    ads_q=_country_mapped_queryset('ads',ads_q,country,settings)
+    site=_site_blob(settings)
+    return {'posts':[_mapped_content_row('posts',x,settings) for x in posts_q.order_by('-updated_at')[:100]],
+            'guides':[_mapped_content_row('guides',x,settings) for x in guides_q.order_by('-updated_at')[:100]],
+            'ads':[{**_client_ad(x),'country':_content_country_name('ads',x,settings)} for x in ads_q[:100]],
+            'pdfs':_country_scoped_site_rows('pdfs',site.get('pdfs') or [],country,settings),
+            'latestJobs':_country_scoped_site_rows('latestJobs',site.get('latestJobs') or [],country,settings)}
 
 def parse_fields(payload):
     return {k:v for k,v in payload.get('fields',[])}, payload.get('values') or {}, payload.get('context') or {}, payload.get('draft') or {}
@@ -1337,11 +1436,25 @@ def save_user(user,payload):
     if old_active and not obj.is_active: _invalidate_user_sessions(obj.pk)
     log(user,'Saved account',email); return {'user':user_admin_dict(obj)}
 
-def save_guide(user,payload):
-    require(is_admin(user) and has_perm(user,'manage_guides')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Guide.objects.filter(pk=rid).first() if rid else Guide(created_by=user); obj.name=str(v.get('name') or '').strip(); obj.tag=str(v.get('tag') or 'STUDY SKILLS').strip(); obj.summary=str(v.get('summary') or ''); obj.body=str(v.get('body') or ''); obj.updated_by=user; obj.save(); log(user,'Saved guide',obj.name); return {'guide':guide(obj)}
+def save_guide(user,payload,active_country=None):
+    require(is_admin(user) and has_perm(user,'manage_guides'))
+    _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None
+    obj=Guide.objects.filter(pk=rid).first() if rid else Guide(created_by=user)
+    settings=SiteSetting.get_solo(); country=_workspace_country(user,active_country) or str(settings.country or 'Pakistan')
+    entity_map=_entity_country_map(settings)
+    current=_content_country_name('guides',obj,settings) if rid and obj.pk else country
+    require(not country or current.casefold() in {country.casefold(),'both'},'This guide belongs to another country. Switch the active country to edit it.')
+    obj.name=str(v.get('name') or '').strip(); obj.tag=str(v.get('tag') or 'STUDY SKILLS').strip(); obj.summary=str(v.get('summary') or ''); obj.body=str(v.get('body') or ''); obj.updated_by=user; obj.save()
+    entity_map['guides'][str(obj.pk)]=current if current.casefold()=='both' else country
+    blob=_site_blob(settings); blob['entityCountries']=entity_map; _save_site_blob(settings,blob); settings.updated_by=user; settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    log(user,'Saved guide',obj.name); return {'guide':{**guide(obj),'country':entity_map['guides'][str(obj.pk)]}}
 
-def save_post(user,payload):
+def save_post(user,payload,active_country=None):
     require(is_admin(user) and has_perm(user,'manage_posts')); _,v,c,_=parse_fields(payload); rid=int(c.get('id') or 0) or None; obj=Post.objects.filter(pk=rid).first() if rid else Post(created_by=user)
+    settings=SiteSetting.get_solo(); country=_workspace_country(user,active_country) or str(settings.country or 'Pakistan')
+    entity_map=_entity_country_map(settings)
+    current=_content_country_name('posts',obj,settings) if rid and obj.pk else country
+    require(not country or current.casefold() in {country.casefold(),'both'},'This blog post belongs to another country. Switch the active country to edit it.')
     obj.title=str(v.get('title') or '').strip(); require(obj.title,'Post title is required.')
     obj.slug=slugify(str(v.get('slug') or obj.title))[:120] or f'post-{timezone.now().timestamp():.0f}'
     if Post.objects.exclude(pk=obj.pk).filter(slug=obj.slug).exists(): obj.slug=f'{obj.slug[:105]}-{int(timezone.now().timestamp())}'
@@ -1350,7 +1463,10 @@ def save_post(user,payload):
         if '|' in line:
             label,url=[x.strip() for x in line.split('|',1)]; links.append({'label':label,'url':url})
     if image_data.startswith('data:image/'): links.append({'label':'__featured_image_data','url':image_data})
-    obj.links=links; obj.updated_by=user; obj.save(); log(user,'Saved post',obj.title); return {'post':post(obj)}
+    obj.links=links; obj.updated_by=user; obj.save()
+    entity_map['posts'][str(obj.pk)]=current if current.casefold()=='both' else country
+    blob=_site_blob(settings); blob['entityCountries']=entity_map; _save_site_blob(settings,blob); settings.updated_by=user; settings.save(update_fields=['admin_permissions','updated_by','updated_at'])
+    log(user,'Saved post',obj.title); return {'post':{**post(obj),'country':entity_map['posts'][str(obj.pk)]}}
 
 def extract_ga(value):
     m=re.search(r'\bG-[A-Z0-9]+\b',str(value or ''),re.I); return m.group(0).upper() if m else ''
@@ -1433,8 +1549,9 @@ def _unique_slug(rows,title,prefix,new_id):
     used={str(x.get('slug') or '').strip().lower() for x in rows}
     return base if base.lower() not in used else f'{base}-{new_id}'
 
-def save_site_form(user,form,payload):
+def save_site_form(user,form,payload,active_country=None):
     fields,v,c,_=parse_fields(payload); s=SiteSetting.get_solo(); blob=_site_blob(s); now=timezone.now().isoformat()
+    country=_workspace_country(user,active_country) or str(s.country or 'Pakistan')
     if form=='footer-settings':
         require(is_super(user) or has_perm(user,'manage_footer')); old=blob.get('footer') or {}; footer=dict(old)
         for k in ['description','copyrightText','footerLogoUrl','countryText']: footer[k]=str(v.get(k) or '')
@@ -1459,6 +1576,7 @@ def save_site_form(user,form,payload):
         rows=list(blob.get('pdfs') or [])
         rid=int(c.get('id') or 0)
         old=next((x for x in rows if int(x.get('id',0))==rid),None)
+        require(not old or _content_country_name('pdfs',old,s).casefold() in {country.casefold(),'both'},'This PDF belongs to another country. Switch the active country to edit it.')
         title=str(v.get('title') or '').strip()
         require(title,'PDF Title is required.')
         download=str(v.get('pdf_file_data') or v.get('download_url') or (old or {}).get('download_url') or '').strip()
@@ -1467,7 +1585,7 @@ def save_site_form(user,form,payload):
         base_slug=slugify(title) or f'pdf-{new_id}'
         used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
         item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
-        new={'id':new_id,'title':title,'slug':item_slug,'description':str(v.get('description') or ''),'seo_title':str(v.get('seo_title') or (old or {}).get('seo_title') or '').strip()[:180],'seo_description':str(v.get('seo_description') or (old or {}).get('seo_description') or '').strip()[:500],'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        new={'id':new_id,'title':title,'slug':item_slug,'description':str(v.get('description') or ''),'seo_title':str(v.get('seo_title') or (old or {}).get('seo_title') or '').strip()[:180],'seo_description':str(v.get('seo_description') or (old or {}).get('seo_description') or '').strip()[:500],'download_url':download,'cover':str(v.get('cover_data') or v.get('cover') or (old or {}).get('cover') or ''),'country':((_content_country_name('pdfs',old,s) if old else country) if old and _content_country_name('pdfs',old,s).casefold()=='both' else country),'active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
         rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
         blob['pdfs']=rows
     elif form=='latest-job':
@@ -1475,8 +1593,10 @@ def save_site_form(user,form,payload):
         rows=list(blob.get('latestJobs') or [])
         rid=int(c.get('id') or 0)
         old=next((x for x in rows if int(x.get('id',0))==rid),None)
+        require(not old or _content_country_name('latestJobs',old,s).casefold() in {country.casefold(),'both'},'This latest job belongs to another country. Switch the active country to edit it.')
         paper_id=int(v.get('paper_id') or 0)
-        require(Paper.objects.filter(pk=paper_id).exists(),'Choose a valid Organization / Paper.')
+        paper_obj=Paper.objects.filter(pk=paper_id).first()
+        require(paper_obj is not None and str(paper_obj.country or 'Pakistan').casefold()==country.casefold(),'Choose an Organization / Paper from the selected country.')
         title=str(v.get('title') or '').strip()
         last=str(v.get('last_date') or '').strip()
         require(title and last,'Job Title and Last Date are required.')
@@ -1484,7 +1604,7 @@ def save_site_form(user,form,payload):
         base_slug=slugify(title) or f'latest-job-{new_id}'
         used_slugs={str(x.get('slug') or '').strip().lower() for x in rows if int(x.get('id',0))!=new_id}
         item_slug=base_slug if base_slug.lower() not in used_slugs else f'{base_slug}-{new_id}'
-        new={'id':new_id,'paper_id':paper_id,'title':title,'slug':item_slug,'description':str(v.get('description') or (old or {}).get('description') or '').strip(),'seo_title':str(v.get('seo_title') or (old or {}).get('seo_title') or '').strip()[:180],'seo_description':str(v.get('seo_description') or (old or {}).get('seo_description') or '').strip()[:500],'last_date':last,'apply_url':str(v.get('apply_url') or ''),'prep_url':str(v.get('prep_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+        new={'id':new_id,'paper_id':paper_id,'country':((_content_country_name('latestJobs',old,s) if old else country) if old and _content_country_name('latestJobs',old,s).casefold()=='both' else country),'title':title,'slug':item_slug,'description':str(v.get('description') or (old or {}).get('description') or '').strip(),'seo_title':str(v.get('seo_title') or (old or {}).get('seo_title') or '').strip()[:180],'seo_description':str(v.get('seo_description') or (old or {}).get('seo_description') or '').strip()[:500],'last_date':last,'apply_url':str(v.get('apply_url') or ''),'prep_url':str(v.get('prep_url') or ''),'published':'published' in fields,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
         rows=[new if int(x.get('id',0))==new['id'] else x for x in rows] if old else [new]+rows
         blob['latestJobs']=rows
     elif form=='bulk-pdfs':
@@ -1499,9 +1619,9 @@ def save_site_form(user,form,payload):
                 middle=free[1:-1] if url and len(free)>1 else free[1:]
                 description='\n'.join(middle).strip()
             if not title or not url: raise ValueError('Each PDF block needs a title and a valid http/https download URL.')
-            old=next((x for x in rows if str(x.get('title') or '').strip().casefold()==title.casefold()),None)
+            old=next((x for x in rows if str(x.get('title') or '').strip().casefold()==title.casefold() and _content_country_name('pdfs',x,s).casefold() in {country.casefold(),'both'}),None)
             new_id=int((old or {}).get('id') or next_catalog_id(rows,'pdf',s))
-            new={'id':new_id,'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'pdf',new_id),'description':description,'download_url':url,'cover':(old or {}).get('cover') or '','active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+            new={'id':new_id,'title':title,'country':((_content_country_name('pdfs',old,s) if old else country) if old and _content_country_name('pdfs',old,s).casefold()=='both' else country),'slug':(old or {}).get('slug') or _unique_slug(rows,title,'pdf',new_id),'description':description,'download_url':url,'cover':(old or {}).get('cover') or '','active':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
             rows=[new if int(x.get('id',0))==new_id else x for x in rows] if old else [new]+rows; count+=1
         blob['pdfs']=rows
         log(user,'Bulk PDF import',f'{count} PDF(s) processed')
@@ -1516,12 +1636,12 @@ def save_site_form(user,form,payload):
             apply_url=_bulk_safe_url(d.get('apply_url') or d.get('url') or next((x for x in free[3:] if re.match(r'^https?://',x,re.I)),'')) 
             prep_url=_bulk_safe_url(d.get('prep_url') or '')
             require(paper_name and title and last,'Each Latest Job block needs Paper/Organization, Job Title and Last Date.')
-            paper=Paper.objects.filter(name__iexact=paper_name).first()
+            paper=Paper.objects.filter(name__iexact=paper_name,country__iexact=country).first()
             if not paper:
-                paper=Paper.objects.create(id=next_id(Paper),name=paper_name,country=s.country,icon='briefcase',created_by=user,updated_by=user)
-            old=next((x for x in rows if int(x.get('paper_id') or 0)==paper.id and str(x.get('title') or '').strip().casefold()==title.casefold() and str(x.get('last_date') or '')==last),None)
+                paper=Paper.objects.create(id=next_id(Paper),name=paper_name,country=country,icon='briefcase',created_by=user,updated_by=user)
+            old=next((x for x in rows if int(x.get('paper_id') or 0)==paper.id and str(x.get('title') or '').strip().casefold()==title.casefold() and str(x.get('last_date') or '')==last and _content_country_name('latestJobs',x,s).casefold() in {country.casefold(),'both'}),None)
             new_id=int((old or {}).get('id') or next_catalog_id(rows,'latest-job',s))
-            new={'id':new_id,'paper_id':paper.id,'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'latest-job',new_id),'last_date':last,'apply_url':apply_url,'prep_url':prep_url,'published':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
+            new={'id':new_id,'paper_id':paper.id,'country':((_content_country_name('latestJobs',old,s) if old else country) if old and _content_country_name('latestJobs',old,s).casefold()=='both' else country),'title':title,'slug':(old or {}).get('slug') or _unique_slug(rows,title,'latest-job',new_id),'last_date':last,'apply_url':apply_url,'prep_url':prep_url,'published':True,'created_at':(old or {}).get('created_at') or now,'created_by':(old or {}).get('created_by') or user_name(user),'created_by_id':(old or {}).get('created_by_id') or user.id,'updated_at':now,'updated_by':user_name(user),'updated_by_id':user.id}
             rows=[new if int(x.get('id',0))==new_id else x for x in rows] if old else [new]+rows; count+=1
         blob['latestJobs']=rows
         log(user,'Bulk Latest Jobs import',f'{count} job(s) processed')
@@ -1536,13 +1656,16 @@ def save_site_form(user,form,payload):
                 middle=free[1:-1] if url and len(free)>1 else free[1:]
                 content='\n'.join(middle).strip()
             require(title and content,'Each Blog block needs a Title and Content.')
-            obj=Post.objects.filter(title__iexact=title).first() or Post(created_by=user)
+            obj=_country_mapped_queryset('posts',Post.objects.filter(title__iexact=title),country,s).first() or Post(created_by=user)
             obj.title=title; obj.slug=slugify(title)[:120] or f'post-{timezone.now().timestamp():.0f}'
             if Post.objects.exclude(pk=obj.pk).filter(slug=obj.slug).exists(): obj.slug=f'{obj.slug[:105]}-{int(timezone.now().timestamp())}'
             obj.body=content; obj.excerpt=re.sub(r'\s+',' ',content).strip()[:180]; obj.category=obj.category or 'Exam preparation'; obj.seo_title=obj.title[:80]; obj.seo_description=obj.excerpt[:300]; obj.status='published'
             old_links=[x for x in (obj.links or []) if x.get('label')!='__blog_url']
             if url: old_links.append({'label':'__blog_url','url':url})
-            obj.links=old_links; obj.updated_by=user; obj.save(); count+=1
+            obj.links=old_links; obj.updated_by=user; obj.save()
+            entity_map=_entity_country_map(s); entity_map['posts'][str(obj.pk)]=country
+            site_blob=_site_blob(s); site_blob['entityCountries']=entity_map; _save_site_blob(s,site_blob); s.admin_permissions={**(s.admin_permissions or {}),'_site':site_blob}
+            count+=1
         log(user,'Bulk Blog import',f'{count} post(s) processed'); return {'processed':count}
     elif form=='bulk-categories':
         require(is_admin(user) and has_perm(user,'manage_categories')); count=0
@@ -1699,21 +1822,21 @@ def command(user,action,payload,active_country=None):
         return {'mcqs':[mcq(x) for x in rows],'reviewedCount':len(ids),'status':status}
     if action=='form:entity': return save_entity(user,payload,active_country=active_country)
     if action=='form:user': return save_user(user,payload)
-    if action=='form:guide': return save_guide(user,payload)
-    if action=='form:post': return save_post(user,payload)
+    if action=='form:guide': return save_guide(user,payload,active_country=active_country)
+    if action=='form:post': return save_post(user,payload,active_country=active_country)
     if action=='form:config': return save_config(user,payload)
     if action=='form:page-seo': return save_page_seo_form(user,payload)
     if action=='form:pdf':
-        save_site_form(user,'pdf',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
+        save_site_form(user,'pdf',payload,active_country=active_country); settings_obj=SiteSetting.get_solo(); site=_site_blob(settings_obj); return {'pdfs':_country_scoped_site_rows('pdfs',site.get('pdfs') or [],_workspace_country(user,active_country) or None,settings_obj)}
     if action=='form:latest-job':
-        save_site_form(user,'latest-job',payload); return {'latestJobs':_site_blob(SiteSetting.get_solo()).get('latestJobs') or []}
+        save_site_form(user,'latest-job',payload,active_country=active_country); settings_obj=SiteSetting.get_solo(); site=_site_blob(settings_obj); return {'latestJobs':_country_scoped_site_rows('latestJobs',site.get('latestJobs') or [],_workspace_country(user,active_country) or None,settings_obj)}
     if action=='form:bulk-pdfs':
-        save_site_form(user,'bulk-pdfs',payload); return {'pdfs':_site_blob(SiteSetting.get_solo()).get('pdfs') or []}
+        save_site_form(user,'bulk-pdfs',payload,active_country=active_country); settings_obj=SiteSetting.get_solo(); site=_site_blob(settings_obj); return {'pdfs':_country_scoped_site_rows('pdfs',site.get('pdfs') or [],_workspace_country(user,active_country) or None,settings_obj)}
     if action=='form:bulk-latest-jobs':
-        save_site_form(user,'bulk-latest-jobs',payload); return {'latestJobs':_site_blob(SiteSetting.get_solo()).get('latestJobs') or []}
+        save_site_form(user,'bulk-latest-jobs',payload,active_country=active_country); settings_obj=SiteSetting.get_solo(); site=_site_blob(settings_obj); return {'latestJobs':_country_scoped_site_rows('latestJobs',site.get('latestJobs') or [],_workspace_country(user,active_country) or None,settings_obj)}
     if action=='form:bulk-posts':
-        result=save_site_form(user,'bulk-posts',payload); return {'processed':(result or {}).get('processed',0),'posts':[post(x) for x in Post.objects.filter(status='published').order_by('-updated_at')[:100]]}
-    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories'}: return save_site_form(user,action[5:],payload)
+        result=save_site_form(user,'bulk-posts',payload,active_country=active_country); country=_workspace_country(user,active_country) or None; settings_obj=SiteSetting.get_solo(); posts_q=_country_mapped_queryset('posts',Post.objects.filter(status='published'),country,settings_obj).order_by('-updated_at'); return {'processed':(result or {}).get('processed',0),'posts':[_mapped_content_row('posts',x,settings_obj) for x in posts_q[:100]]}
+    if action in {'form:footer-settings','form:social-links','form:legal-page','form:ad-config','form:direct-ad','form:bulk-hierarchy','form:bulk-categories'}: return save_site_form(user,action[5:],payload,active_country=active_country)
     if action=='form:ad': return save_ad(user,payload)
     if action=='form:contact':
         _,v,_,_=parse_fields(payload); ContactMessage.objects.create(user=user,name=str(v.get('name') or user_name(user)),email=str(v.get('email') or user.email),message=str(v.get('message') or '')); return True
