@@ -3,7 +3,7 @@
 window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
- let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0;
+ let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0,routeRoleSync=null;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=Number.POSITIVE_INFINITY;
  const serverRoute=(()=>{try{return JSON.parse(document.getElementById('seo-route')?.textContent||'null')}catch{return null}})();
@@ -324,6 +324,14 @@ window.Auth=(()=>{
    return false;
   }
   if(!allowed(current)){history.replaceState(null,'',UI.href(landing()));return false;}
+  // Keep the URL and server-side workspace role in sync, including direct dashboard links.
+  const desiredRole=b==='super-admin'?'super-admin':b==='admin'?'admin':null;
+  if(desiredRole&&user.roles?.includes(desiredRole)&&user.activeRole!==desiredRole){
+   if(!routeRoleSync){
+    routeRoleSync=switchRole(desiredRole).then(()=>App.render()).catch(()=>{}).finally(()=>{routeRoleSync=null;});
+   }
+   return false;
+  }
   return true;
  }
 

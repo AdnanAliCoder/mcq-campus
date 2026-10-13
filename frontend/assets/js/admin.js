@@ -1,7 +1,7 @@
 window.Admin=(()=>{
  const {esc:e,icon,link,btn,heading,empty,badge,field,textarea,select}=UI;
  const names={categories:'Categories',papers:'Papers',jobs:'Jobs / Posts',years:'Job years',countries:'Countries'};
- const root=()=>MCQ.role()==='super-admin'?'super-admin':'admin';
+ const root=()=>{const routeRoot=String(location.pathname||'').split('/').filter(Boolean)[0]||'';return routeRoot==='super-admin'?'super-admin':routeRoot==='admin'?'admin':MCQ.role()==='super-admin'?'super-admin':'admin';};
  const url=p=>root()+'/'+p;
  const ADMIN_MCQ_PAGE_SIZE=10,IMPORT_PAGE_SIZE=50;
  const adminPageSize=()=>ADMIN_MCQ_PAGE_SIZE;
