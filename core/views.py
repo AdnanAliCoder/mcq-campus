@@ -761,7 +761,10 @@ def admin_reports(request):
 @require_GET
 @login_required_json
 def admin_trash(request):
-    try: return JsonResponse(admin_trash_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50))
+    try:
+        active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+        active_country=_request_active_country(request) if active_role=='super-admin' else ''
+        return JsonResponse(admin_trash_data(request.user,request.GET.get('page') or 1,request.GET.get('page_size') or 50,active_country=active_country))
     except PermissionError as e: return err(e,403)
     except (TypeError,ValueError): return err('Invalid pagination values.',422)
 
