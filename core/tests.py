@@ -228,6 +228,8 @@ class IntegrationTests(TestCase):
         usa_approved=MCQ.objects.create(id=201,question='USA approved question?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',country='USA',paper_ids=[usa_paper.id],created_by=self.admin,submitted_by=self.admin)
         usa_pending=MCQ.objects.create(id=202,question='USA pending question?',option1='A',option2='B',option3='C',option4='D',correct_answer='B',category=self.category,status='pending',country='USA',paper_ids=[usa_paper.id],created_by=self.admin,submitted_by=self.admin)
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        country_added=self.post_json('/api/admin/countries',{'action':'add','name':'USA'})
+        self.assertEqual(country_added.status_code,200)
         changed=self.post_json('/api/admin/active-country',{'country':'USA'})
         self.assertEqual(changed.status_code,200)
         self.assertEqual(changed.json()['activeCountry'],'USA')

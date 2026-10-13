@@ -36,6 +36,7 @@ jobs:
           python manage.py test
           core.tests.IntegrationTests.test_super_admin_permission_resolves_to_super_admin_role_and_workspace
           core.tests.IntegrationTests.test_staff_profile_with_legacy_learner_role_resolves_to_admin
+          core.tests.IntegrationTests.test_super_admin_country_workspace_scopes_dashboard_mcqs_and_entities
           --verbosity 2
       - name: Test cache utilities
         env:
