@@ -161,20 +161,13 @@ window.Auth=(()=>{
   const publicMcqEndpoint=()=>{
    const q=new URLSearchParams(),page=Math.max(1,Number(routeParams.get('page'))||1);
    q.set('public','1');q.set('page',String(page));q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));
-   const passthrough=['category','paper','job','year','country','search'];
-   for(const key of passthrough){const value=routeParams.get(key);if(value)q.set(key,value)}
+   if(!['mcqs','important'].includes(resolvedBase)){const passthrough=['category','paper','job','year','country','search'];for(const key of passthrough){const value=routeParams.get(key);if(value)q.set(key,value)}}
    if(resolvedBase==='home'||resolvedBase==='important')q.set('important','1');
    if(resolvedBase==='category'&&resolvedId)q.set('category',String(resolvedId));
    if(resolvedBase==='subcategory'&&resolvedId)q.set('subcategory',String(resolvedId));
    if(resolvedBase==='topic'&&resolvedId)q.set('child',String(resolvedId));
    if(resolvedBase==='year'&&resolvedId)q.set('year',String(resolvedId));
    if(['mcq','practice'].includes(resolvedBase)&&resolvedId)q.set('id',String(resolvedId));
-   if(resolvedBase==='mcqs'){
-    const view=String(routeParams.get('view')||'all');
-    if(view==='important')q.set('important','1');
-    else if(view==='repeated')q.set('repeated','1');
-    else if(view==='latest')q.set('latest','1');
-   }
    return '/mcqs?'+q.toString();
   };
   const entityEndpoint=()=>{
@@ -183,7 +176,7 @@ window.Auth=(()=>{
    let parent='';
    if(!adminScope){
     if(resolvedBase==='categories')type='categories';
-    else if(resolvedBase==='papers')type=routeParams.get('view')==='all'?'years':'papers';
+    else if(resolvedBase==='papers')type='papers';
     else if(resolvedBase==='paper'){type='jobs';parent=String(resolvedId||'')}
     else if(resolvedBase==='job'){type='years';parent=String(resolvedId||'')}
     else if(resolvedBase==='jobs')type='jobs';
@@ -194,9 +187,8 @@ window.Auth=(()=>{
    else if(workspace==='super-admin'&&user.activeRole==='super-admin')q.set('admin_scope','1');
    if(parent)q.set('parent',parent);
    else if(routeParams.get('parent'))q.set('parent',routeParams.get('parent'));
-   if(routeParams.get('country'))q.set('country',routeParams.get('country'));
+   if(adminScope&&routeParams.get('country'))q.set('country',routeParams.get('country'));
    if(routeParams.get('sort'))q.set('sort',routeParams.get('sort'));
-   if(!adminScope&&resolvedBase==='papers'&&routeParams.get('view')==='all')q.set('all_papers','1');
    return '/entities?'+q.toString();
   };
   let changed=false;
