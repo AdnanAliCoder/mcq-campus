@@ -65,7 +65,7 @@ def _workspace_country(user,active_country=None):
     profile_country=country_for_user(user)
     if profile_country: return profile_country
     if is_super(user) and str(active_country or '').strip():
-        return re.sub(r'\\s+',' ',str(active_country)).strip()[:80]
+        return re.sub(r'\s+',' ',str(active_country)).strip()[:80]
     return ''
 
 def _content_country_name(kind,row,settings=None):
@@ -73,7 +73,7 @@ def _content_country_name(kind,row,settings=None):
     explicit=row.get('country') if isinstance(row,dict) else getattr(row,'country',None)
     if explicit: value=explicit
     else: value=_entity_country_map(settings).get(kind,{}).get(str(ident),'Pakistan')
-    return re.sub(r'\\s+',' ',str(value or 'Pakistan')).strip()[:80] or 'Pakistan'
+    return re.sub(r'\s+',' ',str(value or 'Pakistan')).strip()[:80] or 'Pakistan'
 
 def _country_mapped_queryset(kind,queryset,country,settings=None):
     if not country or kind not in {'posts','guides','ads'}: return queryset
