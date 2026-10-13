@@ -162,3 +162,10 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 @media(prefers-reduced-motion:reduce){
   .btn,.card.clickable,.country-entry-card,.country-entry-card-arrow,.home-cat-group{transition:none!important}
 }
+
+
+/* Super Admin country-scoped workspace selector */
+.admin-country-switcher{display:inline-flex;align-items:center;gap:.5rem;min-width:0;padding:.35rem .55rem;border:1px solid var(--line,#dbe5e1);border-radius:.7rem;background:var(--surface,#fff)}
+.admin-country-switcher span{font-size:.72rem;font-weight:700;color:var(--muted,#5d6e68);white-space:nowrap}
+.admin-country-switcher select{max-width:170px;min-width:100px;border:0;background:transparent;color:var(--text,#19372f);font:inherit;font-size:.84rem;font-weight:700;padding:.2rem .15rem;outline-offset:2px}
+@media(max-width:720px){.admin-country-switcher{padding:.25rem .4rem;gap:.2rem}.admin-country-switcher span{display:none}.admin-country-switcher select{max-width:120px;min-width:82px}}

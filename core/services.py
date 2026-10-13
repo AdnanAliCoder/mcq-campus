@@ -52,6 +52,45 @@ def _save_site_blob(settings,blob):
     root['_site']=blob
     settings.admin_permissions=root
 
+def _entity_country_map(settings=None):
+    raw=_site_blob(settings).get('entityCountries') or {}
+    categories=raw.get('categories') if isinstance(raw,dict) else {}
+    return {'categories':dict(categories) if isinstance(categories,dict) else {}}
+
+def _category_country(category_id,settings=None):
+    return str(_entity_country_map(settings)['categories'].get(str(category_id),'Both') or 'Both').strip() or 'Both'
+
+def _category_allowed(category_id,country,settings=None):
+    if not country: return True
+    assigned=_category_country(category_id,settings)
+    return assigned.casefold() in {'both',str(country).casefold()}
+
+def _country_category_ids(country,settings=None):
+    if not country: return list(Category.objects.values_list('id',flat=True))
+    mapping=_entity_country_map(settings)['categories']
+    allowed={int(raw_id) for raw_id,name in mapping.items() if str(name or 'Both').casefold() in {'both',str(country).casefold()} and str(raw_id).isdigit()}
+    mapped_ids={int(raw_id) for raw_id in mapping if str(raw_id).isdigit()}
+    allowed.update(Category.objects.exclude(pk__in=mapped_ids).values_list('id',flat=True))
+    return list(allowed)
+
+def _entity_matches_country(kind,ident,country):
+    if not country: return True
+    model=ENTITY_MODELS.get(kind)
+    if not model: return False
+    row=model.objects.filter(pk=ident).first()
+    if not row: return False
+    if kind=='categories': return _category_allowed(row.pk,country)
+    if kind=='subcategories': return _category_allowed(row.category_id,country)
+    if kind=='children': return _category_allowed(row.subcategory.category_id,country)
+    if kind=='papers': return str(row.country or '').casefold()==str(country).casefold()
+    if kind=='jobs': return str(row.paper.country or '').casefold()==str(country).casefold()
+    if kind=='years': return str(row.job.paper.country or '').casefold()==str(country).casefold()
+    return False
+
+def _validate_category_country(category_id,country):
+    if country and not _category_allowed(category_id,country):
+        raise ValueError('Choose a category assigned to the selected country or a shared category.')
+
 def _configured_country_entries():
     configured=_site_blob().get('countries')
     if not isinstance(configured,list): return None
@@ -533,13 +572,16 @@ def _entity_mcq_counts(kind,ids,public_only=False,country=None):
             if ident in wanted: out[ident]=out.get(ident,0)+1
     return out
 
-def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=False):
+def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=False,active_country=None):
     require(kind in ENTITY_MODELS,'Unknown record type.')
     page=max(1,int(page or 1)); page_size=10
     filters=filters or {}
-    model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user)
+    model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) else '')
     if country:
-        if kind=='papers': qs=qs.filter(country__iexact=country)
+        if kind=='categories': qs=qs.filter(pk__in=_country_category_ids(country))
+        elif kind=='subcategories': qs=qs.filter(category_id__in=_country_category_ids(country))
+        elif kind=='children': qs=qs.filter(subcategory__category_id__in=_country_category_ids(country))
+        elif kind=='papers': qs=qs.filter(country__iexact=country)
         elif kind=='jobs': qs=qs.filter(paper__country__iexact=country)
         elif kind=='years': qs=qs.filter(job__paper__country__iexact=country)
     if public_only:
@@ -579,9 +621,11 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     objects=list(qs[start:start+page_size])
     serializers={'categories':category,'subcategories':subcategory,'children':child,'papers':paper,'jobs':job,'years':year}
     counts=_entity_mcq_counts(kind,[x.id for x in objects],public_only=public_only,country=country or None)
+    category_country_map=_entity_country_map()['categories'] if kind=='categories' else {}
     items=[]
     for obj in objects:
         row=serializers[kind](obj)
+        if kind=='categories': row['country']=str(category_country_map.get(str(obj.id),'Both') or 'Both')
         row['mcq_count']=counts.get(int(obj.id),0)
         items.append(row)
     return {'type':kind,'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(items)<total,'filters':filters}
@@ -684,8 +728,8 @@ def _attach_important_flags(objects):
             except (TypeError,ValueError): pass
         obj._important_value=len(jobs)>=2
 
-def snapshot(user):
-    country=country_for_user(user)
+def snapshot(user,active_country=None,active_role=None):
+    country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) and active_role=='super-admin' else '')
     cats_qs=Category.objects.select_related('created_by','updated_by').all()
     subs_qs=Subcategory.objects.select_related('created_by','updated_by').all()
     childs_qs=ChildCategory.objects.select_related('created_by','updated_by').all()
@@ -693,6 +737,10 @@ def snapshot(user):
     jobs_qs=Job.objects.select_related('paper','created_by','updated_by').all()
     years_qs=JobYear.objects.select_related('job__paper','created_by','updated_by').all()
     if country:
+        category_ids=_country_category_ids(country)
+        cats_qs=cats_qs.filter(pk__in=category_ids)
+        subs_qs=subs_qs.filter(category_id__in=category_ids)
+        childs_qs=childs_qs.filter(subcategory__category_id__in=category_ids)
         papers_qs=papers_qs.filter(country__iexact=country)
         jobs_qs=jobs_qs.filter(paper__country__iexact=country)
         years_qs=years_qs.filter(job__paper__country__iexact=country)
@@ -704,10 +752,12 @@ def snapshot(user):
     site_counts=_approved_public_counts(country or None)
     rows=[]
     total=site_counts['approvedMcqs']
+    category_country_map=_entity_country_map()['categories']
     data={
-      'schemaVersion':12,
+      'schemaVersion':13,
+      'activeCountry':country if is_super(user) and active_role=='super-admin' else '',
       'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user)),
-      'categories':[category(x) for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
+      'categories':[{**category(x),'country':str(category_country_map.get(str(x.id),'Both') or 'Both')} for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
       'pageSeo':page_seo_snapshot(),
@@ -735,13 +785,13 @@ def learner_dashboard_data(user):
         'savedPapers':saved,
     }
 
-def admin_overview_data(user,active_role=None):
+def admin_overview_data(user,active_role=None,active_country=None):
     require(is_admin(user))
     super_view=is_super(user) and active_role=='super-admin'
+    country=country_for_user(user) or (str(active_country or '').strip() if super_view else '')
     qs=MCQ.objects.all() if super_view else MCQ.objects.filter(created_by=user)
     mine_qs=MCQ.objects.filter(created_by=user)
-    country=country_for_user(user)
-    if country and not super_view:
+    if country:
         qs=qs.filter(country__iexact=country)
         mine_qs=mine_qs.filter(country__iexact=country)
     counts=qs.aggregate(
@@ -754,12 +804,16 @@ def admin_overview_data(user,active_role=None):
     mine_counts=mine_qs.aggregate(total=Count('id'),pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),rejected=Count('id',filter=Q(status='rejected',pending_update__isnull=True)))
     data={'mcqs':counts,'mine':mine_counts,'recent':recent,'openReports':0,'staff':0,'staffPreview':[],'staffCounts':{},'staffStats':{},'unassigned':{},'learners':0,'trash':0}
     if super_view:
-        data['openReports']=Report.objects.exclude(status__in=['resolved','closed']).count()
+        reports=Report.objects.exclude(status__in=['resolved','closed'])
+        if country: reports=reports.filter(mcq__country__iexact=country)
+        data['openReports']=reports.count()
         people=User.objects.aggregate(total=Count('id'),staff=Count('id',filter=Q(profile__role__in=['admin','super-admin'])))
         data['staff']=people['staff'] or 0; data['learners']=(people['total'] or 0)-data['staff']; data['trash']=TrashRecord.objects.count()
         staff=User.objects.select_related('profile').filter(profile__role__in=['admin','super-admin']).order_by('id')[:4]
         data['staffPreview']=[{'id':x.id,'name':user_name(x),'email':x.email,'role':user_role(x)} for x in staff]
-        staff_rows=MCQ.objects.exclude(created_by_id__isnull=True).values('created_by_id').annotate(
+        staff_qs=MCQ.objects.exclude(created_by_id__isnull=True)
+        if country: staff_qs=staff_qs.filter(country__iexact=country)
+        staff_rows=staff_qs.values('created_by_id').annotate(
             total=Count('id'),
             pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
             approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),
@@ -767,7 +821,9 @@ def admin_overview_data(user,active_role=None):
         )
         data['staffStats']={str(row['created_by_id']):{key:int(row[key] or 0) for key in ['total','pending','approved','rejected']} for row in staff_rows}
         data['staffCounts']={key:value['total'] for key,value in data['staffStats'].items()}
-        data['unassigned']=MCQ.objects.filter(created_by_id__isnull=True).aggregate(
+        unassigned_qs=MCQ.objects.filter(created_by_id__isnull=True)
+        if country: unassigned_qs=unassigned_qs.filter(country__iexact=country)
+        data['unassigned']=unassigned_qs.aggregate(
             total=Count('id'),
             pending=Count('id',filter=Q(status='pending')|Q(pending_update__isnull=False)),
             approved=Count('id',filter=Q(status='approved',pending_update__isnull=True)),
@@ -1078,14 +1134,15 @@ def _combine_import_rows(rows):
     return groups,invalid
 
 
-def _create_bulk_pending_mcq(user,draft):
+def _create_bulk_pending_mcq(user,draft,active_country=None):
     """Create one new Pending MCQ after bulk duplicate detection has already found no website match."""
     require(is_admin(user) and has_perm(user,'bulk_import_mcqs'))
     cid=validate_mcq_data(draft)
     paper_ids,job_ids,job_year_ids=_mcq_hierarchy_from_years(
         draft.get('job_years_ids'),draft.get('paper_id'),draft.get('job_ids')
     )
-    write_country=country_for_write(user,draft.get('country'))
+    write_country=(str(active_country).strip() if is_super(user) and active_country else country_for_write(user,draft.get('country')))
+    _validate_category_country(cid,write_country)
     _validate_hierarchy_country(write_country,paper_ids,job_ids,job_year_ids)
     now=timezone.now()
     obj=MCQ(
@@ -1118,14 +1175,17 @@ def _create_bulk_pending_mcq(user,draft):
     log(user,'Bulk imported new pending MCQ',obj.question)
     return obj
 
-def save_mcq(user,draft):
+def save_mcq(user,draft,active_country=None):
     require(is_admin(user) and has_perm(user,'add_mcq'))
     cid=validate_mcq_data(draft); qid=int(draft.get('id') or 0) or None
     existing=MCQ.objects.filter(pk=qid).first() if qid else None
-    write_country=country_for_write(user,draft.get('country'))
+    write_country=(str(active_country).strip() if is_super(user) and active_country else country_for_write(user,draft.get('country')))
+    _validate_category_country(cid,write_country)
     if existing:
         require(is_super(user) or (existing.created_by_id==user.id and existing.status!='approved'))
-        if not is_super(user):
+        if is_super(user) and active_country:
+            require(str(existing.country or '').casefold()==write_country.casefold(),'This MCQ belongs to another country.')
+        elif not is_super(user):
             require(str(existing.country or '').casefold()==write_country.casefold(),'This MCQ belongs to another country.')
     dup=MCQ.objects.filter(question__iexact=str(draft['question']).strip(),country__iexact=write_country)
     if existing: dup=dup.exclude(pk=existing.pk)
@@ -1151,7 +1211,7 @@ def save_mcq(user,draft):
     if not is_super(user): existing.status='pending'
     existing.save(); log(user,'Saved MCQ',existing.question); return existing
 
-def review_mcqs(user,ids,status,reason=''):
+def review_mcqs(user,ids,status,reason='',active_country=None):
     require(is_super(user) or has_perm(user,'review_mcq'))
     if isinstance(ids,(list,tuple,set)):
         ids=[int(x) for x in ids if str(x).strip().isdigit()]
@@ -1159,9 +1219,11 @@ def review_mcqs(user,ids,status,reason=''):
         ids=[int(x) for x in str(ids).split(',') if str(x).strip().isdigit()]
     if status not in {'approved','rejected','pending'}: raise ValueError('Invalid review status.')
     if status!='approved' and not str(reason).strip(): raise ValueError('A reason is required.')
-    country=country_for_user(user)
+    country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) else '')
     review_qs=MCQ.objects.filter(id__in=ids)
     if country: review_qs=review_qs.filter(country__iexact=country)
+    if country and set(review_qs.values_list('pk',flat=True))!=set(ids):
+        raise ValueError('One or more MCQs belong to another country. Switch the active country and try again.')
     for q in review_qs:
         if q.pending_update:
             pu=q.pending_update
@@ -1184,7 +1246,7 @@ def review_mcqs(user,ids,status,reason=''):
         hist=q.audit_history or []; hist.insert(0,{'type':q.submission_type,'reviewed_by':user_name(user),'reviewed_by_id':user.id,'reviewed_at':iso(timezone.now()),'approval_status':status,'reason':reason}); q.audit_history=hist[:100]
         q.save(); log(user,f'MCQ {status}',q.question)
 
-def save_entity(user,payload):
+def save_entity(user,payload,active_country=None):
     fields,values,ctx,_=parse_fields(payload); typ=ctx.get('type'); require(typ in ENTITY_MODELS,'Invalid entity type.'); perm={'categories':'manage_categories','subcategories':'manage_subcategories','children':'manage_child_categories','papers':'manage_papers','jobs':'manage_jobs','years':'manage_job_years'}[typ]; require(is_admin(user) and has_perm(user,perm))
     model=ENTITY_MODELS[typ]; rid=int(ctx.get('id') or 0) or None; name=str(values.get('entity-name') or '').strip();
     if not name: raise ValueError('Name is required.')
@@ -1192,20 +1254,33 @@ def save_entity(user,payload):
     if icon_url and not re.match(r'^https?://',icon_url,re.I): raise ValueError('Icon URL must start with http:// or https://.')
     icon=str(icon_url or values.get('entity-icon-data') or values.get('entity-icon') or 'grid').strip() or 'grid'; active='entity-active' in fields
     obj=model.objects.filter(pk=rid).first() if rid else None
-    country=country_for_user(user)
-    if country and rid and obj:
-        if typ=='papers': require(str(obj.country or '').casefold()==country.casefold(),'This paper belongs to another country.')
-        elif typ=='jobs': require(str(obj.paper.country or '').casefold()==country.casefold(),'This job belongs to another country.')
-        elif typ=='years': require(str(obj.job.paper.country or '').casefold()==country.casefold(),'This job year belongs to another country.')
+    country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) else '')
+    if country and rid and obj and not _entity_matches_country(typ,rid,country):
+        raise ValueError('This record belongs to another country or is shared outside the selected country.')
     if not obj: obj=model(id=next_id(model),created_by=user)
     obj.name=name; obj.icon=icon; obj.active=active; obj.updated_by=user
-    if typ=='papers': obj.country=country_for_write(user,values.get('entity-country'))
+    category_country=''
+    if typ=='papers':
+        obj.country=(country if is_super(user) and active_country else country_for_write(user,values.get('entity-country')))
+    if typ=='categories':
+        category_country=str(values.get('entity-country') or (country if is_super(user) and active_country else 'Both')).strip() or 'Both'
+        require(category_country.casefold()=='both' or not country or category_country.casefold()==country.casefold(),'Choose the selected country or Both.')
     if typ in ENTITY_PARENT:
         fk,_=ENTITY_PARENT[typ]; pid=int(values.get('entity-parent') or 0); require(pid>0,'Choose a valid parent.')
-        if country and typ=='jobs': require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose a paper from your assigned country.')
-        if country and typ=='years': require(Job.objects.filter(pk=pid,paper__country__iexact=country).exists(),'Choose a job from your assigned country.')
+        if country and typ=='subcategories': require(_category_allowed(pid,country),'Choose a category assigned to the selected country or Both.')
+        if country and typ=='children':
+            parent_category_id=Subcategory.objects.filter(pk=pid).values_list('category_id',flat=True).first()
+            require(parent_category_id and _category_allowed(parent_category_id,country),'Choose a subcategory assigned to the selected country or Both.')
+        if country and typ=='jobs': require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose a paper from the selected country.')
+        if country and typ=='years': require(Job.objects.filter(pk=pid,paper__country__iexact=country).exists(),'Choose a job from the selected country.')
         setattr(obj,fk,pid)
     obj.save()
+    if typ=='categories':
+        settings_obj=SiteSetting.get_solo(); blob=_site_blob(settings_obj); entity_countries=_entity_country_map(settings_obj)
+        entity_countries['categories'][str(obj.id)]=category_country
+        blob['entityCountries']=entity_countries
+        _save_site_blob(settings_obj,blob); settings_obj.updated_by=user
+        settings_obj.save(update_fields=['admin_permissions','updated_by','updated_at'])
     if typ=='papers':
         now=timezone.now()
         Job.objects.filter(paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
@@ -1519,7 +1594,7 @@ def save_ad(user,payload):
     if obj.provider=='custom_code' and not obj.body.strip(): raise ValueError('Custom ad code is required.')
     obj.save(); log(user,'Saved ad placement',obj.name); return {'ad':ad(obj)}
 
-def command(user,action,payload):
+def command(user,action,payload,active_country=None):
     action=str(action or '').strip()
     # Backward-compatible admin command aliases. Old cached frontend builds and
     # newer buttons must resolve to the same server-side actions instead of
@@ -1597,7 +1672,7 @@ def command(user,action,payload):
         raise ValueError('Use the secure password change flow with email verification.')
     if action=='form:mcq':
         draft=payload.get('draft') or {}
-        obj=save_mcq(user,draft)
+        obj=save_mcq(user,draft,active_country=active_country)
         result={'mcq':mcq(MCQ.objects.select_related('category','created_by','submitted_by','reviewed_by','approved_by').get(pk=obj.pk))}
         if is_super(user) and ('page_seo_title' in draft or 'page_seo_description' in draft):
             result['pageSeo']=save_page_seo_entry(user,'mcq',obj.pk,draft.get('page_seo_title'),draft.get('page_seo_description'))
@@ -1609,16 +1684,18 @@ def command(user,action,payload):
         if all_pending:
             require(is_super(user),'Only the Super Admin can approve all pending MCQs.')
             require(status=='approved','Select-all pending can only be used for approval.')
-            ids=list(MCQ.objects.filter(Q(status='pending')|Q(pending_update__isnull=False)).values_list('id',flat=True))
-            review_mcqs(user,ids,status,reason)
+            pending_qs=MCQ.objects.filter(Q(status='pending')|Q(pending_update__isnull=False))
+            if active_country: pending_qs=pending_qs.filter(country__iexact=active_country)
+            ids=list(pending_qs.values_list('pk',flat=True))
+            review_mcqs(user,ids,status,reason,active_country=active_country)
             return {'mcqs':[],'reviewedCount':len(ids),'allPending':True,'status':status}
         ids=[int(x) for x in str(c.get('ids','')).split(',') if str(x).strip().isdigit()]
-        review_mcqs(user,c.get('ids',''),status,reason)
+        review_mcqs(user,c.get('ids',''),status,reason,active_country=active_country)
         rows=MCQ.objects.filter(pk__in=ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by')
-        country=country_for_user(user)
+        country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) else '')
         if country: rows=rows.filter(country__iexact=country)
         return {'mcqs':[mcq(x) for x in rows],'reviewedCount':len(ids),'status':status}
-    if action=='form:entity': return save_entity(user,payload)
+    if action=='form:entity': return save_entity(user,payload,active_country=active_country)
     if action=='form:user': return save_user(user,payload)
     if action=='form:guide': return save_guide(user,payload)
     if action=='form:post': return save_post(user,payload)
@@ -1687,7 +1764,17 @@ def command(user,action,payload):
     if action=='action:entity-pin':
         return {'pinnedEntities':_set_entity_pin(user,payload.get('type'),payload.get('id'),str(payload.get('mode') or 'pin'))}
     if action in {'action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete'}:
-        tr,deleted_ids=_delete_mcqs_to_trash(user,payload.get('ids') or [payload.get('id')])
+        requested=payload.get('ids') or [payload.get('id')]
+        if is_super(user) and active_country:
+            requested_ids=[]
+            for raw in requested if isinstance(requested,list) else [requested]:
+                try:
+                    ident=int(raw)
+                    if ident>0 and ident not in requested_ids: requested_ids.append(ident)
+                except (TypeError,ValueError): pass
+            available=set(MCQ.objects.filter(pk__in=requested_ids,country__iexact=active_country).values_list('pk',flat=True))
+            require(set(requested_ids).issubset(available),'One or more MCQs belong to another country. Switch the active country and try again.')
+        tr,deleted_ids=_delete_mcqs_to_trash(user,requested)
         return {'deleted':{'type':'mcqs','ids':deleted_ids},'trashId':tr.id,'count':len(deleted_ids)}
     if action in {'action:trash-restore-many','action:trash-bulk-restore'}:
         return _restore_trash_many(user,payload.get('ids') or [payload.get('id')])
@@ -1696,7 +1783,11 @@ def command(user,action,payload):
     if action in {'action:entity-delete-confirm','action:entity-bulk-delete','action:hierarchy-bulk-delete'}:
         typ=payload.get('type'); ids=payload.get('ids') or [payload.get('id')]; count=0
         for rid in ids:
-            if rid and ENTITY_MODELS.get(typ) and _delete_entity(user,typ,int(rid)) is not None: count+=1
+            if rid and ENTITY_MODELS.get(typ):
+                ident=int(rid)
+                if is_super(user) and active_country:
+                    require(_entity_matches_country(typ,ident,active_country),'This record belongs to another country or is shared outside the selected country.')
+                if _delete_entity(user,typ,ident) is not None: count+=1
         return {'deleted':{'type':typ,'ids':[int(x) for x in ids if x]}}
     if action in {'action:trash-restore','action:restore-trash'}:
         rid=int(payload.get('id')); _restore_trash(user,TrashRecord.objects.get(pk=rid)); return {'deleted':{'type':'trash','ids':[rid]},'restored':1}
@@ -1715,7 +1806,9 @@ def command(user,action,payload):
             summary['duplicates']+=group['duplicates']
             question=str(draft.get('question') or '')[:160]
             try:
-                write_country=country_for_write(user,draft.get('country'))
+                write_country=(str(active_country).strip() if is_super(user) and active_country else country_for_write(user,draft.get('country')))
+                cid=validate_mcq_data(draft)
+                _validate_category_country(cid,write_country)
                 papers,jobs,years=_import_hierarchy(draft)
                 _validate_hierarchy_country(write_country,papers,jobs,years)
                 duplicate=_bulk_duplicate_mcq(draft.get('question'),write_country)
@@ -1734,7 +1827,7 @@ def command(user,action,payload):
 
                 # No website match exists: create exactly one NEW pending MCQ from the
                 # already-consolidated upload group. Do not run duplicate detection a second time.
-                obj=_create_bulk_pending_mcq(user,draft)
+                obj=_create_bulk_pending_mcq(user,draft,active_country=active_country)
                 imported_ids.append(obj.pk)
                 summary['imported']+=1
                 summary['merged']+=group['extra_merges']
@@ -1749,7 +1842,9 @@ def command(user,action,payload):
         # (small integers) so the browser can request 50 detail rows only when the user
         # opens the next import-result page.
         imported_ids=list(dict.fromkeys(imported_ids))
-        imported=MCQ.objects.filter(pk__in=imported_ids).select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')[:50]
+        imported_qs=MCQ.objects.filter(pk__in=imported_ids)
+        if active_country and is_super(user): imported_qs=imported_qs.filter(country__iexact=active_country)
+        imported=imported_qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').order_by('-id')[:50]
         return {
             'summary':summary,
             'results':results[:50],

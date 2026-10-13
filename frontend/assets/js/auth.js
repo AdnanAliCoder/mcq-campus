@@ -155,6 +155,7 @@ window.Auth=(()=>{
    if(section==='mcqs')q.set('owner','me');
    if(section==='edit'&&recordId)q.set('id',recordId);
    if(section==='paper-mcqs'&&recordId)q.set('paper',recordId);
+   if(workspace==='super-admin'&&user.activeRole==='super-admin')q.set('admin_scope','1');
    return '/mcqs?'+q.toString();
   };
   const publicMcqEndpoint=()=>{
@@ -190,6 +191,7 @@ window.Auth=(()=>{
    if(!type)return '';
    q.set('type',type);q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
    if(!adminScope)q.set('scope','public');
+   else if(workspace==='super-admin'&&user.activeRole==='super-admin')q.set('admin_scope','1');
    if(parent)q.set('parent',parent);
    else if(routeParams.get('parent'))q.set('parent',routeParams.get('parent'));
    if(routeParams.get('country'))q.set('country',routeParams.get('country'));

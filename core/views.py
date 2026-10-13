@@ -582,9 +582,58 @@ def profile_detail(request):
     if request.session.get_expiry_date(): data['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse({'user':data})
 
+def _request_active_country(request):
+    if not is_super(request.user):
+        return ''
+    active_role=request.session.get('active_role') or 'super-admin'
+    if active_role!='super-admin':
+        return ''
+    options=[row for row in country_catalog(include_counts=False,include_inactive=False) if row.get('active',True)]
+    if not options:
+        return 'Pakistan'
+    allowed={str(row['name']).casefold():str(row['name']) for row in options}
+    current=str(request.session.get('active_country') or '').strip()
+    if current.casefold() in allowed:
+        selected=allowed[current.casefold()]
+    else:
+        settings_obj=SiteSetting.get_solo()
+        blob=_site_blob(settings_obj)
+        default=str(blob.get('mcqEntryCountry') or settings_obj.country or 'Pakistan').strip()
+        selected=allowed.get(default.casefold(),allowed.get('pakistan',options[0]['name']))
+    if request.session.get('active_country')!=selected:
+        request.session['active_country']=selected
+        request.session.modified=True
+    return selected
+
+@profile_api('admin_active_country')
+@require_http_methods(['GET','POST'])
+@login_required_json
+def admin_active_country(request):
+    if not is_super(request.user):
+        return err('Only the Super Admin can choose the active workspace country.',403)
+    role=request.session.get('active_role')
+    if role not in (None,'','super-admin'):
+        return err('Switch to the Super Admin workspace before changing its country.',403)
+    if request.method=='POST':
+        requested=str(payload(request).get('country') or '').strip()
+        options=[row for row in country_catalog(include_counts=False,include_inactive=False) if row.get('active',True)]
+        allowed={str(row['name']).casefold():str(row['name']) for row in options}
+        selected=allowed.get(requested.casefold())
+        if not selected:
+            return err('Choose an active country from Country Management.',422)
+        request.session['active_country']=selected
+        request.session['active_role']='super-admin'
+        request.session.modified=True
+    else:
+        selected=_request_active_country(request)
+    return JsonResponse({'activeCountry':selected,'countries':country_catalog(request.user,include_counts=True,include_inactive=True)})
+
 @profile_api('bootstrap')
 @require_GET
-def bootstrap(request): return JsonResponse(snapshot(request.user),safe=True)
+def bootstrap(request):
+    active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+    active_country=_request_active_country(request)
+    return JsonResponse(snapshot(request.user,active_country=active_country,active_role=active_role),safe=True)
 
 @profile_api('mcqs')
 @require_GET
@@ -594,6 +643,11 @@ def mcqs(request):
     except (TypeError,ValueError):
         return err('Invalid pagination values.',422)
     filters={k:request.GET.get(k) for k in ['public','status','category','subcategory','child','paper','job','year','country','important','repeated','latest','search','owner','author','from','to','id','ids'] if request.GET.get(k)}
+    if request.GET.get('admin_scope')=='1' and is_super(request.user):
+        role=request.session.get('active_role') or 'super-admin'
+        if role=='super-admin':
+            selected=_request_active_country(request)
+            if selected: filters['country']=selected
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
 
 @profile_api('entities')
@@ -606,7 +660,11 @@ def entities(request):
     try:
         page=int(request.GET.get('page') or 1)
         filters={k:request.GET.get(k) for k in ['parent','country','search','sort','all_papers'] if request.GET.get(k)}
-        data=entity_page_data(request.user,kind,page,10,filters,public_only=public_only)
+        active_country=''
+        if not public_only and request.GET.get('admin_scope')=='1' and is_super(request.user):
+            role=request.session.get('active_role') or 'super-admin'
+            if role=='super-admin': active_country=_request_active_country(request)
+        data=entity_page_data(request.user,kind,page,10,filters,public_only=public_only,active_country=active_country)
     except PermissionError as exc:
         return err(exc,403)
     except (TypeError,ValueError) as exc:
@@ -650,7 +708,10 @@ def learner_dashboard(request):
 @require_GET
 @login_required_json
 def admin_overview(request):
-    try: return JsonResponse(admin_overview_data(request.user,request.session.get('active_role')))
+    try:
+        active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+        active_country=_request_active_country(request)
+        return JsonResponse(admin_overview_data(request.user,active_role,active_country=active_country))
     except PermissionError as e: return err(e,403)
 
 @profile_api('admin_users')
@@ -787,7 +848,9 @@ def _invalidate_caches_after_command(action):
 def commands(request):
     d=payload(request); action=d.get('action'); p=d.get('payload') or {}
     try:
-        result=command(request.user,action,p)
+        active_role=request.session.get('active_role') or ('super-admin' if is_super(request.user) else '')
+        active_country=_request_active_country(request) if is_super(request.user) and active_role=='super-admin' else ''
+        result=command(request.user,action,p,active_country=active_country)
         _invalidate_caches_after_command(action)
         if action in {'changePassword','form:password-change'}:
             update_session_auth_hash(request,request.user)

@@ -39,6 +39,7 @@ TRACKED={
     '/api/learner/dashboard':'learner_dashboard',
     '/api/admin/overview':'admin_overview',
     '/api/admin/users':'admin_users',
+    '/api/admin/active-country':'admin_active_country',
     '/api/admin/reports':'admin_reports',
     '/api/admin/trash':'admin_trash',
     '/api/admin/logs':'admin_logs',

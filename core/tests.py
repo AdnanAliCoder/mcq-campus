@@ -223,6 +223,28 @@ class IntegrationTests(TestCase):
         self.assertIn('admin',response.json()['user']['roles'])
         self.assertEqual(response.json()['user']['activeRole'],'admin')
 
+    def test_super_admin_country_workspace_scopes_dashboard_mcqs_and_entities(self):
+        usa_paper=Paper.objects.create(id=201,name='US Civil Service',country='USA',icon='paper')
+        usa_approved=MCQ.objects.create(id=201,question='USA approved question?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',country='USA',paper_ids=[usa_paper.id],created_by=self.admin,submitted_by=self.admin)
+        usa_pending=MCQ.objects.create(id=202,question='USA pending question?',option1='A',option2='B',option3='C',option4='D',correct_answer='B',category=self.category,status='pending',country='USA',paper_ids=[usa_paper.id],created_by=self.admin,submitted_by=self.admin)
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        changed=self.post_json('/api/admin/active-country',{'country':'USA'})
+        self.assertEqual(changed.status_code,200)
+        self.assertEqual(changed.json()['activeCountry'],'USA')
+        bootstrap=self.client.get('/api/bootstrap').json()
+        self.assertEqual(bootstrap['activeCountry'],'USA')
+        self.assertEqual(bootstrap['siteCounts']['approvedMcqs'],1)
+        overview=self.client.get('/api/admin/overview').json()
+        self.assertEqual(overview['mcqs']['total'],2)
+        self.assertEqual(overview['mcqs']['pending'],1)
+        self.assertEqual(overview['mcqs']['approved'],1)
+        rows=self.client.get('/api/mcqs?admin_scope=1&page_size=50').json()['items']
+        self.assertEqual({row['id'] for row in rows},{usa_approved.id,usa_pending.id})
+        papers=self.client.get('/api/entities?type=papers&admin_scope=1').json()['items']
+        self.assertEqual({row['id'] for row in papers},{usa_paper.id})
+        global_rows=self.client.get('/api/mcqs?page_size=50').json()['items']
+        self.assertGreater(len(global_rows),len(rows))
+
     def test_super_admin_can_add_and_disable_country_for_signup(self):
         self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
         created=self.post_json('/api/admin/countries',{'action':'add','name':'Spain'})
