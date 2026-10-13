@@ -663,7 +663,7 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     require(kind in ENTITY_MODELS,'Unknown record type.')
     page=max(1,int(page or 1)); page_size=10
     filters=filters or {}
-    model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) else '')
+    model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user) or (str(active_country or '').strip() if (is_super(user) or public_only) else '')
     if country:
         if kind=='categories': qs=qs.filter(pk__in=_country_category_ids(country))
         elif kind=='subcategories': qs=qs.filter(category_id__in=_country_category_ids(country))
@@ -1669,30 +1669,38 @@ def save_site_form(user,form,payload,active_country=None):
         log(user,'Bulk Blog import',f'{count} post(s) processed'); return {'processed':count}
     elif form=='bulk-categories':
         require(is_admin(user) and has_perm(user,'manage_categories')); count=0
+        current_country=_workspace_country(user,active_country) or str(s.country or 'Pakistan')
+        entity_map=_entity_country_map(s); category_map=entity_map['categories']
         for raw in str(v.get('categories') or '').splitlines():
             line=raw.strip()
             if not line: continue
             name,ic=_parse_bulk_label(line,'grid')
             if not name: continue
-            obj=Category.objects.filter(name__iexact=name).first()
-            if not obj: Category.objects.create(id=next_id(Category),name=name,icon=ic,created_by=user,updated_by=user)
-            elif ic!='grid' and obj.icon!=ic: obj.icon=ic; obj.updated_by=user; obj.save(update_fields=['icon','updated_by','updated_at'])
+            obj=next((x for x in Category.objects.filter(name__iexact=name).order_by('id') if _category_country(x.id,s).casefold() in {current_country.casefold(),'both'}),None)
+            if not obj:
+                obj=Category.objects.create(id=next_id(Category),name=name,icon=ic,created_by=user,updated_by=user)
+                category_map[str(obj.id)]=current_country
+            elif not category_map.get(str(obj.id)) and current_country.casefold()!='pakistan':
+                category_map[str(obj.id)]=current_country
+            if ic!='grid' and obj.icon!=ic: obj.icon=ic; obj.updated_by=user; obj.save(update_fields=['icon','updated_by','updated_at'])
             count+=1
+        blob['entityCountries']=entity_map; _save_site_blob(s,blob); s.updated_by=user; s.save(update_fields=['admin_permissions','updated_by','updated_at'])
         log(user,'Bulk category import',f'{count} line(s) processed'); return {'processed':count}
     elif form=='bulk-hierarchy':
         require(is_admin(user) and has_perm(user,'manage_papers') and has_perm(user,'manage_jobs') and has_perm(user,'manage_job_years')); count=0
+        current_country=_workspace_country(user,active_country) or str(s.country or 'Pakistan')
         for raw in str(v.get('hierarchy') or '').splitlines():
             parts=[x.strip() for x in re.split(r'\s*(?:\||>)\s*',raw.strip()) if x.strip()]
             if len(parts)!=3: continue
             pn,pi=_parse_bulk_label(parts[0],'paper'); jn,ji=_parse_bulk_label(parts[1],'grid'); yn,yi=_parse_bulk_label(parts[2],'grid')
-            p=Paper.objects.filter(name__iexact=pn).first()
-            if not p: p=Paper.objects.create(id=next_id(Paper),name=pn,country=s.country,icon=pi,created_by=user,updated_by=user)
+            p=Paper.objects.filter(name__iexact=pn,country__iexact=current_country).first()
+            if not p: p=Paper.objects.create(id=next_id(Paper),name=pn,country=current_country,icon=pi,created_by=user,updated_by=user)
             elif pi!='paper' and p.icon!=pi: p.icon=pi; p.updated_by=user; p.save(update_fields=['icon','updated_by','updated_at'])
             j=Job.objects.filter(paper=p,name__iexact=jn).first()
             if not j: j=Job.objects.create(id=next_id(Job),paper=p,name=jn,icon=ji,created_by=user,updated_by=user)
             elif ji!='grid' and j.icon!=ji: j.icon=ji; j.updated_by=user; j.save(update_fields=['icon','updated_by','updated_at'])
             y=JobYear.objects.filter(job=j,name__iexact=yn).first()
-            if not y: JobYear.objects.create(id=next_id(JobYear),job=j,name=yn,icon=yi,created_by=user,updated_by=user)
+            if not y: JobYear.objects.create(id=next_id(JobYear),name=yn,job=j,icon=yi,created_by=user,updated_by=user)
             elif yi!='grid' and y.icon!=yi: y.icon=yi; y.updated_by=user; y.save(update_fields=['icon','updated_by','updated_at'])
             count+=1
         log(user,'Bulk hierarchy import',f'{count} line(s) processed'); return {'processed':count}
