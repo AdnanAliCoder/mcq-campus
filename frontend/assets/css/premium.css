@@ -181,3 +181,140 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .pdf-resource-grid .pdf-direct-action .btn{width:100%;justify-content:center}
 @media(max-width:900px){.pdf-resource-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.pdf-resource-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+/* 2026-10-14: compact country landing and authentication forms */
+.country-entry-page{
+  background:
+    radial-gradient(ellipse at 8% 0%,rgba(8,126,101,.12),transparent 34%),
+    radial-gradient(ellipse at 96% 8%,rgba(16,43,63,.07),transparent 30%),
+    linear-gradient(180deg,#f5f8fb 0%,#ffffff 100%);
+}
+.country-entry-brand>span:last-child>span{color:var(--green)}
+.country-entry-page h1{color:var(--dark)}
+.country-entry-page h1 span{
+  background:linear-gradient(90deg,#087e65 0%,#14a58a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.country-entry-hero .country-entry-eyebrow{border-color:#d9e8e2;color:var(--green-dark);background:#ffffffd9}
+.country-entry-eyebrow-dot{background:var(--green);box-shadow:0 0 0 4px rgba(8,126,101,.12)}
+.country-entry-intro{color:var(--muted)}
+.country-entry-global-stat{border-color:#dce8e3;box-shadow:0 10px 28px rgba(16,43,63,.055)}
+.country-entry-stat-icon{background:var(--mint);color:var(--green)}
+.country-entry-global-stat strong{color:var(--dark)}
+.country-entry-country-section{max-width:1080px}
+.country-entry-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.country-entry-card{
+  min-height:158px;
+  gap:8px;
+  padding:18px 16px;
+  border-color:#dce7e3;
+  border-radius:16px;
+  box-shadow:0 6px 20px rgba(16,43,63,.045);
+}
+.country-entry-card:hover,.country-entry-card:focus-visible{
+  transform:translateY(-2px);
+  border-color:#8acbb3;
+  box-shadow:0 12px 25px rgba(8,126,101,.09);
+}
+.country-entry-flag{min-height:42px;font-size:38px}
+.country-entry-card h2{font-size:18px;color:var(--dark)}
+.country-entry-card p strong{font-size:16px;color:var(--green-dark)}
+.country-entry-card-arrow{width:29px;height:29px;background:#eaf6f1;color:var(--green-dark)}
+.country-entry-card:hover .country-entry-card-arrow{background:#d9f3e8}
+.country-entry-country-count{border-color:#dce7e3;color:var(--muted)}
+.country-entry-footer{border-top-color:#e1e9e6;color:var(--muted)}
+.country-entry-signin{color:var(--green-dark)}
+
+.auth-layout{
+  width:min(880px,100%);
+  max-width:880px;
+  margin:28px auto;
+  grid-template-columns:minmax(0,.78fr) minmax(0,1.22fr);
+}
+.auth-story{padding:clamp(24px,3vw,36px)}
+.auth-form{padding:clamp(22px,3vw,34px)}
+.auth-form h1{font-size:clamp(27px,3vw,35px);margin-bottom:10px}
+.auth-form>p{margin-bottom:12px}
+.auth-form .field{gap:5px;margin-bottom:11px}
+.auth-form .field>label{font-size:.82rem}
+.auth-form .field input,.auth-form .field select{padding:9px 11px}
+.auth-form form[data-form="auth-register"]{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:0 13px;
+}
+.auth-form form[data-form="auth-register"]>.field{min-width:0}
+.auth-form form[data-form="auth-register"]>.check-line,
+.auth-form form[data-form="auth-register"]>[data-auth-error],
+.auth-form form[data-form="auth-register"]>button[type="submit"]{grid-column:1/-1}
+.auth-form form[data-form="auth-register"]>.check-line{margin:2px 0 8px;font-size:.8rem}
+.auth-form form[data-form="auth-register"]>button[type="submit"]{width:100%;min-height:43px}
+.auth-form .selected-country-field{
+  min-height:43px;
+  padding:7px 10px;
+  gap:8px;
+  margin-bottom:11px;
+  border-radius:10px;
+  background:#f3faf6;
+}
+.auth-form .selected-country-field .selected-country-flag{font-size:23px}
+.auth-form .selected-country-copy label{font-size:10px}
+.auth-form .selected-country-copy strong{font-size:13px}
+.auth-form .selected-country-change{font-size:11px}
+.password-input-wrap{width:100%;min-width:0}
+.password-input-wrap input{padding-right:43px!important}
+.password-toggle-btn{
+  display:grid;place-items:center;
+  width:32px;height:32px;right:5px;padding:0;
+  border:0;border-radius:8px;background:transparent;color:var(--green-dark);
+}
+.password-toggle-btn:hover{background:#eaf6f1}
+.password-toggle-btn .icon{width:18px;height:18px}
+.password-help{
+  display:block;
+  margin:5px 0 0!important;
+  font-size:.7rem!important;
+  line-height:1.45;
+  color:var(--muted);
+}
+.auth-form .auth-error{margin:6px 0 9px;min-height:16px}
+@media(max-width:850px){
+  .country-entry-country-section{max-width:100%}
+  .country-entry-card{min-height:150px}
+}
+@media(max-width:760px){
+  .country-entry-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .auth-layout{width:min(600px,100%);grid-template-columns:minmax(0,1fr);margin:18px auto}
+  .auth-story{padding:22px 24px}
+  .auth-story h2{font-size:1.6rem;margin-bottom:8px}
+  .auth-story p:last-child{margin-bottom:0}
+  .auth-form{padding:24px}
+}
+@media(max-width:600px){
+  .country-entry-grid{grid-template-columns:minmax(0,1fr);gap:11px}
+  .country-entry-card{
+    min-height:116px;
+    display:grid;
+    grid-template-columns:48px minmax(0,1fr) 28px;
+    grid-template-rows:auto auto;
+    justify-items:start;
+    column-gap:12px;
+    row-gap:3px;
+    padding:14px 15px;
+    text-align:left;
+  }
+  .country-entry-flag{grid-row:1/3;align-self:center;min-height:0;font-size:34px}
+  .country-entry-card h2{align-self:end;margin:0;font-size:17px}
+  .country-entry-card p{justify-content:flex-start;margin:0}
+  .country-entry-card-arrow{position:static;grid-column:3;grid-row:1/3;align-self:center}
+  .auth-layout{margin:12px auto;border-radius:16px}
+  .auth-story{padding:19px 20px}
+  .auth-form{padding:21px 19px}
+  .auth-form form[data-form="auth-register"]{grid-template-columns:minmax(0,1fr);gap:0}
+  .auth-form form[data-form="auth-register"]>.field,
+  .auth-form form[data-form="auth-register"]>.check-line,
+  .auth-form form[data-form="auth-register"]>[data-auth-error],
+  .auth-form form[data-form="auth-register"]>button[type="submit"]{grid-column:1}
+}
+@media(prefers-reduced-motion:reduce){.country-entry-card{transition:none!important}}
