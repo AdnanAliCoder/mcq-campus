@@ -359,7 +359,6 @@ def _seo_visible_keys(settings):
     keys=[]
     keys.extend(('mcq',str(x)) for x in MCQ.objects.filter(status='approved').order_by('id').values_list('id',flat=True))
     keys.extend(('paper',str(x)) for x in Paper.objects.filter(active=True).order_by('id').values_list('id',flat=True))
-    keys.extend(('job',str(x)) for x in Job.objects.filter(active=True,paper__active=True).order_by('id').values_list('id',flat=True))
     keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).order_by('id').values_list('id',flat=True))
     site=_site_blob(settings)
     keys.extend(('pdf',seo_catalog_key(x)) for x in (site.get('pdfs') or []) if isinstance(x,dict) and x.get('active',True) is not False)
