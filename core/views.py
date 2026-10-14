@@ -1970,7 +1970,14 @@ def admin_move_past_paper_mcqs(request):
         rows=list(MCQ.objects.select_for_update().filter(pk__in=mcq_ids).order_by('id'))
         if len(rows)!=len(mcq_ids):
             return err('Some selected MCQs no longer exist. Refresh and try again.', 404)
-        if any(source_id not in (row.job_year_ids or []) for row in rows):
+        def linked_to_source(row):
+            for value in (row.job_year_ids or []):
+                try:
+                    if int(value)==source_id: return True
+                except (TypeError,ValueError):
+                    continue
+            return False
+        if any(not linked_to_source(row) for row in rows):
             return err('Every selected MCQ must belong to the source past paper. Refresh and select again.', 422)
         now=timezone.now().isoformat()
         for row in rows:
