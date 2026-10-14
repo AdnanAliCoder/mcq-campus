@@ -85,8 +85,8 @@ window.Public=(()=>{
   const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`;
   const homeStats=[
    {title:'MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
-   {title:'Jobs',value:Number(site.jobs||MCQ.db.jobs.filter(x=>x.active!==false).length),iconName:'briefcase',tone:'neutral',subtitle:'Job / post records',path:'jobs-exams'},
-   {title:'Past Papers',value:Number(site.years||MCQ.db.years.filter(x=>x.active!==false).length),iconName:'paper',tone:'neutral',subtitle:'Job-year paper records',path:'papers'},
+   {title:'Organizations / Boards',value:Number(site.papers||MCQ.db.papers.filter(x=>x.active!==false).length),iconName:'landmark',tone:'neutral',subtitle:'Exam organizations and boards',path:'papers'},
+   {title:'Past Papers',value:Number(site.years||MCQ.db.years.filter(x=>x.active!==false).length),iconName:'paper',tone:'neutral',subtitle:'Past-paper records',path:'papers'},
    {title:'Categories',value:Number(site.categories||MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).length),iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
   const homeSeo=staticCopy('home','Practice smarter. Prepare with purpose.','Start with important MCQs, then explore past papers, categories and exam-focused preparation.');
@@ -152,8 +152,7 @@ window.Public=(()=>{
    MCQ.publicMcqs().forEach(x=>add('mcq','MCQ','mcq/'+x.id,x.question,MCQ.get('categories',x.category_id)?.name||'Practice question',x.question+' '+[1,2,3,4].map(i=>x['option'+i]).join(' ')+' '+(x.description||''),x));
    MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy).forEach(x=>add('category','Category','category/'+x.id,x.name,'Browse category',x.name,x));
    MCQ.db.papers.filter(x=>x.active!==false).forEach(x=>add('paper','Past Paper / Exam','paper/'+x.id,x.name,x.country||'Past paper organization',x.name+' '+(x.country||''),x));
-   MCQ.db.years.filter(x=>x.active!==false).forEach(x=>{const j=MCQ.get('jobs',x.job_id),pa=j&&MCQ.get('papers',j.paper_id);add('year','Past Paper',yearPath(x),(j?.name||'Past Paper')+' · '+x.name,pa?.name||'Past paper',x.name+' '+(j?.name||'')+' '+(pa?.name||''),x)});
-   MCQ.db.jobs.filter(x=>x.active!==false).forEach(x=>{const pa=MCQ.get('papers',x.paper_id);add('job','Job / Exam',jobPath(x),x.name,pa?.name||'Job / exam preparation',x.name+' '+(pa?.name||'')+' '+(x.country||''),x)});
+   MCQ.db.years.filter(x=>x.active!==false).forEach(x=>{const pa=MCQ.get('papers',x.paper_id)||MCQ.get('papers',MCQ.get('jobs',x.job_id)?.paper_id);add('year','Past Paper',yearPath(x),((pa?.name||'')+' · '+x.name).trim(),pa?.name||'Past Paper',x.name+' '+(pa?.name||''),x)});
    (MCQ.db.pdfs||[]).filter(x=>x.active!==false).forEach(x=>add('pdf','PDF',window.SEO?SEO.cleanPath('pdf',x.id):'pdfs',x.title||x.name||'PDF resource',x.description||'PDF resource',(x.title||x.name||'')+' '+(x.description||''),x));
    (MCQ.db.posts||[]).filter(x=>x.published!==false).forEach(x=>add('post','Blog','post/'+x.id,x.title,x.excerpt||'MCQ Campus update',(x.title||'')+' '+(x.excerpt||'')+' '+(x.body||'')+' '+(x.category||''),x));
    (MCQ.db.latestJobs||[]).filter(x=>x.published!==false).forEach(x=>{const org=MCQ.get('papers',x.paper_id);add('latestjob','Latest Job',window.SEO?SEO.cleanPath('latest-job',x.id):'latest-jobs',x.title||'Job opportunity',(org?.name||'')+' · Last date '+(x.last_date||''),(x.title||'')+' '+(org?.name||'')+' '+(x.last_date||''),x)});
@@ -346,16 +345,8 @@ window.Public=(()=>{
   ].map(UI.statCard).join('')}</div><div class="actions test-result-actions">${review?link('test/'+kind,'Hide review','btn'):link('test/'+kind,'Review Answers','btn primary',{review:1})}${btn('Try again','test-retry','',`data-kind="${e(kind)}"`)}</div>${review?`<section class="test-review">${rows.map((q,i)=>{const chosen=result.answers[q.id]||'',ok=chosen===q.correct_answer;return `<article class="card">${questionTags(q)}<h2>${e(q.question)}</h2><p><strong>Your answer:</strong> ${e(chosen||'Unanswered')} ${chosen?badge(ok?'Correct':'Incorrect',ok?'success':'danger'):''}</p><p><strong>Correct answer:</strong> ${e(q.correct_answer)}</p>${q.description?`<div class="explanation"><p>${e(q.description)}</p></div>`:''}</article>`}).join('')}</section>`:''}</div>`,'tests')}
   return UI.layout(`<div class="container page">${crumbs([['Tests','tests'],[label]])}${heading(label,rows.length?`Answer ${rows.length} questions, then submit to see your result.`:'No approved MCQs are available for this test yet.')} ${rows.length?`<form class="test-form" data-form="test-submit" data-test-key="${e(key)}" data-test-kind="${e(kind)}" data-started-at="${Date.now()}">${rows.map((q,i)=>`<article class="card test-question mcq-reference-card"><div class="mcq-top"><div class="mcq-question-label">${questionTags(q)}</div></div><div class="mcq-question-panel"><h2>${link('mcq/'+q.id,e(q.question),'mcq-question-link')}</h2></div><div class="test-options mcq-reference-options">${[1,2,3,4].map(n=>`<label><input type="radio" name="test_q_${q.id}" value="${e(q['option'+n])}"><span class="letter">${'ABCD'[n-1]}</span><span class="option-text">${e(q['option'+n])}</span><span class="option-indicator" aria-hidden="true"></span></label>`).join('')}</div></article>`).join('')}<button class="btn primary test-submit" type="submit">Submit test</button></form>`:empty('No MCQs available','Add approved MCQs to the library so the automatic system can build a set.',link('tests','Back to tests','btn'))}</div>`,'tests')
  }
- function jobsExams(){
-  const active=MCQ.db.jobs.filter(x=>x.active!==false),groups=new Map();
-  active.forEach(j=>{const key=Number(j.paper_id)||0;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(j)});
-  const buckets=[...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([,items])=>items.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))));
-  const jobs=[];let added=true;while(added){added=false;for(const bucket of buckets){if(bucket.length){jobs.push(bucket.shift());added=true}}}
-  const ordered=MCQ.sortPinned('jobs',jobs),pageSize=12,page=App.page(ordered.length,pageSize),params=App.route.params,visible=ordered.slice((page-1)*pageSize,page*pageSize);
-  const main=`${UI.adSlot('jobs_ad')}<p class="small muted result-count">${ordered.length} jobs from all agencies · ${pageSize} per page</p>${visible.length?`<div class="grid paper-grid">${visible.map((j,i)=>card('jobs',j,(page-1)*pageSize+i)).join('')}</div>${UI.pager(ordered.length,page,pageSize,params,'jobs-exams')}`:empty('No jobs available','Published jobs from all agencies will appear here.')}`;
-  return PublicLayout.page({trail:[['Jobs & Exams']],title:'Jobs & Exams Preparation',desc:'Browse jobs and competitive exams across agencies. Open a job to view available past-paper years and linked MCQs.',main,sidebar:PublicLayout.smart('jobs'),active:'jobs-exams',sidebarLabel:'Related / Browse'});
- }
- function pdfs(){
+ function jobsExams(){return browse('papers')}
+  function pdfs(){
   const rows=(MCQ.db.pdfs||[]).filter(x=>x.active!==false),safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||'')),pageSize=12,page=App.page(rows.length,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
   const cards=shown.map(pdfResourceCard).join('');
   const main=`${UI.adSlot('pdf_ad')}${rows.length?`<div class="pdf-resource-grid">${cards}</div>${UI.pager(rows.length,page,pageSize,App.route.params,'pdfs')}`:empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')}`;
