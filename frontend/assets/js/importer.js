@@ -56,7 +56,7 @@ window.Importer=(()=>{
     row.errors=['Existing website MCQ: new unique Organization / Board / Past Paper links will be added to the stored MCQ.'+(row.mergedRows?' '+row.mergedRows+' repeated upload row(s) were consolidated first.':'')+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
    }else if(row.mergedRows){
     row.status='merge';
-    row.errors=['Repeated question in this upload: unique Paper / Job / Job Year links were combined into one MCQ.'+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
+    row.errors=['Repeated question in this upload: unique Organization / Board and Past Paper links were combined into one MCQ.'+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
    }else{
     row.status='valid';
     if(row.duplicateRows)row.errors=[row.duplicateRows+' exact duplicate row(s) ignored.'];
