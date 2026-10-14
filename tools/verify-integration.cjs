@@ -118,9 +118,9 @@ test('Bulk import complete-data preview exposes merged hierarchy clearly',()=>{
  const admin=fs.readFileSync(path.join(frontend,'assets/js/admin.js'),'utf8');
  assert(admin.includes('Each visible row is one final MCQ candidate.'));
  assert(admin.includes('class="admin-mcq-full-table import-preview-table"'));
- assert(admin.includes('<th class="mcq-col-meta">Paper</th>'));
- assert(admin.includes('<th class="mcq-col-meta">Job / Post</th>'));
- assert(admin.includes('<th class="mcq-col-meta">Job Year</th>'));
+ assert(admin.includes('<th class="mcq-col-meta">Organization / Board</th>'));
+ assert(admin.includes('<th class="mcq-col-meta">Past Paper</th>'));
+ assert(!admin.includes('<th class="mcq-col-meta">Job / Post</th>'));
  assert(admin.includes('Final stored MCQ data'));
  assert(admin.includes('const importedFull=imported.length?table(imported,false)'));
 });
