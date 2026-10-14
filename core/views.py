@@ -1590,10 +1590,9 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 ).select_related('paper','job__paper')
                 year=_seo_row_for_token(years,year_token)
                 if year:
-                    year_label=_seo_year_search_label('',year.name)
-                    title=f'{short} {year_label} Solved Past Paper'
-                    description=f'Practice {paper.name} {year_label} past paper MCQs with correct answers and explanations. Review related important questions for test preparation.'
-                    heading=f'{short} {year_label} Past Paper'
+                    title=f'{short} {year.name} Solved MCQs'
+                    description=f'Practice {paper.name} {year.name} MCQs with correct answers and explanations. Review related important questions for test preparation.'
+                    heading=f'{short} — {year.name}'
                     intro=f'Practice the MCQs linked to {paper.name} {year.name}, check the correct answers and explanations, and continue with related MCQs and categories.'
                     links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
             else:
