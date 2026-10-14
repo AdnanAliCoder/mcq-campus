@@ -1203,13 +1203,21 @@ def _seo_legacy_target(path,catalog=None,registry=None):
         paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1] if len(parts)>1 else '')
         if not paper: return None
         if len(parts)==2: return _seo_indexed_path('paper',paper,registry)
-        if len(parts)>=4 and parts[2]=='job':
-            job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).select_related('paper'),parts[3])
-            if not job: return None
-            if len(parts)==4: return _seo_indexed_path('job',job,registry)
-            if len(parts)>=6 and parts[4]=='year':
-                year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).select_related('job','job__paper'),parts[5])
-                return _seo_indexed_path('year',year,registry) if year else None
+        year_token=None
+        if len(parts)==4 and parts[2]=='year':
+            year_token=parts[3]
+        elif len(parts)==4 and parts[2]=='job':
+            # The old Job landing is now the organization landing.
+            return _seo_indexed_path('paper',paper,registry)
+        elif len(parts)==6 and parts[2]=='job' and parts[4]=='year':
+            year_token=parts[5]
+        if year_token:
+            years=JobYear.objects.filter(active=True).filter(
+                Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+            ).select_related('paper','job__paper')
+            year=_seo_row_for_token(years,year_token)
+            return _seo_indexed_path('year',year,registry) if year else None
+        return None
     catalog=catalog if catalog is not None else _seo_past_papers_catalog()
     record=_seo_past_papers_record(path,catalog)
     if record:
