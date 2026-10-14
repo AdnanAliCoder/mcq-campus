@@ -8,7 +8,7 @@ from .services import _site_blob, _save_site_blob
 from .views import _seo_indexed_path
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
+@override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)
 class OrganizationPastPaperNavigationTests(TestCase):
     def setUp(self):
         self.settings = SiteSetting.objects.create(singleton=1)
