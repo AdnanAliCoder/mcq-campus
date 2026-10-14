@@ -5,7 +5,7 @@ const context={console,URLSearchParams,AbortSignal,setTimeout,clearTimeout,setIn
  document:{getElementById:()=>null,addEventListener(){},querySelectorAll:()=>[],querySelector:()=>null},
  fetch:async(url)=>{requests.push(url);let data={};
   if(url.includes('/mcqs?'))data={items:[{id:url.includes('important=1')?2:1,status:'approved'}],page:1,pageSize:10,total:1};
-  if(url.includes('/entities?'))data={type:'jobs',items:[{id:4,paper_id:3}],page:1,pageSize:10,total:1};
+  if(url.includes('/entities?'))data={type:'years',items:[{id:5,paper_id:3,name:'Past Paper 2026'}],page:1,pageSize:10,total:1};
   return {ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>data};},
  App:{route:{path:'mcqs',params:{}},render(){}},UI:{href:x=>'/'+x,toast(){},closeDropdowns(){}}};
 context.addEventListener=()=>{};context.window=context;vm.createContext(context);
@@ -18,14 +18,14 @@ for(const file of ['service.js','auth.js','ui.js'])vm.runInContext(fs.readFileSy
  await visit('mcqs','mcqs');assert.equal(context.MCQ.db.mcqs[0].id,1);
  assert.equal(context.MCQ.db.mcqPage.routeKey,'/mcqs');
  await visit('past-papers/000003/ppsc-past-papers','paper',3);
- assert(requests.some(x=>x.includes('type=jobs')&&x.includes('parent=3')));
+ assert(requests.some(x=>x.includes('type=years')&&x.includes('parent=3')));
  const before=requests.length;
  await visit('mcqs','mcqs');await visit('past-papers/000003/ppsc-past-papers','paper',3);
  assert.equal(context.MCQ.db.entityPage.routeKey,context.location.pathname);
  assert(requests.length>=before);
  context.SEO={cleanPath:(kind,id)=>'/'+kind+'/'+id};
+ assert.equal(context.UI.href('paper/3/year/5'),'/year/5');
  assert.equal(context.UI.href('paper/3/job/4/year/5'),'/year/5');
- assert.equal(context.UI.href('paper/3/job/4'),'/job/4');
  assert.equal(context.UI.date('2026-10-06'),'2026-10-06');
  console.log('PASS MCQs → papers → home → MCQs restores the correct collection; hierarchy requests retain parent identity');
 })().catch(e=>{console.error(e);process.exitCode=1});
