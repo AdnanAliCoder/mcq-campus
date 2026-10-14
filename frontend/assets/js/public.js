@@ -189,8 +189,8 @@ window.Public=(()=>{
     record=MCQ.get('years',id);if(!record)return notFound();
     const paperId=Number(record.paper_id)||Number(MCQ.get('jobs',record.job_id)?.paper_id)||0,pa=MCQ.get('papers',paperId);
     if(!pa)return notFound();
-    title=pa.name+' '+record.name+' Past Paper';
-    desc='Practice '+pa.name+' '+record.name+' past paper MCQs with correct answers and explanations.';
+    title=pa.name+' '+record.name;
+    desc='Practice '+pa.name+' '+record.name+' MCQs with correct answers and explanations.';
     const copy=pageCopy('year',record.id,title,desc);title=copy.title;desc=copy.desc;
     if(!server)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+id));
     trail=[['Past Papers','papers'],[pa.name,window.SEO?SEO.cleanPath('paper',pa.id):'paper/'+pa.id],[record.name,yearPath(record)]];
