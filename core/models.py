@@ -59,12 +59,12 @@ class Paper(OwnedStampedModel):
 class Job(OwnedStampedModel):
     # Legacy model kept temporarily so older installs can upgrade without losing references.
     # The hierarchy migration removes legacy Job rows after moving JobYear records to Paper.
-    id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); paper=models.ForeignKey(Paper,on_delete=models.CASCADE,related_name='legacy_jobs'); icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
+    id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); paper=models.ForeignKey(Paper,on_delete=models.CASCADE,related_name='jobs'); icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
 class JobYear(OwnedStampedModel):
     # Public-facing Past Paper belongs directly to an organization / board.
     id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255)
     paper=models.ForeignKey(Paper,null=True,blank=True,on_delete=models.CASCADE,related_name='past_papers')
-    job=models.ForeignKey(Job,null=True,blank=True,on_delete=models.SET_NULL,related_name='legacy_years')
+    job=models.ForeignKey(Job,null=True,blank=True,on_delete=models.SET_NULL,related_name='years')
     icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
 
 class MCQ(OwnedStampedModel):
