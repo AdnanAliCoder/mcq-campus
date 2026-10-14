@@ -1905,3 +1905,66 @@ def llms_txt(request):
     )
     return _public_text_response(body,'text/plain; charset=utf-8')
 
+
+
+@require_POST
+def admin_move_past_paper_mcqs(request):
+    """Move selected MCQs from one past-paper (JobYear) record to another."""
+    if not is_super(request.user):
+        return err('Only a Super Admin can move MCQs between past papers.', 403)
+    data=payload(request)
+    try:
+        source_id=int(data.get('source_year_id') or 0)
+        destination_id=int(data.get('destination_year_id') or 0)
+        raw_ids=data.get('mcq_ids') or []
+        if not isinstance(raw_ids,list) or not raw_ids:
+            return err('Select at least one MCQ to move.', 422)
+        if len(raw_ids)>500:
+            return err('Move up to 500 MCQs at a time.', 422)
+        mcq_ids=list(dict.fromkeys(int(value) for value in raw_ids))
+        if any(value<=0 for value in mcq_ids):
+            return err('One or more MCQ IDs are invalid.', 422)
+    except (TypeError,ValueError):
+        return err('Choose a valid source, destination and MCQ selection.', 422)
+    if source_id==destination_id:
+        return err('Source and destination past papers must be different.', 422)
+    source=JobYear.objects.select_related('job__paper').filter(pk=source_id,active=True,job__active=True,job__paper__active=True).first()
+    destination=JobYear.objects.select_related('job__paper').filter(pk=destination_id,active=True,job__active=True,job__paper__active=True).first()
+    if not source or not destination:
+        return err('The source or destination past paper is no longer available.', 404)
+    if source.job.paper.country.casefold()!=destination.job.paper.country.casefold():
+        return err('Move MCQs only between past papers in the same country.', 422)
+    with transaction.atomic():
+        rows=list(MCQ.objects.select_for_update().filter(pk__in=mcq_ids))
+        if len(rows)!=len(mcq_ids):
+            return err('Some selected MCQs no longer exist. Refresh and try again.', 404)
+        if any(source_id not in (row.job_year_ids or []) for row in rows):
+            return err('Every selected MCQ must belong to the source past paper. Refresh and select again.', 422)
+        now=timezone.now().isoformat()
+        for row in rows:
+            year_ids=[int(value) for value in (row.job_year_ids or []) if str(value).isdigit() and int(value)!=source_id]
+            if destination_id not in year_ids:
+                year_ids.append(destination_id)
+            row.job_year_ids=year_ids
+            job_ids=[int(value) for value in (row.job_ids or []) if str(value).isdigit()]
+            if source.job_id!=destination.job_id and source.job_id in job_ids:
+                job_ids=[value for value in job_ids if value!=source.job_id]
+            if destination.job_id not in job_ids:
+                job_ids.append(destination.job_id)
+            row.job_ids=job_ids
+            paper_ids=[int(value) for value in (row.paper_ids or []) if str(value).isdigit()]
+            if source.job.paper_id!=destination.job.paper_id and source.job.paper_id in paper_ids:
+                paper_ids=[value for value in paper_ids if value!=source.job.paper_id]
+            if destination.job.paper_id not in paper_ids:
+                paper_ids.append(destination.job.paper_id)
+            row.paper_ids=paper_ids
+            history=list(row.audit_history or [])
+            history.append({'action':'move_past_paper','source_year_id':source.id,'destination_year_id':destination.id,'by_user_id':request.user.id,'at':now})
+            row.audit_history=history[-100:]
+            row.updated_by=request.user
+            row.save(update_fields=['job_year_ids','job_ids','paper_ids','audit_history','updated_by','updated_at'])
+    try:
+        invalidate_mcqcampus_cache()
+    except Exception:
+        logger.exception('Cache invalidation failed after moving past-paper MCQs')
+    return JsonResponse({'completed':True,'moved':len(rows),'source_year_id':source.id,'destination_year_id':destination.id,'message':f'Moved {len(rows)} MCQ(s) to {destination.name}.'})
