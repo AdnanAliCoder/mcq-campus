@@ -1,4 +1,4 @@
-import json, logging, time
+import json, logging, re, time
 from django.conf import settings
 from django.db import connection
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
@@ -90,6 +90,182 @@ class LoginWallMiddleware:
     """Keep app pages private while allowing the country chooser and sign-in flows."""
     STATIC_PREFIXES=('/assets/',)
     STATIC_PATHS={'/favicon.ico','/site.webmanifest','/sw.js'}
+    PUBLIC_API_PATHS={
+        '/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal',
+    }
+    PUBLIC_SEO_EXACT_PATHS={
+        '/past-papers','/jobs-exams','/sitemap.xml','/sitemap-papers.xml',
+        '/sitemap-jobs.xml','/sitemap-years.xml','/robots.txt','/llms.txt',
+    }
+    PUBLIC_SEO_PATTERNS=(
+        re.compile(r'^/past-papers/[^/]+/[^/]+        '/api/auth/session','/api/auth/login','/api/auth/register',
+        '/api/auth/forgot','/api/auth/reset','/api/auth/verify',
+        '/api/auth/resend-verification','/api/startup',
+    }
+    AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify'}
+    PUBLIC_ENTRY_PATHS={'/','/home'}
+
+    def __init__(self,get_response):
+        self.get_response=get_response
+
+    def __call__(self,request):
+        path=request.path or '/'
+        if path in self.STATIC_PATHS or path.startswith(self.STATIC_PREFIXES):
+            return self.get_response(request)
+
+        normalized=path.rstrip('/') or '/'
+        authenticated=bool(getattr(getattr(request,'user',None),'is_authenticated',False))
+        if normalized.startswith('/api/'):
+            public_api = normalized in self.PUBLIC_API_PATHS or (
+                normalized == '/api/entities' and request.GET.get('scope') == 'public'
+            )
+            if normalized in self.AUTH_API_PATHS or public_api:
+                response=self.get_response(request)
+            elif not authenticated:
+                response=JsonResponse({'error':'Authentication required.','loginRequired':True},status=401)
+            else:
+                response=self.get_response(request)
+            response['Cache-Control']='private, no-store, max-age=0'
+            response['Pragma']='no-cache'
+            response['X-Robots-Tag']='noindex, nofollow'
+            return response
+
+        public_seo = (
+            normalized in self.PUBLIC_SEO_EXACT_PATHS
+            or any(pattern.fullmatch(normalized) for pattern in self.PUBLIC_SEO_PATTERNS)
+        )
+        if public_seo:
+            response=self.get_response(request)
+            response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
+            response['Pragma']=''
+            if 'X-Robots-Tag' in response: del response['X-Robots-Tag']
+            return response
+
+        if normalized in self.AUTH_PAGE_PATHS:
+            if authenticated:
+                response=HttpResponseRedirect('/')
+            else:
+                response=self.get_response(request)
+        elif not authenticated and normalized in self.PUBLIC_ENTRY_PATHS:
+            response=self.get_response(request)
+            response['Cache-Control']='public, max-age=0, s-maxage=60, stale-while-revalidate=300'
+            response['Pragma']=''
+            if 'X-Robots-Tag' in response: del response['X-Robots-Tag']
+            return response
+        elif not authenticated:
+            response=HttpResponseRedirect('/login')
+        else:
+            response=self.get_response(request)
+
+        # This site is now account-only, so authenticated HTML must not enter a shared CDN cache.
+        response['Cache-Control']='private, no-store, max-age=0'
+        response['Pragma']='no-cache'
+        response['X-Robots-Tag']='noindex, nofollow'
+        return response
+),
+        re.compile(r'^/[^/]+-past-papers        '/api/auth/session','/api/auth/login','/api/auth/register',
+        '/api/auth/forgot','/api/auth/reset','/api/auth/verify',
+        '/api/auth/resend-verification','/api/startup',
+    }
+    AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify'}
+    PUBLIC_ENTRY_PATHS={'/','/home'}
+
+    def __init__(self,get_response):
+        self.get_response=get_response
+
+    def __call__(self,request):
+        path=request.path or '/'
+        if path in self.STATIC_PATHS or path.startswith(self.STATIC_PREFIXES):
+            return self.get_response(request)
+
+        normalized=path.rstrip('/') or '/'
+        authenticated=bool(getattr(getattr(request,'user',None),'is_authenticated',False))
+        if normalized.startswith('/api/'):
+            if normalized in self.AUTH_API_PATHS:
+                response=self.get_response(request)
+            elif not authenticated:
+                response=JsonResponse({'error':'Authentication required.','loginRequired':True},status=401)
+            else:
+                response=self.get_response(request)
+            response['Cache-Control']='private, no-store, max-age=0'
+            response['Pragma']='no-cache'
+            response['X-Robots-Tag']='noindex, nofollow'
+            return response
+
+        if normalized in self.AUTH_PAGE_PATHS:
+            if authenticated:
+                response=HttpResponseRedirect('/')
+            else:
+                response=self.get_response(request)
+        elif not authenticated and normalized in self.PUBLIC_ENTRY_PATHS:
+            response=self.get_response(request)
+            response['Cache-Control']='public, max-age=0, s-maxage=60, stale-while-revalidate=300'
+            response['Pragma']=''
+            if 'X-Robots-Tag' in response: del response['X-Robots-Tag']
+            return response
+        elif not authenticated:
+            response=HttpResponseRedirect('/login')
+        else:
+            response=self.get_response(request)
+
+        # This site is now account-only, so authenticated HTML must not enter a shared CDN cache.
+        response['Cache-Control']='private, no-store, max-age=0'
+        response['Pragma']='no-cache'
+        response['X-Robots-Tag']='noindex, nofollow'
+        return response
+),
+        re.compile(r'^/sitemap-[a-z-]+\.xml        '/api/auth/session','/api/auth/login','/api/auth/register',
+        '/api/auth/forgot','/api/auth/reset','/api/auth/verify',
+        '/api/auth/resend-verification','/api/startup',
+    }
+    AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify'}
+    PUBLIC_ENTRY_PATHS={'/','/home'}
+
+    def __init__(self,get_response):
+        self.get_response=get_response
+
+    def __call__(self,request):
+        path=request.path or '/'
+        if path in self.STATIC_PATHS or path.startswith(self.STATIC_PREFIXES):
+            return self.get_response(request)
+
+        normalized=path.rstrip('/') or '/'
+        authenticated=bool(getattr(getattr(request,'user',None),'is_authenticated',False))
+        if normalized.startswith('/api/'):
+            if normalized in self.AUTH_API_PATHS:
+                response=self.get_response(request)
+            elif not authenticated:
+                response=JsonResponse({'error':'Authentication required.','loginRequired':True},status=401)
+            else:
+                response=self.get_response(request)
+            response['Cache-Control']='private, no-store, max-age=0'
+            response['Pragma']='no-cache'
+            response['X-Robots-Tag']='noindex, nofollow'
+            return response
+
+        if normalized in self.AUTH_PAGE_PATHS:
+            if authenticated:
+                response=HttpResponseRedirect('/')
+            else:
+                response=self.get_response(request)
+        elif not authenticated and normalized in self.PUBLIC_ENTRY_PATHS:
+            response=self.get_response(request)
+            response['Cache-Control']='public, max-age=0, s-maxage=60, stale-while-revalidate=300'
+            response['Pragma']=''
+            if 'X-Robots-Tag' in response: del response['X-Robots-Tag']
+            return response
+        elif not authenticated:
+            response=HttpResponseRedirect('/login')
+        else:
+            response=self.get_response(request)
+
+        # This site is now account-only, so authenticated HTML must not enter a shared CDN cache.
+        response['Cache-Control']='private, no-store, max-age=0'
+        response['Pragma']='no-cache'
+        response['X-Robots-Tag']='noindex, nofollow'
+        return response
+),
+    )
     AUTH_API_PATHS={
         '/api/auth/session','/api/auth/login','/api/auth/register',
         '/api/auth/forgot','/api/auth/reset','/api/auth/verify',
