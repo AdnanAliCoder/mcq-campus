@@ -16,20 +16,20 @@ class PastPapersSEOTests(TestCase):
     def setUpTestData(cls):
         SiteSetting.objects.create(singleton=1)
         cls.ppsc = Paper.objects.create(
-            id=1, name='Punjab Public Service Commission [PPSC]', country='Pakistan'
+            id=9801, name='Punjab Public Service Commission [PPSC]', country='Pakistan'
         )
         cls.spsc = Paper.objects.create(
-            id=2, name='Sindh Public Service Commission [SPSC]', country='Pakistan'
+            id=9802, name='Sindh Public Service Commission [SPSC]', country='Pakistan'
         )
         cls.ppsc_2024 = JobYear.objects.create(
-            id=100, name='Past Paper 2024', paper=cls.ppsc
+            id=98100, name='Past Paper 2024', paper=cls.ppsc
         )
         cls.spsc_2025 = JobYear.objects.create(
-            id=200, name='Past Paper 2025', paper=cls.spsc
+            id=98200, name='Past Paper 2025', paper=cls.spsc
         )
         # A legacy Job row is intentionally present to confirm it is not part
         # of public navigation or the SEO index before the one-time DB cleanup.
-        cls.legacy_job = Job.objects.create(id=10, name='Assistant', paper=cls.ppsc)
+        cls.legacy_job = Job.objects.create(id=98010, name='Assistant', paper=cls.ppsc)
         invalidate_mcqcampus_cache('public-resources')
 
     def page(self, path, status=200):
@@ -109,9 +109,9 @@ class PastPapersSEOTests(TestCase):
 
     def test_new_past_papers_are_automatically_discoverable(self):
         board = Paper.objects.create(
-            id=3, name='National Testing Service [NTS]', country='Pakistan'
+            id=9803, name='National Testing Service [NTS]', country='Pakistan'
         )
-        year = JobYear.objects.create(id=300, name='Past Paper 2026', paper=board)
+        year = JobYear.objects.create(id=98300, name='Past Paper 2026', paper=board)
         catalog = _seo_past_papers_catalog()
         self.assertIn(board.id, catalog['paper_paths'])
         self.assertEqual(catalog['paper_paths'][board.id], '/nts-past-papers')
