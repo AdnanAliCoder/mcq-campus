@@ -1,7 +1,7 @@
 /* Same-origin Django authentication and API adapter.
    Country selection and auth screens are public; app sections require a signed-in session. */
 window.Auth=(()=>{
- const authRoutes=new Set(['login','register','forgot','reset','verify']);
+ const authRoutes=new Set(['login','register','forgot','reset-code','reset-password','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
  let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0,routeRoleSync=null;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
@@ -15,7 +15,7 @@ window.Auth=(()=>{
   }
   let path=location.pathname.replace(/^\/+|\/+$/g,'').replace(/index\.html$/,'').replace(/\.html$/,'');
   const aliases={
-   'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset','auth/verify-email':'verify',
+   'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset-code','auth/new-password':'reset-password','auth/verify-email':'verify',
    'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','':''
   };
   const mapped=aliases[path]??path.replace(/^public\//,'');
@@ -225,6 +225,8 @@ window.Auth=(()=>{
       if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
       if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
       if(Array.isArray(data.savedPapers))MCQ.db.savedPapers=data.savedPapers;
+      const attemptedIds=[...new Set((data.attempts||[]).map(row=>Number(row.id)).filter(id=>Number.isInteger(id)&&id>0))].slice(0,100);
+      if(attemptedIds.length){try{const historyData=await request('/mcqs?public=1&ids='+attemptedIds.join(',')+'&page_size='+attemptedIds.length);if(Array.isArray(historyData.items))historyData.items.forEach(row=>MCQ.upsert('mcqs',row));}catch(error){console.warn('Learner history question details unavailable.')}}
      }
      if(key==='profile'&&data.user)setIdentity({...user,...data.user});
      if(key==='workspace-mcqs'||key==='public-mcqs'){
@@ -351,7 +353,7 @@ window.Auth=(()=>{
   tick();
   verificationTimer=setInterval(tick,1000);
  };
- const field=(name,label,type='text',auto='',extra='',mark=false)=>{const required=mark?' <span class="required-mark" aria-hidden="true">*</span>':'';const input=`<input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required>`;if(type!=='password')return `<div class="field"><label for="${name}">${label}${required}</label>${input}</div>`;const help=['password','new_password'].includes(name)?'<small class="password-help">Use at least 8 characters. A longer password with a mix of letters, numbers and symbols is stronger.</small>':'';return `<div class="field"><label for="${name}">${label}${required}</label><div class="password-input-wrap">${input}<button class="password-toggle-btn" type="button" data-password-toggle="${name}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false">${UI.icon('eye')}</button></div>${help}</div>`};
+ const field=(name,label,type='text',auto='',extra='',mark=false,showHelp=true)=>{const required=mark?' <span class="required-mark" aria-hidden="true">*</span>':'';const input=`<input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required>`;if(type!=='password')return `<div class="field"><label for="${name}">${label}${required}</label>${input}</div>`;const help=showHelp&&['password','new_password'].includes(name)?'<small class="password-help">Use at least 8 characters. A longer password with a mix of letters, numbers and symbols is stronger.</small>':'';return `<div class="field"><label for="${name}">${label}${required}</label><div class="password-input-wrap">${input}<button class="password-toggle-btn" type="button" data-password-toggle="${name}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false">${UI.icon('eye-off')}</button></div>${help}</div>`};
  function view(type){
   const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
   const activeCountries=(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
@@ -362,12 +364,13 @@ window.Auth=(()=>{
   const countryField=selectedCountry
    ? '<div class="field selected-country-field"><span class="selected-country-flag">'+UI.countryFlag(selectedCountry)+'</span><div class="selected-country-copy"><label>Signing up for</label><strong>'+UI.esc(selectedCountry)+'</strong></div><a class="selected-country-change" href="/">Change country</a><input id="country" type="hidden" name="country" value="'+UI.esc(selectedCountry)+'"></div>'
    : '<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
-  const titles={login:'Welcome back',register:selectedCountry?'Create your '+selectedCountry+' account':'Your next chapter',forgot:'Forgot your password?',reset:'Choose a new password',verify:'Email verification'};
+  const titles={login:'Welcome back',register:selectedCountry?'Create your '+selectedCountry+' account':'Your next chapter',forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',reset:'Choose a new password',verify:'Email verification'};
   let form='';
-  if(type==='login')form=`<p class="muted small">Sign in with your existing MCQCampus account.</p><form data-form="auth-login">${field('email','Email address','email','email')}${field('password','Password','password','current-password')}<div class="actions" style="margin-bottom:20px"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span>${UI.link('forgot','Forgot password?','link')}</div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small" style="margin-top:18px">New here? ${UI.link('register','Create an account','link')}</p>`;
+  if(type==='login')form=`<p class="muted small">Sign in with your existing MCQCampus account.</p><form data-form="auth-login">${field('email','Email address','email','email')}${field('password','Password','password','current-password','',false,false)}<div class="actions" style="margin-bottom:20px"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span>${UI.link('forgot','Forgot password?','link')}</div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small" style="margin-top:18px">New here? ${UI.link('register','Create an account','link')}</p>`;
   if(type==='register')form=`<p class="small muted">Create your learner account. All fields marked * are required.</p><form data-form="auth-register">${field('first_name','First name','text','given-name','',true)}${field('last_name','Last name','text','family-name','',true)}${field('email','Email address','email','email','',true)}${countryField}${field('password','Password','password','new-password','',true)}${field('confirm','Confirm password','password','new-password','',true)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')} <span class="required-mark" aria-hidden="true">*</span></label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send verification code</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
   if(type==='forgot')form=`<p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form>`;
-  if(type==='reset')form=`<p class="muted">Enter the reset code from your email and choose a new password.</p><form data-form="auth-reset">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
+  if(type==='reset-code')form=`<p class="muted">Enter the 6-digit code sent to your email. You will choose a new password after the code is verified.</p><form data-form="auth-reset-code"><input type="hidden" name="email" value="${UI.esc(emailParam)}">${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true)}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Verify code</button></form><p class="text-center small" style="margin-top:18px">${UI.link('forgot','Use a different email','link')}</p>`;
+  if(type==='reset-password')form=`<p class="muted">Your code is verified. Choose a new password for your account.</p><form data-form="auth-reset-password"><input type="hidden" name="email" value="${UI.esc(emailParam)}">${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
   if(type==='verify'){form=`<p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify & create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;setTimeout(()=>syncVerificationTimer(emailParam),0)}
   return UI.layout(`<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>${titles[type]}</h1>${form}</div></div></div>`);
  }
@@ -435,6 +438,11 @@ window.Auth=(()=>{
     const snapshot=await request('/bootstrap');
     if(own!==generation)throw Error('The account changed. Please try again.');
     hydrate(snapshot,user);
+   }else if(['form:config','form:settings'].includes(action)){
+    const snapshot=await request('/bootstrap');
+    if(own!==generation)throw Error('The account changed. Please try again.');
+    hydrate(snapshot,user);
+    loadedSections.delete('resources');sectionLoadedAt.delete('resources');
    }
    return data.result;
   })();
@@ -451,7 +459,7 @@ window.Auth=(()=>{
   const reveal=input.type==='password';input.type=reveal?'text':'password';
   toggle.setAttribute('aria-pressed',String(reveal));
   toggle.setAttribute('aria-label',(reveal?'Hide ':'Show ')+(input.labels?.[0]?.textContent||'password').replace('*','').trim().toLowerCase());
-  toggle.innerHTML=UI.icon('eye');
+  toggle.innerHTML=UI.icon(reveal?'eye':'eye-off');
  });
 
  document.addEventListener('submit',async event=>{
@@ -459,26 +467,32 @@ window.Auth=(()=>{
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
   const values=Object.fromEntries(new FormData(form)),type=form.dataset.form.slice(5),button=form.querySelector('[type=submit]'),box=form.querySelector('[data-auth-error]');
   box.textContent='';
-  const labels={login:'Signing in...',register:'Creating account...',forgot:'Sending...',reset:'Updating...',verify:'Verifying...'};
+  const labels={login:'Signing in...',register:'Creating account...',forgot:'Sending...', 'reset-code':'Verifying...', 'reset-password':'Updating...',reset:'Updating...',verify:'Verifying...'};
   const restoreButton=setButtonLoading(button,labels[type]||'Working...');
   try{
-   if((type==='reset'||type==='register')&&values.password!==values.confirm)throw Error('Passwords do not match.');
+   if((type==='reset-password'||type==='reset'||type==='register')&&values.password!==values.confirm)throw Error('Passwords do not match.');
    const params=new URLSearchParams(route().split('?')[1]||'');
-   const data=await request('/auth/'+type,values);
+   const apiType=(type==='reset-code'||type==='reset-password')?'reset':type;
+   if(type==='reset-code')values.stage='verify';
+   if(type==='reset-password')values.stage='update';
+   const data=await request('/auth/'+apiType,values);
    if(type==='login'){
     csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
-    const next=destination(params.get('next')),target=next&&allowed(next)?next:landing();App.go(target);
+    const next=destination(params.get('next')),target=next&&allowed(next)?next:'home';App.go(target);
    }else if(type==='register'&&data.verificationRequired){
     const verifyEmail=data.email||values.email;
     armVerificationTimer(verifyEmail,data.resendAfter||60);
     App.go('verify',{email:verifyEmail});
    }else if(type==='forgot'){
     box.textContent=data.message||'If an active account matches that email, a reset code has been sent.';
-    setTimeout(()=>App.go('reset',{email:values.email||''}),700);
+    setTimeout(()=>App.go('reset-code',{email:values.email||''}),700);
+   }else if(type==='reset-code'&&data.completed){
+    box.textContent=data.message||'Code verified. Choose a new password.';
+    setTimeout(()=>App.go('reset-password',{email:values.email||''}),450);
    }else if(type==='verify'&&data.completed){
     box.textContent=data.message||'Email verified. You can now sign in.';
     setTimeout(()=>App.go('login'),700);
-   }else if(type==='reset'&&data.completed){
+   }else if((type==='reset-password'||type==='reset')&&data.completed){
     box.textContent=data.message||'Password updated. You can now sign in.';
     setTimeout(()=>App.go('login'),700);
    }else{
