@@ -392,7 +392,9 @@ def auth_verify(request):
             prof.save(update_fields=['role','permissions','email_verified','country'])
             pending.delete()
         _send_email_parts('Welcome to MCQCampus',_welcome_email(u),u.email)
-        return JsonResponse({'completed':True,'message':'Email verified and account created. You can now sign in.'})
+        login(request,u,backend='django.contrib.auth.backends.ModelBackend')
+        request.session['active_role']='user'
+        return JsonResponse({'completed':True,'user':user_identity_dict(u,request.session),'csrfToken':get_token(request),'message':'Email verified. Your account is ready.'})
 
     # Backward compatibility for accounts created by the older verification flow.
     u=User.objects.filter(email__iexact=email,is_active=True).first()
