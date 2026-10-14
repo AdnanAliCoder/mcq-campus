@@ -54,7 +54,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("endpoint='/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
- assert(auth.includes('finally{backendLoading(false)'));
+ assert(auth.includes('finally{if(loading)backendLoading(false)'));
  assert(auth.includes("async function request(path,body,{loading=false,timeout=15000}={})"));
  assert(auth.includes("timeout:action==='action:import-confirm'?60000:15000"));
  assert(auth.includes('setButtonLoading'));
