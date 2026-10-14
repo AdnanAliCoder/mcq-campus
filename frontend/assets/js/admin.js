@@ -221,6 +221,8 @@ window.Admin=(()=>{
   if(!selected.length)return heading('Past Paper not found','This past paper may have been moved or disabled.',backActions);
   const groups=selected.map(y=>{
    const mcqs=MCQ.db.mcqs.filter(q=>MCQ.ids(q.job_years_ids).includes(Number(y.id)));
+   const queryPage=Number(MCQ.db.mcqPage?.page||p.page||1),queryTotal=Number(MCQ.db.mcqPage?.total||mcqs.length);
+   const mcqPageNav=mcqPager(queryTotal,queryPage,10,{year:y.id},url('paper-mcqs/'+paper.id));
    const destinationYears=MCQ.sortPinned('years',MCQ.db.years.filter(dest=>{
     if(dest.active===false||Number(dest.id)===Number(y.id))return false;
     const parentId=paperForYear(dest),parent=MCQ.get('papers',parentId);
@@ -233,7 +235,7 @@ window.Admin=(()=>{
     <div class="move-mcq-selection">${mcqs.map(q=>`<label class="move-mcq-row"><input type="checkbox" name="mcq_ids" value="${q.id}"><span><strong>MCQ #${q.id}</strong> ${e(q.question.slice(0,220))}<span class="small muted"> · Answer: ${e(q.correct_answer)}</span></span></label>`).join('')}</div>
     <button class="btn primary" type="submit">Move selected MCQs</button>
    </form>`:'';
-   return `<section class="section admin-year-mcqs"><div class="section-head"><div><p class="eyebrow">${e(paper.name)}</p><h2>${e(y.name)}</h2><p class="small muted">${mcqs.length.toLocaleString('en-GB')} MCQs · selecting a question does not duplicate it.</p></div><div class="actions">${link(url('paper-mcqs/'+paper.id),'All Past Papers','btn')}${MCQ.allowed('years')?btn('Edit Past Paper','entity-edit','sm',`data-type="years" data-id="${y.id}"`):''}</div></div>${mcqs.length?table(mcqs,false):empty('No MCQs linked to this Past Paper','This record currently has no MCQs.')}${moveForm}</section>`;
+   return `<section class="section admin-year-mcqs"><div class="section-head"><div><p class="eyebrow">${e(paper.name)}</p><h2>${e(y.name)}</h2><p class="small muted">${mcqs.length.toLocaleString('en-GB')} MCQs · selecting a question does not duplicate it.</p></div><div class="actions">${link(url('paper-mcqs/'+paper.id),'All Past Papers','btn')}${MCQ.allowed('years')?btn('Edit Past Paper','entity-edit','sm',`data-type="years" data-id="${y.id}"`):''}</div></div>${mcqs.length?table(mcqs,false):empty('No MCQs linked to this Past Paper','This record currently has no MCQs.')}${mcqPageNav}${moveForm}</section>`;
   }).join('');
   return heading(paper.name+' · Past Papers','Review a past paper and move selected MCQs to another past paper from the same country.',backActions)+`<div class="paper-hierarchy-trail"><strong>${e(paper.name)}</strong><span>${icon('arrow')}</span><strong>Past Papers</strong></div>${groups}`;
  }
