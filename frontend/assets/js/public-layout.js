@@ -14,7 +14,7 @@ window.PublicLayout=(()=>{
   return [];
  }
  function smart(kind,ctx={}){
-  const out=[],p=App.route?.params||{},cats=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy),papers=MCQ.db.papers.filter(x=>x.active!==false),jobs=MCQ.db.jobs.filter(x=>x.active!==false),years=MCQ.db.years.filter(x=>x.active!==false);
+  const out=[],p=App.route?.params||{},cats=MCQ.db.categories.filter(x=>x.active!==false&&!x.legacy),papers=MCQ.db.papers.filter(x=>x.active!==false),years=MCQ.db.years.filter(x=>x.active!==false);
   out.push(ad('sidebar_top')||ad('sidebar_ad'));
   if(kind==='mcqs'){
    const session=MCQ.db.session;if(session){const attempts=(MCQ.db.attempts||[]).filter(a=>!a.by_id||+a.by_id===+session.id),correct=attempts.filter(a=>a.correct).length,accuracy=attempts.length?Math.round(correct/attempts.length*100):0,saved=(MCQ.db.bookmarks||[]).length,daily=Number(session.daily_goal||25);const learning=`<div class="sidebar-learning-grid"><div><strong>${attempts.length}</strong><span>Attempted</span></div><div><strong>${accuracy}%</strong><span>Accuracy</span></div><div><strong>${saved}</strong><span>Saved</span></div><div><strong>${daily}</strong><span>Daily goal</span></div></div>${link('dashboard',icon('user')+'<span>Open My Learning</span>','smart-sidebar-link')}`;out.push(module('My Learning',learning,'smart-learning-card'));}
@@ -29,10 +29,10 @@ window.PublicLayout=(()=>{
   } else if(kind==='papers'){
    const parent=ctx.parent,type=ctx.type,countries=[...new Set(['Pakistan','India',...papers.map(x=>x.country).filter(Boolean)])];
    let hierarchy=[];
-   if(type==='job'&&parent){const paper=MCQ.get('papers',parent.paper_id);hierarchy=years.filter(x=>x.job_id===parent.id).slice(0,8).map(x=>[paper?'paper/'+paper.id+'/job/'+parent.id+'/year/'+x.id:'year/'+x.id,x.name]);}
+   if(type==='job'&&parent){const paper=MCQ.get('papers',parent.paper_id);hierarchy=years.filter(x=>x.job_id===parent.id).slice(0,8).map(x=>[paper?'paper/'+paper.id+'/year/'+x.id:'year/'+x.id,x.name]);}
    else hierarchy=paperLinks(7);
    if(type==='job')out.push(module('Years / Papers',linkList(hierarchy)));
-   if(type==='paper'&&parent){const country=parent.country||MCQ.db.settings.country||'Pakistan';const jobCount=jobs.filter(x=>x.paper_id===parent.id).length,paperCount=years.filter(y=>{const j=MCQ.get('jobs',y.job_id);return j&&j.paper_id===parent.id}).length;out.push(module('Organization',`<p class="small muted">${e(country)} · ${jobCount} jobs/posts · ${paperCount} paper records</p>`));}
+   if(type==='paper'&&parent){const country=parent.country||MCQ.db.settings.country||'Pakistan';const paperCount=years.filter(y=>Number(y.paper_id)===Number(parent.id)||(!y.paper_id&&Number(MCQ.get('jobs',y.job_id)?.paper_id)===Number(parent.id))).length;out.push(module('Organization / Board',`<p class="small muted">${e(country)} · ${paperCount.toLocaleString('en-GB')} past papers</p>`));}
    out.push(ad('paper_sidebar')||ad('sidebar_middle'));
    out.push(module('Related Resources',linkList([['mcqs','Related MCQs'],['pdfs','Related PDFs']])));
   } else if(kind==='jobs'){
@@ -52,7 +52,7 @@ window.PublicLayout=(()=>{
   } else if(kind==='mcq-detail'){
    const q=ctx.question,cat=q&&MCQ.get('categories',q.category_id),yrs=q?MCQ.ids(q.job_years_ids).map(id=>MCQ.get('years',id)).filter(Boolean):[];
    if(cat)out.push(module('Question Category',linkList([['category/'+cat.id,cat.name]])));
-   if(yrs.length)out.push(module('Related Past Papers',linkList(yrs.slice(0,7).map(x=>{const job=MCQ.get('jobs',x.job_id),paper=job&&MCQ.get('papers',job.paper_id);return [paper&&job?'paper/'+paper.id+'/job/'+job.id+'/year/'+x.id:'year/'+x.id,x.name]}))));
+   if(yrs.length)out.push(module('Related Past Papers',linkList(yrs.slice(0,7).map(x=>{const paper=MCQ.get('papers',x.paper_id)||MCQ.get('papers',MCQ.get('jobs',x.job_id)?.paper_id);return [paper?'paper/'+paper.id+'/year/'+x.id:'year/'+x.id,x.name]}))));
    out.push(ad('sidebar_middle'));
    out.push(module('Keep Practising',linkList([['mcqs','Browse MCQs'],['papers','Past Papers']])));
   } else if(kind==='legal'){
