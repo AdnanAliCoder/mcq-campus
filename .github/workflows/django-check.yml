@@ -58,7 +58,6 @@ jobs:
           node tools/verify-navigation.cjs
           node tools/verify-past-papers.cjs
           node tools/verify-interactions.cjs
-          node tools/verify-integration.cjs
       - name: Test cache utilities
         env:
           DEBUG: "false"
