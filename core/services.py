@@ -1123,44 +1123,26 @@ def _bulk_duplicate_mcq(question,country=None):
     return next((row for row in candidates if _bulk_question_key(row.question)==target),None)
 
 def _mcq_hierarchy_from_years(year_ids, paper_ids=None, job_ids=None):
-    """Return only real database IDs and rebuild parent hierarchy from those IDs."""
+    """Validate organization/past-paper links while retaining legacy job IDs as inert history."""
     requested_years=normalize_ids(year_ids)
-    requested_jobs=normalize_ids(job_ids)
+    requested_jobs=normalize_ids(job_ids)  # Historical JSON metadata; no longer a selectable entity.
     requested_papers=normalize_ids(paper_ids)
-
-    year_rows=list(JobYear.objects.filter(pk__in=requested_years).select_related('job__paper'))
+    year_rows=list(JobYear.objects.filter(pk__in=requested_years).select_related('paper','job__paper'))
     valid_year_ids={int(y.id) for y in year_rows}
     years=[x for x in requested_years if x in valid_year_ids]
-
-    job_rows=list(Job.objects.filter(pk__in=requested_jobs).select_related('paper'))
-    valid_job_ids={int(j.id) for j in job_rows}
-    jobs=[x for x in requested_jobs if x in valid_job_ids]
-
     valid_paper_ids=set(Paper.objects.filter(pk__in=requested_papers).values_list('id',flat=True))
     papers=[x for x in requested_papers if x in valid_paper_ids]
-
-    # Job IDs imply their real parent Paper IDs.
-    for job in job_rows:
-        if job.id in jobs and job.paper_id not in papers:
-            papers.append(job.paper_id)
-
-    # Job Year IDs are the strongest source of truth: each one implies its Job and Paper.
     for year in year_rows:
         if year.id not in years:
             continue
-        if year.job_id not in jobs:
-            jobs.append(year.job_id)
-        if year.job.paper_id not in papers:
-            papers.append(year.job.paper_id)
-
-    return papers,jobs,years
+        paper_id=year.paper_id or (year.job.paper_id if year.job_id and year.job else None)
+        if paper_id and paper_id not in papers:
+            papers.append(paper_id)
+    return papers,requested_jobs,years
 
 def _is_important_hierarchy(job_year_ids):
-    years=normalize_ids(job_year_ids)
-    if len(set(years)) < 2:
-        return False
-    parent_jobs=set(JobYear.objects.filter(pk__in=years).values_list('job_id',flat=True))
-    return len(parent_jobs) >= 2
+    # With no Job layer, an MCQ linked to two distinct Past Papers is important.
+    return len(set(normalize_ids(job_year_ids))) >= 2
 
 def _merge_bulk_mcq_hierarchy(user,existing,draft):
     # Accept both frontend/API naming and model naming so no hierarchy link is lost.
@@ -1466,7 +1448,7 @@ def save_entity(user,payload,active_country=None):
             parent_category_id=Subcategory.objects.filter(pk=pid).values_list('category_id',flat=True).first()
             require(parent_category_id and _category_allowed(parent_category_id,country),'Choose a subcategory assigned to the selected country or Both.')
         if country and typ=='jobs': require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose a paper from the selected country.')
-        if country and typ=='years': require(Job.objects.filter(pk=pid,paper__country__iexact=country).exists(),'Choose a job from the selected country.')
+        if country and typ=='years': require(Paper.objects.filter(pk=pid,country__iexact=country).exists(),'Choose an organization / board from the selected country.')
         setattr(obj,fk,pid)
     obj.save()
     if typ=='categories':
@@ -1788,16 +1770,19 @@ def save_site_form(user,form,payload,active_country=None):
         current_country=_workspace_country(user,active_country) or str(s.country or 'Pakistan')
         for raw in str(v.get('hierarchy') or '').splitlines():
             parts=[x.strip() for x in re.split(r'\s*(?:\||>)\s*',raw.strip()) if x.strip()]
-            if len(parts)!=3: continue
-            pn,pi=_parse_bulk_label(parts[0],'paper'); jn,ji=_parse_bulk_label(parts[1],'grid'); yn,yi=_parse_bulk_label(parts[2],'grid')
+            if len(parts)==2:
+                pn,yn=parts
+            elif len(parts)==3:
+                # Compatibility with old "Organization | Job | Year" files; discard the Job level.
+                pn,_,yn=parts
+            else:
+                continue
+            pn,pi=_parse_bulk_label(pn,'paper'); yn,yi=_parse_bulk_label(yn,'grid')
             p=Paper.objects.filter(name__iexact=pn,country__iexact=current_country).first()
             if not p: p=Paper.objects.create(id=next_id(Paper),name=pn,country=current_country,icon=pi,created_by=user,updated_by=user)
             elif pi!='paper' and p.icon!=pi: p.icon=pi; p.updated_by=user; p.save(update_fields=['icon','updated_by','updated_at'])
-            j=Job.objects.filter(paper=p,name__iexact=jn).first()
-            if not j: j=Job.objects.create(id=next_id(Job),paper=p,name=jn,icon=ji,created_by=user,updated_by=user)
-            elif ji!='grid' and j.icon!=ji: j.icon=ji; j.updated_by=user; j.save(update_fields=['icon','updated_by','updated_at'])
-            y=JobYear.objects.filter(job=j,name__iexact=yn).first()
-            if not y: JobYear.objects.create(id=next_id(JobYear),name=yn,job=j,icon=yi,created_by=user,updated_by=user)
+            y=JobYear.objects.filter(paper=p,name__iexact=yn).first()
+            if not y: JobYear.objects.create(id=next_id(JobYear),name=yn,paper=p,icon=yi,created_by=user,updated_by=user)
             elif yi!='grid' and y.icon!=yi: y.icon=yi; y.updated_by=user; y.save(update_fields=['icon','updated_by','updated_at'])
             count+=1
         log(user,'Bulk hierarchy import',f'{count} line(s) processed'); return {'processed':count}
