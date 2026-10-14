@@ -2,7 +2,7 @@
    Authentication and persistent writes are handled by the server adapter. */
 window.MCQ = (() => {
  const clone=x=>JSON.parse(JSON.stringify(x));
- const emptyData=()=>({schemaVersion:11,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[],seoIndex:{next:1,items:{}},pageSeo:{}});
+ const emptyData=()=>({schemaVersion:14,categories:[],subcategories:[],children:[],papers:[],jobs:[],years:[],mcqs:[],seoIndex:{next:1,items:{}},pageSeo:{}});
  const legalDefaults=()=>({
   about:{title:'About MCQ Campus',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
   contact:{title:'Contact Us',content:'',lastUpdated:'',published:true,seoTitle:'',metaDescription:''},
@@ -21,7 +21,7 @@ window.MCQ = (() => {
  const isDevelopment=()=>{try{return typeof location!=='undefined'&&(location.protocol==='file:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')}catch{return false}};
  const slug=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,96)||'item';
  function hasPermission(name){const accountRole=db.session?.role,elevated=role()==='super-admin'||(db.session?.permissions||[]).includes('super_admin_permission');return !!db.session&&(elevated||(accountRole==='admin'&&['add_mcq','edit_own_mcq'].includes(name)))}
- function contentQuality(q){const checks=[['Question',q.question],['Four options',[1,2,3,4].every(i=>String(q['option'+i]||'').trim())],['Correct answer',q.correct_answer],['Explanation',q.description],['Category',q.category_id],['Paper',ids(q.paper_id).length],['Job',ids(q.job_ids).length],['Job Year',ids(q.job_years_ids).length]];return {score:checks.filter(([,v])=>!!v).length,total:checks.length,checks:checks.map(([label,v])=>({label,ok:!!v}))}}
+ function contentQuality(q){const checks=[['Question',q.question],['Four options',[1,2,3,4].every(i=>String(q['option'+i]||'').trim())],['Correct answer',q.correct_answer],['Explanation',q.description],['Category',q.category_id],['Organization / Board',ids(q.paper_id).length],['Past Paper',ids(q.job_years_ids).length]];return {score:checks.filter(([,v])=>!!v).length,total:checks.length,checks:checks.map(([label,v])=>({label,ok:!!v}))}}
 
  const ids=v=>{if(v==null||v==='')return [];let values=v;if(!Array.isArray(values)){try{values=JSON.parse(values)}catch{}values=Array.isArray(values)?values:[values]}return [...new Set(values.filter(x=>typeof x==='number'||typeof x==='string'&&x.trim()!=='').map(Number).filter(x=>Number.isSafeInteger(x)&&x>0))]};
  let topCache=null;
@@ -66,7 +66,7 @@ window.MCQ = (() => {
  function publicMcqs(){return db.mcqs.filter(x=>x.status==='approved')}
  // The supplied data has an editorial important flag, not global view/attempt metrics.
  // Cache the shortlist, and invalidate it on repository writes. Never rank by this browser's attempts.
- function isImportant(q){if(!q)return false;const jobs=new Set(ids(q.job_ids));return jobs.size>=2}
+ function isImportant(q){if(!q)return false;const jobs=new Set(ids(q.job_ids)),years=new Set(ids(q.job_years_ids));return q.important===true||jobs.size>=2||years.size>=2}
  function topMcqs(){
   if(!topCache||Date.now()-topCache.at>=300000){
    const rows=publicMcqs().filter(q=>isImportant(q))
@@ -84,7 +84,7 @@ window.MCQ = (() => {
   return Object.fromEntries(Object.entries(sets).map(([type,ids])=>[type,ids.size]));
  }
 
- function validate(q){const errors=[];if(!String(q.question||'').trim())errors.push('Question is required.');if(!String(q.description||'').trim())errors.push('Explanation / description is required.');const opts=[1,2,3,4].map(i=>String(q['option'+i]??'').trim());if(opts.some(v=>!v))errors.push('Four non-empty options are required.');if(new Set(opts.map(norm)).size!==4)errors.push('Options must be distinct.');if(!opts.includes(String(q.correct_answer??'')))errors.push('Correct answer must exactly match an option.');if(!get('categories',q.category_id))errors.push('Choose a valid category.');if(!ids(q.paper_id).length)errors.push('Paper is required.');if(!ids(q.job_ids).length)errors.push('Job is required.');if(!ids(q.job_years_ids).length)errors.push('Job Year is required.');for(const i of ids(q.paper_id))if(!get('papers',i))errors.push('Unknown paper.');for(const i of ids(q.job_ids)){const job=get('jobs',i);if(!job)errors.push('Unknown job.');else if(ids(q.paper_id).length&&!ids(q.paper_id).includes(job.paper_id))errors.push('Job does not belong to a selected paper.');}for(const i of ids(q.job_years_ids)){const year=get('years',i);if(!year)errors.push('Unknown job year.');else if(ids(q.job_ids).length&&!ids(q.job_ids).includes(year.job_id))errors.push('Job year does not belong to a selected job.');}return [...new Set(errors)]}
+ function validate(q){const errors=[];if(!String(q.question||'').trim())errors.push('Question is required.');if(!String(q.description||'').trim())errors.push('Explanation / description is required.');const opts=[1,2,3,4].map(i=>String(q['option'+i]??'').trim());if(opts.some(v=>!v))errors.push('Four non-empty options are required.');if(new Set(opts.map(norm)).size!==4)errors.push('Options must be distinct.');if(!opts.includes(String(q.correct_answer??'')))errors.push('Correct answer must exactly match an option.');if(!get('categories',q.category_id))errors.push('Choose a valid category.');if(!ids(q.paper_id).length)errors.push('Organization / Board is required.');if(!ids(q.job_years_ids).length)errors.push('Past Paper is required.');for(const i of ids(q.paper_id))if(!get('papers',i))errors.push('Unknown paper.');for(const i of ids(q.job_years_ids)){const year=get('years',i);if(!year)errors.push('Unknown past paper.');else{const paperId=Number(year.paper_id)||Number(get('jobs',year.job_id)?.paper_id)||0;if(paperId&&ids(q.paper_id).length&&!ids(q.paper_id).includes(paperId))errors.push('Past Paper does not belong to a selected organization / board.');}}return [...new Set(errors)]}
  const editableFields=['question','option1','option2','option3','option4','correct_answer','description','category_id','subcategory_ids','child_subcategory_ids','paper_id','job_ids','job_years_ids','country','source','seo_description','current_affairs','current_affairs_date'];
  const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
  function changes(before,after){return editableFields.filter(k=>!same(before[k],after[k])).map(k=>({field:k,before:clone(before[k]),after:clone(after[k])}))}
@@ -107,7 +107,7 @@ window.MCQ = (() => {
    q.status=status;q.reviewed_by=actor.name;q.reviewed_by_id=actor.id||null;q.approved_by=status==='approved'?actor.name:'';q.rejection_reason=status==='approved'?'':reason;q.updated_at=now;q.audit_history=[{type:q.submission_type||'new',changed_by:q.submitted_by||q.created_by,changed_by_id:q.submitted_by_id||q.created_by_id,changed_at:q.submitted_at||q.created_at,reviewed_by:actor.name,reviewed_by_id:actor.id,reviewed_at:now,approval_status:status,reason},...(q.audit_history||[])];log('MCQ '+status,q.question)
   }persist()
  }
- const parents={subcategories:['categories','category_id'],children:['subcategories','subcategory_id'],jobs:['papers','paper_id'],years:['jobs','job_id']};
+ const parents={subcategories:['categories','category_id'],children:['subcategories','subcategory_id'],jobs:['papers','paper_id'],years:['papers','paper_id']};
  const pinTypes=new Set(['categories','papers','jobs','years']);
  const pinIndex=(type,id)=>{const rows=db.pinnedEntities?.[type]||[],i=rows.map(Number).indexOf(Number(id));return i<0?999:i};
  const sortPinned=(type,rows)=>[...rows].sort((a,b)=>{if(!pinTypes.has(type))return String(a.name||'').localeCompare(String(b.name||''));const ai=pinIndex(type,a.id),bi=pinIndex(type,b.id);return ai-bi||String(a.name||'').localeCompare(String(b.name||''))});
@@ -117,7 +117,7 @@ window.MCQ = (() => {
  function deleteImpact(type,id){assert(type);id=+id;const root=get(type,id);if(!root)throw Error('Record not found.');const sets={categories:new Set(),subcategories:new Set(),children:new Set(),papers:new Set(),jobs:new Set(),years:new Set()};sets[type].add(id);
   if(type==='categories'){db.subcategories.filter(x=>x.category_id===id).forEach(x=>sets.subcategories.add(x.id));db.children.filter(x=>sets.subcategories.has(x.subcategory_id)).forEach(x=>sets.children.add(x.id));}
   if(type==='subcategories')db.children.filter(x=>x.subcategory_id===id).forEach(x=>sets.children.add(x.id));
-  if(type==='papers'){db.jobs.filter(x=>x.paper_id===id).forEach(x=>sets.jobs.add(x.id));db.years.filter(x=>sets.jobs.has(x.job_id)).forEach(x=>sets.years.add(x.id));}
+  if(type==='papers'){db.jobs.filter(x=>x.paper_id===id).forEach(x=>sets.jobs.add(x.id));db.years.filter(x=>Number(x.paper_id)===id||sets.jobs.has(x.job_id)).forEach(x=>sets.years.add(x.id));}
   if(type==='jobs')db.years.filter(x=>x.job_id===id).forEach(x=>sets.years.add(x.id));
   const affected=db.mcqs.filter(q=>sets.categories.has(+q.category_id)||ids(q.subcategory_ids).some(x=>sets.subcategories.has(x))||ids(q.child_subcategory_ids).some(x=>sets.children.has(x))||ids(q.paper_id).some(x=>sets.papers.has(x))||ids(q.job_ids).some(x=>sets.jobs.has(x))||ids(q.job_years_ids).some(x=>sets.years.has(x)));
   return {root,sets,mcqs:affected};
