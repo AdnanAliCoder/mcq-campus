@@ -56,6 +56,12 @@ class Command(BaseCommand):
         with connection.cursor() as cursor:
             return {col.name for col in connection.introspection.get_table_description(cursor, table_name)}
 
+    def _column_nullable(self, table_name, column_name):
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, table_name)
+        column = next((item for item in description if item.name == column_name), None)
+        return bool(column and getattr(column, 'null_ok', False))
+
     def _default_backup_path(self):
         base_dir = Path(getattr(settings, 'BASE_DIR', Path.cwd()))
         stamp = timezone.now().strftime('%Y%m%d-%H%M%S')
@@ -127,8 +133,10 @@ class Command(BaseCommand):
                 pass
             raise CommandError(f'Could not create a verified database backup at {target}: {exc}') from exc
         except CommandError:
+            # The path was confirmed absent before this run, so any partial file belongs
+            # to this failed backup attempt and must not be mistaken for a valid backup.
             try:
-                if target.exists() and target.stat().st_size == 0:
+                if target.exists():
                     target.unlink()
             except OSError:
                 pass
@@ -146,12 +154,11 @@ class Command(BaseCommand):
                 editor.add_field(JobYear, paper_field)
                 self.stdout.write(self.style.SUCCESS('Added nullable JobYear.paper_id column.'))
                 columns = self._columns(table)
-            if job_field.column in columns:
+            if job_field.column in columns and job_field.null and not self._column_nullable(table, job_field.column):
                 old_job_field = job_field.clone()
                 old_job_field.null = False
-                if job_field.null:
-                    editor.alter_field(JobYear, old_job_field, job_field, strict=False)
-                    self.stdout.write(self.style.SUCCESS('Made legacy JobYear.job_id column nullable.'))
+                editor.alter_field(JobYear, old_job_field, job_field, strict=False)
+                self.stdout.write(self.style.SUCCESS('Made legacy JobYear.job_id column nullable.'))
 
     def handle(self, *args, **options):
         apply_changes = bool(options['apply'])
