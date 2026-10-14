@@ -51,6 +51,12 @@ jobs:
           core.test_move_past_paper_mcqs
           core.test_past_paper_hierarchy_migration
           --verbosity 2
+      - name: Test frontend navigation, SEO, interactions and integration
+        run: |
+          node tools/verify-navigation.cjs
+          node tools/verify-past-papers.cjs
+          node tools/verify-interactions.cjs
+          node tools/verify-integration.cjs
       - name: Test cache utilities
         env:
           DEBUG: "false"
