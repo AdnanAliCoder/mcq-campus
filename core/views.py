@@ -1468,22 +1468,19 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
     elif path=='/sitemap':
         title='HTML Sitemap'
-        description='Browse public MCQCampus pages including categories, past papers, jobs, exam years, MCQs and study resources.'
+        description='Browse public MCQCampus pages including organizations, past papers, categories, MCQs and study resources.'
         heading='MCQCampus Sitemap'
         intro='Use this HTML sitemap to discover public study pages without relying on JavaScript navigation.'
         category_links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         paper_links=[(f'{_seo_short_name(p.name)} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
-        job_rows=[j for j in catalog['jobs'] if j.id in catalog['available']]
-        job_links=[(f'{_seo_short_name(j.paper.name)} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in job_rows]
-        bare_job_links=[(catalog['entries'][href]['jobs'][0].name+' Past Papers',href) for href in catalog['group_paths'].values()]
         year_links=[]
         for y in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').only('name','paper__name','job__paper__name','job_id').order_by('-name'):
             parent=y.paper or (y.job.paper if y.job_id and y.job else None)
             if parent: year_links.append((f'{parent.name} — {y.name}',f'/paper/{_seo_slug(parent.name)}/year/{_seo_slug(y.name)}'))
         resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
         mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
-        links=category_links+paper_links+job_links+bare_job_links+year_links+resource_links+mcq_links
+        links=category_links+paper_links+year_links+resource_links+mcq_links
     elif _seo_job_past_papers_landing(path,catalog):
         matched_jobs=_seo_job_past_papers_landing(path,catalog)
         job_name=matched_jobs[0].name
