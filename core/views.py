@@ -1908,8 +1908,9 @@ def llms_txt(request):
 
 
 @require_POST
+@login_required_json
 def admin_move_past_paper_mcqs(request):
-    """Move selected MCQs from one past-paper (JobYear) record to another."""
+    """Move selected MCQs between direct Organization/Board -> Past Paper records."""
     if not is_super(request.user):
         return err('Only a Super Admin can move MCQs between past papers.', 403)
     data=payload(request)
@@ -1928,43 +1929,57 @@ def admin_move_past_paper_mcqs(request):
         return err('Choose a valid source, destination and MCQ selection.', 422)
     if source_id==destination_id:
         return err('Source and destination past papers must be different.', 422)
-    source=JobYear.objects.select_related('job__paper').filter(pk=source_id,active=True,job__active=True,job__paper__active=True).first()
-    destination=JobYear.objects.select_related('job__paper').filter(pk=destination_id,active=True,job__active=True,job__paper__active=True).first()
+    years=JobYear.objects.select_related('paper','job__paper')
+    source=years.filter(pk=source_id,active=True).first()
+    destination=years.filter(pk=destination_id,active=True).first()
     if not source or not destination:
         return err('The source or destination past paper is no longer available.', 404)
-    if source.job.paper.country.casefold()!=destination.job.paper.country.casefold():
+    source_paper=source.paper or (source.job.paper if source.job_id and source.job else None)
+    destination_paper=destination.paper or (destination.job.paper if destination.job_id and destination.job else None)
+    if not source_paper or not destination_paper or not source_paper.active or not destination_paper.active:
+        return err('The source or destination Organization / Board is inactive or missing.', 422)
+    if str(source_paper.country or '').casefold()!=str(destination_paper.country or '').casefold():
         return err('Move MCQs only between past papers in the same country.', 422)
     with transaction.atomic():
-        rows=list(MCQ.objects.select_for_update().filter(pk__in=mcq_ids))
+        rows=list(MCQ.objects.select_for_update().filter(pk__in=mcq_ids).order_by('id'))
         if len(rows)!=len(mcq_ids):
             return err('Some selected MCQs no longer exist. Refresh and try again.', 404)
         if any(source_id not in (row.job_year_ids or []) for row in rows):
             return err('Every selected MCQ must belong to the source past paper. Refresh and select again.', 422)
         now=timezone.now().isoformat()
         for row in rows:
-            year_ids=[int(value) for value in (row.job_year_ids or []) if str(value).isdigit() and int(value)!=source_id]
-            if destination_id not in year_ids:
-                year_ids.append(destination_id)
-            row.job_year_ids=year_ids
-            job_ids=[int(value) for value in (row.job_ids or []) if str(value).isdigit()]
-            if source.job_id!=destination.job_id and source.job_id in job_ids:
-                job_ids=[value for value in job_ids if value!=source.job_id]
-            if destination.job_id not in job_ids:
-                job_ids.append(destination.job_id)
-            row.job_ids=job_ids
+            remaining_year_ids=[int(value) for value in (row.job_year_ids or [])
+                                if str(value).isdigit() and int(value)!=source_id]
+            if destination_id not in remaining_year_ids:
+                remaining_year_ids.append(destination_id)
+            row.job_year_ids=remaining_year_ids
+
+            # Keep historical job_ids untouched; only the live paper links change.
+            linked_years=list(JobYear.objects.filter(pk__in=remaining_year_ids).select_related('paper','job__paper'))
+            linked_paper_ids=set()
+            for linked_year in linked_years:
+                linked_paper=linked_year.paper or (linked_year.job.paper if linked_year.job_id and linked_year.job else None)
+                if linked_paper:
+                    linked_paper_ids.add(int(linked_paper.id))
             paper_ids=[int(value) for value in (row.paper_ids or []) if str(value).isdigit()]
-            if source.job.paper_id!=destination.job.paper_id and source.job.paper_id in paper_ids:
-                paper_ids=[value for value in paper_ids if value!=source.job.paper_id]
-            if destination.job.paper_id not in paper_ids:
-                paper_ids.append(destination.job.paper_id)
+            # Remove the source organization only when no remaining linked past paper uses it.
+            if int(source_paper.id) not in linked_paper_ids:
+                paper_ids=[value for value in paper_ids if value!=int(source_paper.id)]
+            if int(destination_paper.id) not in paper_ids:
+                paper_ids.append(int(destination_paper.id))
             row.paper_ids=paper_ids
             history=list(row.audit_history or [])
-            history.append({'action':'move_past_paper','source_year_id':source.id,'destination_year_id':destination.id,'by_user_id':request.user.id,'at':now})
+            history.append({
+                'action':'move_past_paper','source_year_id':source.id,'destination_year_id':destination.id,
+                'source_paper_id':source_paper.id,'destination_paper_id':destination_paper.id,
+                'by_user_id':request.user.id,'at':now,
+            })
             row.audit_history=history[-100:]
             row.updated_by=request.user
-            row.save(update_fields=['job_year_ids','job_ids','paper_ids','audit_history','updated_by','updated_at'])
+            row.save(update_fields=['job_year_ids','paper_ids','audit_history','updated_by','updated_at'])
     try:
         invalidate_mcqcampus_cache()
     except Exception:
         logger.exception('Cache invalidation failed after moving past-paper MCQs')
-    return JsonResponse({'completed':True,'moved':len(rows),'source_year_id':source.id,'destination_year_id':destination.id,'message':f'Moved {len(rows)} MCQ(s) to {destination.name}.'})
+    return JsonResponse({'completed':True,'moved':len(rows),'source_year_id':source.id,'destination_year_id':destination.id,
+                         'message':f'Moved {len(rows)} MCQ(s) to {destination.name}.'})
