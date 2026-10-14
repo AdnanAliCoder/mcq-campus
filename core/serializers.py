@@ -40,9 +40,11 @@ def job(x):
     if getattr(x,'paper',None): row['icon']=x.paper.icon
     return row
 def year(x):
-    row={**entity_base(x),'job_id':x.job_id}
-    job_obj=getattr(x,'job',None)
-    paper_obj=getattr(job_obj,'paper',None) if job_obj else None
+    paper_obj=getattr(x,'paper',None)
+    if paper_obj is None:
+        job_obj=getattr(x,'job',None)
+        paper_obj=getattr(job_obj,'paper',None) if job_obj else None
+    row={**entity_base(x),'paper_id':x.paper_id,'job_id':x.job_id}
     if paper_obj: row['icon']=paper_obj.icon
     return row
 def _important_mcq(x):
