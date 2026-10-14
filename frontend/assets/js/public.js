@@ -158,7 +158,7 @@ window.Public=(()=>{
    (MCQ.db.latestJobs||[]).filter(x=>x.published!==false).forEach(x=>{const org=MCQ.get('papers',x.paper_id);add('latestjob','Latest Job',window.SEO?SEO.cleanPath('latest-job',x.id):'latest-jobs',x.title||'Job opportunity',(org?.name||'')+' · Last date '+(x.last_date||''),(x.title||'')+' '+(org?.name||'')+' '+(x.last_date||''),x)});
   }
   const types=[...new Set(results.map(x=>x.type))],filtered=wanted==='all'?results:results.filter(x=>x.type===wanted),pageSize=12,page=App.page(filtered.length,pageSize);
-  const labels={mcq:'MCQs',category:'Categories',paper:'Past Papers',year:'Past Papers',job:'Jobs & Exams',pdf:'PDFs',post:'Blog',latestjob:'Latest Jobs'};
+  const labels={mcq:'MCQs',category:'Categories',paper:'Organizations / Boards',year:'Past Papers',job:'Organizations / Boards',pdf:'PDFs',post:'Blog',latestjob:'Latest Jobs'};
   const typeBar=q&&types.length?PublicLayout.selectionBar([{label:'All',path:'search',params:{q},active:wanted==='all'},...types.map(t=>({label:labels[t]||t,path:'search',params:{q,type:t},active:wanted===t}))],'Search result types','search-type-selection'):'';
   const pre=typeBar;
   const cards=filtered.slice((page-1)*pageSize,page*pageSize).map((x,i)=>{
@@ -172,7 +172,7 @@ window.Public=(()=>{
    if(x.type==='latestjob'&&x.record)return latestJobCard(x.record);
    return link(x.path,`<span class="badge">${e(x.label)}</span><h2>${e(x.title)}</h2><p>${e(x.summary||'')}</p><div class="card-foot"><span>Open ${e(x.label.toLowerCase())}</span>${icon('arrow')}</div>`,'card search-result-card clickable');
   }).join('');
-  const main=!q?empty('Search MCQ Campus','Use the search bar in the header to find MCQs, past papers, categories, jobs & exams, PDFs, latest jobs and blog posts.'):filtered.length?`<p class="small muted result-count">${filtered.length} matching result${filtered.length===1?'':'s'}</p><div class="search-results-list">${cards}</div>${UI.pager(filtered.length,page,pageSize,p,'search')}`:empty('No matching results','Try a shorter or different search phrase.',link('search','Clear search','btn primary'));
+  const main=!q?empty('Search MCQ Campus','Use the search bar in the header to find MCQs, organizations, past papers, categories, PDFs, latest jobs and blog posts.'):filtered.length?`<p class="small muted result-count">${filtered.length} matching result${filtered.length===1?'':'s'}</p><div class="search-results-list">${cards}</div>${UI.pager(filtered.length,page,pageSize,p,'search')}`:empty('No matching results','Try a shorter or different search phrase.',link('search','Clear search','btn primary'));
   return PublicLayout.page({trail:[['Search']],title:q?'Search results for “'+q+'”':'Search MCQ Campus',desc:'Search public preparation content directly. Result types keep the same design used on their main public pages.',pre,main,sidebar:PublicLayout.smart('search'),sidebarLabel:'Related / Browse'});
  }
  function listing(type,id){
