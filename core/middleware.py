@@ -107,7 +107,7 @@ class LoginWallMiddleware:
     PUBLIC_SEO_PATTERNS=(
         re.compile(r'^/past-papers/[^/]+/[^/]+$'),
         re.compile(r'^/[^/]+-past-papers$'),
-        re.compile(r'^/sitemap-[a-z-]+\\.xml$'),
+        re.compile(r'^/sitemap-[a-z-]+[.]xml$'),
     )
 
     def __init__(self,get_response):
