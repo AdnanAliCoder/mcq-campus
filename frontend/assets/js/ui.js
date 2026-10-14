@@ -68,19 +68,19 @@ window.UI=(()=>{
   return link(path,`<div class="entity-card-media"><span class="entity-card-image">${entityIcon(x,fallback)}</span></div><div class="entity-card-body"><span class="entity-card-badge">${esc(badgeText)}</span><h3>${titleHtml||esc(title||x?.name||'')}</h3><p>${esc(subtitle)}</p><div class="entity-card-meta"><span>${icon('briefcase')} ${esc(meta)}</span></div></div><span class="entity-card-arrow" aria-hidden="true">${icon('arrow')}</span>`,'card clickable entity-showcase-card')
  }
  function card(type,x,index=0){
-  const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','jobs','paper_id','jobs'],jobs:['job','years','job_id','papers'],years:['year',null,null,'MCQs']}[type];
+  const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','years','paper_id','past papers'],jobs:['job','years','job_id','past papers'],years:['year',null,null,'MCQs']}[type];
   let count=!['papers','jobs'].includes(type)&&Number.isFinite(Number(x?.mcq_count))?Number(x.mcq_count):null;
   if(count===null){if(type==='categories')count=MCQ.publicMcqs().filter(q=>+q.category_id===+x.id).length;else count=conf[1]?MCQ.db[conf[1]].filter(y=>y[conf[2]]===x.id).length:MCQ.publicMcqs().filter(q=>MCQ.ids(q[type==='children'?'child_subcategory_ids':'job_years_ids']).includes(x.id)).length}
   const title=x.name;
   if(['categories','papers','jobs','years'].includes(type)){
-   const parentJob=type==='years'?MCQ.get('jobs',x.job_id):null,parentPaper=type==='jobs'?MCQ.get('papers',x.paper_id):type==='years'&&parentJob?MCQ.get('papers',parentJob.paper_id):null;
+   const parentJob=type==='years'&&x.job_id?MCQ.get('jobs',x.job_id):null,parentPaper=type==='jobs'?MCQ.get('papers',x.paper_id):type==='years'?(MCQ.get('papers',x.paper_id)||(parentJob?MCQ.get('papers',parentJob.paper_id):null)):null;
    const data={
     categories:{badgeText:'Category',subtitle:'Practice approved MCQs in this category.',meta:`${count} MCQs`,fallback:catIcons[index%catIcons.length]},
-    papers:{badgeText:x.country||MCQ.db.settings.country||'Pakistan',subtitle:'Past papers, jobs and exam preparation.',meta:`${count} jobs`,fallback:'paper'},
-    jobs:{badgeText:parentPaper?.name||'Recruitment',subtitle:'Job-wise preparation and available past-paper years.',meta:`${count} paper${count===1?'':'s'}`,fallback:'briefcase'},
-    years:{badgeText:parentJob?.name||'Job Year',subtitle:'Open this year to practise linked past-paper MCQs.',meta:`${count} MCQs`,fallback:'paper'}
+    papers:{badgeText:x.country||MCQ.db.settings.country||'Pakistan',subtitle:'Past papers for this Organization / Board.',meta:`${count} past paper${count===1?'':'s'}`,fallback:'paper'},
+    jobs:{badgeText:parentPaper?.name||'Recruitment',subtitle:'Legacy hierarchy record.',meta:`${count} past paper${count===1?'':'s'}`,fallback:'briefcase'},
+    years:{badgeText:parentPaper?.name||'Past Paper',subtitle:'Open this past paper to practise linked MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
-   const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentJob&&parentPaper&&window.SEO?SEO.cleanPath('year',x.id):conf[0]+'/'+x.id;
+   const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentPaper&&window.SEO?SEO.cleanPath('year',x.id):type==='years'&&parentPaper?'paper/'+parentPaper.id+'/year/'+x.id:conf[0]+'/'+x.id;
    return showcaseCard(entityPath,x,{...data,title});
   }
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
