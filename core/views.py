@@ -1664,21 +1664,28 @@ def _seo_breadcrumbs(path,catalog=None):
     if path.startswith('/paper/'):
         parts=[p for p in path.split('/') if p]
         paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1] if len(parts)>1 else '')
-        out=crumbs+[('Past Papers','/papers')]
-        if paper:
-            catalog=catalog if catalog is not None else _seo_past_papers_catalog()
-            short=_seo_short_name(paper.name)
-            out.append((f'{short} Past Papers',catalog['paper_paths'].get(paper.id,f'/paper/{_seo_slug(paper.name)}')))
-            if 'job' in parts:
-                ji=parts.index('job'); wanted=parts[ji+1] if len(parts)>ji+1 else ''
-                job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),wanted)
-                if job:
-                    out.append((f'{short} {job.name} Past Papers',catalog['job_paths'].get(job.id,f'/paper/{_seo_slug(paper.name)}/job/{_seo_slug(job.name)}')))
-                    if 'year' in parts:
-                        yi=parts.index('year'); yw=parts[yi+1] if len(parts)>yi+1 else ''
-                        year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('name'),yw)
-                        if year: out.append((f'{short} {job.name} {_seo_year_search_label(job.name,year.name)}',path))
+        out=crumbs+[('Organizations / Boards','/papers')]
+        if not paper:
             return out
+        catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+        paper_path=catalog['paper_paths'].get(paper.id,f'/paper/{_seo_slug(paper.name)}')
+        out.append((paper.name,paper_path))
+        year_token=None
+        if len(parts)==4 and parts[2]=='year':
+            year_token=parts[3]
+        elif len(parts)==4 and parts[2]=='job':
+            # Legacy job pages now lead back to the organization/board.
+            return out
+        elif len(parts)==6 and parts[2]=='job' and parts[4]=='year':
+            year_token=parts[5]
+        if year_token:
+            years=JobYear.objects.filter(active=True).filter(
+                Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+            ).select_related('paper','job__paper')
+            year=_seo_row_for_token(years,year_token)
+            if year:
+                out.append((year.name,path))
+        return out
     if path.startswith('/pdf/'):
         item=_seo_catalog_item('pdf',path.split('/pdf/',1)[1].strip('/'))
         return crumbs+[('PDFs','/pdfs')]+([(str(item.get('title') or 'PDF'),path)] if item else [])
