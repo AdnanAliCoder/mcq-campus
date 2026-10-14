@@ -117,7 +117,6 @@ window.Auth=(()=>{
  async function ensureRouteData(path,context={}){
   if(!path)return false;
   const clean=String(path).split('?')[0].replace(/^\/+|\/+$/g,'')||'home';
-  if(!user&&clean==='home')return false;
   const parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
   const initial=serverRoute?.path===location.pathname.replace(/\/$/,'')?serverRoute:null;
   const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||initial?.base||workspace,resolvedId=context?.id??initial?.id??recordId,routeKey=location.pathname+location.search;
