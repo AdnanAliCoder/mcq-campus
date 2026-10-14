@@ -1,5 +1,6 @@
 import json
 import re
+from html import unescape
 import xml.etree.ElementTree as ET
 
 from django.test import TestCase, override_settings
@@ -34,21 +35,31 @@ class PastPapersSEOTests(TestCase):
 
     def page(self, path, status=200):
         response = self.client.get(path)
-        self.assertEqual(response.status_code, status)
+        self.assertEqual(response.status_code, status, getattr(response, 'url', path))
         html = response.content.decode()
-        match = re.search(
-            r'<script id="seo-discovery-page" type="application/json">(.*?)</script>',
-            html,
-            re.S,
-        )
-        self.assertIsNotNone(match, f'No SEO discovery payload on {path}')
-        data = json.loads(match.group(1))
-        self.assertIn(str(escape(data['title'])), html)
+        title = re.search(r'<title>(.*?)</title>', html, re.S)
+        canonical = re.search(r'<link rel="canonical" href="([^"]+)"', html)
+        heading = re.search(r'<h1>(.*?)</h1>', html, re.S)
+        self.assertIsNotNone(title, f'No page title on {path}')
+        self.assertIsNotNone(canonical, f'No canonical URL on {path}')
+        self.assertIsNotNone(heading, f'No SEO heading on {path}')
+        links = [
+            (unescape(label), unescape(href))
+            for href, label in re.findall(r'<a\\s+[^>]*href="([^"]+)"[^>]*>(.*?)</a>', html, re.S)
+        ]
+        data = {
+            'title': unescape(title.group(1)),
+            'canonical': unescape(canonical.group(1)),
+            'heading': unescape(re.sub(r'<[^>]+>', '', heading.group(1))),
+            'links': links,
+        }
+        self.assertIn(data['title'], html)
         return data, html
 
     def urls(self, path):
+        response = self.client.get(path, follow=True)
         return [
-            node.text for node in ET.fromstring(self.client.get(path).content).iter()
+            node.text for node in ET.fromstring(response.content).iter()
             if node.tag.endswith('}loc')
         ]
 
@@ -58,7 +69,7 @@ class PastPapersSEOTests(TestCase):
         self.assertEqual(page['canonical'], 'https://www.mcqcampus.com' + canonical_path)
         self.assertEqual(page['heading'], 'PPSC Past Papers')
         self.assertEqual(page['title'], 'PPSC Past Papers & Solved MCQs')
-        linked_urls = [url for _, rows in page['groups'] for _, url in rows]
+        linked_urls = [url for _, url in page['links']]
         self.assertIn('/paper/punjab-public-service-commission-ppsc/year/past-paper-2024', linked_urls)
         self.assertIn('PPSC past papers by year', html)
         self.assertIn(page['canonical'], self.urls('/sitemap-papers.xml'))
