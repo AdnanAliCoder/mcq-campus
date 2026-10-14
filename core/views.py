@@ -934,32 +934,32 @@ def _seo_supporting_sections(path,heading,description):
     subject=str(heading or 'MCQCampus').strip()
     if path=='/':
         return [
-            ('Practice by topic, paper and exam','MCQCampus is an independent exam-preparation platform at mcqcampus.com. It organizes preparation around subject categories, past papers, jobs and exam years so learners can move from broad revision to focused practice. Use the main sections to find approved multiple-choice questions, review answers and explanations, and continue into the paper or job that matches the exam you are preparing for.'),
+            ('Practice by topic, paper and exam','MCQCampus is an independent exam-preparation platform at mcqcampus.com. It organizes preparation around subject categories, organizations, past papers and exam years so learners can move from broad revision to focused practice. Use the main sections to find approved multiple-choice questions, review answers and explanations, and continue into the organization and past paper that matches the exam you are preparing for.'),
             ('Use answers and explanations for revision','Attempt each question before checking the answer, then use the explanation to understand why the option is correct. Revisit weak areas through category pages, compare questions that appear across different papers or job years, and use important MCQs for faster revision when you are short on time.'),
-            ('Explore connected preparation resources','Past-paper pages connect organizations, jobs and exam years with the MCQs linked to those records. You can also browse current opportunities, preparation PDFs and exam-focused articles. These internal links make it easier to continue from one topic to the next without losing the context of your preparation.'),
+            ('Explore connected preparation resources','Past-paper pages connect organizations and boards directly with the MCQs linked to those past-paper records. You can also browse current opportunities, preparation PDFs and exam-focused articles. These internal links make it easier to continue from one topic to the next without losing the context of your preparation.'),
         ]
     if path.startswith('/mcq/'):
         return [
-            ('Review this question in context',f'This page is part of {subject} on MCQCampus. Read the question carefully, choose an answer before checking the explanation, and use the related category, paper, job or exam-year links to understand where the question belongs in your wider preparation.'),
-            ('Build stronger recall','A useful revision method is to answer from memory first, then compare your choice with the correct answer and explanation. If the question is linked to more than one paper or job year, review those related pages as well because repeated concepts can be useful signals when planning revision.'),
+            ('Review this question in context',f'This page is part of {subject} on MCQCampus. Read the question carefully, choose an answer before checking the explanation, and use the related category, organization or past-paper links to understand where the question belongs in your wider preparation.'),
+            ('Build stronger recall','A useful revision method is to answer from memory first, then compare your choice with the correct answer and explanation. If the question is linked to more than one past paper, review those related pages as well because repeated concepts can be useful signals when planning revision.'),
             ('Continue with related MCQs','Use the related links below to practise more questions from the same subject or exam path. Moving between a question, its category and its past-paper hierarchy creates a clearer study trail than practising isolated questions without context.'),
         ]
     if '/year/' in path:
         return [
             ('Practice this past paper by year',f'{subject} groups the MCQs connected with this specific exam-year record. Work through the available questions as a focused past-paper session, then review explanations and note the topics that need another revision pass.'),
             ('Compare repeated concepts','Questions can appear across more than one job year or paper. When a question is connected to other records, follow those links to compare how the same concept has been tested and to identify topics that deserve extra attention.'),
-            ('Broaden your preparation','After finishing this year, move to the parent job, paper or category pages to practise related material. This keeps your revision structured while still exposing you to a wider set of questions and explanations.'),
+            ('Broaden your preparation','After finishing this year, move to the parent organization or category pages to practise related material. This keeps your revision structured while still exposing you to a wider set of questions and explanations.'),
         ]
     if path.startswith('/paper/'):
         return [
-            ('Follow the paper hierarchy',f'{subject} is organized so you can move from the testing organization or paper to a specific job and then to an exam year. Choose the level that matches your target exam and use the linked questions for focused practice.'),
+            ('Follow the paper hierarchy',f'{subject} is organized so you can move from an organization or board directly to a past paper. Choose the level that matches your target exam and use the linked questions for focused practice.'),
             ('Use past papers as a revision guide','Past-paper practice is most useful when you review both the answer and the explanation instead of memorizing an option. Mark weak subjects, revisit their category pages and compare related years to build a more balanced preparation plan.'),
-            ('Discover related exam material','The links on this page connect the current paper with relevant jobs, years and MCQs. You can also return to the wider Past Papers, Categories and Jobs & Exams sections whenever you want to change your preparation path.'),
+            ('Discover related exam material','The links on this page connect the current organization or board with its past papers and MCQs. You can also return to the wider Past Papers and Categories sections whenever you want to change your preparation path.'),
         ]
     if path.startswith('/category/') or path.startswith('/subcategory/') or path.startswith('/topic/'):
         return [
             ('Practice this subject step by step',f'{subject} collects related questions so you can revise one area without mixing unrelated topics. Start with the available MCQs, check the explanation after answering, and use subcategory or topic links when you want to narrow the subject further.'),
-            ('Connect topics with past papers','Subject practice becomes more useful when you also see where questions appear in exams. Follow related MCQ links into their paper and job-year context to connect topic knowledge with real past-paper preparation.'),
+            ('Connect topics with past papers','Subject practice becomes more useful when you also see where questions appear in exams. Follow related MCQ links into their organization and past-paper context to connect topic knowledge with real past-paper preparation.'),
             ('Continue to nearby subjects','Use the related pages below to move between broader categories, narrower topics, papers and jobs. This creates a connected revision path and makes it easier to return to areas that need more practice.'),
         ]
     if path.startswith('/post/'):
