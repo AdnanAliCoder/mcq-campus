@@ -490,8 +490,8 @@ window.Auth=(()=>{
     box.textContent=data.message||'Code verified. Choose a new password.';
     setTimeout(()=>App.go('reset-password',{email:values.email||''}),450);
    }else if(type==='verify'&&data.completed){
-    box.textContent=data.message||'Email verified. You can now sign in.';
-    setTimeout(()=>App.go('login'),700);
+    if(data.user){csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();App.go('home');}
+    else{box.textContent=data.message||'Email verified. You can now sign in.';setTimeout(()=>App.go('login'),700);}
    }else if((type==='reset-password'||type==='reset')&&data.completed){
     box.textContent=data.message||'Password updated. You can now sign in.';
     setTimeout(()=>App.go('login'),700);
