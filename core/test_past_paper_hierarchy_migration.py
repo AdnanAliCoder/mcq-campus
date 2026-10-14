@@ -4,14 +4,14 @@ from io import StringIO
 from pathlib import Path
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TransactionTestCase
 
 from .models import Category, Job, JobYear, MCQ, Paper
 from .serializers import _important_mcq
 from .services import _attach_important_flags
 
 
-class PastPaperHierarchyMigrationCommandTests(TestCase):
+class PastPaperHierarchyMigrationCommandTests(TransactionTestCase):
     def setUp(self):
         self.paper = Paper.objects.create(id=950, name='Example Board', country='Pakistan')
         self.job = Job.objects.create(id=951, name='Assistant', paper=self.paper)
