@@ -233,7 +233,7 @@ window.Public=(()=>{
   const d=MCQ.db,s=d.session;
   if(view==='profile')view='settings';const allowedViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads','settings'];
   if(!allowedViews.includes(view))view='overview';
-  const attempts=d.attempts||[],publicMcqs=MCQ.publicMcqs(),correct=attempts.filter(x=>x.correct).length,wrong=attempts.length-correct,accuracy=attempts.length?Math.round(correct/attempts.length*100):0;
+  const attempts=(d.attempts||[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))),publicMcqs=MCQ.publicMcqs(),correct=attempts.filter(x=>x.correct).length,wrong=attempts.length-correct,accuracy=attempts.length?Math.round(correct/attempts.length*100):0;
   const uniqueAttempts=[...new Set(attempts.map(a=>+a.id))],attemptedSet=new Set(uniqueAttempts);
   const savedMcqs=(d.bookmarks||[]).map(id=>MCQ.get('mcqs',id)).filter(Boolean);
   const mistakes=[];for(const a of attempts){if(a.correct||mistakes.some(x=>x.id===+a.id))continue;const q=MCQ.get('mcqs',a.id);if(q)mistakes.push(q)}
