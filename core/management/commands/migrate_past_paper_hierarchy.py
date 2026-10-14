@@ -15,7 +15,7 @@ from django.utils import timezone
 from core.models import Job, JobYear, MCQ, Paper
 
 
-YEAR_PATTERN = re.compile(r'(?<!\\d)((?:19|20|21)\\d{2})(?!\\d)')
+YEAR_PATTERN = re.compile(r'(?<!\d)((?:19|20|21)\d{2})(?!\d)')
 
 
 def _year_from_name(raw_name):
@@ -32,7 +32,7 @@ def normalized_past_paper_name(raw_name, ordinal=1, group_size=1):
         return base if group_size <= 1 else f'Past Paper {ordinal}'
 
     # A bare year is already a clean, useful label; preserve it when unique.
-    is_bare_year = bool(re.fullmatch(r'\\s*(?:19|20|21)\\d{2}\\s*', value))
+    is_bare_year = bool(re.fullmatch(r'\s*(?:19|20|21)\d{2}\s*', value))
     if group_size > 1:
         # Number every member of a duplicate-year group, including the first.
         return f'Past Paper {ordinal} {year}'
@@ -149,12 +149,22 @@ class Command(BaseCommand):
         columns = self._columns(table)
         paper_field = JobYear._meta.get_field('paper')
         job_field = JobYear._meta.get_field('job')
+        add_paper = paper_field.column not in columns
+        make_job_nullable = (
+            job_field.column in columns
+            and job_field.null
+            and not self._column_nullable(table, job_field.column)
+        )
+        # Do not open SQLite's schema editor unless a schema change is required.
+        # SQLite also requires DDL to run outside transaction.atomic() with FK
+        # checks enabled; handle() calls this after backup and before its data transaction.
+        if not add_paper and not make_job_nullable:
+            return
         with connection.schema_editor() as editor:
-            if paper_field.column not in columns:
+            if add_paper:
                 editor.add_field(JobYear, paper_field)
                 self.stdout.write(self.style.SUCCESS('Added nullable JobYear.paper_id column.'))
-                columns = self._columns(table)
-            if job_field.column in columns and job_field.null and not self._column_nullable(table, job_field.column):
+            if make_job_nullable:
                 old_job_field = job_field.clone()
                 old_job_field.null = False
                 editor.alter_field(JobYear, old_job_field, job_field, strict=False)
@@ -227,8 +237,9 @@ class Command(BaseCommand):
 
         # Backup is a hard precondition: do not alter schema or delete any Job rows unless it passes.
         self._backup_database(options.get('backup_file'))
+        # Schema changes must not be nested inside the data transaction on SQLite.
+        self._ensure_schema()
         with transaction.atomic():
-            self._ensure_schema()
             rows = list(JobYear.objects.select_related('job', 'paper').order_by('id'))
             for year in rows:
                 if year.paper_id is None:
