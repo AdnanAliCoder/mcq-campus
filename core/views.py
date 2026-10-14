@@ -304,15 +304,47 @@ def auth_reset(request):
     if _rate_limited('reset',ids,10,15*60): return err('Too many reset attempts. Please try again later.',429)
     u=User.objects.filter(email__iexact=email,is_active=True).first()
     if not u: _record_rate('reset',ids); return err('Invalid or expired reset code.',422)
+
+    stage=str(d.get('stage') or '').strip().lower()
+    if stage=='verify':
+        code=str(d.get('code') or '').strip()
+        if not re.fullmatch(r'\d{6}',code):
+            _record_rate('reset',ids)
+            return err('Enter the valid 6-digit reset code.',422)
+        verified=consume_token(u,code,'reset',getattr(settings,'PASSWORD_RESET_MAX_ATTEMPTS',5))
+        if not verified:
+            _record_rate('reset',ids)
+            return err('Invalid or expired reset code.',422)
+        request.session['password_reset_verified_email']=email
+        request.session['password_reset_verified_at']=int(timezone.now().timestamp())
+        request.session.modified=True
+        return JsonResponse({'completed':True,'verified':True,'message':'Code verified. Choose a new password.'})
+
     p=str(d.get('password') or ''); cfm=str(d.get('confirm') or '')
     if p!=cfm: return err('Passwords do not match.',422,{'confirm':'Passwords do not match.'})
     try: _validate_password(p,u)
     except ValueError as exc: return err(exc,422,{'password':str(exc)})
-    code=d.get('code')
-    verified=consume_token(u,code,'reset',getattr(settings,'PASSWORD_RESET_MAX_ATTEMPTS',5))
-    if not verified: _record_rate('reset',ids); return err('Invalid or expired reset code.',422)
+
+    if stage=='update':
+        verified_email=str(request.session.get('password_reset_verified_email') or '').lower()
+        verified_at=int(request.session.get('password_reset_verified_at') or 0)
+        now=int(timezone.now().timestamp())
+        if verified_email!=email or not verified_at or now-verified_at>600:
+            request.session.pop('password_reset_verified_email',None)
+            request.session.pop('password_reset_verified_at',None)
+            return err('Please verify the reset code again before choosing a new password.',422)
+    else:
+        # Backward compatibility for older clients that submit code and new password together.
+        code=d.get('code')
+        verified=consume_token(u,code,'reset',getattr(settings,'PASSWORD_RESET_MAX_ATTEMPTS',5))
+        if not verified:
+            _record_rate('reset',ids)
+            return err('Invalid or expired reset code.',422)
+
     u.set_password(p); u.save(update_fields=['password'])
     OneTimeToken.objects.filter(user=u,purpose='reset',used_at__isnull=True).update(used_at=timezone.now())
+    request.session.pop('password_reset_verified_email',None)
+    request.session.pop('password_reset_verified_at',None)
     return JsonResponse({'completed':True,'message':'Password updated. You can now sign in.'})
 
 @require_POST
