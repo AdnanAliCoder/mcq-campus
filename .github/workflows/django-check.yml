@@ -50,6 +50,8 @@ jobs:
           python manage.py test
           core.test_move_past_paper_mcqs
           core.test_past_paper_hierarchy_migration
+          core.test_navigation_jobs
+          core.test_past_papers_seo
           --verbosity 2
       - name: Test frontend navigation, SEO, interactions and integration
         run: |
