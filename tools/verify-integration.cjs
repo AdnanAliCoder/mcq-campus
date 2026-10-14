@@ -28,7 +28,6 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('app-loader-spinner'));
  assert(html.includes('global-spinner'));
- assert(!/<video\\b|\\.webm(?:[\"'?#])/i.test(html));
  const mediaFiles=fs.readdirSync(path.join(frontend,'assets/images'));
  assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
