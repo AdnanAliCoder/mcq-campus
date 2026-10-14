@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.hashers import make_password
 from django.db import connection, transaction
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
@@ -982,10 +983,8 @@ def _seo_past_papers_catalog():
     /paper/... routes are never changed. No persistent cache can hide new data.
     """
     papers=list(Paper.objects.filter(active=True).only('id','name','updated_at').order_by('id'))
-    jobs=list(Job.objects.filter(active=True,paper__active=True).select_related('paper')
-              .only('id','name','paper_id','updated_at','paper__name').order_by('id'))
-    available=set(JobYear.objects.filter(active=True,job__active=True,job__paper__active=True)
-                  .values_list('job_id',flat=True))
+    jobs=[]  # The public taxonomy no longer exposes the legacy Job layer.
+    available=set()
     entries={}
     paper_paths={}
     job_paths={}
@@ -1097,7 +1096,7 @@ def _seo_indexed_path(kind,obj,registry=None):
         token=_seo_index_token('job',obj.id,registry); paper=getattr(obj,'paper',None) or Paper.objects.filter(pk=obj.paper_id).only('name').first()
         return f'/past-papers/{token}/{_seo_slug(_seo_short_name(paper.name))}-{_seo_slug(obj.name)}-past-papers' if token and paper else None
     if kind=='year':
-        token=_seo_index_token('year',obj.id,registry); job=getattr(obj,'job',None) or Job.objects.filter(pk=obj.job_id).select_related('paper').first(); paper=getattr(job,'paper',None) if job else None
+        token=_seo_index_token('year',obj.id,registry); paper=getattr(obj,'paper',None) or (getattr(getattr(obj,'job',None),'paper',None) if getattr(obj,'job_id',None) else None)
         return f'/past-papers/{token}/{_seo_slug(_seo_short_name(paper.name)+" "+obj.name)}' if token and paper else None
     if kind=='post':
         token=_seo_index_token('post',obj.id,registry); return f'/blog/{token}/{_seo_slug(obj.slug or obj.title)}' if token else None
@@ -1138,8 +1137,9 @@ def _seo_resolve_indexed_path(path,registry=None):
                     if f'{_seo_slug(_seo_short_name(job.paper.name))}-{_seo_slug(job.name)}-past-papers'==wanted:
                         hit=('job',str(job.id)); break
             if not hit:
-                for year in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('id','name','job_id','job__name','job__paper__name'):
-                    if _seo_slug(_seo_short_name(year.job.paper.name)+' '+year.name)==wanted:
+                for year in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').only('id','name','paper_id','job_id','paper__name','job__paper__name'):
+                    parent=year.paper or (year.job.paper if year.job_id and year.job else None)
+                    if parent and _seo_slug(_seo_short_name(parent.name)+' '+year.name)==wanted:
                         hit=('year',str(year.id)); break
     elif len(parts)>=4 and parts[:2]==['past-papers','pdfs']: hit=_seo_index_lookup(parts[2],['pdf'],registry)
     elif len(parts)>=3 and parts[0]=='latest-jobs': hit=_seo_index_lookup(parts[1],['latest-job'],registry)
@@ -1160,8 +1160,9 @@ def _seo_resolve_indexed_path(path,registry=None):
         obj=Job.objects.filter(pk=key,active=True,paper__active=True).select_related('paper').first()
         if obj: internal=f'/paper/{_seo_slug(obj.paper.name)}/job/{_seo_slug(obj.name)}'
     elif kind=='year':
-        obj=JobYear.objects.filter(pk=key,active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').first()
-        if obj: internal=f'/paper/{_seo_slug(obj.job.paper.name)}/job/{_seo_slug(obj.job.name)}/year/{_seo_slug(obj.name)}'
+        obj=JobYear.objects.filter(pk=key,active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').first()
+        parent=(obj.paper or (obj.job.paper if obj.job_id and obj.job else None)) if obj else None
+        if obj and parent: internal=f'/paper/{_seo_slug(parent.name)}/year/{_seo_slug(obj.name)}'
     elif kind=='post':
         obj=Post.objects.filter(pk=key,status='published').first()
         if obj: internal=f'/post/{obj.slug}'
