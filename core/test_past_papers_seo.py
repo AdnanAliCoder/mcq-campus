@@ -45,7 +45,7 @@ class PastPapersSEOTests(TestCase):
         self.assertIsNotNone(heading, f'No SEO heading on {path}')
         links = [
             (unescape(label), unescape(href))
-            for href, label in re.findall(r'<a\\s+[^>]*href="([^"]+)"[^>]*>(.*?)</a>', html, re.S)
+            for href, label in re.findall(r'<a[ ]+[^>]*href="([^"]+)"[^>]*>(.*?)</a>', html, re.S)
         ]
         data = {
             'title': unescape(title.group(1)),
