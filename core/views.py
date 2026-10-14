@@ -1533,7 +1533,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             description=(post.seo_description or post.excerpt or post.body or 'MCQCampus exam preparation article.')[:155]
             heading=post.title
             intro=(post.excerpt or description)[:240]
-            links=[('Practice MCQs','/mcqs'),('Past Papers','/papers'),('Jobs & Exams','/jobs-exams'),('More Articles','/posts')]
+            links=[('Practice MCQs','/mcqs'),('Past Papers','/papers'),('Organizations / Boards','/papers'),('More Articles','/posts')]
     elif path.startswith('/category/'):
         wanted=path.split('/category/',1)[1].strip('/')
         for x in Category.objects.filter(active=True).only('id','name'):
@@ -1808,7 +1808,7 @@ def spa_index(request):
     if path in {'/index.html','/index.php'}:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+'/';return response
 
-    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/papers','/jobs-exams':'/papers','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
+    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/past-papers','/jobs-exams':'/past-papers','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
     if path in static_redirects:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+static_redirects[path];response['Cache-Control']='public, max-age=3600';return response
 
