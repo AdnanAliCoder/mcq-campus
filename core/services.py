@@ -16,7 +16,7 @@ from .serializers import *
 
 PERMISSION_CATALOG=['super_admin_permission','add_mcq','edit_own_mcq','edit_any_mcq','delete_own_mcq','delete_any_mcq','review_mcq','approve_mcq','reject_mcq','bulk_import_mcqs','manage_categories','manage_subcategories','manage_child_categories','manage_papers','manage_jobs','manage_job_years','manage_guides','delete_guides','manage_posts','publish_posts','delete_posts','manage_pdfs','delete_pdfs','manage_latest_jobs','delete_latest_jobs','manage_current_affairs','manage_seo','view_reports','resolve_reports','view_analytics','view_logs','manage_users','manage_admins','assign_roles','change_permissions','manage_settings','manage_footer','manage_legal_pages','manage_social_links','manage_ads','backup','restore_backup']
 ENTITY_MODELS={'categories':Category,'subcategories':Subcategory,'children':ChildCategory,'papers':Paper,'jobs':Job,'years':JobYear}
-ENTITY_PARENT={'subcategories':('category_id',Category),'children':('subcategory_id',Subcategory),'jobs':('paper_id',Paper),'years':('job_id',Job)}
+ENTITY_PARENT={'subcategories':('category_id',Category),'children':('subcategory_id',Subcategory),'jobs':('paper_id',Paper),'years':('paper_id',Paper)}
 
 BASE_ADMIN_PERMISSIONS={'add_mcq','edit_own_mcq'}
 def is_super(u): return bool(u and u.is_authenticated and (user_role(u)=='super-admin' or 'super_admin_permission' in user_permissions(u)))
@@ -223,7 +223,10 @@ def _entity_matches_country(kind,ident,country):
     if kind=='children': return _category_allowed(row.subcategory.category_id,country)
     if kind=='papers': return str(row.country or '').casefold()==str(country).casefold()
     if kind=='jobs': return str(row.paper.country or '').casefold()==str(country).casefold()
-    if kind=='years': return str(row.job.paper.country or '').casefold()==str(country).casefold()
+    if kind=='years':
+        paper=getattr(row,'paper',None)
+        if paper is None and getattr(row,'job_id',None): paper=getattr(getattr(row,'job',None),'paper',None)
+        return str(getattr(paper,'country','') or '').casefold()==str(country).casefold()
     return False
 
 def _validate_category_country(category_id,country):
@@ -298,8 +301,8 @@ def _validate_hierarchy_country(country,paper_ids,job_ids,year_ids):
         raise ValueError('Choose papers from the selected country.')
     if Job.objects.filter(pk__in=job_ids).exclude(paper__country__iexact=name).exists():
         raise ValueError('Choose jobs from the selected country.')
-    if JobYear.objects.filter(pk__in=year_ids).exclude(job__paper__country__iexact=name).exists():
-        raise ValueError('Choose job years from the selected country.')
+    if JobYear.objects.filter(pk__in=year_ids).exclude(paper__country__iexact=name).exists():
+        raise ValueError('Choose past papers from the selected country.')
 
 PAGE_SEO_ENTITY_KINDS={'categories':'category','papers':'paper','jobs':'job','years':'year'}
 
@@ -355,7 +358,7 @@ def _seo_visible_keys(settings):
     keys.extend(('mcq',str(x)) for x in MCQ.objects.filter(status='approved').order_by('id').values_list('id',flat=True))
     keys.extend(('paper',str(x)) for x in Paper.objects.filter(active=True).order_by('id').values_list('id',flat=True))
     keys.extend(('job',str(x)) for x in Job.objects.filter(active=True,paper__active=True).order_by('id').values_list('id',flat=True))
-    keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).order_by('id').values_list('id',flat=True))
+    keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True,paper__active=True).order_by('id').values_list('id',flat=True))
     site=_site_blob(settings)
     keys.extend(('pdf',seo_catalog_key(x)) for x in (site.get('pdfs') or []) if isinstance(x,dict) and x.get('active',True) is not False)
     keys.extend(('category',str(x)) for x in Category.objects.filter(active=True).order_by('id').values_list('id',flat=True))
@@ -467,7 +470,7 @@ def _entity_impact(typ,rid):
         sets['subcategories'].update(Subcategory.objects.filter(category_id=rid).values_list('id',flat=True)); sets['children'].update(ChildCategory.objects.filter(subcategory_id__in=sets['subcategories']).values_list('id',flat=True))
     elif typ=='subcategories': sets['children'].update(ChildCategory.objects.filter(subcategory_id=rid).values_list('id',flat=True))
     elif typ=='papers':
-        sets['jobs'].update(Job.objects.filter(paper_id=rid).values_list('id',flat=True)); sets['years'].update(JobYear.objects.filter(job_id__in=sets['jobs']).values_list('id',flat=True))
+        sets['jobs'].update(Job.objects.filter(paper_id=rid).values_list('id',flat=True)); sets['years'].update(JobYear.objects.filter(paper_id=rid).values_list('id',flat=True))
     elif typ=='jobs': sets['years'].update(JobYear.objects.filter(job_id=rid).values_list('id',flat=True))
 
     # Production uses PostgreSQL/Supabase. Keep relationship matching in SQL there so
@@ -500,7 +503,7 @@ def _serialize_entity(t,x):
     if t=='subcategories': row['category_id']=x.category_id
     if t=='children': row['subcategory_id']=x.subcategory_id
     if t=='jobs': row['paper_id']=x.paper_id
-    if t=='years': row['job_id']=x.job_id
+    if t=='years': row.update(paper_id=x.paper_id,job_id=x.job_id)
     return row
 
 def _serialize_mcq(x):
@@ -547,7 +550,7 @@ def _delete_entity(user,typ,rid):
         parent_category=Subcategory.objects.filter(pk=root.subcategory_id).values_list('category_id',flat=True).first()
         trash_country=_category_country(parent_category) if parent_category else 'Pakistan'
     elif typ=='jobs': trash_country=str(Paper.objects.filter(pk=root.paper_id).values_list('country',flat=True).first() or 'Pakistan')
-    elif typ=='years': trash_country=str(Paper.objects.filter(pk=Job.objects.filter(pk=root.job_id).values_list('paper_id',flat=True).first()).values_list('country',flat=True).first() or 'Pakistan')
+    elif typ=='years': trash_country=str(Paper.objects.filter(pk=root.paper_id).values_list('country',flat=True).first() or 'Pakistan')
     else: trash_country='Pakistan'
     tr=TrashRecord.objects.create(kind=typ,name=root.name,payload={'country':trash_country,'countries':[trash_country],'entities':entities,'mcqs':mcq_rows},deleted_by=user)
     log(user,'Deleted '+typ,f'{root.name} · {len(mcq_rows)} MCQ(s) moved to recovery')
@@ -598,7 +601,7 @@ def _restore_trash(user,tr,active_country=None):
             if typ=='subcategories': defaults['category_id']=r['category_id']
             if typ=='children': defaults['subcategory_id']=r['subcategory_id']
             if typ=='jobs': defaults['paper_id']=r['paper_id']
-            if typ=='years': defaults['job_id']=r['job_id']
+            if typ=='years': defaults.update(paper_id=r.get('paper_id'),job_id=r.get('job_id'))
             model.objects.update_or_create(id=r['id'],defaults=defaults)
     for r in (tr.payload or {}).get('mcqs') or []:
         defaults={k:r.get(k) for k in ['question','option1','option2','option3','option4','correct_answer','description','subcategory_ids','child_subcategory_ids','paper_ids','job_ids','job_year_ids','country','status','important','source','seo_description','rejection_reason','submission_type','pending_update','audit_history']}
@@ -636,7 +639,7 @@ def startup_payload(user,session):
         selected=str((session or {}).get('active_country') or settings.country or 'Pakistan')
     count_qs=MCQ.objects.filter(status='approved')
     if selected: count_qs=count_qs.filter(country__iexact=selected)
-    return {'snapshot':{'schemaVersion':13,**_startup_site_state(settings,selected or None),
+    return {'snapshot':{'schemaVersion':14,**_startup_site_state(settings,selected or None),
                         'totalApprovedMcqs':cached_value('public-counts',{'metric':'approved-total','country':selected.casefold()},lambda:count_qs.count(),timeout=30),
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
             'user':user_identity_dict(user,session) if authenticated else None}
@@ -708,13 +711,12 @@ def _json_array_length(qs,field,alias):
 
 def _approved_public_counts_uncached(country=None):
     approved=MCQ.objects.filter(status='approved')
-    papers=Paper.objects.filter(active=True); jobs=Job.objects.filter(active=True); years=JobYear.objects.filter(active=True)
+    papers=Paper.objects.filter(active=True); jobs=Job.objects.none(); years=JobYear.objects.filter(active=True,paper__isnull=False)
     categories=Category.objects.filter(active=True)
     if country:
         approved=approved.filter(country__iexact=country)
         papers=papers.filter(country__iexact=country)
-        jobs=jobs.filter(paper__country__iexact=country)
-        years=years.filter(job__paper__country__iexact=country)
+        years=years.filter(paper__country__iexact=country)
         categories=categories.filter(pk__in=approved.values('category_id').distinct())
     important=_json_array_length(approved,'job_ids','_job_count').filter(_job_count__gte=2).count()
     category_rows=approved.values('category_id').annotate(total=Count('id'))
@@ -759,11 +761,11 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
         elif kind=='children': qs=qs.filter(subcategory__category_id__in=_country_category_ids(country))
         elif kind=='papers': qs=qs.filter(country__iexact=country)
         elif kind=='jobs': qs=qs.filter(paper__country__iexact=country)
-        elif kind=='years': qs=qs.filter(job__paper__country__iexact=country)
+        elif kind=='years': qs=qs.filter(paper__country__iexact=country)
     if public_only:
         qs=qs.filter(active=True)
-        if kind=='jobs': qs=qs.filter(paper__active=True)
-        if kind=='years': qs=qs.filter(job__active=True,job__paper__active=True)
+        if kind=='jobs': qs=qs.none()
+        if kind=='years': qs=qs.filter(paper__active=True,paper__isnull=False)
     parent=filters.get('parent')
     rel=ENTITY_PARENT.get(kind)
     if parent and rel:
@@ -772,7 +774,7 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     if not country and kind=='papers' and filters.get('country'):
         qs=qs.filter(country__iexact=str(filters['country']))
     if not country and kind=='years' and filters.get('all_papers') and filters.get('country'):
-        qs=qs.filter(job__paper__country__iexact=str(filters['country']))
+        qs=qs.filter(paper__country__iexact=str(filters['country']))
     if filters.get('search'):
         qs=qs.filter(name__icontains=str(filters['search']).strip())
     pins=_pinned_entities().get(kind,[]) if kind in PIN_ENTITY_TYPES else []
@@ -780,13 +782,13 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
         ordering=Case(*[When(pk=ident,then=Value(index)) for index,ident in enumerate(pins)],default=Value(9999),output_field=IntegerField())
         qs=qs.annotate(_pin_order=ordering)
     if filters.get('all_papers') and kind=='years':
-        qs=qs.select_related('job__paper').annotate(
+        qs=qs.select_related('paper').annotate(
             _agency_round=Window(
                 expression=RowNumber(),
-                partition_by=[F('job__paper_id')],
-                order_by=[F('job_id').asc(),F('name').desc(),F('id').asc()],
+                partition_by=[F('paper_id')],
+                order_by=[F('name').desc(),F('id').asc()],
             )
-        ).order_by('_agency_round','job__paper__name','job__name','-name','id')
+        ).order_by('_agency_round','paper__name','-name','id')
     elif filters.get('sort')=='new':
         qs=qs.order_by('-id')
     elif pins:
@@ -910,16 +912,15 @@ def snapshot(user,active_country=None,active_role=None):
     subs_qs=Subcategory.objects.select_related('created_by','updated_by').all()
     childs_qs=ChildCategory.objects.select_related('created_by','updated_by').all()
     papers_qs=Paper.objects.select_related('created_by','updated_by').all()
-    jobs_qs=Job.objects.select_related('paper','created_by','updated_by').all()
-    years_qs=JobYear.objects.select_related('job__paper','created_by','updated_by').all()
+    jobs_qs=Job.objects.none()
+    years_qs=JobYear.objects.select_related('paper','created_by','updated_by').filter(paper__isnull=False)
     if country:
         category_ids=_country_category_ids(country)
         cats_qs=cats_qs.filter(pk__in=category_ids)
         subs_qs=subs_qs.filter(category_id__in=category_ids)
         childs_qs=childs_qs.filter(subcategory__category_id__in=category_ids)
         papers_qs=papers_qs.filter(country__iexact=country)
-        jobs_qs=jobs_qs.filter(paper__country__iexact=country)
-        years_qs=years_qs.filter(job__paper__country__iexact=country)
+        years_qs=years_qs.filter(paper__country__iexact=country)
     cats=list(cats_qs.order_by('id')); subs=list(subs_qs.order_by('id')); childs=list(childs_qs.order_by('id'))
     papers=list(papers_qs.order_by('id')); jobs=list(jobs_qs.order_by('id')); years=list(years_qs.order_by('id'))
     # Public/admin list rows are loaded only for the page the visitor opens.
@@ -935,7 +936,7 @@ def snapshot(user,active_country=None,active_role=None):
       'activeCountry':country if is_super(user) and active_role=='super-admin' else '',
       'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user)),
       'categories':[{**category(x),'country':str(category_country_map.get(str(x.id),'Pakistan') or 'Pakistan')} for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
-      'papers':[paper(x) for x in papers],'jobs':[job(x) for x in jobs],'years':[year(x) for x in years],
+      'papers':[paper(x) for x in papers],'jobs':[],'years':[year(x) for x in years],
       'pinnedEntities':_pinned_entities(),
       'pageSeo':page_seo_snapshot(),
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':0,'total':total,'hasNext':total>0},'siteCounts':site_counts,
@@ -1476,8 +1477,7 @@ def save_entity(user,payload,active_country=None):
         settings_obj.save(update_fields=['admin_permissions','updated_by','updated_at'])
     if typ=='papers':
         now=timezone.now()
-        Job.objects.filter(paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
-        JobYear.objects.filter(job__paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
+        JobYear.objects.filter(paper_id=obj.id).update(icon=obj.icon,updated_by=user,updated_at=now)
     page_seo=None
     if is_super(user) and typ in PAGE_SEO_ENTITY_KINDS and ('entity-seo-title' in values or 'entity-seo-description' in values):
         page_seo=save_page_seo_entry(user,PAGE_SEO_ENTITY_KINDS[typ],obj.id,values.get('entity-seo-title'),values.get('entity-seo-description'))
@@ -1784,7 +1784,7 @@ def save_site_form(user,form,payload,active_country=None):
         blob['entityCountries']=entity_map; _save_site_blob(s,blob); s.updated_by=user; s.save(update_fields=['admin_permissions','updated_by','updated_at'])
         log(user,'Bulk category import',f'{count} line(s) processed'); return {'processed':count}
     elif form=='bulk-hierarchy':
-        require(is_admin(user) and has_perm(user,'manage_papers') and has_perm(user,'manage_jobs') and has_perm(user,'manage_job_years')); count=0
+        require(is_admin(user) and has_perm(user,'manage_papers') and has_perm(user,'manage_job_years')); count=0
         current_country=_workspace_country(user,active_country) or str(s.country or 'Pakistan')
         for raw in str(v.get('hierarchy') or '').splitlines():
             parts=[x.strip() for x in re.split(r'\s*(?:\||>)\s*',raw.strip()) if x.strip()]
