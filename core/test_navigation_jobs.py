@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from .models import SiteSetting, Paper, Job, JobYear, profile_for
 from .services import _site_blob, _save_site_blob
 from .views import _seo_indexed_path
+from .cache_utils import invalidate_mcqcampus_cache
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)
@@ -20,6 +21,7 @@ class OrganizationPastPaperNavigationTests(TestCase):
         profile = profile_for(self.owner)
         profile.role = 'super-admin'
         profile.save()
+        invalidate_mcqcampus_cache('public-resources')
 
     def test_public_taxonomy_is_organization_to_past_paper_and_hides_legacy_jobs(self):
         for kind, obj in [('paper', self.paper), ('year', self.year)]:
