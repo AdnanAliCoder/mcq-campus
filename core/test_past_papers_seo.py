@@ -71,7 +71,7 @@ class PastPapersSEOTests(TestCase):
         self.assertEqual(page['title'], 'PPSC Past Papers & Solved MCQs')
         linked_urls = [url for _, url in page['links']]
         self.assertIn(_seo_indexed_path('year', self.ppsc_2024), linked_urls)
-        self.assertIn('PPSC past papers by year', html)
+        self.assertIn('PPSC Past Papers is organized', html)
         self.assertIn(page['canonical'], self.urls('/sitemap-papers.xml'))
 
     def test_organization_catalog_does_not_expose_legacy_job_landings(self):
