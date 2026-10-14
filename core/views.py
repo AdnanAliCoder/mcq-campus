@@ -1331,8 +1331,8 @@ def sitemap_index(request):
     rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/blog',None)]
     rows.extend((SEO_ORIGIN+_seo_indexed_path('mcq',x,registry),x.updated_at) for x in MCQ.objects.filter(status='approved').order_by('id'))
     rows.extend((SEO_ORIGIN+_seo_indexed_path('paper',x,registry),x.updated_at) for x in Paper.objects.filter(active=True).order_by('id'))
-    rows.extend((SEO_ORIGIN+_seo_indexed_path('job',x,registry),x.updated_at) for x in Job.objects.filter(active=True,paper__active=True).select_related('paper').order_by('id'))
-    rows.extend((SEO_ORIGIN+_seo_indexed_path('year',x,registry),x.updated_at) for x in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').order_by('id'))
+    # Job pages are no longer public; index each Past Paper directly under its Organization / Board.
+    rows.extend((SEO_ORIGIN+_seo_indexed_path('year',x,registry),x.updated_at) for x in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').order_by('id'))
     pdfs,latest_jobs=_seo_public_catalog_items()
     rows.extend((SEO_ORIGIN+_seo_indexed_path('pdf',x,registry),None) for x in pdfs)
     rows.extend((SEO_ORIGIN+_seo_indexed_path('category',x,registry),x.updated_at) for x in Category.objects.filter(active=True).order_by('id'))
@@ -1354,7 +1354,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     intro='Practice MCQs with answers and explanations, explore past papers, jobs, categories and exam preparation resources.'
     links=[
         ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
-        ('Jobs & Exams','/jobs-exams'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
+        ('Organizations / Boards','/papers'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
         ('Exam Preparation Articles','/posts'),
     ]
 
@@ -1598,8 +1598,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 if category: links.append((f'More {category.name} MCQs',f'/category/{_seo_slug(category.name)}'))
                 year_ids=[int(v) for v in (q.job_year_ids or []) if str(v).isdigit()]
                 if year_ids:
-                    years=JobYear.objects.filter(id__in=year_ids,active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','job__name','job__paper__name')[:12]
-                    links.extend((f'{y.job.name} {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in years)
+                    years=JobYear.objects.filter(id__in=year_ids,active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').only('name','paper__name','job__paper__name','job_id')[:12]
+                    for year_row in years:
+                        parent=year_row.paper or (year_row.job.paper if year_row.job_id and year_row.job else None)
+                        if parent: links.append((f'{parent.name} {year_row.name}',f'/paper/{_seo_slug(parent.name)}/year/{_seo_slug(year_row.name)}'))
                 links.extend([('Browse Categories','/categories'),('Browse Past Papers','/papers')])
                 break
     support_links=[
@@ -1782,7 +1784,7 @@ def spa_index(request):
     if path in {'/index.html','/index.php'}:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+'/';return response
 
-    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/jobs-exams','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
+    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/papers','/jobs-exams':'/papers','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
     if path in static_redirects:
         response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+static_redirects[path];response['Cache-Control']='public, max-age=3600';return response
 
