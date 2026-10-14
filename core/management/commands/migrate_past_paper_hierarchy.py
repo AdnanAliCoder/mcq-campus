@@ -1,4 +1,3 @@
-import copy
 import re
 from collections import defaultdict
 
@@ -64,14 +63,14 @@ class Command(BaseCommand):
         if job_table not in connection.introspection.table_names():
             raise CommandError(f'Missing required table {job_table}; refusing to infer or delete records.')
         jobs = {int(row['id']): int(row['paper_id']) for row in Job.objects.values('id', 'paper_id')}
-        years = list(JobYear.objects.values('id', 'name', 'job_id').order_by('id'))
-        unresolved = [int(row['id']) for row in years if not row.get('job_id') or int(row['job_id']) not in jobs]
+        years = list(JobYear.objects.values('id', 'name', 'job_id', 'paper_id').order_by('id'))
+        unresolved = [int(row['id']) for row in years if not row.get('paper_id') and (not row.get('job_id') or int(row['job_id']) not in jobs)]
         if unresolved:
             raise CommandError(
                 'Some past-paper records have no valid organization through their legacy Job. '
                 f'No records were changed. First IDs: {unresolved[:20]}'
             )
-        paper_ids = {jobs[int(row['job_id'])] for row in years}
+        paper_ids = {int(row['paper_id']) if row.get('paper_id') else jobs[int(row['job_id'])] for row in years}
         missing_papers = sorted(set(paper_ids) - set(Paper.objects.values_list('id', flat=True)))
         if missing_papers:
             raise CommandError(f'Legacy records reference missing organizations: {missing_papers[:20]}')
@@ -80,7 +79,7 @@ class Command(BaseCommand):
         ordinals = defaultdict(int)
         preview = []
         for row in years:
-            paper_id = jobs[int(row['job_id'])]
+            paper_id = int(row['paper_id']) if row.get('paper_id') else jobs[int(row['job_id'])]
             if skip_names:
                 new_name = str(row['name'] or '').strip() or 'Past Paper'
             else:
