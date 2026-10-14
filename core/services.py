@@ -390,7 +390,11 @@ def ensure_seo_indexes():
 
 def seo_index_snapshot():
     registry=ensure_seo_indexes()
-    return {'next':int(registry.get('next') or 1),'items':dict(registry.get('items') or {})}
+    # Keep retired Job IDs reserved internally to prevent token reuse, but do
+    # not publish them as indexable content after removing the Job taxonomy.
+    visible={key:value for key,value in (registry.get('items') or {}).items()
+             if not str(key).startswith('job:')}
+    return {'next':int(registry.get('next') or 1),'items':visible}
 
 def seo_index_number(kind,key):
     registry=ensure_seo_indexes()
