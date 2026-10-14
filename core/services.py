@@ -759,12 +759,13 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     page=max(1,int(page or 1)); page_size=12 if public_only and kind in ('categories','papers') else 10
     filters=filters or {}
     model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user) or (str(active_country or '').strip() if (is_super(user) or public_only) else '')
+    # Keep the legacy Job model only for safe upgrades of old databases. Do not expose it.
+    if kind=='jobs': qs=qs.none()
     if country:
         if kind=='categories': qs=qs.filter(pk__in=_country_category_ids(country))
         elif kind=='subcategories': qs=qs.filter(category_id__in=_country_category_ids(country))
         elif kind=='children': qs=qs.filter(subcategory__category_id__in=_country_category_ids(country))
         elif kind=='papers': qs=qs.filter(country__iexact=country)
-        elif kind=='jobs': qs=qs.filter(paper__country__iexact=country)
         elif kind=='years': qs=qs.filter(Q(paper__country__iexact=country)|Q(paper__isnull=True,job__paper__country__iexact=country))
     if public_only:
         qs=qs.filter(active=True)
@@ -906,17 +907,13 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total,'seoIndex':indexes}
 
 def _attach_important_flags(objects):
-    """Derive Important MCQs from multiple linked Past Papers or preserved legacy job IDs."""
+    """Derive Important MCQs from distinct linked Past Papers, not retired Job IDs."""
     for obj in objects:
-        jobs=set()
-        for value in obj.job_ids or []:
-            try: jobs.add(int(value))
-            except (TypeError,ValueError): pass
         years=set()
         for value in obj.job_year_ids or []:
             try: years.add(int(value))
             except (TypeError,ValueError): pass
-        obj._important_value=bool(obj.important) or len(jobs)>=2 or len(years)>=2
+        obj._important_value=bool(obj.important) or len(years)>=2
 
 def snapshot(user,active_country=None,active_role=None):
     country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) and active_role=='super-admin' else '')
