@@ -40,7 +40,7 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(css.includes('.global-spinner'));
  assert(css.includes('.button-spinner'));
  assert(css.includes('position:fixed'));
- assert(css.includes('backdrop-filter:blur(5px)'));
+ assert(css.includes('backdrop-filter:blur(3px)'));
  assert(!html.includes('<video'));
 });
 
