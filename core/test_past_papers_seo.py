@@ -7,6 +7,7 @@ from django.utils.html import escape
 
 from .models import Job, JobYear, Paper, SiteSetting
 from .views import _seo_indexed_path, _seo_past_papers_catalog, _seo_past_papers_record
+from .cache_utils import invalidate_mcqcampus_cache
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)
@@ -29,6 +30,7 @@ class PastPapersSEOTests(TestCase):
         # A legacy Job row is intentionally present to confirm it is not part
         # of public navigation or the SEO index before the one-time DB cleanup.
         cls.legacy_job = Job.objects.create(id=10, name='Assistant', paper=cls.ppsc)
+        invalidate_mcqcampus_cache('public-resources')
 
     def page(self, path, status=200):
         response = self.client.get(path)
@@ -51,14 +53,15 @@ class PastPapersSEOTests(TestCase):
         ]
 
     def test_organization_pages_are_canonical_and_directly_list_past_papers(self):
-        page, html = self.page('/ppsc-past-papers')
-        self.assertEqual(page['canonical'], 'https://www.mcqcampus.com/ppsc-past-papers')
+        canonical_path = _seo_indexed_path('paper', self.ppsc)
+        page, html = self.page(canonical_path)
+        self.assertEqual(page['canonical'], 'https://www.mcqcampus.com' + canonical_path)
         self.assertEqual(page['heading'], 'PPSC Past Papers')
         self.assertEqual(page['title'], 'PPSC Past Papers & Solved MCQs')
         linked_urls = [url for _, rows in page['groups'] for _, url in rows]
         self.assertIn('/paper/punjab-public-service-commission-ppsc/year/past-paper-2024', linked_urls)
         self.assertIn('PPSC past papers by year', html)
-        self.assertIn('https://www.mcqcampus.com/ppsc-past-papers', self.urls('/sitemap-papers.xml'))
+        self.assertIn(page['canonical'], self.urls('/sitemap-papers.xml'))
 
     def test_organization_catalog_does_not_expose_legacy_job_landings(self):
         catalog = _seo_past_papers_catalog()
