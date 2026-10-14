@@ -9,7 +9,7 @@ from .models import Job, JobYear, Paper, SiteSetting
 from .views import _seo_indexed_path, _seo_past_papers_catalog, _seo_past_papers_record
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
+@override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)
 class PastPapersSEOTests(TestCase):
     @classmethod
     def setUpTestData(cls):
