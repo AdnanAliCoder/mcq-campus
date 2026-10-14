@@ -18,7 +18,7 @@ window.Auth=(()=>{
    'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset-code','auth/new-password':'reset-password','auth/verify-email':'verify',
    'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','':''
   };
-  const mapped=aliases[path]??path.replace(/^public\//,'');
+  const mapped=aliases[path]??(path==='reset'?'reset-code':path.replace(/^public\//,''));
   if(mapped!==path)history.replaceState(null,'',UI.href(mapped||'home',Object.fromEntries(new URLSearchParams(location.search))));
  }
  initialRoute();
@@ -438,7 +438,7 @@ window.Auth=(()=>{
     const snapshot=await request('/bootstrap');
     if(own!==generation)throw Error('The account changed. Please try again.');
     hydrate(snapshot,user);
-   }else if(['form:config','form:settings'].includes(action)){
+   }else if(['form:config','form:settings','form:entity'].includes(action)){
     const snapshot=await request('/bootstrap');
     if(own!==generation)throw Error('The account changed. Please try again.');
     hydrate(snapshot,user);
