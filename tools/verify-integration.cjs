@@ -14,7 +14,7 @@ for(const name of fs.readdirSync(path.join(frontend,'assets/js')).filter(x=>x.en
 test('All frontend JavaScript parses',()=>{});
 
 const html=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1]);
+const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1].split('?')[0]);
 test('Final frontend and backend adapter load in the required order',()=>{
  const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/admin.js','assets/js/motion.js','assets/js/enhancements.js','assets/js/auth.js','assets/js/app.js'];
  for(const file of required){assert(scripts.includes(file),file+' missing');assert(fs.existsSync(path.join(frontend,file)),file+' not found')}
