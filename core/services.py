@@ -303,7 +303,7 @@ def _validate_hierarchy_country(country,paper_ids,job_ids,year_ids):
         raise ValueError('Choose papers from the selected country.')
     if Job.objects.filter(pk__in=job_ids).exclude(paper__country__iexact=name).exists():
         raise ValueError('Choose jobs from the selected country.')
-    if JobYear.objects.filter(pk__in=year_ids).exclude(paper__country__iexact=name).exists():
+    if JobYear.objects.filter(pk__in=year_ids).exclude(Q(paper__country__iexact=name)|Q(paper__isnull=True,job__paper__country__iexact=name)).exists():
         raise ValueError('Choose past papers from the selected country.')
 
 PAGE_SEO_ENTITY_KINDS={'categories':'category','papers':'paper','jobs':'job','years':'year'}
@@ -360,7 +360,7 @@ def _seo_visible_keys(settings):
     keys.extend(('mcq',str(x)) for x in MCQ.objects.filter(status='approved').order_by('id').values_list('id',flat=True))
     keys.extend(('paper',str(x)) for x in Paper.objects.filter(active=True).order_by('id').values_list('id',flat=True))
     keys.extend(('job',str(x)) for x in Job.objects.filter(active=True,paper__active=True).order_by('id').values_list('id',flat=True))
-    keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True,paper__active=True).order_by('id').values_list('id',flat=True))
+    keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).order_by('id').values_list('id',flat=True))
     site=_site_blob(settings)
     keys.extend(('pdf',seo_catalog_key(x)) for x in (site.get('pdfs') or []) if isinstance(x,dict) and x.get('active',True) is not False)
     keys.extend(('category',str(x)) for x in Category.objects.filter(active=True).order_by('id').values_list('id',flat=True))
@@ -472,7 +472,7 @@ def _entity_impact(typ,rid):
         sets['subcategories'].update(Subcategory.objects.filter(category_id=rid).values_list('id',flat=True)); sets['children'].update(ChildCategory.objects.filter(subcategory_id__in=sets['subcategories']).values_list('id',flat=True))
     elif typ=='subcategories': sets['children'].update(ChildCategory.objects.filter(subcategory_id=rid).values_list('id',flat=True))
     elif typ=='papers':
-        sets['jobs'].update(Job.objects.filter(paper_id=rid).values_list('id',flat=True)); sets['years'].update(JobYear.objects.filter(paper_id=rid).values_list('id',flat=True))
+        sets['jobs'].update(Job.objects.filter(paper_id=rid).values_list('id',flat=True)); sets['years'].update(JobYear.objects.filter(Q(paper_id=rid)|Q(paper__isnull=True,job__paper_id=rid)).values_list('id',flat=True))
     elif typ=='jobs': sets['years'].update(JobYear.objects.filter(job_id=rid).values_list('id',flat=True))
 
     # Production uses PostgreSQL/Supabase. Keep relationship matching in SQL there so
@@ -713,12 +713,12 @@ def _json_array_length(qs,field,alias):
 
 def _approved_public_counts_uncached(country=None):
     approved=MCQ.objects.filter(status='approved')
-    papers=Paper.objects.filter(active=True); jobs=Job.objects.none(); years=JobYear.objects.filter(active=True,paper__isnull=False)
+    papers=Paper.objects.filter(active=True); jobs=Job.objects.none(); years=JobYear.objects.filter(active=True).filter(Q(paper__isnull=False)|Q(paper__isnull=True,job__paper__isnull=False))
     categories=Category.objects.filter(active=True)
     if country:
         approved=approved.filter(country__iexact=country)
         papers=papers.filter(country__iexact=country)
-        years=years.filter(paper__country__iexact=country)
+        years=years.filter(Q(paper__country__iexact=country)|Q(paper__isnull=True,job__paper__country__iexact=country))
         categories=categories.filter(pk__in=approved.values('category_id').distinct())
     important_qs=_json_array_length(approved,'job_ids','_job_count')
     important_qs=_json_array_length(important_qs,'job_year_ids','_year_count')
@@ -765,20 +765,22 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
         elif kind=='children': qs=qs.filter(subcategory__category_id__in=_country_category_ids(country))
         elif kind=='papers': qs=qs.filter(country__iexact=country)
         elif kind=='jobs': qs=qs.filter(paper__country__iexact=country)
-        elif kind=='years': qs=qs.filter(paper__country__iexact=country)
+        elif kind=='years': qs=qs.filter(Q(paper__country__iexact=country)|Q(paper__isnull=True,job__paper__country__iexact=country))
     if public_only:
         qs=qs.filter(active=True)
         if kind=='jobs': qs=qs.none()
-        if kind=='years': qs=qs.filter(paper__active=True,paper__isnull=False)
+        if kind=='years': qs=qs.filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True))
     parent=filters.get('parent')
     rel=ENTITY_PARENT.get(kind)
     if parent and rel:
-        try: qs=qs.filter(**{rel[0]:int(parent)})
+        try:
+            parent_id=int(parent)
+            qs=qs.filter(Q(paper_id=parent_id)|Q(paper__isnull=True,job__paper_id=parent_id)) if kind=='years' else qs.filter(**{rel[0]:parent_id})
         except (TypeError,ValueError): pass
     if not country and kind=='papers' and filters.get('country'):
         qs=qs.filter(country__iexact=str(filters['country']))
     if not country and kind=='years' and filters.get('all_papers') and filters.get('country'):
-        qs=qs.filter(paper__country__iexact=str(filters['country']))
+        qs=qs.filter(Q(paper__country__iexact=str(filters['country']))|Q(paper__isnull=True,job__paper__country__iexact=str(filters['country'])))
     if filters.get('search'):
         qs=qs.filter(name__icontains=str(filters['search']).strip())
     pins=_pinned_entities().get(kind,[]) if kind in PIN_ENTITY_TYPES else []
@@ -923,14 +925,14 @@ def snapshot(user,active_country=None,active_role=None):
     childs_qs=ChildCategory.objects.select_related('created_by','updated_by').all()
     papers_qs=Paper.objects.select_related('created_by','updated_by').all()
     jobs_qs=Job.objects.none()
-    years_qs=JobYear.objects.select_related('paper','created_by','updated_by').filter(paper__isnull=False)
+    years_qs=JobYear.objects.select_related('paper','job__paper','created_by','updated_by').filter(Q(paper__isnull=False)|Q(paper__isnull=True,job__paper__isnull=False))
     if country:
         category_ids=_country_category_ids(country)
         cats_qs=cats_qs.filter(pk__in=category_ids)
         subs_qs=subs_qs.filter(category_id__in=category_ids)
         childs_qs=childs_qs.filter(subcategory__category_id__in=category_ids)
         papers_qs=papers_qs.filter(country__iexact=country)
-        years_qs=years_qs.filter(paper__country__iexact=country)
+        years_qs=years_qs.filter(Q(paper__country__iexact=country)|Q(paper__isnull=True,job__paper__country__iexact=country))
     cats=list(cats_qs.order_by('id')); subs=list(subs_qs.order_by('id')); childs=list(childs_qs.order_by('id'))
     papers=list(papers_qs.order_by('id')); jobs=list(jobs_qs.order_by('id')); years=list(years_qs.order_by('id'))
     # Public/admin list rows are loaded only for the page the visitor opens.
