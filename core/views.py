@@ -1377,7 +1377,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     title=default_title
     description=default_description
     heading='MCQCampus'
-    intro='Practice MCQs with answers and explanations, explore past papers, jobs, categories and exam preparation resources.'
+    intro='Practice MCQs with answers and explanations, explore organizations, past papers, categories and exam preparation resources.'
     links=[
         ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
         ('Organizations / Boards','/papers'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
@@ -1512,19 +1512,19 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             links=[(f'Browse {paper_search_name} {landing_job.name}',f'/paper/{paper_slug}/job/{job_slug}')]
             links.extend((y.name,f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}') for y in years)
         else:
-            jobs=[j for j in catalog['jobs'] if j.paper_id==paper.id]
-            job_ids=[j.id for j in jobs]
-            years=list(JobYear.objects.filter(active=True,job_id__in=job_ids).select_related('job').only('name','job_id','job__name').order_by('job__name','-name')) if job_ids else []
+            # Past Papers are attached directly to their Organization / Board.
+            years=list(JobYear.objects.filter(active=True).filter(
+                Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+            ).only('id','name','paper_id','job_id').order_by('-name','id'))
             heading=f'{paper_search_name} Past Papers'
-            title=f'{paper_search_name} Past Papers, Jobs & Solved MCQs'
-            description=f'Browse {paper_search_name} past papers for {paper_display_name} by job and exam year. Find job-wise papers and solved MCQs with answers, explanations and preparation links.'
-            intro=f'Explore {paper_search_name} ({paper_display_name}) past papers across {len(jobs)} jobs and {len(years)} exam records. Choose a job or exam year below to continue your preparation.'
-            job_links=[(f'{paper_search_name} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in jobs]
+            title=f'{paper_search_name} Past Papers & Solved MCQs'
+            description=f'Browse {paper_search_name} past papers for {paper_display_name}. Choose a past-paper year and practise linked MCQs with correct answers, explanations and preparation links.'
+            intro=f'Explore {len(years)} past-paper records for {paper.name}. Choose a Past Paper directly to practise its linked MCQs and review answers and explanations.'
             year_links=[
-                (f'{y.job.name} — {y.name}',f'/paper/{paper_slug}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}')
+                (y.name,f'/paper/{paper_slug}/year/{_seo_slug(y.name)}')
                 for y in years
             ]
-            links=[(f'Browse {paper.name}',f'/paper/{paper_slug}')]+job_links+year_links
+            links=[(f'Browse {paper.name}',f'/paper/{paper_slug}')]+year_links
     elif path.startswith('/post/'):
         wanted=path.split('/post/',1)[1].strip('/')
         post=Post.objects.filter(status='published',slug=wanted).only('title','excerpt','body','seo_title','seo_description').first()
@@ -1787,12 +1787,12 @@ def _seo_discovery_sections(path,heading,description,catalog):
     if paper:
         short=_seo_short_name(paper.name)
         return [
-            (f'{short} past papers by job and year',
-             f'Browse {paper.name} past papers through the jobs and exam years currently available on MCQCampus. Choose a job first when you want role-specific preparation, or open a listed year to reach the MCQs connected with that exam record.'),
-            (f'Practice {short} past paper MCQs',
-             f'Past-paper pages connect the organization, job and exam year with related multiple-choice questions. Attempt the questions, check the correct answers and explanations, and revisit subject categories where you need more practice.'),
+            (f'{short} past papers by year',
+             f'Browse {paper.name} past papers by year. Choose a Past Paper directly under this Organization / Board to practise the MCQs connected with that exam record.'),
+            (f'Practice {short} past-paper MCQs',
+             f'Each Past Paper links the organization with its multiple-choice questions. Attempt the questions, check the correct answers and explanations, and revisit subject categories where you need more practice.'),
             (f'Explore more {short} exam preparation',
-             f'Use the related job links below to continue from this {short} hub into narrower past-paper pages. The hierarchy is preserved so similarly named jobs from other organizations do not get mixed into this paper collection.'),
+             f'Return to this Organization / Board to choose a different Past Paper, or continue into categories, PDFs and other study resources.'),
         ]
     return []
 
