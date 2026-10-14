@@ -1235,9 +1235,9 @@ def _seo_year_search_label(job_name,year_name):
     return text or str(year_name or '').strip()
 
 def _seo_hierarchy_canonical_path(path,catalog=None):
-    """Paper and job hierarchy aliases point at their search-intent canonical pages."""
+    """Canonicalize current and legacy paper URLs to Organization -> Past Paper routes."""
     parts=[p for p in str(path or '').strip('/').split('/') if p]
-    if not parts or parts[0]!='paper' or len(parts) not in {2,4}:
+    if not parts or parts[0]!='paper' or len(parts) not in {2,4,6}:
         return path
     catalog=catalog if catalog is not None else _seo_past_papers_catalog()
     paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1])
@@ -1245,10 +1245,21 @@ def _seo_hierarchy_canonical_path(path,catalog=None):
         return path
     if len(parts)==2:
         return catalog['paper_paths'].get(paper.id,path)
-    if parts[2]!='job':
-        return path
-    job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),parts[3])
-    return catalog['job_paths'].get(job.id,path) if job else path
+    year_token=None
+    if len(parts)==4 and parts[2]=='year':
+        year_token=parts[3]
+    elif len(parts)==4 and parts[2]=='job':
+        # Old job landing URLs now return the organization catalog.
+        return catalog['paper_paths'].get(paper.id,path)
+    elif len(parts)==6 and parts[2]=='job' and parts[4]=='year':
+        year_token=parts[5]
+    if year_token:
+        years=JobYear.objects.filter(active=True).filter(
+            Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+        ).select_related('paper','job__paper')
+        year=_seo_row_for_token(years,year_token)
+        return _seo_indexed_path('year',year) if year else path
+    return path
 
 def _seo_dynamic_path_exists(path):
     """Reject invented SPA entity URLs so crawlers do not receive soft-404 200 pages."""
