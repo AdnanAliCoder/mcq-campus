@@ -352,7 +352,7 @@ window.Auth=(()=>{
   tick();
   verificationTimer=setInterval(tick,1000);
  };
- const field=(name,label,type='text',auto='',extra='',mark=false)=>`<div class="field"><label for="${name}">${label}${mark?' <span class="required-mark" aria-hidden="true">*</span>':''}</label><input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required></div>`;
+ const field=(name,label,type='text',auto='',extra='',mark=false)=>{const required=mark?' <span class="required-mark" aria-hidden="true">*</span>':'';const input=`<input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required>`;if(type!=='password')return `<div class="field"><label for="${name}">${label}${required}</label>${input}</div>`;const help=['password','new_password'].includes(name)?'<small class="password-help">Use at least 8 characters. A longer password with a mix of letters, numbers and symbols is stronger.</small>':'';return `<div class="field"><label for="${name}">${label}${required}</label><div class="password-input-wrap">${input}<button class="password-toggle-btn" type="button" data-password-toggle="${name}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false">${UI.icon('eye')}</button></div>${help}</div>`};
  function view(type){
   const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
   const activeCountries=(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
@@ -445,6 +445,15 @@ window.Auth=(()=>{
  MCQ.attempt=(...args)=>user?command('attempt',{args}):originalAttempt(...args);
  for(const name of ['toggleBookmark','savePaper','saveProfile','changePassword'])MCQ[name]=(...args)=>command(name,{args});
  MCQ.report=(id,reason)=>user?command('report',{args:[id,reason]}):request('/report',{id,reason});
+
+ document.addEventListener('click',event=>{
+  const toggle=event.target.closest('[data-password-toggle]');if(!toggle)return;
+  const input=toggle.closest('.password-input-wrap')?.querySelector('input');if(!input)return;
+  const reveal=input.type==='password';input.type=reveal?'text':'password';
+  toggle.setAttribute('aria-pressed',String(reveal));
+  toggle.setAttribute('aria-label',(reveal?'Hide ':'Show ')+(input.labels?.[0]?.textContent||'password').replace('*','').trim().toLowerCase());
+  toggle.innerHTML=UI.icon('eye');
+ });
 
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form^="auth-"]');if(!form)return;
