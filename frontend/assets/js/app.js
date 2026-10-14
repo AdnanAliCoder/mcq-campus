@@ -18,7 +18,7 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
      if(job)hit={kind:'job',key:String(job.id)};
     }
     if(!hit){
-     const year=MCQ.db.years.find(x=>{const j=MCQ.get('jobs',x.job_id),p=j&&MCQ.get('papers',j.paper_id);return x.active!==false&&j?.active!==false&&p?.active!==false&&slug(short(p.name)+' '+x.name)===wanted});
+     const year=MCQ.db.years.find(x=>{const p=MCQ.get('papers',x.paper_id)||MCQ.get('papers',MCQ.get('jobs',x.job_id)?.paper_id);return x.active!==false&&p?.active!==false&&slug(short(p.name)+' '+x.name)===wanted});
      if(year)hit={kind:'year',key:String(year.id)};
     }
    }
