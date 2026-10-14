@@ -1113,7 +1113,9 @@ class AuthSecurityTests(TestCase):
         code=self.code_from_last_email()
         verified=self.post_json('/api/auth/verify',{'email':pending.email,'code':code})
         self.assertEqual(verified.status_code,200)
+        self.assertTrue(verified.json().get('user'))
         self.assertFalse(PendingSignup.objects.filter(email=pending.email).exists())
+        self.assertIsNotNone(self.client.get('/api/auth/session').json()['user'])
         user=User.objects.get(email='newlearner@example.com')
         profile=profile_for(user)
         self.assertEqual(profile.role,'user')
@@ -1243,6 +1245,25 @@ class AuthSecurityTests(TestCase):
         self.assertEqual(ok.status_code,200)
         user.refresh_from_db(); self.assertTrue(user.check_password(good))
         reuse=self.post_json('/api/auth/reset',{'email':user.email,'code':code,'password':'ThirdStrong!852','confirm':'ThirdStrong!852'})
+        self.assertEqual(reuse.status_code,422)
+
+    def test_password_reset_uses_separate_code_verification_step(self):
+        user=self.verified_user('staged-reset@example.com')
+        forgot=self.post_json('/api/auth/forgot',{'email':user.email})
+        self.assertEqual(forgot.status_code,200)
+        code=self.code_from_last_email()
+        original_password=user.password
+        verified=self.post_json('/api/auth/reset',{'email':user.email,'code':code,'stage':'verify'})
+        self.assertEqual(verified.status_code,200)
+        self.assertTrue(verified.json().get('verified'))
+        user.refresh_from_db()
+        self.assertEqual(user.password,original_password)
+        good='StagedSecure!852'
+        changed=self.post_json('/api/auth/reset',{'email':user.email,'stage':'update','password':good,'confirm':good})
+        self.assertEqual(changed.status_code,200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(good))
+        reuse=self.post_json('/api/auth/reset',{'email':user.email,'stage':'update','password':'ThirdStrong!852','confirm':'ThirdStrong!852'})
         self.assertEqual(reuse.status_code,422)
 
     def test_malformed_email_rejected_and_raw_otp_not_returned_or_stored(self):
