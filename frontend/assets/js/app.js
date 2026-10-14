@@ -188,7 +188,7 @@ App.quickTimer=McqCarousel.create({advance(){
     if(!dup){box.innerHTML='';return}
     MCQ.upsert('mcqs',dup);
     const canEdit=MCQ.canEditMcq(dup);
-    box.innerHTML=`<div class="notice warning"><strong>This MCQ already exists in the database.</strong><div class="small muted">${e(dup.question)}</div><div class="small muted">Do not create another copy. Open the existing MCQ and add any new Paper, Job and Job Year links.</div>${canEdit?`<div class="actions" style="margin-top:8px">${link(Admin.url('edit/'+dup.id),'Update existing MCQ','btn sm primary')}</div>`:''}</div>`;
+    box.innerHTML=`<div class="notice warning"><strong>This MCQ already exists in the database.</strong><div class="small muted">${e(dup.question)}</div><div class="small muted">Do not create another copy. Open the existing MCQ and add any new Organization / Board or Past Paper links.</div>${canEdit?`<div class="actions" style="margin-top:8px">${link(Admin.url('edit/'+dup.id),'Update existing MCQ','btn sm primary')}</div>`:''}</div>`;
    }catch{}
   },350);
  }
