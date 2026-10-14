@@ -7,6 +7,8 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from .models import Category, Job, JobYear, MCQ, Paper
+from .serializers import _important_mcq
+from .services import _attach_important_flags
 
 
 class PastPaperHierarchyMigrationCommandTests(TestCase):
@@ -34,6 +36,13 @@ class PastPaperHierarchyMigrationCommandTests(TestCase):
             country='Pakistan',
             status='approved',
         )
+
+    def test_legacy_job_ids_do_not_mark_an_mcq_important(self):
+        self.mcq.job_ids = [self.job.id, 958]
+        self.mcq.save(update_fields=['job_ids'])
+        self.assertFalse(_important_mcq(self.mcq))
+        _attach_important_flags([self.mcq])
+        self.assertFalse(self.mcq._important_value)
 
     def test_default_run_is_a_dry_run_and_preserves_rows(self):
         output = StringIO()
