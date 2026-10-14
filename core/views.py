@@ -1591,7 +1591,20 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                     description=f'Practice {paper.name} {year.name} MCQs with correct answers and explanations. Review related important questions for test preparation.'
                     heading=f'{short} — {year.name}'
                     intro=f'Practice the MCQs linked to {paper.name} {year.name}, check the correct answers and explanations, and continue with related MCQs and categories.'
-                    links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
+                    if connection.vendor == 'postgresql':
+                        linked_questions = MCQ.objects.filter(
+                            status='approved', job_year_ids__contains=[year.id]
+                        ).only('question').order_by('-updated_at')[:100]
+                    else:
+                        # SQLite's JSONField does not implement __contains; keep test/dev behavior
+                        # consistent with PostgreSQL by filtering the JSON array in Python.
+                        linked_questions = [
+                            q for q in MCQ.objects.filter(status='approved')
+                            .only('question', 'job_year_ids').order_by('-updated_at')
+                            if any(str(value).isdigit() and int(value) == int(year.id)
+                                   for value in (q.job_year_ids or []))
+                        ][:100]
+                    links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in linked_questions]
             else:
                 catalog=catalog if catalog is not None else _seo_past_papers_catalog()
                 years=JobYear.objects.filter(active=True).filter(
