@@ -1377,10 +1377,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     ]
 
     if path=='/':
-        title='MCQCampus — Pakistan Past Papers, MCQs & Exam Preparation'
-        description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other past papers, job-wise papers, MCQs, answers and explanations for competitive exam preparation.'
-        heading='Pakistan Past Papers, MCQs & Exam Preparation'
-        intro='MCQCampus is an independent exam-preparation platform at mcqcampus.com. Practice MCQs with answers and explanations, browse job-wise past papers, categories, exam years, PDFs and study resources.'
+        title='MCQCampus — Organizations, Past Papers & MCQ Practice'
+        description='Find PPSC, FPSC, SPSC, BPSC, NTS, ATS and other organizations, past papers, MCQs, answers and explanations for competitive exam preparation.'
+        heading='Organizations, Past Papers & MCQ Practice'
+        intro='MCQCampus is an independent exam-preparation platform at mcqcampus.com. Practice MCQs with answers and explanations, browse organizations and boards, choose past papers, and explore categories, PDFs and study resources.'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         paper_links=[(f'{_seo_short_name(p.name)} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
         job_links=[
@@ -1399,24 +1399,18 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         heading='MCQ Categories'
         links=[(x.name,f'/category/{_seo_slug(x.name)}') for x in Category.objects.filter(active=True).only('name').order_by('name')]
     elif path=='/papers':
-        title='Pakistan Past Papers — PPSC, FPSC, NTS, SPSC, BPSC & More'
-        description='Find PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other Pakistan past papers by job and year. Practice solved MCQs with answers, explanations and test-preparation links.'
-        heading='Pakistan Past Papers by Agency, Job and Year'
-        intro='Browse PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other testing agencies. Choose an agency, job and exam year to reach the exact past paper, solved MCQs and related preparation resources.'
+        title='Organizations & Boards Past Papers — PPSC, FPSC, NTS & More'
+        description='Browse PPSC, FPSC, NTS, SPSC, BPSC, ETEA, ATS and other organizations and boards. Open past papers and practise linked MCQs with answers and explanations.'
+        heading='Organizations / Boards and Past Papers'
+        intro='Choose an organization or testing board, then open its Past Papers to practice the linked MCQs, correct answers and explanations.'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
         links=[(f'{_seo_short_name(p.name)} Past Papers — {re.sub(r"[\\[\\]()]+","",p.name).strip()}',catalog['paper_paths'][p.id]) for p in catalog['papers']]
     elif path=='/jobs-exams':
-        title='Jobs & Exams Preparation — Past Papers and MCQs'
-        description='Browse competitive exam jobs and prepare with job-wise past papers, repeated MCQs, answers and explanations.'
-        heading='Jobs & Exams Preparation'
-        # Link directly to the search-intent landing URLs so pages such as
-        # "PPSC Assistant Past Papers" receive crawlable internal links from
-        # a top-level public hub instead of depending on JavaScript navigation.
+        title='Organizations & Boards — Past Papers and MCQs'
+        description='Browse organizations and testing boards, open available past papers, and practice linked MCQs with answers and explanations.'
+        heading='Organizations / Boards'
         catalog=catalog if catalog is not None else _seo_past_papers_catalog()
-        links=[
-            (f'{_seo_short_name(j.paper.name)} {j.name} Past Papers',catalog['job_paths'][j.id])
-            for j in catalog['jobs'] if j.id in catalog['available']
-        ]
+        links=[(f'{_seo_short_name(p.name)} Past Papers',catalog['paper_paths'][p.id]) for p in catalog['papers']]
     elif path=='/pdfs':
         title='Exam Preparation PDFs & Study Resources'
         description='Browse exam preparation PDFs and downloadable study resources for MCQs, past papers and competitive exams.'
@@ -1475,7 +1469,10 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         job_rows=[j for j in catalog['jobs'] if j.id in catalog['available']]
         job_links=[(f'{_seo_short_name(j.paper.name)} {j.name} Past Papers',catalog['job_paths'][j.id]) for j in job_rows]
         bare_job_links=[(catalog['entries'][href]['jobs'][0].name+' Past Papers',href) for href in catalog['group_paths'].values()]
-        year_links=[(f'{y.job.name} — {y.name}',f'/paper/{_seo_slug(y.job.paper.name)}/job/{_seo_slug(y.job.name)}/year/{_seo_slug(y.name)}') for y in JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).select_related('job','job__paper').only('name','job__name','job__paper__name').order_by('-name')]
+        year_links=[]
+        for y in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').only('name','paper__name','job__paper__name','job_id').order_by('-name'):
+            parent=y.paper or (y.job.paper if y.job_id and y.job else None)
+            if parent: year_links.append((f'{parent.name} — {y.name}',f'/paper/{_seo_slug(parent.name)}/year/{_seo_slug(y.name)}'))
         resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
         mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
         links=category_links+paper_links+job_links+bare_job_links+year_links+resource_links+mcq_links
@@ -1568,41 +1565,35 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         paper_slug=parts[1] if len(parts)>1 else ''
         paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),paper_slug)
         if paper:
-            catalog=catalog if catalog is not None else _seo_past_papers_catalog()
             short=_seo_short_name(paper.name)
-            title=f'{short} Past Papers, Jobs & Solved MCQs'
-            description=f'Browse {short} past papers by job and exam year. Practice solved MCQs with correct answers and explanations, and continue with related exam-preparation resources.'
+            title=f'{short} Past Papers & Solved MCQs'
+            description=f'Browse {paper.name} past papers, choose a year, and practice solved MCQs with correct answers and explanations.'
             heading=f'{short} Past Papers'
-            intro=f'Explore {short} job-wise past papers, choose the exact exam year, and practice the linked solved MCQs. Use related categories, PDFs and preparation pages for wider revision.'
-            links=[
-                (f'{short} {j.name} Past Papers',catalog['job_paths'][j.id])
-                for j in catalog['jobs'] if j.paper_id==paper.id and j.id in catalog['available']
-            ]
-            if 'job' in parts:
-                ji=parts.index('job')
-                job_slug=parts[ji+1] if len(parts)>ji+1 else ''
-                job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),job_slug)
-                if job:
-                    title=f'{short} {job.name} Past Papers & Solved MCQs'
-                    description=f'Browse {short} {job.name} past papers by exam year and practice solved MCQs with correct answers and explanations for focused test preparation.'
-                    heading=f'{short} {job.name} Past Papers'
-                    intro=f'Choose a {short} {job.name} exam year to open the exact past-paper record, practice its linked MCQs, and review repeated or important questions for revision.'
-                    links=[
-                        (f'{short} {job.name} {_seo_year_search_label(job.name,y.name)} Past Paper',
-                         f'/paper/{paper_slug}/job/{job_slug}/year/{_seo_slug(y.name)}')
-                        for y in JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')
-                    ]
-                    if 'year' in parts:
-                        yi=parts.index('year')
-                        year_slug=parts[yi+1] if len(parts)>yi+1 else ''
-                        year=_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('id','name'),year_slug)
-                        if year:
-                            year_label=_seo_year_search_label(job.name,year.name)
-                            title=f'{short} {job.name} {year_label} Solved Past Paper'
-                            description=f'Practice {short} {job.name} {year_label} solved past paper MCQs with correct answers and explanations. Review related important questions for test preparation.'
-                            heading=f'{short} {job.name} {year_label} Past Paper'
-                            intro=f'Practice MCQs linked to the {short} {job.name} {year_label} past paper, check correct answers and explanations, and continue with related important MCQs and categories.'
-                            links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
+            intro=f'Choose an available past paper under {paper.name}, practise the linked MCQs, and review answers and explanations. You can return to the organization page to browse other past-paper records.'
+            year_token=None
+            if len(parts)==4 and parts[2]=='year':
+                year_token=parts[3]
+            elif len(parts)>=6 and parts[2]=='job' and parts[4]=='year':
+                # Legacy route: keep it working, but resolve the paper directly under the board.
+                year_token=parts[5]
+            if year_token:
+                years=JobYear.objects.filter(active=True).filter(
+                    Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+                ).select_related('paper','job__paper')
+                year=_seo_row_for_token(years,year_token)
+                if year:
+                    year_label=_seo_year_search_label('',year.name)
+                    title=f'{short} {year_label} Solved Past Paper'
+                    description=f'Practice {paper.name} {year_label} past paper MCQs with correct answers and explanations. Review related important questions for test preparation.'
+                    heading=f'{short} {year_label} Past Paper'
+                    intro=f'Practice the MCQs linked to {paper.name} {year.name}, check the correct answers and explanations, and continue with related MCQs and categories.'
+                    links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',job_year_ids__contains=[year.id]).only('question').order_by('-updated_at')[:100]]
+            else:
+                catalog=catalog if catalog is not None else _seo_past_papers_catalog()
+                years=JobYear.objects.filter(active=True).filter(
+                    Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+                ).select_related('paper','job__paper').only('id','name','paper_id','job_id').order_by('-name','id')
+                links=[(y.name,f'/paper/{paper_slug}/year/{_seo_slug(y.name)}') for y in years]
     elif path.startswith('/mcq/'):
         wanted=path.split('/mcq/',1)[1].strip('/')
         for q in MCQ.objects.filter(status='approved').only('question','description','seo_description','category_id','job_year_ids'):
@@ -1624,7 +1615,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 break
     support_links=[
         ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
-        ('Jobs & Exams','/jobs-exams'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
+        ('Organizations / Boards','/papers'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
         ('Exam Preparation Articles','/posts'),('About MCQCampus','/about'),('Contact','/contact'),
         ('Privacy Policy','/privacy'),('Terms of Service','/terms'),('HTML Sitemap','/sitemap'),
     ]
@@ -1803,7 +1794,7 @@ def spa_index(request):
     s=SiteSetting.objects.only(*fields).filter(pk=1).first()
     if s is None: s=SiteSetting.objects.create(pk=1)
     default_title=s.seo_title or 'MCQCampus — Practice MCQs, Past Papers & Exam Preparation'
-    default_description=s.seo_description or 'MCQCampus offers practice MCQs, past papers, job-wise exam preparation, answers and explanations for learners in Pakistan and India.'
+    default_description=s.seo_description or 'MCQCampus offers practice MCQs, organization-wise past papers, answers and explanations for learners in Pakistan and India.'
     path=request.path.rstrip('/') or '/'
     registry=seo_index_snapshot()
     if path in {'/index.html','/index.php'}:
