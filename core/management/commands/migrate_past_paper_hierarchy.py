@@ -28,8 +28,8 @@ def normalized_past_paper_name(raw_name, ordinal=1, group_size=1):
     value = str(raw_name or '').strip()
     year = _year_from_name(value)
     if not year:
-        base = 'Past Paper'
-        return base if group_size <= 1 else f'Past Paper {ordinal}'
+        # Do not erase meaningful legacy labels when a reliable year cannot be inferred.
+        return value or 'Past Paper'
 
     # A bare year is already a clean, useful label; preserve it when unique.
     is_bare_year = bool(re.fullmatch(r'\s*(?:19|20|21)\d{2}\s*', value))
