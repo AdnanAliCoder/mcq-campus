@@ -10,7 +10,7 @@ function run(file){vm.runInContext(fs.readFileSync(path.join(root,'frontend/asse
 function respond(req,data={}){req.resolve({ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>data})}
 run('service.js');context.App={route:{path:'home',params:{}}};run('ui.js');run('public-layout.js');run('auth.js');
 (async()=>{
- for(const [route,expected] of [['categories','categories'],['category/1','categories'],['papers','papers'],['paper/1','papers'],['jobs-exams','jobs-exams'],['post/1','posts']]){
+ for(const [route,expected] of [['categories','categories'],['category/1','categories'],['papers','papers'],['past-papers','papers'],['paper/1','papers'],['post/1','posts']]){
   context.App.route.path=route;
   const html=context.UI.header('papers'),active=[...html.matchAll(/<a class="active" href="\/([^"]*)"/g)].map(x=>x[1]);
   assert.deepEqual(active,[expected]);
