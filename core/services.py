@@ -173,7 +173,9 @@ def _trash_record_countries(record,settings=None):
         except (TypeError,ValueError): countries.add('Pakistan')
     for row in entities.get('years') or []:
         try:
-            jid=int(row.get('job_id')); pid=jobs_papers.get(jid) or Job.objects.filter(pk=jid).values_list('paper_id',flat=True).first()
+            direct=row.get('paper_id')
+            jid=int(row.get('job_id') or 0)
+            pid=int(direct) if direct else (jobs_papers.get(jid) or Job.objects.filter(pk=jid).values_list('paper_id',flat=True).first())
             value=paper_countries.get(pid) or Paper.objects.filter(pk=pid).values_list('country',flat=True).first() or 'Pakistan'
             countries.add(str(value))
         except (TypeError,ValueError): countries.add('Pakistan')
@@ -1423,7 +1425,7 @@ def review_mcqs(user,ids,status,reason='',active_country=None):
         q.save(); log(user,f'MCQ {status}',q.question)
 
 def save_entity(user,payload,active_country=None):
-    fields,values,ctx,_=parse_fields(payload); typ=ctx.get('type'); require(typ in ENTITY_MODELS,'Invalid entity type.'); perm={'categories':'manage_categories','subcategories':'manage_subcategories','children':'manage_child_categories','papers':'manage_papers','jobs':'manage_jobs','years':'manage_job_years'}[typ]; require(is_admin(user) and has_perm(user,perm))
+    fields,values,ctx,_=parse_fields(payload); typ=ctx.get('type'); require(typ in ENTITY_MODELS,'Invalid entity type.'); require(typ!='jobs','The Jobs hierarchy has been removed. Create Past Papers directly under an Organization / Board.'); perm={'categories':'manage_categories','subcategories':'manage_subcategories','children':'manage_child_categories','papers':'manage_papers','jobs':'manage_jobs','years':'manage_job_years'}[typ]; require(is_admin(user) and has_perm(user,perm))
     model=ENTITY_MODELS[typ]; rid=int(ctx.get('id') or 0) or None; name=str(values.get('entity-name') or '').strip();
     if not name: raise ValueError('Name is required.')
     icon_url=str(values.get('entity-icon-url') or '').strip()
