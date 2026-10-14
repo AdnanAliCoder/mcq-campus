@@ -1262,7 +1262,7 @@ def _seo_hierarchy_canonical_path(path,catalog=None):
     return path
 
 def _seo_dynamic_path_exists(path):
-    """Reject invented SPA entity URLs so crawlers do not receive soft-404 200 pages."""
+    """Reject invented SPA URLs while supporting Organization -> Past Paper routes."""
     parts=[p for p in str(path or '').strip('/').split('/') if p]
     if len(parts)<2:
         return False
@@ -1283,10 +1283,14 @@ def _seo_dynamic_path_exists(path):
         return bool(_seo_catalog_item('pdf',parts[1]))
     if kind=='latest-job' and len(parts)==2:
         return bool(_seo_catalog_item('latest-job',parts[1]))
-    if kind=='job' and len(parts)==2:
-        return bool(_seo_row_for_token(Job.objects.filter(active=True,paper__active=True).only('id','name'),parts[1]))
     if kind=='year' and len(parts)==2:
-        return bool(_seo_row_for_token(JobYear.objects.filter(active=True,job__active=True,job__paper__active=True).only('id','name'),parts[1]))
+        years=JobYear.objects.filter(active=True).filter(
+            Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)
+        )
+        return bool(_seo_row_for_token(years.only('id','name','paper_id','job_id'),parts[1]))
+    if kind=='job' and len(parts)==2:
+        # Legacy public Job pages are no longer part of the hierarchy.
+        return False
     if kind!='paper' or len(parts) not in {2,4,6}:
         return False
     paper=_seo_row_for_token(Paper.objects.filter(active=True).only('id','name'),parts[1])
@@ -1294,16 +1298,19 @@ def _seo_dynamic_path_exists(path):
         return False
     if len(parts)==2:
         return True
-    if parts[2]!='job':
-        return False
-    job=_seo_row_for_token(Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),parts[3])
-    if not job:
-        return False
-    if len(parts)==4:
-        return True
-    if parts[4]!='year':
-        return False
-    return bool(_seo_row_for_token(JobYear.objects.filter(active=True,job_id=job.id).only('id','name'),parts[5]))
+    if len(parts)==4 and parts[2]=='year':
+        years=JobYear.objects.filter(active=True).filter(
+            Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+        ).select_related('paper','job__paper')
+        return bool(_seo_row_for_token(years,parts[3]))
+    if len(parts)==4 and parts[2]=='job':
+        return True  # Canonicalizes the old job URL to the organization landing.
+    if len(parts)==6 and parts[2]=='job' and parts[4]=='year':
+        years=JobYear.objects.filter(active=True).filter(
+            Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+        ).select_related('paper','job__paper')
+        return bool(_seo_row_for_token(years,parts[5]))
+    return False
 
 def _seo_known_spa_path(path,catalog=None):
     static={
