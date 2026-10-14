@@ -41,6 +41,23 @@ jobs:
           core.tests.IntegrationTests.test_super_admin_country_workspace_scopes_dashboard_mcqs_and_entities
           core.tests.IntegrationTests.test_active_country_scopes_public_content_catalog_and_student_site
           --verbosity 2
+      - name: Test Organization/Past Paper migration and move workflow
+        env:
+          DEBUG: "false"
+          SECRET_KEY: "ci-check-secret"
+          ALLOWED_HOSTS: "127.0.0.1,localhost"
+        run: >-
+          python manage.py test
+          core.test_move_past_paper_mcqs
+          core.test_past_paper_hierarchy_migration
+          core.test_navigation_jobs
+          core.test_past_papers_seo
+          --verbosity 2
+      - name: Test frontend navigation, SEO, interactions and integration
+        run: |
+          node tools/verify-navigation.cjs
+          node tools/verify-past-papers.cjs
+          node tools/verify-interactions.cjs
       - name: Test cache utilities
         env:
           DEBUG: "false"

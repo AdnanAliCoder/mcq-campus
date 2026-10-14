@@ -54,11 +54,18 @@ class Subcategory(OwnedStampedModel):
 class ChildCategory(OwnedStampedModel):
     id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); icon=models.TextField(blank=True,default='grid'); subcategory=models.ForeignKey(Subcategory,on_delete=models.CASCADE,related_name='children'); active=models.BooleanField(default=True)
 class Paper(OwnedStampedModel):
+    # Public-facing organization / board. Kept as Paper for database compatibility.
     id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); country=models.CharField(max_length=80,default='Pakistan'); icon=models.TextField(blank=True,default='paper'); active=models.BooleanField(default=True)
 class Job(OwnedStampedModel):
+    # Legacy model kept temporarily so older installs can upgrade without losing references.
+    # The hierarchy migration removes legacy Job rows after moving JobYear records to Paper.
     id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); paper=models.ForeignKey(Paper,on_delete=models.CASCADE,related_name='jobs'); icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
 class JobYear(OwnedStampedModel):
-    id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255); job=models.ForeignKey(Job,on_delete=models.CASCADE,related_name='years'); icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
+    # Public-facing Past Paper belongs directly to an organization / board.
+    id=models.BigIntegerField(primary_key=True); name=models.CharField(max_length=255)
+    paper=models.ForeignKey(Paper,null=True,blank=True,on_delete=models.CASCADE,related_name='past_papers')
+    job=models.ForeignKey(Job,null=True,blank=True,on_delete=models.SET_NULL,related_name='years')
+    icon=models.TextField(blank=True,default='grid'); active=models.BooleanField(default=True)
 
 class MCQ(OwnedStampedModel):
     STATUS=[('pending','Pending'),('approved','Approved'),('rejected','Rejected')]

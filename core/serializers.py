@@ -40,19 +40,21 @@ def job(x):
     if getattr(x,'paper',None): row['icon']=x.paper.icon
     return row
 def year(x):
-    row={**entity_base(x),'job_id':x.job_id}
-    job_obj=getattr(x,'job',None)
-    paper_obj=getattr(job_obj,'paper',None) if job_obj else None
+    paper_obj=getattr(x,'paper',None)
+    if paper_obj is None:
+        job_obj=getattr(x,'job',None)
+        paper_obj=getattr(job_obj,'paper',None) if job_obj else None
+    row={**entity_base(x),'paper_id':x.paper_id,'job_id':x.job_id}
     if paper_obj: row['icon']=paper_obj.icon
     return row
 def _important_mcq(x):
     cached=getattr(x,'_important_value',None)
     if cached is not None: return bool(cached)
-    jobs=set()
-    for value in x.job_ids or []:
-        try: jobs.add(int(value))
+    years=set()
+    for value in x.job_year_ids or []:
+        try: years.add(int(value))
         except (TypeError,ValueError): pass
-    return len(jobs)>=2
+    return bool(x.important) or len(years)>=2
 
 def mcq(x):
     return {'id':x.id,'question':x.question,'option1':x.option1,'option2':x.option2,'option3':x.option3,'option4':x.option4,'correct_answer':x.correct_answer,'description':x.description,'category_id':x.category_id,'subcategory_ids':x.subcategory_ids or [],'child_subcategory_ids':x.child_subcategory_ids or [],'paper_id':x.paper_ids or [],'job_ids':x.job_ids or [],'job_years_ids':x.job_year_ids or [],'country':x.country,'status':x.status,'important':_important_mcq(x),'created_by':user_name(x.created_by) if x.created_by else 'Unknown','created_by_id':x.created_by_id,'reviewed_by':user_name(x.reviewed_by) if x.reviewed_by else '','approved_by':user_name(x.approved_by) if x.approved_by else '','rejection_reason':x.rejection_reason,'created_at':iso(x.created_at),'updated_at':iso(x.updated_at),'source':x.source,'seo_description':x.seo_description,'submission_type':x.submission_type,'submitted_by':user_name(x.submitted_by) if x.submitted_by else (user_name(x.created_by) if x.created_by else 'Unknown'),'submitted_by_id':x.submitted_by_id,'submitted_at':iso(x.submitted_at),'pending_update':x.pending_update,'audit_history':x.audit_history or []}

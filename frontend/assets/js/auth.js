@@ -117,7 +117,6 @@ window.Auth=(()=>{
  async function ensureRouteData(path,context={}){
   if(!path)return false;
   const clean=String(path).split('?')[0].replace(/^\/+|\/+$/g,'')||'home';
-  if(!user&&clean==='home')return false;
   const parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
   const initial=serverRoute?.path===location.pathname.replace(/\/$/,'')?serverRoute:null;
   const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||initial?.base||workspace,resolvedId=context?.id??initial?.id??recordId,routeKey=location.pathname+location.search;
@@ -134,9 +133,9 @@ window.Auth=(()=>{
   if(user&&['admin','super-admin'].includes(workspace)){
    if(section==='overview'||section==='admin-records')wants.push('overview');
    if(['users','admins','admin-records'].includes(section)||(section==='all-mcqs'&&user.roles?.includes('super-admin')))wants.push('users');
-   if(['add','edit','all-mcqs','mcqs','paper-mcqs','categories','papers','jobs','years','import'].includes(section))wants.push('core');
+   if(['add','edit','all-mcqs','mcqs','paper-mcqs','categories','papers','years','import'].includes(section))wants.push('core');
    if(['all-mcqs','mcqs','edit','paper-mcqs'].includes(section))wants.push('workspace-mcqs');
-   if(['categories','papers','jobs','years'].includes(section))wants.push('entity-page');
+   if(['categories','papers','years'].includes(section))wants.push('entity-page');
    if(section==='reports')wants.push('reports');
    if(section==='trash')wants.push('trash');
    if(section==='logs')wants.push('logs');
@@ -172,14 +171,14 @@ window.Auth=(()=>{
   };
   const entityEndpoint=()=>{
    const q=new URLSearchParams(),adminScope=user&&['admin','super-admin'].includes(workspace);
-   let type=adminScope&&['categories','papers','jobs','years'].includes(section)?section:null;
+   let type=adminScope&&['categories','papers','years'].includes(section)?section:null;
    let parent='';
    if(!adminScope){
     if(resolvedBase==='categories')type='categories';
     else if(resolvedBase==='papers')type='papers';
-    else if(resolvedBase==='paper'){type='jobs';parent=String(resolvedId||'')}
+    else if(resolvedBase==='paper'){type='years';parent=String(resolvedId||'')}
     else if(resolvedBase==='job'){type='years';parent=String(resolvedId||'')}
-    else if(resolvedBase==='jobs')type='jobs';
+    else if(resolvedBase==='jobs')type=null;
    }
    if(!type)return '';
    q.set('type',type);q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));

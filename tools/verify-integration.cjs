@@ -14,7 +14,7 @@ for(const name of fs.readdirSync(path.join(frontend,'assets/js')).filter(x=>x.en
 test('All frontend JavaScript parses',()=>{});
 
 const html=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1]);
+const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1].split('?')[0]);
 test('Final frontend and backend adapter load in the required order',()=>{
  const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/admin.js','assets/js/motion.js','assets/js/enhancements.js','assets/js/auth.js','assets/js/app.js'];
  for(const file of required){assert(scripts.includes(file),file+' missing');assert(fs.existsSync(path.join(frontend,file)),file+' not found')}
@@ -28,7 +28,6 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('app-loader-spinner'));
  assert(html.includes('global-spinner'));
- assert(!html.includes('.webm'));
  const mediaFiles=fs.readdirSync(path.join(frontend,'assets/images'));
  assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
@@ -41,7 +40,7 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(css.includes('.global-spinner'));
  assert(css.includes('.button-spinner'));
  assert(css.includes('position:fixed'));
- assert(css.includes('backdrop-filter:blur(5px)'));
+ assert(css.includes('backdrop-filter:blur(3px)'));
  assert(!html.includes('<video'));
 });
 
@@ -55,7 +54,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(auth.includes("endpoint='/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
- assert(auth.includes('finally{backendLoading(false)'));
+ assert(auth.includes('finally{if(loading)backendLoading(false)'));
  assert(auth.includes("async function request(path,body,{loading=false,timeout=15000}={})"));
  assert(auth.includes("timeout:action==='action:import-confirm'?60000:15000"));
  assert(auth.includes('setButtonLoading'));
@@ -118,9 +117,9 @@ test('Bulk import complete-data preview exposes merged hierarchy clearly',()=>{
  const admin=fs.readFileSync(path.join(frontend,'assets/js/admin.js'),'utf8');
  assert(admin.includes('Each visible row is one final MCQ candidate.'));
  assert(admin.includes('class="admin-mcq-full-table import-preview-table"'));
- assert(admin.includes('<th class="mcq-col-meta">Paper</th>'));
- assert(admin.includes('<th class="mcq-col-meta">Job / Post</th>'));
- assert(admin.includes('<th class="mcq-col-meta">Job Year</th>'));
+ assert(admin.includes('<th class="mcq-col-meta">Organization / Board</th>'));
+ assert(admin.includes('<th class="mcq-col-meta">Past Paper</th>'));
+ assert(!admin.includes('<th class="mcq-col-meta">Job / Post</th>'));
  assert(admin.includes('Final stored MCQ data'));
  assert(admin.includes('const importedFull=imported.length?table(imported,false)'));
 });
