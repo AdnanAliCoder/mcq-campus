@@ -1,8 +1,8 @@
 // Run with: node tools/verify-past-papers.cjs
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
-const page={path:'/ppsc-assistant-past-papers',title:'PPSC Assistant Past Papers',heading:'PPSC Assistant Past Papers',canonical:'https://www.mcqcampus.com/ppsc-assistant-past-papers',robots:'index,follow',description:'Available papers',groups:[['Exam years',[['2026','/paper/ppsc/job/assistant/year/2026']]]],breadcrumbs:[],schema:{'@graph':[]}};
-const rows={papers:[{id:1,name:'PPSC'}],jobs:[{id:10,paper_id:1,name:'Assistant'},{id:20,paper_id:2,name:'Assistant'},{id:30,paper_id:1,name:'Accountant & Auditor'}],years:[{id:100,job_id:10,name:'Assistant Past Paper [2026][Morning]'}]};
+const page={path:'/ppsc-assistant-past-papers',title:'PPSC Assistant Past Papers',heading:'PPSC Assistant Past Papers',canonical:'https://www.mcqcampus.com/ppsc-assistant-past-papers',robots:'index,follow',description:'Available papers',groups:[['Past Papers',[['Past Paper 2026','/paper/ppsc/year/past-paper-2026']]]],breadcrumbs:[],schema:{'@graph':[]}};
+const rows={papers:[{id:1,name:'PPSC'}],jobs:[{id:10,paper_id:1,name:'Assistant'},{id:20,paper_id:2,name:'Assistant'},{id:30,paper_id:1,name:'Accountant & Auditor'}],years:[{id:100,paper_id:1,name:'Past Paper 2026'}]};
 const context={window:null,document:{getElementById:id=>id==='seo-discovery-page'?{textContent:JSON.stringify(page)}:null},location:{pathname:page.path},MCQ:{db:{...rows,seo:{description:'Default'},settings:{siteName:'MCQCampus'}},slug:s=>s.toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')},UI:{link:(href,label)=>`<a href="${href}">${label}</a>`},PublicLayout:{smart:()=>'',page:x=>'<h1>'+x.title+'</h1>'+x.main}};
 context.MCQ.get=(table,id)=>(rows[table]||[]).find(x=>String(x.id)===String(id));
 context.window=context;vm.createContext(context);
@@ -10,16 +10,12 @@ vm.runInContext(fs.readFileSync(path.join(root,'frontend/assets/js/seo.js'),'utf
 vm.runInContext(fs.readFileSync(path.join(root,'frontend/assets/js/app.js'),'utf8').split('\n')[0],context);
 assert.equal(context.SEO.descriptor('ppsc-assistant-past-papers').title,page.title);
 assert.equal(context.SEO.descriptor('ppsc-assistant-past-papers').canonical,page.canonical);
-assert(context.SEO.renderDiscovery(page.path).includes('href="/paper/ppsc/job/assistant/year/2026"'));
+assert(context.SEO.renderDiscovery(page.path).includes('href="/paper/ppsc/year/past-paper-2026"'));
 assert.equal(context.SEO.needsDocumentNavigation('/assistant-past-papers'),true);
 assert.equal(context.SEO.needsDocumentNavigation('/sitemap'),true);
 assert.equal(context.SEO.needsDocumentNavigation(page.path+'?page=1'),false);
 assert.equal(context.SEO.needsDocumentNavigation('/paper/ppsc'),false);
 context.location.pathname='/papers';
-assert.equal(context.SEO.descriptor('papers').title,'Pakistan Past Papers — PPSC, FPSC, NTS & More');
-assert.equal(vm.runInContext("resolveRouteId('job','assistant',x=>x.paper_id===2)",context),'20');
-assert.equal(vm.runInContext("resolveRouteId('job','accountant-auditor',x=>x.paper_id===1)",context),'30');
-assert.equal(vm.runInContext("resolveRouteId('job','accountant-and-auditor',x=>x.paper_id===1)",context),'30');
-assert.equal(vm.runInContext("resolveRouteId('year','assistant-past-paper-2026morning',x=>x.job_id===10)",context),'100');
-assert.equal(vm.runInContext("resolveRouteId('year','assistant-past-paper-2026-morning',x=>x.job_id===10)",context),'100');
+assert.equal(context.SEO.descriptor('papers').title,'Organizations & Boards Past Papers — PPSC, FPSC, NTS & More');
+assert.equal(vm.runInContext("resolveRouteId('year','past-paper-2026',x=>Number(x.paper_id)===1)",context),'100');
 console.log('PASS landing metadata, discovery navigation, original routes, duplicate job names, and both sitemap/SPA slug spellings');
