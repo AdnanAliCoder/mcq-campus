@@ -9,6 +9,7 @@ from django.test import TransactionTestCase
 from .models import Category, Job, JobYear, MCQ, Paper
 from .serializers import _important_mcq
 from .services import _attach_important_flags
+from .management.commands.migrate_past_paper_hierarchy import normalized_past_paper_name
 
 
 class PastPaperHierarchyMigrationCommandTests(TransactionTestCase):
@@ -36,6 +37,10 @@ class PastPaperHierarchyMigrationCommandTests(TransactionTestCase):
             country='Pakistan',
             status='approved',
         )
+
+    def test_name_normalization_preserves_labels_without_a_reliable_year(self):
+        self.assertEqual(normalized_past_paper_name('Morning Session'), 'Morning Session')
+        self.assertEqual(normalized_past_paper_name(''), 'Past Paper')
 
     def test_legacy_job_ids_do_not_mark_an_mcq_important(self):
         self.mcq.job_ids = [self.job.id, 958]
