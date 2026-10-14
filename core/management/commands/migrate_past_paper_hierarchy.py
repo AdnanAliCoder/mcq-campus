@@ -63,7 +63,12 @@ class Command(BaseCommand):
         if job_table not in connection.introspection.table_names():
             raise CommandError(f'Missing required table {job_table}; refusing to infer or delete records.')
         jobs = {int(row['id']): int(row['paper_id']) for row in Job.objects.values('id', 'paper_id')}
-        years = list(JobYear.objects.values('id', 'name', 'job_id', 'paper_id').order_by('id'))
+        year_columns = self._columns(year_table)
+        if JobYear._meta.get_field('paper').column in year_columns:
+            years = list(JobYear.objects.values('id', 'name', 'job_id', 'paper_id').order_by('id'))
+        else:
+            # The whole point of this command is to run before that column exists.
+            years = [{**row, 'paper_id': None} for row in JobYear.objects.values('id', 'name', 'job_id').order_by('id')]
         unresolved = [int(row['id']) for row in years if not row.get('paper_id') and (not row.get('job_id') or int(row['job_id']) not in jobs)]
         if unresolved:
             raise CommandError(
