@@ -467,16 +467,19 @@
   letter-spacing:-.01em;
 }
 .stat-card-icon{
-  width:40px;
-  height:40px;
+  width:42px;
+  height:42px;
   border-radius:11px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  flex:0 0 40px;
+  flex:0 0 42px;
+  padding:0;
+  line-height:0;
+  overflow:visible;
   transition:transform .22s ease,background-color .22s ease;
 }
-.stat-card-icon .icon{width:19px;height:19px}
+.stat-card-icon .icon{width:22px;height:22px;min-width:22px;min-height:22px;flex:0 0 22px;display:block}
 .stat-card-icon.tone-primary{background:#e2f2ea;color:var(--green)}
 .stat-card-icon.tone-success{background:#e4f4ec;color:#087155}
 .stat-card-icon.tone-info{background:#eaf0fb;color:#486a9f}
