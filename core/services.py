@@ -720,7 +720,9 @@ def _approved_public_counts_uncached(country=None):
         papers=papers.filter(country__iexact=country)
         years=years.filter(paper__country__iexact=country)
         categories=categories.filter(pk__in=approved.values('category_id').distinct())
-    important=_json_array_length(approved,'job_ids','_job_count').filter(_job_count__gte=2).count()
+    important_qs=_json_array_length(approved,'job_ids','_job_count')
+    important_qs=_json_array_length(important_qs,'job_year_ids','_year_count')
+    important=important_qs.filter(Q(_job_count__gte=2)|Q(_year_count__gte=2)|Q(important=True)).count()
     category_rows=approved.values('category_id').annotate(total=Count('id'))
     return {'approvedMcqs':approved.count(),'importantMcqs':important,'categories':categories.count(),
             'papers':papers.count(),'jobs':jobs.count(),'years':years.count(),
@@ -845,7 +847,9 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     if filters.get('country') and not country:
         qs=qs.filter(country__iexact=str(filters['country']))
     if filters.get('important'):
-        qs=_json_array_length(qs,'job_ids','_job_count').filter(_job_count__gte=2)
+        qs=_json_array_length(qs,'job_ids','_job_count')
+        qs=_json_array_length(qs,'job_year_ids','_year_count')
+        qs=qs.filter(Q(_job_count__gte=2)|Q(_year_count__gte=2)|Q(important=True))
     if filters.get('repeated'):
         qs=_json_array_length(qs,'job_year_ids','_year_count').filter(_year_count__gte=2)
     for key,field in [('subcategory','subcategory_ids'),('child','child_subcategory_ids')]:
@@ -900,13 +904,17 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total,'seoIndex':indexes}
 
 def _attach_important_flags(objects):
-    """Apply the final Important rule from distinct linked Job IDs without extra queries."""
+    """Derive Important MCQs from multiple linked Past Papers or preserved legacy job IDs."""
     for obj in objects:
         jobs=set()
         for value in obj.job_ids or []:
             try: jobs.add(int(value))
             except (TypeError,ValueError): pass
-        obj._important_value=len(jobs)>=2
+        years=set()
+        for value in obj.job_year_ids or []:
+            try: years.add(int(value))
+            except (TypeError,ValueError): pass
+        obj._important_value=bool(obj.important) or len(jobs)>=2 or len(years)>=2
 
 def snapshot(user,active_country=None,active_role=None):
     country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) and active_role=='super-admin' else '')
