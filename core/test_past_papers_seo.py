@@ -132,7 +132,8 @@ class PastPapersSEOTests(TestCase):
         response = self.client.get('/favicon.svg')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response['Content-Type'].startswith('image/svg+xml'))
-        self.assertIn('<svg', response.content.decode().lower())
+        svg = ''.join(chunk.decode() if isinstance(chunk, bytes) else chunk for chunk in response.streaming_content).lower()
+        self.assertIn('<svg', svg)
 
     def test_old_jobs_exams_url_redirects_to_past_papers(self):
         response = self.client.get('/jobs-exams')
