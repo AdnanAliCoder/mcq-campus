@@ -99,8 +99,8 @@ window.Auth=(()=>{
  for(const type of ['click','dblclick','pointerdown','keydown','keyup','submit','wheel','touchmove']){
   document.addEventListener(type,event=>{if(!pendingRequests)return;event.preventDefault();event.stopImmediatePropagation();},{capture:true,passive:false});
  }
- async function ensureCsrfToken(){
-  if(csrf)return csrf;
+ async function ensureCsrfToken({force=false}={}){
+  if(csrf&&!force)return csrf;
   if(!csrfRefreshing){
    csrfRefreshing=(async()=>{
     let response;
@@ -123,7 +123,7 @@ window.Auth=(()=>{
   return csrfRefreshing;
  }
  async function request(path,body,{loading=false,timeout=15000}={}){
-  if(body!==undefined&&!csrf)await ensureCsrfToken();
+  if(body!==undefined)await ensureCsrfToken({force:true});
   if(loading)backendLoading(true);
   try{
    let response;
