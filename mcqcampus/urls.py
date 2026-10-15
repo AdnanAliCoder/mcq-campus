@@ -8,6 +8,7 @@ urlpatterns=[
     path('django-admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('favicon.ico', views.favicon),
+    path('favicon.svg', views.favicon_svg),
     path('site.webmanifest', views.site_manifest),
     path('robots.txt', views.robots_txt),
     path('llms.txt', views.llms_txt),
