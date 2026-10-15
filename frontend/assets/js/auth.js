@@ -3,7 +3,7 @@
 window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset-code','reset-password','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
- let ready=false,user=null,csrf='',checking=null,expiryTimer=null,generation=0,routeRoleSync=null;
+ let ready=false,user=null,csrf='',csrfRefreshing=null,checking=null,expiryTimer=null,generation=0,routeRoleSync=null;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=Number.POSITIVE_INFINITY;
  const serverRoute=(()=>{try{return JSON.parse(document.getElementById('seo-route')?.textContent||'null')}catch{return null}})();
@@ -99,7 +99,31 @@ window.Auth=(()=>{
  for(const type of ['click','dblclick','pointerdown','keydown','keyup','submit','wheel','touchmove']){
   document.addEventListener(type,event=>{if(!pendingRequests)return;event.preventDefault();event.stopImmediatePropagation();},{capture:true,passive:false});
  }
+ async function ensureCsrfToken(){
+  if(csrf)return csrf;
+  if(!csrfRefreshing){
+   csrfRefreshing=(async()=>{
+    let response;
+    try{
+     response=await fetch('/api/startup',{method:'GET',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
+    }catch{
+     throw Error('Unable to initialize account security. Refresh the page and try again.');
+    }
+    if(!response.ok||!response.headers.get('content-type')?.includes('application/json')){
+     throw Error('Unable to initialize account security. Refresh the page and try again.');
+    }
+    const data=await response.json();
+    if(typeof data.csrfToken!=='string'||!data.csrfToken){
+     throw Error('Unable to initialize account security. Refresh the page and try again.');
+    }
+    csrf=data.csrfToken;
+    return csrf;
+   })().finally(()=>{csrfRefreshing=null});
+  }
+  return csrfRefreshing;
+ }
  async function request(path,body,{loading=false,timeout=15000}={}){
+  if(body!==undefined&&!csrf)await ensureCsrfToken();
   if(loading)backendLoading(true);
   try{
    let response;
