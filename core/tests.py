@@ -33,16 +33,19 @@ class IntegrationTests(TestCase):
     def post_json(self,path,data):
         return self.client.post(path,data=json.dumps(data),content_type='application/json')
 
-    def test_seo_sitemap_index_exposes_hierarchy_sitemaps(self):
-        self.client.force_login(self.owner)
+    def test_xml_sitemap_prioritizes_public_pages_and_omits_individual_mcqs(self):
+        self.client.logout()
         response=self.client.get('/sitemap.xml')
         self.assertEqual(response.status_code,200)
         body=response.content.decode()
-        self.assertIn('/sitemap-categories.xml',body)
-        self.assertIn('/sitemap-papers.xml',body)
-        self.assertIn('/sitemap-jobs.xml',body)
-        self.assertIn('/sitemap-years.xml',body)
-        self.assertIn('/sitemap-mcqs.xml',body)
+        self.assertIn('/past-papers',body)
+        self.assertIn('/mcqs',body)
+        self.assertIn('/latest-jobs',body)
+        self.assertIn('/blog',body)
+        self.assertNotIn('/sitemap-categories.xml',body)
+        self.assertNotIn('/mcqs/',body)
+        self.assertNotIn('/about',body)
+        self.assertNotIn('/contact',body)
 
     def test_category_subcategory_topic_pages_have_unique_server_seo(self):
         self.client.force_login(self.owner)
