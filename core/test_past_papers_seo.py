@@ -72,7 +72,9 @@ class PastPapersSEOTests(TestCase):
         linked_urls = [url for _, url in page['links']]
         self.assertIn(_seo_indexed_path('year', self.ppsc_2024), linked_urls)
         self.assertIn('PPSC Past Papers is organized', html)
-        self.assertIn(page['canonical'], self.urls('/sitemap.xml'))
+        urls = self.urls('/sitemap.xml')
+        self.assertIn(page['canonical'], urls)
+        self.assertFalse(any('/mcqs/' in url for url in urls))
 
     def test_organization_catalog_does_not_expose_legacy_job_landings(self):
         catalog = _seo_past_papers_catalog()
@@ -112,6 +114,26 @@ class PastPapersSEOTests(TestCase):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
             self.assertIn('id="seo-route"', response.content.decode())
+
+    def test_public_browsing_without_login_and_noindex_support(self):
+        client = self.client.__class__()
+        for path in ['/', '/mcqs', '/past-papers', '/categories', '/blog', '/latest-jobs', '/past-papers/pdfs']:
+            response = client.get(path)
+            self.assertNotEqual(response.status_code, 302, path)
+            self.assertNotEqual(response.status_code, 401, path)
+        public_mcqs = client.get('/api/mcqs', {'public': '1', 'page_size': 10})
+        self.assertEqual(public_mcqs.status_code, 200, public_mcqs.content.decode())
+        for path in ['/about', '/contact']:
+            response = client.get(path)
+            self.assertEqual(response.status_code, 200, path)
+            self.assertIn('noindex', response.content.decode().lower())
+
+    def test_root_favicon_svg_is_served_as_svg(self):
+        response = self.client.get('/favicon.svg')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('image/svg+xml'))
+        svg = ''.join(chunk.decode() if isinstance(chunk, bytes) else chunk for chunk in response.streaming_content).lower()
+        self.assertIn('<svg', svg)
 
     def test_old_jobs_exams_url_redirects_to_past_papers(self):
         response = self.client.get('/jobs-exams')

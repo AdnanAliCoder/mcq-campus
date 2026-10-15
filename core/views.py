@@ -720,7 +720,7 @@ def entities(request):
         elif request.GET.get('admin_scope')=='1' and is_super(request.user):
             role=request.session.get('active_role') or 'super-admin'
             if role=='super-admin': active_country=_request_active_country(request)
-        page_size=12 if public_only and kind in ('categories','papers') else 10
+        page_size=12 if public_only and kind in ('categories','papers','years') else 10
         data=entity_page_data(request.user,kind,page,page_size,filters,public_only=public_only,active_country=active_country)
     except PermissionError as exc:
         return err(exc,403)
@@ -1388,8 +1388,9 @@ def _urlset(items):
 
 def sitemap_index(request):
     registry=seo_index_snapshot()
-    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/blog',None)]
-    rows.extend((SEO_ORIGIN+_seo_indexed_path('mcq',x,registry),x.updated_at) for x in MCQ.objects.filter(status='approved').order_by('id'))
+    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/latest-jobs',None),(SEO_ORIGIN+'/blog',None)]
+    # Individual MCQ detail URLs are intentionally omitted; retain the listing and
+    # focus sitemap discovery on organizations, past papers, years and public resources.
     rows.extend((SEO_ORIGIN+_seo_indexed_path('paper',x,registry),x.updated_at) for x in Paper.objects.filter(active=True).order_by('id'))
     # Job pages are no longer public; index each Past Paper directly under its Organization / Board.
     rows.extend((SEO_ORIGIN+_seo_indexed_path('year',x,registry),x.updated_at) for x in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').order_by('id'))
@@ -1929,7 +1930,17 @@ def favicon(request):
     from pathlib import Path
     path=Path(__file__).resolve().parents[1]/'frontend'/'assets'/'images'/'favicon.png'
     if not path.exists(): raise Http404
-    return FileResponse(open(path,'rb'),content_type='image/png')
+    response=FileResponse(open(path,'rb'),content_type='image/png')
+    response['Cache-Control']='public, max-age=86400'
+    return response
+
+def favicon_svg(request):
+    from pathlib import Path
+    path=Path(__file__).resolve().parents[1]/'frontend'/'favicon.svg'
+    if not path.exists(): raise Http404
+    response=FileResponse(open(path,'rb'),content_type='image/svg+xml')
+    response['Cache-Control']='public, max-age=86400'
+    return response
 
 def site_manifest(request):
     data={
@@ -1988,6 +1999,7 @@ def admin_move_past_paper_mcqs(request):
         source_id=int(data.get('source_year_id') or 0)
         destination_id=int(data.get('destination_year_id') or 0)
         raw_ids=data.get('mcq_ids') or []
+        delete_empty_source=str(data.get('delete_empty_source') or '').strip().lower() in {'1','true','yes','on'}
         if not isinstance(raw_ids,list) or not raw_ids:
             return err('Select at least one MCQ to move.', 422)
         if len(raw_ids)>500:
@@ -2010,7 +2022,13 @@ def admin_move_past_paper_mcqs(request):
         return err('The source or destination Organization / Board is inactive or missing.', 422)
     if str(source_paper.country or '').casefold()!=str(destination_paper.country or '').casefold():
         return err('Move MCQs only between past papers in the same country.', 422)
+    source_deleted=False
+    source_empty=None
     with transaction.atomic():
+        if delete_empty_source:
+            source=JobYear.objects.select_for_update().filter(pk=source_id,active=True).first()
+            if not source:
+                return err('The source past paper is no longer available.',404)
         rows=list(MCQ.objects.select_for_update().filter(pk__in=mcq_ids).order_by('id'))
         if len(rows)!=len(mcq_ids):
             return err('Some selected MCQs no longer exist. Refresh and try again.', 404)
@@ -2054,9 +2072,25 @@ def admin_move_past_paper_mcqs(request):
             row.audit_history=history[-100:]
             row.updated_by=request.user
             row.save(update_fields=['job_year_ids','paper_ids','audit_history','updated_by','updated_at'])
+        if delete_empty_source:
+            # Portable across PostgreSQL JSONField and SQLite test runs. This rare Super Admin
+            # check scans compact year-link arrays only, not complete question rows.
+            source_empty=True
+            for linked_ids in MCQ.objects.only('job_year_ids').values_list('job_year_ids',flat=True).iterator(chunk_size=2000):
+                if any(str(value).isdigit() and int(value)==source_id for value in (linked_ids or [])):
+                    source_empty=False
+                    break
+            if source_empty:
+                source.delete()
+                source_deleted=True
     try:
         invalidate_mcqcampus_cache()
     except Exception:
         logger.exception('Cache invalidation failed after moving past-paper MCQs')
-    return JsonResponse({'completed':True,'moved':len(rows),'source_year_id':source.id,'destination_year_id':destination.id,
-                         'message':f'Moved {len(rows)} MCQ(s) to {destination.name}.'})
+    message=f'Moved {len(rows)} MCQ(s) to {destination.name}.'
+    if source_deleted:
+        message+=' The empty source Past Paper was deleted safely.'
+    elif delete_empty_source:
+        message+=' The source Past Paper was kept because other MCQs still reference it.'
+    return JsonResponse({'completed':True,'moved':len(rows),'source_year_id':source_id,'destination_year_id':destination.id,
+                         'source_deleted':source_deleted,'source_empty':source_empty,'message':message})

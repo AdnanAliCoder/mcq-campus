@@ -25,13 +25,14 @@ class MovePastPaperMCQsTests(TestCase):
             country='Pakistan', status='approved'
         )
 
-    def move(self):
+    def move(self, delete_empty_source=False):
         return self.client.post(
             '/api/admin/mcqs/move-past-paper',
             data=json.dumps({
                 'source_year_id': self.source_year.id,
                 'destination_year_id': self.destination_year.id,
                 'mcq_ids': [self.mcq.id],
+                'delete_empty_source': delete_empty_source,
             }),
             content_type='application/json',
         )
@@ -60,6 +61,29 @@ class MovePastPaperMCQsTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.mcq.refresh_from_db()
         self.assertEqual(self.mcq.job_year_ids, [self.source_year.id])
+
+    def test_delete_empty_source_only_after_move(self):
+        self.client.force_login(self.owner)
+        response = self.move(delete_empty_source=True)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        self.assertTrue(response.json()['source_deleted'])
+        self.assertFalse(JobYear.objects.filter(pk=self.source_year.id).exists())
+        self.mcq.refresh_from_db()
+        self.assertEqual(self.mcq.job_year_ids, [self.destination_year.id])
+
+    def test_source_kept_if_other_mcqs_still_reference_it(self):
+        MCQ.objects.create(
+            id=909, question='What is 3 + 3?', option1='5', option2='6',
+            option3='7', option4='8', correct_answer='6', description='Basic arithmetic',
+            category=self.category, paper_ids=[self.source_paper.id],
+            job_ids=[905], job_year_ids=[self.source_year.id],
+            country='Pakistan', status='approved'
+        )
+        self.client.force_login(self.owner)
+        response = self.move(delete_empty_source=True)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        self.assertFalse(response.json()['source_deleted'])
+        self.assertTrue(JobYear.objects.filter(pk=self.source_year.id).exists())
 
     def test_move_rejects_cross_country_destination(self):
         self.destination_paper.country = 'India'
