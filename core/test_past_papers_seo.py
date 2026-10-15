@@ -117,10 +117,12 @@ class PastPapersSEOTests(TestCase):
 
     def test_public_browsing_without_login_and_noindex_support(self):
         client = self.client.__class__()
-        for path in ['/', '/past-papers', '/categories', '/blog', '/latest-jobs', '/past-papers/pdfs']:
+        for path in ['/', '/mcqs', '/past-papers', '/categories', '/blog', '/latest-jobs', '/past-papers/pdfs']:
             response = client.get(path)
             self.assertNotEqual(response.status_code, 302, path)
             self.assertNotEqual(response.status_code, 401, path)
+        public_mcqs = client.get('/api/mcqs', {'public': '1', 'page_size': 10})
+        self.assertEqual(public_mcqs.status_code, 200, public_mcqs.content.decode())
         for path in ['/about', '/contact']:
             response = client.get(path)
             self.assertEqual(response.status_code, 200, path)
