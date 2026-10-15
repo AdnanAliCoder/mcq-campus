@@ -87,38 +87,31 @@ class PerformanceTimingMiddleware:
 
 
 class LoginWallMiddleware:
-    """Keep application pages private while exposing intended public SEO/catalog routes."""
+    """Protect account workspaces while keeping public exam preparation pages accessible."""
     STATIC_PREFIXES=('/assets/',)
-    STATIC_PATHS={'/favicon.ico','/site.webmanifest','/sw.js'}
-    PUBLIC_API_PATHS={
-        '/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal',
-    }
+    STATIC_PATHS={'/favicon.ico','/favicon.svg','/site.webmanifest','/sw.js'}
+    PUBLIC_API_PATHS={'/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal'}
     AUTH_API_PATHS={
-        '/api/auth/session','/api/auth/login','/api/auth/register',
-        '/api/auth/forgot','/api/auth/reset','/api/auth/verify',
-        '/api/auth/resend-verification','/api/startup',
+        '/api/auth/session','/api/auth/login','/api/auth/register','/api/auth/forgot',
+        '/api/auth/reset','/api/auth/verify','/api/auth/resend-verification','/api/startup',
     }
-    AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify'}
-    PUBLIC_ENTRY_PATHS={'/','/home'}
-    PUBLIC_SEO_EXACT_PATHS={
-        '/past-papers','/jobs-exams','/sitemap.xml','/sitemap-papers.xml',
-        '/sitemap-jobs.xml','/sitemap-years.xml','/robots.txt','/llms.txt',
+    AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify','/reset-code','/reset-password'}
+    PRIVATE_PAGE_PREFIXES=('/dashboard','/admin','/super-admin','/profile')
+    NOINDEX_PUBLIC_PATHS={
+        '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies',
+        '/advertising','/sitemap','/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify',
     }
-    PUBLIC_SEO_PATTERNS=(
-        re.compile(r'^/past-papers/[^/]+/[^/]+$'),
-        re.compile(r'^/[^/]+-past-papers$'),
-        re.compile(r'^/sitemap-[a-z-]+[.]xml$'),
-    )
+    DISCOVERY_FILES={'/sitemap.xml','/robots.txt','/llms.txt'}
 
     def __init__(self,get_response):
         self.get_response=get_response
 
     def __call__(self,request):
         path=request.path or '/'
+        normalized=path.rstrip('/') or '/'
         if path in self.STATIC_PATHS or path.startswith(self.STATIC_PREFIXES):
             return self.get_response(request)
 
-        normalized=path.rstrip('/') or '/'
         authenticated=bool(getattr(getattr(request,'user',None),'is_authenticated',False))
         if normalized.startswith('/api/'):
             public_api = normalized in self.PUBLIC_API_PATHS or (
@@ -135,36 +128,23 @@ class LoginWallMiddleware:
             response['X-Robots-Tag']='noindex, nofollow'
             return response
 
-        public_seo = (
-            normalized in self.PUBLIC_SEO_EXACT_PATHS
-            or any(pattern.fullmatch(normalized) for pattern in self.PUBLIC_SEO_PATTERNS)
-        )
-        if public_seo:
-            response=self.get_response(request)
-            response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
-            response['Pragma']=''
-            if 'X-Robots-Tag' in response:
-                del response['X-Robots-Tag']
-            return response
-
-        if normalized in self.AUTH_PAGE_PATHS:
-            if authenticated:
-                response=HttpResponseRedirect('/')
-            else:
-                response=self.get_response(request)
-        elif not authenticated and normalized in self.PUBLIC_ENTRY_PATHS:
-            response=self.get_response(request)
-            response['Cache-Control']='public, max-age=0, s-maxage=60, stale-while-revalidate=300'
-            response['Pragma']=''
-            if 'X-Robots-Tag' in response:
-                del response['X-Robots-Tag']
-            return response
-        elif not authenticated:
+        is_private=any(normalized==prefix or normalized.startswith(prefix+'/') for prefix in self.PRIVATE_PAGE_PREFIXES)
+        if is_private and not authenticated:
             response=HttpResponseRedirect('/login')
-        else:
-            response=self.get_response(request)
+            response['Cache-Control']='private, no-store, max-age=0'
+            response['Pragma']='no-cache'
+            response['X-Robots-Tag']='noindex, nofollow'
+            return response
 
-        response['Cache-Control']='private, no-store, max-age=0'
-        response['Pragma']='no-cache'
-        response['X-Robots-Tag']='noindex, nofollow'
+        response=HttpResponseRedirect('/') if normalized in self.AUTH_PAGE_PATHS and authenticated else self.get_response(request)
+        if normalized in self.NOINDEX_PUBLIC_PATHS or is_private or response.status_code>=400:
+            response['X-Robots-Tag']='noindex, nofollow'
+            if is_private or normalized in self.AUTH_PAGE_PATHS:
+                response['Cache-Control']='private, no-store, max-age=0'
+                response['Pragma']='no-cache'
+            else:
+                response['Cache-Control']='public, max-age=300, s-maxage=3600'
+                response['Pragma']=''
+        elif normalized not in self.DISCOVERY_FILES and 'X-Robots-Tag' in response:
+            del response['X-Robots-Tag']
         return response
