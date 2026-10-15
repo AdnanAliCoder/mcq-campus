@@ -116,6 +116,8 @@ class LoginWallMiddleware:
         if normalized.startswith('/api/'):
             public_api = normalized in self.PUBLIC_API_PATHS or (
                 normalized == '/api/entities' and request.GET.get('scope') == 'public'
+            ) or (
+                normalized == '/api/mcqs' and request.GET.get('public') == '1'
             )
             if normalized in self.AUTH_API_PATHS or public_api:
                 response=self.get_response(request)
