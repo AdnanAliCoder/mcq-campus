@@ -3,7 +3,7 @@
 window.Auth=(()=>{
  const authRoutes=new Set(['login','register','forgot','reset-code','reset-password','reset','verify']);
  const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
- let ready=false,user=null,csrf='',csrfRefreshing=null,checking=null,expiryTimer=null,generation=0,routeRoleSync=null;
+ let ready=false,user=null,csrf='',csrfRefreshing=null,checking=null,expiryTimer=null,generation=0,routeRoleSync=null,pendingPublicAction=null;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=Number.POSITIVE_INFINITY;
  const serverRoute=(()=>{try{return JSON.parse(document.getElementById('seo-route')?.textContent||'null')}catch{return null}})();
@@ -334,7 +334,7 @@ window.Auth=(()=>{
   const publicCountryLanding=!user&&b==='home';
   document.body.classList.toggle('country-entry-screen',publicCountryLanding);
   if(authRoutes.has(b)||publicCountryLanding)return true;
-  if(!user){
+  if(!user && protectedRoutes.has(b)){
    const next=destination(current);
    history.replaceState(null,'',UI.href('login',next?{next}:{}));
    App.route={path:'login',params:next?{next}:{}};
@@ -342,6 +342,7 @@ window.Auth=(()=>{
    document.getElementById('app').innerHTML=view('login');
    return false;
   }
+  if(!user)return true;
   if(!allowed(current)){history.replaceState(null,'',UI.href(landing()));return false;}
   // Keep the URL and server-side workspace role in sync, including direct dashboard links.
   const desiredRole=b==='super-admin'?'super-admin':b==='admin'?'admin':null;
@@ -484,6 +485,28 @@ window.Auth=(()=>{
   toggle.innerHTML=UI.icon(reveal?'eye':'eye-off');
  });
 
+ function resumePendingPublicAction(){
+  const action=pendingPublicAction;pendingPublicAction=null;
+  if(!action||!user)return;
+  const url=String(action.url||'');
+  if(/^data:application\/pdf;base64,/i.test(url)){
+   const a=document.createElement('a');a.href=url;a.download=String(action.downloadName||'mcqcampus.pdf');document.body.appendChild(a);a.click();a.remove();return;
+  }
+  if(/^https?:\/\//i.test(url))window.location.assign(url);
+ }
+ document.addEventListener('click',event=>{
+  const anchor=event.target.closest('a[data-auth-action]');if(!anchor||user)return;
+  const href=String(anchor.href||'').trim();if(!href)return;
+  const kind=anchor.dataset.authAction;
+  if(kind==='download-pdf'&&!(/^https?:\/\//i.test(href)||/^data:application\/pdf;base64,/i.test(href)))return;
+  if(kind==='apply-job'&&!/^https?:\/\//i.test(href))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  pendingPublicAction={kind,url:href,downloadName:anchor.dataset.authDownloadName||'mcqcampus.pdf'};
+  const next=(location.pathname||'/').replace(/^\/+/, '')+location.search;
+  App.go('login',next?{next}:{});
+  UI.toast(kind==='download-pdf'?'Sign in to download this PDF.':'Sign in to continue to the official application page.');
+ },true);
+
  document.addEventListener('submit',async event=>{
   const form=event.target.closest('form[data-form^="auth-"]');if(!form)return;
   event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
@@ -500,7 +523,7 @@ window.Auth=(()=>{
    const data=await request('/auth/'+apiType,values);
    if(type==='login'){
     csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
-    const next=destination(params.get('next')),target=next&&allowed(next)?next:'home';App.go(target);
+    const next=destination(params.get('next')),target=next&&allowed(next)?next:'home';App.go(target);setTimeout(resumePendingPublicAction,300);
    }else if(type==='register'&&data.verificationRequired){
     const verifyEmail=data.email||values.email;
     armVerificationTimer(verifyEmail,data.resendAfter||60);
@@ -512,7 +535,7 @@ window.Auth=(()=>{
     box.textContent=data.message||'Code verified. Choose a new password.';
     setTimeout(()=>App.go('reset-password',{email:values.email||''}),450);
    }else if(type==='verify'&&data.completed){
-    if(data.user){csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();App.go('home');}
+    if(data.user){csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();App.go('home');setTimeout(resumePendingPublicAction,300);}
     else{box.textContent=data.message||'Email verified. You can now sign in.';setTimeout(()=>App.go('login'),700);}
    }else if((type==='reset-password'||type==='reset')&&data.completed){
     box.textContent=data.message||'Password updated. You can now sign in.';
@@ -572,6 +595,30 @@ window.Auth=(()=>{
     UI.toast(data.message||'Password changed successfully.');
    }
   }catch(error){if(box)box.textContent=error.message;}
+  finally{restore();}
+ },true);
+
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-form="move-past-paper-mcqs"]');if(!form)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(!user?.roles?.includes('super-admin')){UI.toast('Only a Super Admin can move MCQs between Past Papers.');return;}
+  if(!form.reportValidity())return;
+  const fd=new FormData(form),button=form.querySelector('[type="submit"]'),mcq_ids=fd.getAll('mcq_ids').map(Number).filter(id=>Number.isInteger(id)&&id>0);
+  if(!mcq_ids.length){UI.toast('Select at least one MCQ to move.');return;}
+  const restore=setButtonLoading(button,'Moving MCQs...');
+  try{
+   const result=await request('/admin/mcqs/move-past-paper',{
+    source_year_id:Number(fd.get('source_year_id')),
+    destination_year_id:Number(fd.get('destination_year_id')),
+    mcq_ids,
+    delete_empty_source:fd.has('delete_empty_source')
+   });
+   invalidatePagedLists();
+   const snapshot=await request('/bootstrap');
+   hydrate(snapshot,user);
+   UI.toast(result.message||('Moved '+Number(result.moved||0)+' MCQ(s).'));
+   if(result.source_deleted)App.go('super-admin/overview');else App.render();
+  }catch(error){UI.toast(error.message);}
   finally{restore();}
  },true);
 
