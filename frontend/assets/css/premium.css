@@ -330,3 +330,7 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .auth-form .selected-country-copy{display:flex;flex-direction:column;min-width:0;gap:2px}
 .auth-form .selected-country-copy strong{overflow-wrap:anywhere}
 .auth-form .selected-country-change{margin-left:auto;flex:0 0 auto;white-space:nowrap}
+
+/* Password visibility state: blue eye means the password is visible. */
+.password-toggle-btn[aria-pressed="true"]{color:#2563eb;background:#eff6ff}
+.password-toggle-btn[aria-pressed="true"]:hover{background:#dbeafe}
