@@ -19,6 +19,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .cache_utils import invalidate_mcqcampus_cache
+from .geolocation import visitor_country_code
 from .services import (
     snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
@@ -575,11 +576,20 @@ def admin_countries(request):
 @profile_api('startup')
 @require_GET
 def startup(request):
-    data=startup_payload(request.user,request.session)
+    selected_country=_request_content_country(request,refresh_geo=True)
+    data=startup_payload(request.user,request.session,country=selected_country)
+    data['detectedCountry']=selected_country
     data['csrfToken']=get_token(request)
     if data.get('user') and request.session.get_expiry_date():
         data['user']['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse(data)
+
+@profile_api('public_bootstrap')
+@require_GET
+def public_bootstrap(request):
+    country=_request_content_country(request)
+    data=snapshot(request.user,active_country=country,active_role='public',public_only=True)
+    return JsonResponse(data,safe=True)
 
 def _public_json(request,data):
     response=JsonResponse(data)
@@ -617,22 +627,71 @@ def profile_detail(request):
     if request.session.get_expiry_date(): data['expiresAt']=request.session.get_expiry_date().isoformat()
     return JsonResponse({'user':data})
 
-def _request_content_country(request):
-    # Country selection is persistent on learner profiles. The Super Admin's
-    # selected workspace controls preview/public data while in that workspace.
+_COUNTRY_NAMES_BY_CODE={
+    'PK':('Pakistan',),'IN':('India',),'US':('United States','USA','United States of America'),
+    'GB':('United Kingdom','UK','Great Britain'),'CA':('Canada',),'AU':('Australia',),
+    'AE':('United Arab Emirates','UAE'),'SA':('Saudi Arabia',),'BD':('Bangladesh',),
+    'NG':('Nigeria',),'ZA':('South Africa',),'NZ':('New Zealand',),'PH':('Philippines',),
+    'LK':('Sri Lanka',),'NP':('Nepal',),'SG':('Singapore',),'MY':('Malaysia',),
+    'ID':('Indonesia',),'DE':('Germany',),'FR':('France',),'IT':('Italy',),'ES':('Spain',),
+    'JP':('Japan',),'CN':('China',),'BR':('Brazil',),'KE':('Kenya',),'GH':('Ghana',),
+    'QA':('Qatar',),'KW':('Kuwait',),'OM':('Oman',),'BH':('Bahrain',),'TR':('Turkey','Türkiye'),
+    'IR':('Iran',),'IQ':('Iraq',),'AF':('Afghanistan',),'EG':('Egypt',),'MX':('Mexico',),
+    'KR':('South Korea','Korea, Republic of'),'TH':('Thailand',),'VN':('Vietnam',),
+    'RU':('Russia','Russian Federation'),'UA':('Ukraine',),'NL':('Netherlands',),
+    'CH':('Switzerland',),'SE':('Sweden',),'NO':('Norway',),'DK':('Denmark',),
+    'FI':('Finland',),'IE':('Ireland',),'BE':('Belgium',),'AT':('Austria',),
+    'PL':('Poland',),'PT':('Portugal',),'GR':('Greece',),'CZ':('Czechia','Czech Republic'),
+    'RO':('Romania',),'HU':('Hungary',),'IL':('Israel',),'JO':('Jordan',),'LB':('Lebanon',),
+    'MA':('Morocco',),'TN':('Tunisia',),'UG':('Uganda',),'TZ':('Tanzania',),
+    'ET':('Ethiopia',),'JM':('Jamaica',),'TT':('Trinidad and Tobago',),
+    'AR':('Argentina',),'CL':('Chile',),'CO':('Colombia',),'PE':('Peru',),
+    'EC':('Ecuador',),'VE':('Venezuela',),'BO':('Bolivia',),'CR':('Costa Rica',),
+    'PA':('Panama',),'UZ':('Uzbekistan',),'KZ':('Kazakhstan',),'MM':('Myanmar',),
+    'KH':('Cambodia',),'LA':('Laos',),'HK':('Hong Kong',),'TW':('Taiwan',),
+}
+
+def _country_name_from_ip_code(code,allowed):
+    candidates=_COUNTRY_NAMES_BY_CODE.get(str(code or '').upper(),())
+    for candidate in candidates:
+        match=allowed.get(candidate.casefold())
+        if match:
+            return match
+    return None
+
+def _request_content_country(request,refresh_geo=False):
+    # Account country always wins after login. The Super Admin's selected
+    # workspace controls their preview independently of visitor IP.
     if is_super(request.user) and (request.session.get('active_role') or 'super-admin')=='super-admin':
         return _request_active_country(request)
     profile_country=country_for_user(request.user)
     if profile_country:
         return profile_country
-    requested=str(request.GET.get('country') or '').strip()
     options=[row for row in country_catalog(include_counts=False,include_inactive=False) if row.get('active',True)]
     allowed={str(row['name']).casefold():str(row['name']) for row in options}
+    requested=str(request.GET.get('country') or '').strip()
     if requested.casefold() in allowed:
-        return allowed[requested.casefold()]
+        selected=allowed[requested.casefold()]
+        if not getattr(request.user,'is_authenticated',False):
+            request.session['public_country']=selected
+        return selected
+    authenticated=bool(getattr(request.user,'is_authenticated',False))
+    if not authenticated and not refresh_geo:
+        session_country=str(request.session.get('public_country') or '').strip()
+        if session_country.casefold() in allowed:
+            return allowed[session_country.casefold()]
+    country_code=visitor_country_code(request)
+    detected=_country_name_from_ip_code(country_code,allowed)
+    if detected:
+        if not authenticated:
+            request.session['public_country']=detected
+        return detected
     settings_obj=SiteSetting.get_solo()
     default=str(settings_obj.country or 'Pakistan').strip()
-    return allowed.get(default.casefold(),allowed.get('pakistan',options[0]['name'] if options else 'Pakistan'))
+    selected=allowed.get(default.casefold(),allowed.get('pakistan',options[0]['name'] if options else 'Pakistan'))
+    if not authenticated:
+        request.session['public_country']=selected
+    return selected
 
 def _request_active_country(request):
     if not is_super(request.user):
