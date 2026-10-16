@@ -33,6 +33,51 @@ class IntegrationTests(TestCase):
     def post_json(self,path,data):
         return self.client.post(path,data=json.dumps(data),content_type='application/json')
 
+    def test_public_bootstrap_and_mcqs_are_country_scoped_for_guests(self):
+        self.client.logout()
+        india_category=Category.objects.create(id=101,name='India Computing',icon='grid')
+        india_paper=Paper.objects.create(id=201,name='India Board',country='India',icon='paper')
+        settings_obj=SiteSetting.get_solo()
+        settings_obj.admin_permissions={
+            '_site':{'entityCountries':{'categories':{'101':'India'}}}
+        }
+        settings_obj.save(update_fields=['admin_permissions'])
+        MCQ.objects.create(
+            id=10,question='India-only approved question?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=india_category,
+            country='India',status='approved',
+        )
+        invalidate_mcqcampus_cache('country-catalog','public-counts','public-resources')
+
+        startup=self.client.get('/api/startup',HTTP_X_VERCEL_IP_COUNTRY='IN')
+        self.assertEqual(startup.status_code,200)
+        self.assertEqual(startup.json()['detectedCountry'],'India')
+        self.assertEqual(startup.json()['snapshot']['settings']['country'],'India')
+
+        response=self.client.get('/api/public/bootstrap',HTTP_X_VERCEL_IP_COUNTRY='IN')
+        self.assertEqual(response.status_code,200)
+        snapshot=response.json()
+        self.assertEqual(snapshot['settings']['country'],'India')
+        self.assertIn(india_paper.id,[row['id'] for row in snapshot['papers']])
+        self.assertIn(india_category.id,[row['id'] for row in snapshot['categories']])
+        self.assertEqual(snapshot['siteCounts']['approvedMcqs'],1)
+        self.assertEqual(snapshot['mcqs'],[],'public bootstrap should not ship unpaginated question rows')
+
+        mcqs_response=self.client.get(
+            '/api/mcqs?public=1&page=1&page_size=10',
+            HTTP_X_VERCEL_IP_COUNTRY='IN',
+        )
+        self.assertEqual(mcqs_response.status_code,200)
+        self.assertEqual(
+            [row['question'] for row in mcqs_response.json()['items']],
+            ['India-only approved question?'],
+        )
+
+    def test_guest_can_open_home_and_public_pdf_catalog_without_signing_in(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/').status_code,200)
+        self.assertEqual(self.client.get('/past-papers/pdfs').status_code,200)
+
     def test_xml_sitemap_prioritizes_public_pages_and_omits_individual_mcqs(self):
         self.client.logout()
         response=self.client.get('/sitemap.xml')

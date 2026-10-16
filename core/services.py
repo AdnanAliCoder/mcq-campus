@@ -635,13 +635,15 @@ def _startup_site_state(settings,country=None):
       'seo':{'title':settings.seo_title,'description':settings.seo_description},
     }
 
-def startup_payload(user,session):
+def startup_payload(user,session,country=None):
     settings=SiteSetting.objects.only('singleton','site_name','description','country','seo_title','seo_description').filter(pk=1).first()
     if settings is None: settings=SiteSetting.objects.create(pk=1)
     authenticated=bool(user and getattr(user,'is_authenticated',False))
     selected=country_for_user(user)
     if not selected and is_super(user) and (session or {}).get('active_role')=='super-admin':
         selected=str((session or {}).get('active_country') or settings.country or 'Pakistan')
+    if not selected:
+        selected=str(country or '').strip()
     count_qs=MCQ.objects.filter(status='approved')
     if selected: count_qs=count_qs.filter(country__iexact=selected)
     return {'snapshot':{'schemaVersion':14,**_startup_site_state(settings,selected or None),
@@ -916,14 +918,22 @@ def _attach_important_flags(objects):
             except (TypeError,ValueError): pass
         obj._important_value=bool(obj.important) or len(years)>=2
 
-def snapshot(user,active_country=None,active_role=None):
-    country=country_for_user(user) or (str(active_country or '').strip() if is_super(user) and active_role=='super-admin' else '')
+def snapshot(user,active_country=None,active_role=None,public_only=False):
+    authenticated=bool(user and getattr(user,'is_authenticated',False))
+    public_scope=bool(public_only and not authenticated)
+    country=country_for_user(user) or (str(active_country or '').strip() if ((is_super(user) and active_role=='super-admin') or public_scope) else '')
     cats_qs=Category.objects.select_related('created_by','updated_by').all()
     subs_qs=Subcategory.objects.select_related('created_by','updated_by').all()
     childs_qs=ChildCategory.objects.select_related('created_by','updated_by').all()
     papers_qs=Paper.objects.select_related('created_by','updated_by').all()
     jobs_qs=Job.objects.none()
     years_qs=JobYear.objects.select_related('paper','job__paper','created_by','updated_by').filter(Q(paper__isnull=False)|Q(paper__isnull=True,job__paper__isnull=False))
+    if public_scope:
+        cats_qs=cats_qs.filter(active=True)
+        subs_qs=subs_qs.filter(active=True,category__active=True)
+        childs_qs=childs_qs.filter(active=True,subcategory__active=True,subcategory__category__active=True)
+        papers_qs=papers_qs.filter(active=True)
+        years_qs=years_qs.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True))
     if country:
         category_ids=_country_category_ids(country)
         cats_qs=cats_qs.filter(pk__in=category_ids)
@@ -947,10 +957,15 @@ def snapshot(user,active_country=None,active_role=None):
       'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user)),
       'categories':[{**category(x),'country':str(category_country_map.get(str(x.id),'Pakistan') or 'Pakistan')} for x in cats],'subcategories':[subcategory(x) for x in subs],'children':[child(x) for x in childs],
       'papers':[paper(x) for x in papers],'jobs':[],'years':[year(x) for x in years],
-      'pinnedEntities':_pinned_entities(),
+      'pinnedEntities':_country_pinned_entities(country,SiteSetting.get_solo()) if public_scope and country else _pinned_entities(),
       'pageSeo':page_seo_snapshot(),
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':0,'total':total,'hasNext':total>0},'siteCounts':site_counts,
     }
+    # A guest bootstrap also carries the selected country so the client can
+    # keep its dashboard filters aligned even when the lighter startup request
+    # had a transient failure.
+    if public_scope:
+        data['settings']={'country':country,'mcqEntryCountry':country}
     # The permanent SEO index registry is admin-only client data. Public SEO routes
     # resolve indexes on the server and do not need this large map in bootstrap JSON.
     if is_admin(user): data['seoIndex']=seo_index_snapshot()

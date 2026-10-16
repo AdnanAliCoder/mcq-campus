@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'frontend/assets/js/public.js'), 'utf8');
-const start = source.indexOf(' function countryLanding(){');
+const start = source.indexOf(' function countryLanding(');
 const end = source.indexOf(' function home(){', start);
 assert(start >= 0 && end > start, 'countryLanding function boundaries should exist');
 
@@ -49,4 +49,37 @@ const fallback = makeLanding({ db: { countries: [], totalApprovedMcqs: 0 } }, UI
 assert(fallback.includes('>Pakistan</h2>'), 'Pakistan should remain as a safe fallback if no country list is available');
 assert(fallback.includes('1 country available'), 'fallback country count should be accurate');
 
-console.log('PASS configured country order, active-country filtering, counts, signup URLs, and fallback behavior');
+const loginHtml = makeLanding({
+  db: {
+    countries: [
+      { name: 'Pakistan', active: true, mcqCount: 125 },
+      { name: 'United States', active: true, mcqCount: 75 }
+    ],
+    totalApprovedMcqs: 200
+  }
+}, UI, escapeHtml, icon, link)('login');
+assert(loginHtml.includes('/login?country=Pakistan'), 'login entry must preserve the selected country');
+assert(loginHtml.includes('Sign in'), 'login country cards should state the intended action');
+
+const app = fs.readFileSync(path.join(root, 'frontend/assets/js/app.js'), 'utf8');
+const auth = fs.readFileSync(path.join(root, 'frontend/assets/js/auth.js'), 'utf8');
+const middleware = fs.readFileSync(path.join(root, 'core/middleware.py'), 'utf8');
+const urls = fs.readFileSync(path.join(root, 'core/urls.py'), 'utf8');
+const views = fs.readFileSync(path.join(root, 'core/views.py'), 'utf8');
+const geolocation = fs.readFileSync(path.join(root, 'core/geolocation.py'), 'utf8');
+
+assert(app.includes("else if(base==='home')html=Public.home();"), 'homepage must render the public country dashboard');
+assert(!app.includes("Auth.user?Public.home():Public.countryLanding()"), 'homepage must not be replaced by the auth country chooser');
+assert(auth.includes('return Public.countryLanding(type);'), 'country chooser should be part of login/register entry');
+assert(auth.includes("endpoint=user?'/bootstrap':'/public/bootstrap';"), 'guest route loading must use the public bootstrap');
+assert(urls.includes("path('public/bootstrap',views.public_bootstrap)"), 'public bootstrap URL must be registered');
+assert(middleware.includes("'/api/public/bootstrap'"), 'anonymous visitors must be allowed to load public bootstrap');
+assert(views.includes("data['detectedCountry']=selected_country"), 'startup should return the detected country');
+const services = fs.readFileSync(path.join(root, 'core/services.py'), 'utf8');
+assert(services.includes("data['settings']={'country':country,'mcqEntryCountry':country}"), 'guest bootstrap must align the frontend dashboard with its selected country');
+assert(views.includes('visitor_country_code(request)'), 'country routing must consult visitor country detection');
+assert(geolocation.includes('HTTP_CF_IPCOUNTRY') && geolocation.includes('HTTP_X_VERCEL_IP_COUNTRY'), 'common proxy country headers must be supported');
+assert(geolocation.includes('mcqcampus:ip-country:v1:'), 'country lookups must cache country under a hashed IP key');
+assert(geolocation.includes('MCQCAMPUS_GEOLOOKUP_ENABLED'), 'external IP lookup must be configurable');
+
+console.log('PASS country chooser, public homepage, IP country routing, auth entry and public-bootstrap regression checks');
