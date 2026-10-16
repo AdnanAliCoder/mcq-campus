@@ -961,6 +961,11 @@ def snapshot(user,active_country=None,active_role=None,public_only=False):
       'pageSeo':page_seo_snapshot(),
       'mcqs':rows,'mcqPage':{'page':1,'pageSize':0,'total':total,'hasNext':total>0},'siteCounts':site_counts,
     }
+    # A guest bootstrap also carries the selected country so the client can
+    # keep its dashboard filters aligned even when the lighter startup request
+    # had a transient failure.
+    if public_scope:
+        data['settings']={'country':country,'mcqEntryCountry':country}
     # The permanent SEO index registry is admin-only client data. Public SEO routes
     # resolve indexes on the server and do not need this large map in bootstrap JSON.
     if is_admin(user): data['seoIndex']=seo_index_snapshot()
