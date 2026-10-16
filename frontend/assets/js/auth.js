@@ -217,7 +217,7 @@ window.Auth=(()=>{
   let changed=false;
   const load=async key=>{
    let endpoint='/admin/'+key;
-   if(key==='core')endpoint='/bootstrap';
+   if(key==='core')endpoint=user?'/bootstrap':'/public/bootstrap';
    else if(key==='public-content')endpoint='/public/content';
    else if(key==='resources')endpoint='/public/resources';
    else if(key==='catalog')endpoint='/public/catalog';
@@ -331,9 +331,14 @@ window.Auth=(()=>{
   document.getElementById('app').removeAttribute('aria-busy');
   const current=route(),b=base();
   document.body.classList.toggle('auth-screen',authRoutes.has(b));
-  const publicCountryLanding=!user&&b==='home';
-  document.body.classList.toggle('country-entry-screen',publicCountryLanding);
-  if(authRoutes.has(b)||publicCountryLanding)return true;
+  const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim().toLowerCase();
+  const validCountry=(MCQ.db.countries||[]).some(item=>item&&item.active!==false&&String(item.name||'').trim().toLowerCase()===requestedCountry);
+  const countryChooser=!user&&['login','register'].includes(b)&&!validCountry;
+  document.body.classList.toggle('country-entry-screen',countryChooser);
+  if(authRoutes.has(b)){
+   if(user){history.replaceState(null,'',UI.href(landing()));return false;}
+   return true;
+  }
   if(!user && protectedRoutes.has(b)){
    const next=destination(current);
    history.replaceState(null,'',UI.href('login',next?{next}:{}));
@@ -384,6 +389,11 @@ window.Auth=(()=>{
   const activeCountries=(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
   const requestedCountry=String(params.get('country')||'').trim();
   const selectedCountry=(activeCountries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name||'';
+  if(['login','register'].includes(type)&&!selectedCountry){
+   document.body.classList.add('country-entry-screen');
+   return Public.countryLanding(type);
+  }
+  document.body.classList.remove('country-entry-screen');
   const defaultCountry=selectedCountry||(activeCountries.find(item=>String(item.name).toLowerCase()==='pakistan')||activeCountries[0]||{name:'Pakistan'}).name;
   const countryOptions=activeCountries.map(item=>'<option value="'+UI.esc(item.name)+'" '+(String(item.name).toLowerCase()===String(defaultCountry).toLowerCase()?'selected':'')+'>'+UI.esc(item.name)+'</option>').join('');
   const countryField='<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
@@ -734,7 +744,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',initialBase==='home');if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else{if(app)app.innerHTML='';backendLoading(true);}try{await check({loading:false});if(!authFirst&&!(base()==='home'&&!user))await ensureRouteData(route());}finally{if(!authFirst)backendLoading(false)}App.render();}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}try{await check({loading:false});}finally{ready=true;App.render();}}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
