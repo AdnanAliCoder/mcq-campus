@@ -46,10 +46,11 @@ window.Public=(()=>{
    .filter(item=>item&&item.active!==false&&String(item.name||'').trim())
    .map(item=>({...item,name:String(item.name||'').trim()}));
   if(!countries.length)countries.push({name:'Pakistan',active:true,mcqCount:0});
-  const countryTotal=source.reduce((sum,item)=>sum+Math.max(0,Number(item?.mcqCount)||0),0);
-  const totalApproved=source.some(item=>Number.isFinite(Number(item?.mcqCount)))
+  const hasCountryCounts=countries.length>0&&countries.every(item=>item.mcqCount!==undefined&&item.mcqCount!==null&&Number.isFinite(Number(item.mcqCount)));
+  const countryTotal=countries.reduce((sum,item)=>sum+Math.max(0,Number(item.mcqCount)||0),0);
+  const totalApproved=hasCountryCounts
    ?countryTotal
-   :(Number.isFinite(Number(MCQ.db.totalApprovedMcqs))?Number(MCQ.db.totalApprovedMcqs):0);
+   :(Number.isFinite(Number(MCQ.db.totalApprovedMcqs))?Number(MCQ.db.totalApprovedMcqs):countryTotal);
   const globalTotal=Math.max(0,totalApproved).toLocaleString('en-US');
   const countryCards=countries.map(item=>{
    const name=item.name;
