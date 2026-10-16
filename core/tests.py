@@ -57,6 +57,7 @@ class IntegrationTests(TestCase):
         response=self.client.get('/api/public/bootstrap',HTTP_X_VERCEL_IP_COUNTRY='IN')
         self.assertEqual(response.status_code,200)
         snapshot=response.json()
+        self.assertEqual(snapshot['settings']['country'],'India')
         self.assertIn(india_paper.id,[row['id'] for row in snapshot['papers']])
         self.assertIn(india_category.id,[row['id'] for row in snapshot['categories']])
         self.assertEqual(snapshot['siteCounts']['approvedMcqs'],1)
