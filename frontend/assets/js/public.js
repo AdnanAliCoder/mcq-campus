@@ -7,7 +7,7 @@ window.Public=(()=>{
  const fixedPublicCountry=()=>{
   const user=window.Auth?.user||MCQ.db.session||{};
   if(String(user.activeRole||'')==='super-admin'&&(user.roles||[]).includes('super-admin'))return String(MCQ.db.activeCountry||'').trim();
-  return String(user.country||'').trim();
+  return String(user.country||MCQ.db.settings.country||'Pakistan').trim();
  };
  const publicCountryNames=()=>{
   const fixed=fixedPublicCountry();if(fixed)return [fixed];
