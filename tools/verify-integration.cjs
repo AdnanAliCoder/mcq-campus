@@ -31,7 +31,8 @@ test('MCQ bulk-import templates use country, category, organization and past-pap
  assert(importer.includes("organization:'paper'"));
  assert(importer.includes("country:'country'"));
  assert(importer.includes("q.job_ids=[]"));
- assert(importer.includes('Organization|Board|Past Paper|Paper|Description'));
+ assert(importer.includes('Country|Category|Organization'));
+ assert(!importer.includes('|Job|Job Year|'));
  assert(app.includes("'country','category','organization','past_paper'"));
  assert(app.includes("'Organization / Board: '+organization"));
  assert(!app.includes("'Job: '+label('jobs'"));
