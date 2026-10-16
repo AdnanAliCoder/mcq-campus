@@ -24,6 +24,20 @@ test('Final frontend and backend adapter load in the required order',()=>{
  assert(!html.includes('demo-adapter.js'));
 });
 
+test('MCQ bulk-import templates use country, category, organization and past-paper names',()=>{
+ const importer=fs.readFileSync(path.join(frontend,'assets/js/importer.js'),'utf8');
+ const app=fs.readFileSync(path.join(frontend,'assets/js/app.js'),'utf8');
+ const admin=fs.readFileSync(path.join(frontend,'assets/js/admin.js'),'utf8');
+ assert(importer.includes("organization:'paper'"));
+ assert(importer.includes("country:'country'"));
+ assert(importer.includes("q.job_ids=[]"));
+ assert(importer.includes('Organization|Board|Past Paper|Paper|Description'));
+ assert(app.includes("'country','category','organization','past_paper'"));
+ assert(app.includes("'Organization / Board: '+organization"));
+ assert(!app.includes("'Job: '+label('jobs'"));
+ assert(admin.includes('Country, Category, Organization, Past Paper'));
+});
+
 test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('app-loader-spinner'));
