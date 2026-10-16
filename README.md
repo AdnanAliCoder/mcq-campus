@@ -45,6 +45,14 @@ For email-based verification/password reset, configure the optional email variab
 
 On an Oracle Ubuntu VM where Redis is installed and bound to localhost, set `REDIS_URL=redis://127.0.0.1:6379/1` in the environment used by the Django service, then restart the application service. Install dependencies from `requirements.txt` after pulling the code. The app uses Django's built-in Redis cache backend when `REDIS_URL` is present and local-memory cache otherwise. Cache reads/writes are best-effort; Redis being temporarily unavailable should fall back to uncached database results. Public data/count caches use short TTLs and version invalidation after recognized successful writes. Authentication/session/private account responses are not placed in these shared cache groups.
 
+## Public country homepage and login/signup country selection
+
+The public homepage resolves the visitor country before loading country-scoped MCQ totals, organizations, categories and past-paper data. It prefers country codes provided by hosting/CDN proxies, including Cloudflare's CF-IPCountry header, Vercel's country header, and CloudFront's viewer-country header. When no trusted country header is present, it can perform a short-timeout IP geolocation lookup. Only the resulting country code is cached, under a one-way hash of the IP address; the raw IP is not written to application logs or stored as the cache value.
+
+The fallback provider can be changed with MCQCAMPUS_GEOLOCATION_URL (a URL template containing {ip}), or disabled with MCQCAMPUS_GEOLOOKUP_ENABLED=false. When lookup cannot identify a country or the country is not enabled in Country Management, the app uses the configured site country, then Pakistan as a safe fallback.
+
+The homepage and public exam/PDF routes are available without an account. The country chooser is used when a visitor opens Login or Sign up without an active country choice. Anonymous route data is served through /api/public/bootstrap, which returns active country-scoped catalogs and totals without sending a full, unpaginated MCQ dataset.
+
 ## Performance diagnostics
 
 For temporary performance investigation, set `PERFORMANCE_LOGGING=true` in the relevant Vercel environment and redeploy. The application then logs only endpoint names, elapsed milliseconds, query counts when Django exposes them, response byte sizes, and safe login phase durations. It does **not** log passwords, cookies, CSRF/session tokens, request form values, `DATABASE_URL`, or database credentials.
