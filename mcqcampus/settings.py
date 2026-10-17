@@ -1,8 +1,56 @@
 import os
+import hashlib
 from pathlib import Path
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+def _static_asset_version():
+    """Fingerprint served entry assets without walking the full static directory on cold start."""
+    digest = hashlib.sha256()
+    relative_paths = (
+        'frontend/assets/css/styles.css',
+        'frontend/assets/css/premium.css',
+        'frontend/assets/css/design-refresh.css',
+        'frontend/assets/js/service.js',
+        'frontend/assets/js/ui.js',
+        'frontend/assets/js/public-layout.js',
+        'frontend/assets/js/public.js',
+        'frontend/assets/js/carousel.js',
+        'frontend/assets/js/seo.js',
+        'frontend/assets/js/motion.js',
+        'frontend/assets/js/auth.js',
+        'frontend/assets/js/app.js',
+        'frontend/assets/js/importer.js',
+        'frontend/assets/js/admin.js',
+        'frontend/assets/js/enhancements.js',
+        'frontend/assets/images/logo.png',
+        'frontend/assets/images/favicon.png',
+        'frontend/assets/images/favicon-192.png',
+        'frontend/assets/images/favicon-512.png',
+        'frontend/favicon.svg',
+        'frontend/site.webmanifest',
+        'sw.js',
+    )
+    found = 0
+    for relative in relative_paths:
+        path = BASE_DIR / relative
+        if not path.is_file():
+            continue
+        try:
+            digest.update(relative.encode('utf-8'))
+            digest.update(b'\\0')
+            with path.open('rb') as asset_file:
+                for chunk in iter(lambda: asset_file.read(131072), b''):
+                    digest.update(chunk)
+            digest.update(b'\\0')
+            found += 1
+        except OSError:
+            # Skip an unreadable optional asset rather than blocking startup.
+            continue
+    return digest.hexdigest()[:16] if found else 'static-v1'
+
+STATIC_ASSET_VERSION = _static_asset_version()
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
 DEBUG = os.getenv('DEBUG', 'false').lower() in {'1','true','yes','on'}
 PERFORMANCE_LOGGING = os.getenv('PERFORMANCE_LOGGING', 'false').lower() in {'1','true','yes','on'}
@@ -46,6 +94,7 @@ TEMPLATES=[{
     'OPTIONS':{'context_processors':[
         'django.template.context_processors.request','django.contrib.auth.context_processors.auth',
         'django.contrib.messages.context_processors.messages',
+        'core.context_processors.mcqcampus_asset_version',
     ]},
 }]
 WSGI_APPLICATION='mcqcampus.wsgi.application'
@@ -103,9 +152,9 @@ USE_TZ=True
 STATIC_URL='/assets/'
 STATICFILES_DIRS=[BASE_DIR/'frontend'/'assets']
 STATIC_ROOT=BASE_DIR/'staticfiles'
-# Frontend asset filenames are stable (auth.js, admin.js, etc.), so force revalidation
-# after every deploy instead of allowing a browser/CDN to keep an older JS bundle.
-WHITENOISE_MAX_AGE=0
+# Static URLs include a content-derived version token from the template context processor.
+# Year-long browser caching is safe because changed asset contents produce new URLs.
+WHITENOISE_MAX_AGE=31536000
 STORAGES={'staticfiles':{'BACKEND':'whitenoise.storage.CompressedStaticFilesStorage'}}
 DEFAULT_AUTO_FIELD='django.db.models.BigAutoField'
 MIGRATION_MODULES={'core': None}
