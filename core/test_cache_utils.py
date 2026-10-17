@@ -3,7 +3,7 @@ from django.test import SimpleTestCase, override_settings
 from unittest.mock import patch
 
 from .cache_utils import cached_value, invalidate_mcqcampus_cache
-from .services import seo_index_number, seo_index_snapshot
+from .services import public_bootstrap_data, seo_index_number, seo_index_snapshot
 from .views import _invalidate_caches_after_command
 
 
@@ -79,3 +79,21 @@ class CacheUtilityTests(SimpleTestCase):
                     _invalidate_caches_after_command(action)
                     self.assertIsNotNone(invalidate.call_args)
                     self.assertIn('seo-index', invalidate.call_args.args)
+                    if action in {'form:mcq', 'form:review', 'form:entity', 'form:post'}:
+                        self.assertIn('public-bootstrap', invalidate.call_args.args)
+
+    def test_public_bootstrap_is_cached_separately_for_each_country(self):
+        pakistan_data = {'settings': {'country': 'Pakistan'}, 'categories': []}
+        india_data = {'settings': {'country': 'India'}, 'categories': []}
+        with patch('core.services.snapshot', side_effect=[pakistan_data, india_data, pakistan_data]) as build:
+            self.assertEqual(public_bootstrap_data('Pakistan'), pakistan_data)
+            self.assertEqual(public_bootstrap_data(' Pakistan '), pakistan_data)
+            self.assertEqual(public_bootstrap_data('India'), india_data)
+            self.assertEqual(build.call_count, 2)
+
+            invalidate_mcqcampus_cache('public-bootstrap')
+            self.assertEqual(public_bootstrap_data('Pakistan'), pakistan_data)
+            self.assertEqual(build.call_count, 3)
+            self.assertEqual(build.call_args.kwargs, {
+                'active_country': 'Pakistan', 'active_role': 'public', 'public_only': True
+            })
