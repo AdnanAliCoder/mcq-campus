@@ -202,3 +202,24 @@ test('Public and hierarchy lists use click-triggered ten-row database pages',()=
  assert(services.includes("page_size=10"));
  assert(views.includes("def entities(request):"));
 });
+
+
+test('Web manifests use MCQCampus branding and existing favicon assets',()=>{
+ const rootManifest=JSON.parse(fs.readFileSync(path.join(root,'frontend/site.webmanifest'),'utf8'));
+ const assetManifest=JSON.parse(fs.readFileSync(path.join(frontend,'assets/favicon/site.webmanifest'),'utf8'));
+ const views=fs.readFileSync(path.join(root,'core/views.py'),'utf8');
+ for(const manifest of [rootManifest,assetManifest]){
+  assert.equal(manifest.name,'MCQCampus');
+  assert.equal(manifest.short_name,'MCQCampus');
+  assert(Array.isArray(manifest.icons)&&manifest.icons.length>0);
+ }
+ for(const icon of rootManifest.icons){
+  const local=path.join(frontend,'assets',icon.src.replace(/^\\/assets\\//,''));
+  assert(fs.existsSync(local),'Missing root manifest icon: '+icon.src);
+ }
+ for(const icon of assetManifest.icons){
+  assert(fs.existsSync(path.join(frontend,'assets/favicon',icon.src)),'Missing asset manifest icon: '+icon.src);
+ }
+ assert(views.includes("'src':'/assets/favicon/genfavicon-128.png?v='"));
+ assert(views.includes("'src':'/assets/favicon/genfavicon-512.png?v='"));
+});
