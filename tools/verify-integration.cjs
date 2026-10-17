@@ -235,7 +235,7 @@ test('Render text-fitting helpers minimize avoidable synchronous layout work',()
  assert(bracket.includes('const candidates=[];'));
  assert(bracket.includes('const breaks=[];'));
  assert(bracket.indexOf('const breaks=[];')<bracket.indexOf('for(const {el,original,at} of breaks)'));
- assert(!bracket.includes('el.textContent=original;'),'Fresh headings should not be rewritten before measuring');
+ assert(bracket.includes('if(cached&&(el.childNodes.length!==1||el.firstChild?.nodeType!==Node.TEXT_NODE||el.textContent!==original))el.textContent=original;'),'Only previously adjusted headings should be reset before measuring');
  assert(overflow.includes('for(let i=0;i<7&&high-low>=.25;i++)'),'Text fitting should use bounded binary search');
  assert(!overflow.includes('while(size>min&&over())'),'Avoid a long sequence of quarter-pixel layout reads');
 });
