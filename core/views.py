@@ -2012,8 +2012,8 @@ def site_manifest(request):
         'background_color':'#ffffff',
         'theme_color':'#102823',
         'icons':[
-            {'src':'/assets/images/favicon-192.png?v='+settings.STATIC_ASSET_VERSION,'sizes':'192x192','type':'image/png'},
-            {'src':'/assets/images/favicon-512.png?v='+settings.STATIC_ASSET_VERSION,'sizes':'512x512','type':'image/png'},
+            {'src':'/assets/favicon/genfavicon-128.png?v='+settings.STATIC_ASSET_VERSION,'sizes':'128x128','type':'image/png'},
+            {'src':'/assets/favicon/genfavicon-512.png?v='+settings.STATIC_ASSET_VERSION,'sizes':'512x512','type':'image/png'},
         ],
     }
     return JsonResponse(data,content_type='application/manifest+json')
