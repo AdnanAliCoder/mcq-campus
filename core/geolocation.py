@@ -22,7 +22,6 @@ def _trusted_header_country(request):
     # These headers are supplied/overwritten by common hosting/CDN proxies.
     for key in (
         "HTTP_CF_IPCOUNTRY",
-        "HTTP_X_VERCEL_IP_COUNTRY",
         "HTTP_CLOUDFRONT_VIEWER_COUNTRY",
     ):
         value = str(request.META.get(key) or "").strip().upper()
