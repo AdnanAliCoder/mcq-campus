@@ -1,5 +1,7 @@
 .sites-runtime/
 node_modules/
+.vercel/
+vercel.json
 *.tar.gz
 .env
 .env.*

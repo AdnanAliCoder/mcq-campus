@@ -78,7 +78,7 @@ assert(views.includes("data['detectedCountry']=selected_country"), 'startup shou
 const services = fs.readFileSync(path.join(root, 'core/services.py'), 'utf8');
 assert(services.includes("data['settings']={'country':country,'mcqEntryCountry':country}"), 'guest bootstrap must align the frontend dashboard with its selected country');
 assert(views.includes('visitor_country_code(request)'), 'country routing must consult visitor country detection');
-assert(geolocation.includes('HTTP_CF_IPCOUNTRY') && geolocation.includes('HTTP_X_VERCEL_IP_COUNTRY'), 'common proxy country headers must be supported');
+assert(geolocation.includes('HTTP_CF_IPCOUNTRY') && geolocation.includes('HTTP_CLOUDFRONT_VIEWER_COUNTRY'), 'supported CDN country headers must be recognized');
 assert(geolocation.includes('mcqcampus:ip-country:v1:'), 'country lookups must cache country under a hashed IP key');
 assert(geolocation.includes('MCQCAMPUS_GEOLOOKUP_ENABLED'), 'external IP lookup must be configurable');
 
