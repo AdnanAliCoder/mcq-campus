@@ -49,12 +49,12 @@ class IntegrationTests(TestCase):
         )
         invalidate_mcqcampus_cache('country-catalog','public-counts','public-resources')
 
-        startup=self.client.get('/api/startup',HTTP_X_VERCEL_IP_COUNTRY='IN')
+        startup=self.client.get('/api/startup',HTTP_CF_IPCOUNTRY='IN')
         self.assertEqual(startup.status_code,200)
         self.assertEqual(startup.json()['detectedCountry'],'India')
         self.assertEqual(startup.json()['snapshot']['settings']['country'],'India')
 
-        response=self.client.get('/api/public/bootstrap',HTTP_X_VERCEL_IP_COUNTRY='IN')
+        response=self.client.get('/api/public/bootstrap',HTTP_CF_IPCOUNTRY='IN')
         self.assertEqual(response.status_code,200)
         snapshot=response.json()
         self.assertEqual(snapshot['settings']['country'],'India')
@@ -65,7 +65,7 @@ class IntegrationTests(TestCase):
 
         mcqs_response=self.client.get(
             '/api/mcqs?public=1&page=1&page_size=10',
-            HTTP_X_VERCEL_IP_COUNTRY='IN',
+            HTTP_CF_IPCOUNTRY='IN',
         )
         self.assertEqual(mcqs_response.status_code,200)
         self.assertEqual(
