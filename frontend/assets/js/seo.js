@@ -50,9 +50,9 @@ window.SEO=(()=>{
   if(base==='latest-jobs')return '/latest-jobs';
   if(base==='posts')return '/blog';
   if(base==='category'){const x=get('categories',id),idx=indexFor('category',id);return x&&idx?`/categories/${idx}/${s(x)}`:'/categories'}
-  if(base==='paper'){const x=get('papers',id),idx=indexFor('paper',id);return x&&idx?`/past-papers/${idx}/${slug(shortName(x.name))}-past-papers`:'/past-papers'}
+  if(base==='paper'){const x=get('papers',id),idx=indexFor('paper',id);return x&&idx?`/past-papers/${idx}/${slug(shortName(x.name))}-past-papers`:x?`/paper/${x.id}`:'/past-papers'}
   if(base==='job')return '/past-papers'
-  if(base==='year'){const x=get('years',id),p=x&&(get('papers',x.paper_id)||get('papers',get('jobs',x.job_id)?.paper_id)),idx=indexFor('year',id);return x&&p&&idx?`/past-papers/${idx}/${slug(shortName(p.name)+' '+x.name)}`:'/past-papers'}
+  if(base==='year'){const x=get('years',id),p=x&&(get('papers',x.paper_id)||get('papers',get('jobs',x.job_id)?.paper_id)),idx=indexFor('year',id);return x&&p&&idx?`/past-papers/${idx}/${slug(shortName(p.name)+' '+x.name)}`:x&&p?`/paper/${p.id}/year/${x.id}`:'/past-papers'}
   if(base==='mcq'||base==='practice'){const x=get('mcqs',id),idx=indexFor('mcq',id);return x&&idx?`/mcqs/${idx}/${s(x)}`:'/mcqs'}
   if(base==='pdf'){const x=get('pdfs',id),idx=indexFor('pdf',catalogKey(x));return x&&idx?`/past-papers/pdfs/${idx}/${s(x)}`:'/past-papers/pdfs'}
   if(base==='latest-job'){const x=get('latestJobs',id),p=x&&get('papers',x.paper_id),idx=indexFor('latest-job',catalogKey(x));const label=(p?shortName(p.name)+' ':'')+(x?.title||'job');return x&&idx?`/latest-jobs/${idx}/${slug(label)}`:'/latest-jobs'}
