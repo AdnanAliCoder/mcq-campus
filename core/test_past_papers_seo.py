@@ -128,6 +128,13 @@ class PastPapersSEOTests(TestCase):
             self.assertEqual(response.status_code, 200, path)
             self.assertIn('noindex', response.content.decode().lower())
 
+    def test_root_favicon_ico_is_served_from_the_existing_asset(self):
+        response = self.client.get('/favicon.ico')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('image/x-icon'))
+        icon = b''.join(response.streaming_content)
+        self.assertTrue(icon.startswith(b'\\x00\\x00\\x01\\x00'))
+
     def test_root_favicon_svg_is_served_as_svg(self):
         response = self.client.get('/favicon.svg')
         self.assertEqual(response.status_code, 200)
