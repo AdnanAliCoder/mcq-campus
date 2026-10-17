@@ -51,7 +51,8 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('app-loader-spinner'));
  assert(html.includes('global-spinner'));
- const imageDir=path.join(frontend,'assets/images');\n const mediaFiles=fs.existsSync(imageDir)?fs.readdirSync(imageDir):[];
+ const imageDir=path.join(frontend,'assets/images');
+ const mediaFiles=fs.existsSync(imageDir)?fs.readdirSync(imageDir):[];
  assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
  assert(css.includes('.app-loader-spinner'));
@@ -73,13 +74,17 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(service.includes('function hydrate(snapshot,user)'));
  assert(service.includes('function mergeCore(snapshot)'));
  assert(auth.includes("credentials:'same-origin'"));
- assert(auth.includes("request('/startup')"));\n assert(auth.includes('if(body!==undefined)await ensureCsrfToken();'),'writes should reuse the startup CSRF token when available');\n assert(!auth.includes('if(body!==undefined)await ensureCsrfToken({force:true});'),'normal writes must not trigger an extra startup request');\n assert(auth.includes('response.status===403'),'refresh the token only when CSRF middleware rejects a write');\n assert(auth.includes("await Promise.all(unique.filter(key=>key!=='core').map(load))"),'independent route datasets should load concurrently after core data');
+ assert(auth.includes("request('/startup')"));
+ assert(auth.includes('if(body!==undefined)await ensureCsrfToken();'),'writes should reuse the startup CSRF token when available');
+ assert(!auth.includes('if(body!==undefined)await ensureCsrfToken({force:true});'),'normal writes must not trigger an extra startup request');
+ assert(auth.includes('response.status===403'),'refresh the token only when CSRF middleware rejects a write');
+ assert(auth.includes("await Promise.all(unique.filter(key=>key!=='core').map(load))"),'independent route datasets should load concurrently after core data');
  assert(auth.includes("endpoint='/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
  assert(auth.includes('finally{if(loading)backendLoading(false)'));
  assert(auth.includes("async function request(path,body,{loading=false,timeout=15000}={})"));
- assert(auth.includes("timeout:action==='action:import-confirm'?60000:15000"));
+ assert(auth.includes("timeout:action==='action:import-confirm'?60000:(longBulkReview?120000:15000)"));
  assert(auth.includes('setButtonLoading'));
  assert(auth.includes("action==='action:import-confirm'"));
  assert(auth.includes('let majorTransition=null'));
@@ -95,7 +100,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(!logoutBlock.includes('await check()'),'logout must not re-bootstrap');
  assert(service.includes('function upsert(type,row)'));
  assert(service.includes('function remove(type,idsToRemove)'));
- const authSubmitStart=auth.indexOf("const data=await request('/auth/'+endpoint,values)");
+ const authSubmitStart=auth.indexOf("const data=await request('/auth/'+apiType,values)");
  const loginStart=auth.indexOf("if(type==='login')",authSubmitStart);
  const loginEnd=auth.indexOf("}else",loginStart);
  const loginBlock=auth.slice(loginStart,loginEnd);
