@@ -324,6 +324,7 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .nav a{flex-shrink:0}
 .entity-icon-img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain}
 .entity-icon-fallback{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.entity-icon-img[hidden],.entity-icon-fallback[hidden]{display:none!important}
 .entity-icon-fallback .icon{width:1.35em;height:1.35em}
 .auth-form .selected-country-field{display:flex;align-items:center;box-sizing:border-box;width:100%;max-width:100%;min-width:0;border:1px solid #cbdad2;align-self:start}
 .auth-form .selected-country-field .selected-country-flag{flex:0 0 auto;line-height:1}
