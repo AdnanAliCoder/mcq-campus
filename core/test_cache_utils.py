@@ -1,7 +1,10 @@
 from django.core.cache import cache
 from django.test import SimpleTestCase, override_settings
+from unittest.mock import patch
 
 from .cache_utils import cached_value, invalidate_mcqcampus_cache
+from .services import seo_index_number, seo_index_snapshot
+from .views import _invalidate_caches_after_command
 
 
 @override_settings(CACHES={
@@ -46,3 +49,33 @@ class CacheUtilityTests(SimpleTestCase):
         self.assertEqual(india, {'country': 'India'})
         self.assertEqual(pakistan_again, {'country': 'Pakistan'})
         self.assertEqual(calls, ['Pakistan', 'India'])
+
+    def test_seo_index_registry_is_cached_until_invalidated(self):
+        registry = {
+            'next': 3,
+            'items': {'mcq:1': 1, 'job:2': 2},
+        }
+        with patch('core.services.ensure_seo_indexes', return_value=registry) as build:
+            self.assertEqual(seo_index_snapshot(), {'next': 3, 'items': {'mcq:1': 1}})
+            self.assertEqual(seo_index_number('mcq', '1'), 1)
+            # Keep legacy IDs reserved for token stability, even though the
+            # public snapshot intentionally hides the retired Job taxonomy.
+            self.assertEqual(seo_index_number('job', '2'), 2)
+            self.assertEqual(build.call_count, 1)
+
+            invalidate_mcqcampus_cache('seo-index')
+            self.assertEqual(seo_index_snapshot()['next'], 3)
+            self.assertEqual(build.call_count, 2)
+
+    def test_content_mutations_invalidate_the_seo_index_group(self):
+        actions = [
+            'form:mcq', 'form:review', 'form:entity', 'form:post',
+            'form:pdf', 'form:latest-job', 'action:trash-restore',
+            'action:latest-job-toggle', 'action:post-delete',
+        ]
+        for action in actions:
+            with self.subTest(action=action):
+                with patch('core.views.invalidate_mcqcampus_cache') as invalidate:
+                    _invalidate_caches_after_command(action)
+                    self.assertIsNotNone(invalidate.call_args)
+                    self.assertIn('seo-index', invalidate.call_args.args)
