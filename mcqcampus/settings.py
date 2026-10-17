@@ -57,17 +57,8 @@ PERFORMANCE_LOGGING = os.getenv('PERFORMANCE_LOGGING', 'false').lower() in {'1',
 REDIS_URL = os.getenv('REDIS_URL', '').strip()
 PUBLIC_CANONICAL_HOST = os.getenv('PUBLIC_CANONICAL_HOST','www.mcqcampus.com').strip().lower()
 PUBLIC_CANONICAL_ORIGIN = 'https://' + PUBLIC_CANONICAL_HOST
-VERCEL_DEFAULT_HOST = os.getenv('VERCEL_DEFAULT_HOST','mcq-campus.vercel.app').strip().lower()
 ALLOWED_HOSTS = [x.strip() for x in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if x.strip()]
-vercel_hosts = [os.getenv(name,'').strip() for name in ('VERCEL_URL','VERCEL_BRANCH_URL','VERCEL_PROJECT_PRODUCTION_URL')]
-for host in vercel_hosts:
-    if host and host not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(host)
 CSRF_TRUSTED_ORIGINS = [x.strip() for x in os.getenv('CSRF_TRUSTED_ORIGINS','').split(',') if x.strip()]
-for host in vercel_hosts:
-    origin=f'https://{host}' if host else ''
-    if origin and origin not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(origin)
 
 INSTALLED_APPS = [
     'django.contrib.admin','django.contrib.auth','django.contrib.contenttypes',
@@ -104,8 +95,8 @@ def _db():
     url=os.getenv('DATABASE_URL','').strip()
     if not url:
         return {'ENGINE':'django.db.backends.sqlite3','NAME':BASE_DIR/'db.sqlite3'}
-    # Vercel is serverless: keep Django persistent connections disabled. For Supabase,
-    # use the Transaction Pooler connection string (port 6543) in DATABASE_URL.
+    # Keep persistent connections disabled and prepared statements off for PostgreSQL
+    # transaction-pooler compatibility; DATABASE_URL may point to the Oracle VM database.
     cfg=dj_database_url.parse(url, conn_max_age=0, ssl_require=True)
     cfg.setdefault('OPTIONS',{})['prepare_threshold']=None
     return cfg
