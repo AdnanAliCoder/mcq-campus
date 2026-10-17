@@ -966,6 +966,11 @@ def _invalidate_caches_after_command(action):
         groups.add('public-catalog')
     if action in legal_actions:
         groups.add('public-legal')
+    # SEO slugs/index IDs cover MCQs, hierarchy records, posts and catalog items.
+    # Invalidate only after a successful mutating command, before returning a
+    # refreshed seoIndex to the client.
+    if action in (mcq_actions | entity_actions | resource_actions | content_actions | catalog_actions):
+        groups.add('seo-index')
     if groups:
         invalidate_mcqcampus_cache(*sorted(groups))
 
