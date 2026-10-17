@@ -68,7 +68,7 @@ window.Public=(()=>{
   return '<main id="main" class="country-entry-page" tabindex="-1">'+
    '<div class="country-entry-shell">'+
     '<header class="country-entry-brand" aria-label="MCQCampus">'+
-     '<img class="country-entry-logo" src="'+e(UI.assetUrl('/assets/favicon/genfavicon-180.png'))+'" alt="MCQCampus logo" width="48" height="48">'+
+     '<img class="country-entry-logo" src="'+e(UI.assetUrl('/assets/favicon/genfavicon-48.png'))+'" srcset="'+e(UI.assetUrl('/assets/favicon/genfavicon-48.png'))+' 1x, '+e(UI.assetUrl('/assets/favicon/genfavicon-128.png'))+' 2x" alt="MCQCampus logo" width="48" height="48">'+
      '<span>MCQ<span>Campus</span></span>'+
     '</header>'+
     '<section class="country-entry-hero" aria-labelledby="country-entry-title">'+
