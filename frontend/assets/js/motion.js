@@ -12,13 +12,15 @@ window.MCQMotion=(()=>{
   const scope=root.querySelector('#main')||root.querySelector('main')||root;
   const nodes=[...scope.querySelectorAll(selector)]
    .filter((el,i,all)=>!el.closest('dialog')&&!el.classList.contains('hidden')&&!all.some((parent,p)=>p<i&&parent.contains(el)&&['CARD','ARTICLE'].includes(parent.tagName)));
-  nodes.slice(0,28).forEach((el,i)=>{
+  const entering=nodes.slice(0,28);
+  entering.forEach((el,i)=>{
    el.classList.remove('mcq-motion-enter');
    el.style.setProperty('--motion-delay',Math.min(i*24,192)+'ms');
-   // Force a fresh animation when a view is re-rendered in place.
-   void el.offsetWidth;
-   el.classList.add('mcq-motion-enter');
   });
+  if(!entering.length)return;
+  // Batch the layout flush once instead of forcing a reflow for every element.
+  void scope.offsetWidth;
+  entering.forEach(el=>el.classList.add('mcq-motion-enter'));
  }
  function pulse(el){
   if(!el||reduce())return;
