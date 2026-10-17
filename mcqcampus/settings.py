@@ -6,29 +6,49 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 def _static_asset_version():
-    """Fingerprint shipped frontend assets so long-lived browser caching is safe."""
+    """Fingerprint served entry assets without walking the full static directory on cold start."""
     digest = hashlib.sha256()
-    asset_root = BASE_DIR / 'frontend' / 'assets'
-    files = list(asset_root.rglob('*')) if asset_root.is_dir() else []
-    files = [path for path in files if path.is_file()]
-    files.extend(path for path in (
-        BASE_DIR / 'frontend' / 'favicon.svg',
-        BASE_DIR / 'frontend' / 'site.webmanifest',
-        BASE_DIR / 'sw.js',
-    ) if path.is_file())
-    for path in sorted(set(files)):
+    relative_paths = (
+        'frontend/assets/css/styles.css',
+        'frontend/assets/css/premium.css',
+        'frontend/assets/css/design-refresh.css',
+        'frontend/assets/js/service.js',
+        'frontend/assets/js/ui.js',
+        'frontend/assets/js/public-layout.js',
+        'frontend/assets/js/public.js',
+        'frontend/assets/js/carousel.js',
+        'frontend/assets/js/seo.js',
+        'frontend/assets/js/motion.js',
+        'frontend/assets/js/auth.js',
+        'frontend/assets/js/app.js',
+        'frontend/assets/js/importer.js',
+        'frontend/assets/js/admin.js',
+        'frontend/assets/js/enhancements.js',
+        'frontend/assets/images/logo.png',
+        'frontend/assets/images/favicon.png',
+        'frontend/assets/images/favicon-192.png',
+        'frontend/assets/images/favicon-512.png',
+        'frontend/favicon.svg',
+        'frontend/site.webmanifest',
+        'sw.js',
+    )
+    found = 0
+    for relative in relative_paths:
+        path = BASE_DIR / relative
+        if not path.is_file():
+            continue
         try:
-            digest.update(path.relative_to(BASE_DIR).as_posix().encode('utf-8'))
-            digest.update(b'\0')
+            digest.update(relative.encode('utf-8'))
+            digest.update(b'\\0')
             with path.open('rb') as asset_file:
                 for chunk in iter(lambda: asset_file.read(131072), b''):
                     digest.update(chunk)
-            digest.update(b'\0')
+            digest.update(b'\\0')
+            found += 1
         except OSError:
-            # A transiently unreadable optional asset should not prevent app startup.
+            # Skip an unreadable optional asset rather than blocking startup.
             continue
-    return digest.hexdigest()[:16] if files else 'static-v1'
-
+    return digest.hexdigest()[:16] if found else 'static-v1'
 
 STATIC_ASSET_VERSION = _static_asset_version()
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
