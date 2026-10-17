@@ -12,10 +12,9 @@ class CanonicalHostRedirectMiddleware:
 
     def __call__(self,request):
         raw_host=str(request.META.get('HTTP_HOST') or '').split(':',1)[0].strip().lower()
-        source=str(getattr(settings,'VERCEL_DEFAULT_HOST','') or '').strip().lower()
         target=str(getattr(settings,'PUBLIC_CANONICAL_HOST','') or '').strip().lower()
         sibling=(target[4:] if target.startswith('www.') else 'www.'+target) if target else ''
-        redirect_hosts={h for h in (source,sibling) if h and h!=target}
+        redirect_hosts={sibling} if sibling and sibling!=target else set()
         if target and raw_host in redirect_hosts:
             response=HttpResponse(status=308)
             response['Location']='https://'+target+request.get_full_path()
