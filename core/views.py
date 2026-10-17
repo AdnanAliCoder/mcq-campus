@@ -13,6 +13,7 @@ from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.html import escape
+from django.utils.cache import patch_vary_headers
 from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -589,14 +590,18 @@ def startup(request):
 def public_bootstrap(request):
     country=_request_content_country(request)
     data=snapshot(request.user,active_country=country,active_role='public',public_only=True)
-    return JsonResponse(data,safe=True)
+    return _public_json(request,data)
 
 def _public_json(request,data):
     response=JsonResponse(data)
     if request.user.is_authenticated:
         response['Cache-Control']='private, no-store, max-age=0'
     else:
+        # Anonymous payloads may differ by stored country selection or trusted
+        # CDN geolocation headers. Tell compliant caches not to mix visitors'
+        # country-specific data when the URL itself is identical.
         response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
+        patch_vary_headers(response,['Cookie','CF-IPCountry','CloudFront-Viewer-Country'])
     return response
 
 @profile_api('public_content')
