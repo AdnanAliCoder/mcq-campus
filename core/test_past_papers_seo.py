@@ -152,6 +152,9 @@ class PastPapersSEOTests(TestCase):
             id=9803, name='National Testing Service [NTS]', country='Pakistan'
         )
         year = JobYear.objects.create(id=98300, name='Past Paper 2026', paper=board)
+        # This test inserts records directly rather than through the normal
+        # admin command path that invalidates the production SEO index cache.
+        invalidate_mcqcampus_cache('seo-index')
         catalog = _seo_past_papers_catalog()
         self.assertIn(board.id, catalog['paper_paths'])
         self.assertEqual(catalog['paper_paths'][board.id], '/nts-past-papers')
