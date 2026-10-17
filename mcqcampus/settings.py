@@ -1,8 +1,36 @@
 import os
+import hashlib
 from pathlib import Path
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+def _static_asset_version():
+    """Fingerprint shipped frontend assets so long-lived browser caching is safe."""
+    digest = hashlib.sha256()
+    asset_root = BASE_DIR / 'frontend' / 'assets'
+    files = list(asset_root.rglob('*')) if asset_root.is_dir() else []
+    files = [path for path in files if path.is_file()]
+    files.extend(path for path in (
+        BASE_DIR / 'frontend' / 'favicon.svg',
+        BASE_DIR / 'frontend' / 'site.webmanifest',
+        BASE_DIR / 'sw.js',
+    ) if path.is_file())
+    for path in sorted(set(files)):
+        try:
+            digest.update(path.relative_to(BASE_DIR).as_posix().encode('utf-8'))
+            digest.update(b'\\0')
+            with path.open('rb') as asset_file:
+                for chunk in iter(lambda: asset_file.read(131072), b''):
+                    digest.update(chunk)
+            digest.update(b'\\0')
+        except OSError:
+            # A transiently unreadable optional asset should not prevent app startup.
+            continue
+    return digest.hexdigest()[:16] if files else 'static-v1'
+
+
+STATIC_ASSET_VERSION = _static_asset_version()
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-change-me')
 DEBUG = os.getenv('DEBUG', 'false').lower() in {'1','true','yes','on'}
 PERFORMANCE_LOGGING = os.getenv('PERFORMANCE_LOGGING', 'false').lower() in {'1','true','yes','on'}
@@ -46,6 +74,7 @@ TEMPLATES=[{
     'OPTIONS':{'context_processors':[
         'django.template.context_processors.request','django.contrib.auth.context_processors.auth',
         'django.contrib.messages.context_processors.messages',
+        'core.context_processors.mcqcampus_asset_version',
     ]},
 }]
 WSGI_APPLICATION='mcqcampus.wsgi.application'
@@ -103,9 +132,9 @@ USE_TZ=True
 STATIC_URL='/assets/'
 STATICFILES_DIRS=[BASE_DIR/'frontend'/'assets']
 STATIC_ROOT=BASE_DIR/'staticfiles'
-# Frontend asset filenames are stable (auth.js, admin.js, etc.), so force revalidation
-# after every deploy instead of allowing a browser/CDN to keep an older JS bundle.
-WHITENOISE_MAX_AGE=0
+# Static URLs include a content-derived version token from the template context processor.
+# Year-long browser caching is safe because changed asset contents produce new URLs.
+WHITENOISE_MAX_AGE=31536000
 STORAGES={'staticfiles':{'BACKEND':'whitenoise.storage.CompressedStaticFilesStorage'}}
 DEFAULT_AUTO_FIELD='django.db.models.BigAutoField'
 MIGRATION_MODULES={'core': None}
