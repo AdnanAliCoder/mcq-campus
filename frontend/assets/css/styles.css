@@ -2004,7 +2004,7 @@ body{overflow-x:hidden}
 @keyframes mcqPopIn{0%{opacity:0;transform:translate3d(0,8px,0) scale(.975)}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 @keyframes mcqSlideDown{0%{opacity:0;transform:translate3d(0,-8px,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes mcqSlideUp{0%{opacity:0;transform:translate3d(0,12px,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
-@keyframes mcqBackdropIn{from{background:rgba(16,37,29,0);backdrop-filter:blur(0)}to{background:#10251dad;backdrop-filter:blur(3px)}}
+@keyframes mcqBackdropOpacity{from{opacity:0}to{opacity:1}}
 @keyframes mcqToastIn{0%{opacity:0;transform:translate3d(0,12px,0) scale(.98)}100%{opacity:1;transform:none}}
 
 /* Header/navigation feels responsive without changing the existing design. */
@@ -2055,7 +2055,7 @@ input:not([type=checkbox]):not([type=radio]):focus,textarea:focus,select:focus,.
 /* Dropdowns, pickers, dialogs and toast. */
 .picker-results:not(.hidden){animation:mcqSlideDown var(--motion-base) var(--motion-ease) both;transform-origin:top center}
 dialog[open]{animation:mcqPopIn var(--motion-base) var(--motion-ease) both}
-dialog[open]::backdrop{animation:mcqBackdropIn var(--motion-base) ease both}
+dialog[open]::backdrop{background:#10251dad;animation:mcqBackdropOpacity var(--motion-base) ease both}
 #toast.show{animation:mcqToastIn var(--motion-base) var(--motion-ease) both}
 
 /* Admin / learner navigation. */
