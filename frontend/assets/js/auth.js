@@ -123,17 +123,33 @@ window.Auth=(()=>{
   return csrfRefreshing;
  }
  async function request(path,body,{loading=false,timeout=15000}={}){
-  if(body!==undefined)await ensureCsrfToken({force:true});
+  if(body!==undefined)await ensureCsrfToken();
   if(loading)backendLoading(true);
   try{
    let response;
-   try{
-    const publicCachedGet=body===undefined&&!user&&new Set(['/public/content','/public/resources','/public/catalog','/public/legal']).has(path);
-    response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:publicCachedGet?'default':'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(timeout)});
-   }catch{throw Error('Unable to reach MCQCampus. Check your connection and try again.');}
+   const method=body===undefined?'GET':'POST';
+   const publicCachedGet=method==='GET'&&!user&&new Set(['/public/content','/public/resources','/public/catalog','/public/legal']).has(path);
+   const serializedBody=body===undefined?undefined:JSON.stringify(body);
+   const send=()=>fetch('/api'+path,{
+    method,
+    credentials:'same-origin',
+    cache:publicCachedGet?'default':'no-store',
+    headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},
+    ...(serializedBody===undefined?{}:{body:serializedBody}),
+    signal:AbortSignal.timeout(timeout)
+   });
+   try{response=await send();}catch{throw Error('Unable to reach MCQCampus. Check your connection and try again.');}
+   // A fresh startup token is only requested when Django rejects a write with
+   // a non-JSON 403 (the CSRF middleware response). Normal POSTs reuse the
+   // token already received from /startup, avoiding an extra request each time.
+   if(body!==undefined&&response.status===403&&!response.headers.get('content-type')?.includes('application/json')){
+    await ensureCsrfToken({force:true});
+    try{response=await send();}catch{throw Error('Unable to reach MCQCampus. Check your connection and try again.');}
+   }
    if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
    if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
    const data=await response.json();
+   if(data.csrfToken)csrf=data.csrfToken;
    if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
    return data;
   }finally{if(loading)backendLoading(false);}
@@ -279,9 +295,10 @@ window.Auth=(()=>{
    loadingSections.set(cacheKey,task);await task;return true;
   };
   const unique=[...new Set(wants)];
+  // Load hierarchy/reference data first because it intentionally initializes
+  // empty MCQ rows; then fetch the route's independent datasets together.
   if(unique.includes('core'))await load('core');
-  for(const key of ['workspace-mcqs','public-mcqs','entity-page'])if(unique.includes(key))await load(key);
-  await Promise.all(unique.filter(key=>!['core','workspace-mcqs','public-mcqs','entity-page'].includes(key)).map(load));
+  await Promise.all(unique.filter(key=>key!=='core').map(load));
   return changed;
  }
  function setIdentity(identity){

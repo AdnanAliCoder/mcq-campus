@@ -13,13 +13,32 @@ for(const name of fs.readdirSync(path.join(frontend,'assets/js')).filter(x=>x.en
 }
 test('All frontend JavaScript parses',()=>{});
 
-const html=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
-const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1].split('?')[0]);
-test('Final frontend and backend adapter load in the required order',()=>{
- const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/admin.js','assets/js/motion.js','assets/js/enhancements.js','assets/js/auth.js','assets/js/app.js'];
+const indexTemplate=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
+const partialTemplates=['head.html','app-shell.html','scripts.html'].map(name=>fs.readFileSync(path.join(root,'templates/partials',name),'utf8'));
+const html=[indexTemplate,...partialTemplates].join('\n');
+const scripts=[...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(x=>x[1].split('?')[0]);
+test('Django HTML document is decomposed into reusable partials',()=>{
+ assert(indexTemplate.includes('{% include "partials/head.html" %}'));
+ assert(indexTemplate.includes('{% include "partials/app-shell.html" %}'));
+ assert(indexTemplate.includes('{% include "partials/scripts.html" %}'));
+ assert(!indexTemplate.includes('<script defer src='));
+ assert(partialTemplates[0].includes('<link rel="stylesheet"'));
+ assert(partialTemplates[1].includes('id="app"'));
+ assert(partialTemplates[2].includes('assets/js/app.js'));
+});
+test('Initial page loads only shared frontend assets and defers admin code',()=>{
+ const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/carousel.js','assets/js/seo.js','assets/js/motion.js','assets/js/auth.js','assets/js/app.js'];
  for(const file of required){assert(scripts.includes(file),file+' missing');assert(fs.existsSync(path.join(frontend,file)),file+' not found')}
  assert(scripts.indexOf('assets/js/public-layout.js')<scripts.indexOf('assets/js/public.js'));
  assert(scripts.indexOf('assets/js/auth.js')<scripts.indexOf('assets/js/app.js'));
+ const app=fs.readFileSync(path.join(frontend,'assets/js/app.js'),'utf8');
+ assert(app.includes('ensureAdminBundle()'),'admin bundle must load only when an admin route is opened');
+ for(const file of ['importer.js','enhancements.js','admin.js']) {
+  assert(app.includes('/assets/js/'+file),file+' must remain available to the lazy loader');
+  assert(!scripts.includes('assets/js/'+file),file+' should not load on every public page');
+ }
+ assert(!html.toLowerCase().includes('bootstrap.min.js')&&!html.toLowerCase().includes('bootstrap.bundle.min.js'),'do not load the Bootstrap JavaScript framework on every page');
+ assert(!html.toLowerCase().includes('bootstrap.min.css'),'do not load the Bootstrap CSS framework on every page');
  assert(!html.includes('demo-data.js'));
  assert(!html.includes('demo-adapter.js'));
 });
@@ -43,7 +62,8 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('app-loader-spinner'));
  assert(html.includes('global-spinner'));
- const mediaFiles=fs.readdirSync(path.join(frontend,'assets/images'));
+ const imageDir=path.join(frontend,'assets/images');
+ const mediaFiles=fs.existsSync(imageDir)?fs.readdirSync(imageDir):[];
  assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
  assert(css.includes('.app-loader-spinner'));
@@ -66,12 +86,16 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(service.includes('function mergeCore(snapshot)'));
  assert(auth.includes("credentials:'same-origin'"));
  assert(auth.includes("request('/startup')"));
- assert(auth.includes("endpoint='/bootstrap'"));
+ assert(auth.includes('if(body!==undefined)await ensureCsrfToken();'),'writes should reuse the startup CSRF token when available');
+ assert(!auth.includes('if(body!==undefined)await ensureCsrfToken({force:true});'),'normal writes must not trigger an extra startup request');
+ assert(auth.includes('response.status===403'),'refresh the token only when CSRF middleware rejects a write');
+ assert(auth.includes("await Promise.all(unique.filter(key=>key!=='core').map(load))"),'independent route datasets should load concurrently after core data');
+ assert(auth.includes("user?'/bootstrap':'/public/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
  assert(auth.includes('finally{if(loading)backendLoading(false)'));
  assert(auth.includes("async function request(path,body,{loading=false,timeout=15000}={})"));
- assert(auth.includes("timeout:action==='action:import-confirm'?60000:15000"));
+ assert(auth.includes("timeout:action==='action:import-confirm'?60000:(longBulkReview?120000:15000)"));
  assert(auth.includes('setButtonLoading'));
  assert(auth.includes("action==='action:import-confirm'"));
  assert(auth.includes('let majorTransition=null'));
@@ -87,7 +111,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(!logoutBlock.includes('await check()'),'logout must not re-bootstrap');
  assert(service.includes('function upsert(type,row)'));
  assert(service.includes('function remove(type,idsToRemove)'));
- const authSubmitStart=auth.indexOf("const data=await request('/auth/'+endpoint,values)");
+ const authSubmitStart=auth.indexOf("const data=await request('/auth/'+apiType,values)");
  const loginStart=auth.indexOf("if(type==='login')",authSubmitStart);
  const loginEnd=auth.indexOf("}else",loginStart);
  const loginBlock=auth.slice(loginStart,loginEnd);
@@ -109,7 +133,7 @@ test('Auth/startup architecture avoids large repeated profile payloads',()=>{
  assert(serializers.includes('def user_identity_dict'));
  assert(serializers.includes('def user_profile_dict'));
  assert(!serializers.slice(serializers.indexOf('def user_identity_dict'),serializers.indexOf('def user_profile_dict')).includes("'avatar'"));
- const snapshot=services.slice(services.indexOf('def snapshot(user):'),services.indexOf('def learner_dashboard_data'));
+ const snapshot=services.slice(services.indexOf('def snapshot(user,'),services.indexOf('def learner_dashboard_data'));
  assert(!snapshot.includes('Attempt.objects'));
  assert(!snapshot.includes('Bookmark.objects'));
  assert(!snapshot.includes('SavedPaper.objects'));
@@ -149,7 +173,7 @@ test('Admin MCQ pagination stays low-egress and progressive',()=>{
  assert(admin.includes('const ADMIN_MCQ_PAGE_SIZE=10,IMPORT_PAGE_SIZE=50;'));
  assert(admin.includes('function progressivePageNumbers'));
  assert(admin.includes("btn('Next ›','import-page'"));
- assert(!admin.includes('Show entries'));
+ assert(admin.includes('const clean={...(params||{})};delete clean.limit;'),'MCQ pagination URLs must not carry a stale entries-limit filter');
  assert(services.includes("max_page_size=50 if is_admin(user)"));
  assert(services.includes("'importedIds':imported_ids"));
  assert(services.includes("'pageSize':50"));
@@ -177,4 +201,54 @@ test('Public and hierarchy lists use click-triggered ten-row database pages',()=
  assert(services.includes("'siteCounts':site_counts"));
  assert(services.includes("page_size=10"));
  assert(views.includes("def entities(request):"));
+});
+
+
+test('Web manifests use MCQCampus branding and existing favicon assets',()=>{
+ const rootManifest=JSON.parse(fs.readFileSync(path.join(root,'frontend/site.webmanifest'),'utf8'));
+ const assetManifest=JSON.parse(fs.readFileSync(path.join(frontend,'assets/favicon/site.webmanifest'),'utf8'));
+ const views=fs.readFileSync(path.join(root,'core/views.py'),'utf8');
+ for(const manifest of [rootManifest,assetManifest]){
+  assert.equal(manifest.name,'MCQCampus');
+  assert.equal(manifest.short_name,'MCQCampus');
+  assert(Array.isArray(manifest.icons)&&manifest.icons.length>0);
+ }
+ for(const icon of rootManifest.icons){
+  const local=path.join(frontend,'assets',icon.src.replace('/assets/',''));
+  assert(fs.existsSync(local),'Missing root manifest icon: '+icon.src);
+ }
+ for(const icon of assetManifest.icons){
+  assert(fs.existsSync(path.join(frontend,'assets/favicon',icon.src)),'Missing asset manifest icon: '+icon.src);
+ }
+ assert(views.includes("'src':'/assets/favicon/genfavicon-128.png?v='"));
+ assert(views.includes("'src':'/assets/favicon/genfavicon-512.png?v='"));
+});
+
+test('Render text-fitting helpers minimize avoidable synchronous layout work',()=>{
+ const app=fs.readFileSync(path.join(frontend,'assets/js/app.js'),'utf8');
+ const bracketStart=app.indexOf('App.fitBracketBreaks=function');
+ const overflowStart=app.indexOf('App.fitOverflowText=function',bracketStart);
+ const quickStart=app.indexOf('App.refreshQuick=function',overflowStart);
+ assert(bracketStart>=0&&overflowStart>bracketStart&&quickStart>overflowStart);
+ const bracket=app.slice(bracketStart,overflowStart);
+ const overflow=app.slice(overflowStart,quickStart);
+ assert(bracket.includes('const candidates=[];'));
+ assert(bracket.includes('const breaks=[];'));
+ assert(bracket.indexOf('const breaks=[];')<bracket.indexOf('for(const {el,original,at} of breaks)'));
+ assert(bracket.includes('if((cached||el.children.length)&&(el.childNodes.length!==1||el.firstChild?.nodeType!==Node.TEXT_NODE||el.textContent!==original))el.textContent=original;'),'Only cached or explicitly broken headings should be reset before measuring');
+ assert(overflow.includes('for(let i=0;i<7&&high-low>=.25;i++)'),'Text fitting should use bounded binary search');
+ assert(!overflow.includes('while(size>min&&over())'),'Avoid a long sequence of quarter-pixel layout reads');
+});
+
+test('Organization image icons do not render a duplicate grid fallback',()=>{
+ const ui=fs.readFileSync(path.join(frontend,'assets/js/ui.js'),'utf8');
+ const start=ui.indexOf('const entityIcon=');
+ const end=ui.indexOf('function showcaseCard',start);
+ assert(start>=0&&end>start,'entity icon renderer should exist');
+ const renderer=ui.slice(start,end);
+ assert(renderer.includes('if(dataImage||remoteImage||fileImage)return `<img class="entity-icon-img"'));
+ assert(!renderer.includes('entity-icon-fallback'),'configured images must not carry a second grid fallback');
+ assert(!renderer.includes('this.nextElementSibling'),'image errors should not reveal a duplicate icon');
+ assert(renderer.includes(':icon(fallback)'),'the grid is retained when there is no image icon');
+ assert(renderer.includes('loading="lazy" decoding="async"'),'non-critical entity imagery should decode asynchronously');
 });

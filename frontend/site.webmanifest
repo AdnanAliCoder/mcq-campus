@@ -1,19 +1,21 @@
 {
   "name": "MCQCampus",
   "short_name": "MCQCampus",
+  "description": "Practice MCQs, past papers and exam preparation.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#102823",
   "icons": [
     {
-      "src": "/assets/images/favicon-192.png",
-      "sizes": "192x192",
+      "src": "/assets/favicon/genfavicon-180.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/images/favicon-512.png",
+      "src": "/assets/favicon/genfavicon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

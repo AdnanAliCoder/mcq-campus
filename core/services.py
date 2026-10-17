@@ -388,8 +388,16 @@ def ensure_seo_indexes():
             settings.save(update_fields=['admin_permissions','updated_at'])
         return registry
 
+def _seo_index_registry():
+    # Building the registry scans public content and takes a row lock on the
+    # singleton SiteSetting record. Cache the plain-data snapshot so page views
+    # do not repeat those queries/locks. Content-changing commands invalidate
+    # this group; the TTL bounds staleness for out-of-band database edits.
+    return cached_value('seo-index', {}, ensure_seo_indexes, timeout=60)
+
+
 def seo_index_snapshot():
-    registry=ensure_seo_indexes()
+    registry=_seo_index_registry()
     # Keep retired Job IDs reserved internally to prevent token reuse, but do
     # not publish them as indexable content after removing the Job taxonomy.
     visible={key:value for key,value in (registry.get('items') or {}).items()
@@ -397,7 +405,7 @@ def seo_index_snapshot():
     return {'next':int(registry.get('next') or 1),'items':visible}
 
 def seo_index_number(kind,key):
-    registry=ensure_seo_indexes()
+    registry=_seo_index_registry()
     value=(registry.get('items') or {}).get(f'{kind}:{key}')
     return int(value) if value else None
 
@@ -694,6 +702,18 @@ def _public_catalog_data_uncached(country=None):
 def _public_legal_data_uncached():
     settings=SiteSetting.get_solo(); state=_client_site_state(settings)
     return {'content':state['content']}
+
+
+def public_bootstrap_data(country=None):
+    """Cache the anonymous hierarchy/reference bootstrap by selected country."""
+    selected=str(country or '').strip()
+    identity={'country':selected.casefold()}
+    return cached_value(
+        'public-bootstrap',
+        identity,
+        lambda:snapshot(None,active_country=selected,active_role='public',public_only=True),
+        timeout=60,
+    )
 
 
 def public_content_data(country=None):

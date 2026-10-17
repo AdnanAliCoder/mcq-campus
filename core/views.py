@@ -13,6 +13,7 @@ from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.html import escape
+from django.utils.cache import patch_vary_headers
 from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -21,7 +22,7 @@ from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .cache_utils import invalidate_mcqcampus_cache
 from .geolocation import visitor_country_code
 from .services import (
-    snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
+    snapshot, startup_payload, public_bootstrap_data, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
     ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot, entity_page_data,
@@ -588,15 +589,21 @@ def startup(request):
 @require_GET
 def public_bootstrap(request):
     country=_request_content_country(request)
-    data=snapshot(request.user,active_country=country,active_role='public',public_only=True)
-    return JsonResponse(data,safe=True)
+    data=public_bootstrap_data(country) if not request.user.is_authenticated else snapshot(
+        request.user,active_country=country,active_role='public',public_only=True
+    )
+    return _public_json(request,data)
 
 def _public_json(request,data):
     response=JsonResponse(data)
     if request.user.is_authenticated:
         response['Cache-Control']='private, no-store, max-age=0'
     else:
+        # Anonymous payloads may differ by stored country selection or trusted
+        # CDN geolocation headers. Tell compliant caches not to mix visitors'
+        # country-specific data when the URL itself is identical.
         response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
+        patch_vary_headers(response,['Cookie','CF-IPCountry','CloudFront-Viewer-Country'])
     return response
 
 @profile_api('public_content')
@@ -900,7 +907,7 @@ def admin_mcq_delete(request):
     d=payload(request)
     try:
         tr,deleted_ids=_delete_mcqs_to_trash(request.user,d.get('ids') or [d.get('id')])
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','seo-index')
         return JsonResponse({'success':True,'deletedIds':deleted_ids,'trashId':tr.id,'count':len(deleted_ids)})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -912,7 +919,7 @@ def admin_trash_restore(request):
     d=payload(request)
     try:
         result=_restore_trash_many(request.user,d.get('ids') or [d.get('id')])
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','public-content','public-catalog','public-legal','seo-index')
         return JsonResponse({'success':True,**result})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -924,7 +931,7 @@ def admin_trash_delete(request):
     d=payload(request)
     try:
         result=_delete_trash_permanently(request.user,d.get('ids') or [d.get('id')])
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','public-content','public-catalog','public-legal','seo-index')
         return JsonResponse({'success':True,**result})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -955,17 +962,22 @@ def _invalidate_caches_after_command(action):
     legal_actions={'form:legal-page','form:settings'}
     groups=set()
     if action in mcq_actions:
-        groups.update({'public-counts','country-catalog','public-resources'})
+        groups.update({'public-counts','country-catalog','public-resources','public-bootstrap'})
     if action in entity_actions:
-        groups.update({'public-counts','country-catalog','public-resources'})
+        groups.update({'public-counts','country-catalog','public-resources','public-bootstrap'})
     if action in resource_actions:
-        groups.add('public-resources')
+        groups.update({'public-resources','public-bootstrap'})
     if action in content_actions:
         groups.add('public-content')
     if action in catalog_actions:
         groups.add('public-catalog')
     if action in legal_actions:
         groups.add('public-legal')
+    # SEO slugs/index IDs cover MCQs, hierarchy records, posts and catalog items.
+    # Invalidate only after a successful mutating command, before returning a
+    # refreshed seoIndex to the client.
+    if action in (mcq_actions | entity_actions | resource_actions | content_actions | catalog_actions):
+        groups.add('seo-index')
     if groups:
         invalidate_mcqcampus_cache(*sorted(groups))
 
@@ -1987,9 +1999,9 @@ def spa_index(request):
 
 def favicon(request):
     from pathlib import Path
-    path=Path(__file__).resolve().parents[1]/'frontend'/'assets'/'images'/'favicon.png'
+    path=Path(__file__).resolve().parents[1]/'frontend'/'assets'/'favicon'/'favicon.ico'
     if not path.exists(): raise Http404
-    response=FileResponse(open(path,'rb'),content_type='image/png')
+    response=FileResponse(open(path,'rb'),content_type='image/x-icon')
     response['Cache-Control']='public, max-age=86400'
     return response
 
@@ -2143,7 +2155,7 @@ def admin_move_past_paper_mcqs(request):
                 source.delete()
                 source_deleted=True
     try:
-        invalidate_mcqcampus_cache()
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','seo-index')
     except Exception:
         logger.exception('Cache invalidation failed after moving past-paper MCQs')
     message=f'Moved {len(rows)} MCQ(s) to {destination.name}.'

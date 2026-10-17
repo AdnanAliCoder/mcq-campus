@@ -14,6 +14,7 @@ const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[char]));
 const UI = {
+  assetUrl: path => path,
   href: (route, params = {}) => {
     const query = new URLSearchParams(params).toString();
     return '/' + route + (query ? '?' + query : '');

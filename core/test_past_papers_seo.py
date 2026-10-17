@@ -31,7 +31,12 @@ class PastPapersSEOTests(TestCase):
         # A legacy Job row is intentionally present to confirm it is not part
         # of public navigation or the SEO index before the one-time DB cleanup.
         cls.legacy_job = Job.objects.create(id=98010, name='Assistant', paper=cls.ppsc)
-        invalidate_mcqcampus_cache('public-resources')
+        invalidate_mcqcampus_cache('public-resources','seo-index')
+
+    def setUp(self):
+        # The per-process cache survives TestCase DB rollbacks; each test needs
+        # a registry built against its own test transaction's fixture state.
+        invalidate_mcqcampus_cache('public-resources','seo-index')
 
     def page(self, path, status=200):
         response = self.client.get(path)
@@ -128,6 +133,13 @@ class PastPapersSEOTests(TestCase):
             self.assertEqual(response.status_code, 200, path)
             self.assertIn('noindex', response.content.decode().lower())
 
+    def test_root_favicon_ico_is_served_from_the_existing_asset(self):
+        response = self.client.get('/favicon.ico')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response['Content-Type'].startswith('image/x-icon'))
+        icon = b''.join(response.streaming_content)
+        self.assertTrue(icon.startswith(b'\x00\x00\x01\x00'))
+
     def test_root_favicon_svg_is_served_as_svg(self):
         response = self.client.get('/favicon.svg')
         self.assertEqual(response.status_code, 200)
@@ -145,7 +157,23 @@ class PastPapersSEOTests(TestCase):
             id=9803, name='National Testing Service [NTS]', country='Pakistan'
         )
         year = JobYear.objects.create(id=98300, name='Past Paper 2026', paper=board)
+        # This test inserts records directly rather than through the normal
+        # admin command path that invalidates the production SEO index cache.
+        invalidate_mcqcampus_cache('seo-index')
         catalog = _seo_past_papers_catalog()
         self.assertIn(board.id, catalog['paper_paths'])
         self.assertEqual(catalog['paper_paths'][board.id], '/nts-past-papers')
         self.assertTrue(_seo_indexed_path('year', year))
+
+    def test_public_api_cache_varies_by_session_and_geo_country(self):
+        for path in [
+            '/api/public/bootstrap', '/api/public/content',
+            '/api/public/resources', '/api/public/catalog', '/api/public/legal',
+        ]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200, response.content.decode()[:300])
+                vary = {part.strip().lower() for part in response.get('Vary', '').split(',') if part.strip()}
+                self.assertIn('cookie', vary)
+                self.assertIn('cf-ipcountry', vary)
+                self.assertIn('cloudfront-viewer-country', vary)
