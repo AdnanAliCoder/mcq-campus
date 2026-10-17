@@ -1,7 +1,7 @@
 window.UI=(()=>{
  const assetUrl=src=>{
   const value=String(src||'').trim();
-  if(!value||!(/^(?:\/?assets\/|\/(?:favicon\\.ico|favicon\\.svg|site\\.webmanifest)(?:$|\\?))/i.test(value)))return value;
+  if(!value||!(/^(?:\/?assets\/|\/(?:favicon\.ico|favicon\.svg|site\.webmanifest)(?:$|\?))/i.test(value)))return value;
   if(/[?&]v=/.test(value))return value;
   const version=document.querySelector('meta[name="mcq-asset-version"]')?.content;
   return version?value+(value.includes('?')?'&':'?')+'v='+encodeURIComponent(version):value;
