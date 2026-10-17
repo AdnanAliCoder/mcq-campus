@@ -22,7 +22,7 @@ from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .cache_utils import invalidate_mcqcampus_cache
 from .geolocation import visitor_country_code
 from .services import (
-    snapshot, startup_payload, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
+    snapshot, startup_payload, public_bootstrap_data, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
     ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot, entity_page_data,
@@ -589,7 +589,9 @@ def startup(request):
 @require_GET
 def public_bootstrap(request):
     country=_request_content_country(request)
-    data=snapshot(request.user,active_country=country,active_role='public',public_only=True)
+    data=public_bootstrap_data(country) if not request.user.is_authenticated else snapshot(
+        request.user,active_country=country,active_role='public',public_only=True
+    )
     return _public_json(request,data)
 
 def _public_json(request,data):
