@@ -1987,9 +1987,9 @@ def spa_index(request):
 
 def favicon(request):
     from pathlib import Path
-    path=Path(__file__).resolve().parents[1]/'frontend'/'assets'/'images'/'favicon.png'
+    path=Path(__file__).resolve().parents[1]/'frontend'/'assets'/'favicon'/'favicon.ico'
     if not path.exists(): raise Http404
-    response=FileResponse(open(path,'rb'),content_type='image/png')
+    response=FileResponse(open(path,'rb'),content_type='image/x-icon')
     response['Cache-Control']='public, max-age=86400'
     return response
 
