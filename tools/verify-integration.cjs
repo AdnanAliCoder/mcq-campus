@@ -223,3 +223,19 @@ test('Web manifests use MCQCampus branding and existing favicon assets',()=>{
  assert(views.includes("'src':'/assets/favicon/genfavicon-128.png?v='"));
  assert(views.includes("'src':'/assets/favicon/genfavicon-512.png?v='"));
 });
+
+test('Render text-fitting helpers minimize avoidable synchronous layout work',()=>{
+ const app=fs.readFileSync(path.join(frontend,'assets/js/app.js'),'utf8');
+ const bracketStart=app.indexOf('App.fitBracketBreaks=function');
+ const overflowStart=app.indexOf('App.fitOverflowText=function',bracketStart);
+ const quickStart=app.indexOf('App.refreshQuick=function',overflowStart);
+ assert(bracketStart>=0&&overflowStart>bracketStart&&quickStart>overflowStart);
+ const bracket=app.slice(bracketStart,overflowStart);
+ const overflow=app.slice(overflowStart,quickStart);
+ assert(bracket.includes('const candidates=[];'));
+ assert(bracket.includes('const breaks=[];'));
+ assert(bracket.indexOf('const breaks=[];')<bracket.indexOf('for(const {el,original,at} of breaks)'));
+ assert(!bracket.includes('el.textContent=original;'),'Fresh headings should not be rewritten before measuring');
+ assert(overflow.includes('for(let i=0;i<7&&high-low>=.25;i++)'),'Text fitting should use bounded binary search');
+ assert(!overflow.includes('while(size>min&&over())'),'Avoid a long sequence of quarter-pixel layout reads');
+});
