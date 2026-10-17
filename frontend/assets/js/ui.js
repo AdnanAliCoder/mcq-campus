@@ -138,6 +138,28 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const copy=String(cfg.copyrightText||`${settings.siteName||'MCQ Campus'}. All rights reserved.`).replace(/^©\s*\d{4}\s*/,'');
   return `<footer class="footer" aria-label="Site footer"><div class="container"><div class="footer-grid footer-grid-compact"><div class="footer-brand-block">${footerBrand}<p>${esc(description)}</p>${emailHtml}${socialHtml?`<div class="footer-social" aria-label="MCQ Campus social media">${socialHtml}</div>`:''}${country}</div><div class="footer-column"><strong>Quick Links</strong>${link('mcqs','MCQs')}${link('papers','Past Papers')}${link('pdfs','PDFs')}${link('latest-jobs','Latest Jobs')}</div><div class="footer-column"><strong>Help & Legal</strong>${help.map(([p,l])=>link(p,l)).join('')}</div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} ${esc(copy)}</span>${bottom.length?`<span class="footer-bottom-links">${bottom.join('')}</span>`:''}</div></div></footer><nav class="bottom-nav" aria-label="Mobile navigation">${[['home','home','Home'],['mcqs','book','MCQs'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('')}</nav>`
 }
+ function ensureLinkNames(root=document){
+  if(!root||typeof root.querySelectorAll!=='function')return;
+  const routeLabels={
+   home:'Home',mcqs:'MCQs',important:'Important MCQs','past-papers':'Past Papers',papers:'Past Papers',
+   categories:'Categories',category:'Category',subcategory:'Subcategory',topic:'Topic',pdfs:'PDFs',pdf:'PDF',
+   'latest-jobs':'Latest Jobs','latest-job':'Job details',posts:'Blog',post:'Blog post',tests:'Tests',test:'Practice test',
+   search:'Search',login:'Log in',register:'Sign up',dashboard:'My learning',profile:'Profile',admin:'Admin panel','super-admin':'Super Admin panel'
+  };
+  root.querySelectorAll('a[href]').forEach(anchor=>{
+   if(anchor.getAttribute('aria-label')?.trim()||anchor.getAttribute('aria-labelledby')?.trim()||anchor.getAttribute('title')?.trim()||anchor.textContent?.trim())return;
+   const imageLabel=[...anchor.querySelectorAll('img[alt]')].map(image=>(image.getAttribute('alt')||'').trim()).filter(Boolean).join(' ');
+   if(imageLabel){anchor.setAttribute('aria-label',imageLabel);return;}
+   const href=String(anchor.getAttribute('href')||'').trim();
+   if(/^mailto:/i.test(href)){anchor.setAttribute('aria-label','Send email');return;}
+   if(/^tel:/i.test(href)){anchor.setAttribute('aria-label','Call phone number');return;}
+   if(href.startsWith('#')){anchor.setAttribute('aria-label',href.length>1?'Go to '+href.slice(1).replace(/[-_]+/g,' '):'Open linked section');return;}
+   let pathname=href;
+   try{pathname=new URL(href,window.location.href).pathname;}catch(_){}
+   const route=pathname.split('/').filter(Boolean)[0]||'home';
+   anchor.setAttribute('aria-label',routeLabels[route]||(/^https?:\/\//i.test(href)?'Open external resource':'Open linked resource'));
+  });
+ }
  const layout=(body,active='')=>header(active)+adSlot('header_ad')+`<main id="main" tabindex="-1">${body}</main>`+adSlot('footer_ad')+footer();
- return {closeDropdowns,esc,icon,countryFlag,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,mountCustomAds,userMenu,header,footer,layout};
+ return {closeDropdowns,esc,icon,countryFlag,href,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,ensureLinkNames,mountCustomAds,userMenu,header,footer,layout};
 })();
