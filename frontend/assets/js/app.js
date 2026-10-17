@@ -9,9 +9,9 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
   script.onerror=()=>reject(new Error('Could not load admin asset.'));
   document.head.appendChild(script);
  });
- this.adminBundlePromise=load('/assets/js/importer.js?v=20261017-pagespeed-mobile-v1')
-  .then(()=>load('/assets/js/enhancements.js?v=20261017-pagespeed-mobile-v1'))
-  .then(()=>load('/assets/js/admin.js?v=20261017-pagespeed-mobile-v1'))
+ this.adminBundlePromise=load(UI.assetUrl('/assets/js/importer.js'))
+  .then(()=>load(UI.assetUrl('/assets/js/enhancements.js')))
+  .then(()=>load(UI.assetUrl('/assets/js/admin.js')))
   .catch(error=>{this.adminBundlePromise=null;throw error});
  return this.adminBundlePromise;
 },render(){if(!Auth.guard())return;const raw=location.pathname.replace(/^\/+|\/+$/g,'')||'home',query=location.search.replace(/^\?/,'');const path=raw||'home',parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
