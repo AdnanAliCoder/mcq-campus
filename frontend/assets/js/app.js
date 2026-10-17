@@ -64,7 +64,7 @@ App.fitBracketBreaks=function(root=document){
   const cached=el.dataset.bracketText,original=cached||el.textContent||'';if(!original.includes('['))return;
   // Reset a previously adjusted heading only when it contains our own inserted break.
   // Fresh headings already contain plain text, so avoid an unnecessary DOM write/layout.
-  if(cached&&(el.childNodes.length!==1||el.firstChild?.nodeType!==Node.TEXT_NODE||el.textContent!==original))el.textContent=original;
+  if((cached||el.children.length)&&(el.childNodes.length!==1||el.firstChild?.nodeType!==Node.TEXT_NODE||el.textContent!==original))el.textContent=original;
   el.dataset.bracketText=original;
   const node=el.firstChild,at=original.indexOf('[');if(!node||node.nodeType!==Node.TEXT_NODE||at<=0)return;
   candidates.push({el,node,original,at});
