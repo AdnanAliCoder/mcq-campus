@@ -19,11 +19,11 @@ def _static_asset_version():
     for path in sorted(set(files)):
         try:
             digest.update(path.relative_to(BASE_DIR).as_posix().encode('utf-8'))
-            digest.update(b'\\0')
+            digest.update(b'\0')
             with path.open('rb') as asset_file:
                 for chunk in iter(lambda: asset_file.read(131072), b''):
                     digest.update(chunk)
-            digest.update(b'\\0')
+            digest.update(b'\0')
         except OSError:
             # A transiently unreadable optional asset should not prevent app startup.
             continue
