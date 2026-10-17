@@ -907,7 +907,7 @@ def admin_mcq_delete(request):
     d=payload(request)
     try:
         tr,deleted_ids=_delete_mcqs_to_trash(request.user,d.get('ids') or [d.get('id')])
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','seo-index')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','seo-index')
         return JsonResponse({'success':True,'deletedIds':deleted_ids,'trashId':tr.id,'count':len(deleted_ids)})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -919,7 +919,7 @@ def admin_trash_restore(request):
     d=payload(request)
     try:
         result=_restore_trash_many(request.user,d.get('ids') or [d.get('id')])
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-content','public-catalog','public-legal','seo-index')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','public-content','public-catalog','public-legal','seo-index')
         return JsonResponse({'success':True,**result})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -931,7 +931,7 @@ def admin_trash_delete(request):
     d=payload(request)
     try:
         result=_delete_trash_permanently(request.user,d.get('ids') or [d.get('id')])
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-content','public-catalog','public-legal','seo-index')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','public-content','public-catalog','public-legal','seo-index')
         return JsonResponse({'success':True,**result})
     except PermissionError as e: return err(e,403)
     except (ValueError,KeyError,TypeError) as e: return err(e,422)
@@ -962,11 +962,11 @@ def _invalidate_caches_after_command(action):
     legal_actions={'form:legal-page','form:settings'}
     groups=set()
     if action in mcq_actions:
-        groups.update({'public-counts','country-catalog','public-resources'})
+        groups.update({'public-counts','country-catalog','public-resources','public-bootstrap'})
     if action in entity_actions:
-        groups.update({'public-counts','country-catalog','public-resources'})
+        groups.update({'public-counts','country-catalog','public-resources','public-bootstrap'})
     if action in resource_actions:
-        groups.add('public-resources')
+        groups.update({'public-resources','public-bootstrap'})
     if action in content_actions:
         groups.add('public-content')
     if action in catalog_actions:
@@ -2155,7 +2155,7 @@ def admin_move_past_paper_mcqs(request):
                 source.delete()
                 source_deleted=True
     try:
-        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','seo-index')
+        invalidate_mcqcampus_cache('public-counts','country-catalog','public-resources','public-bootstrap','seo-index')
     except Exception:
         logger.exception('Cache invalidation failed after moving past-paper MCQs')
     message=f'Moved {len(rows)} MCQ(s) to {destination.name}.'
