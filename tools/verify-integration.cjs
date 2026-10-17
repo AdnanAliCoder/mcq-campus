@@ -239,3 +239,16 @@ test('Render text-fitting helpers minimize avoidable synchronous layout work',()
  assert(overflow.includes('for(let i=0;i<7&&high-low>=.25;i++)'),'Text fitting should use bounded binary search');
  assert(!overflow.includes('while(size>min&&over())'),'Avoid a long sequence of quarter-pixel layout reads');
 });
+
+test('Organization image icons do not render a duplicate grid fallback',()=>{
+ const ui=fs.readFileSync(path.join(frontend,'assets/js/ui.js'),'utf8');
+ const start=ui.indexOf('const entityIcon=');
+ const end=ui.indexOf('function showcaseCard',start);
+ assert(start>=0&&end>start,'entity icon renderer should exist');
+ const renderer=ui.slice(start,end);
+ assert(renderer.includes('if(dataImage||remoteImage||fileImage)return `<img class="entity-icon-img"'));
+ assert(!renderer.includes('entity-icon-fallback'),'configured images must not carry a second grid fallback');
+ assert(!renderer.includes('this.nextElementSibling'),'image errors should not reveal a duplicate icon');
+ assert(renderer.includes(':icon(fallback)'),'the grid is retained when there is no image icon');
+ assert(renderer.includes('loading="lazy" decoding="async"'),'non-critical entity imagery should decode asynchronously');
+});
