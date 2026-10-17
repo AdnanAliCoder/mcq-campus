@@ -26,8 +26,8 @@ test('Initial page loads only shared frontend assets and defers admin code',()=>
   assert(app.includes('/assets/js/'+file),file+' must remain available to the lazy loader');
   assert(!scripts.includes('assets/js/'+file),file+' should not load on every public page');
  }
- assert(!/<script[^>]+bootstrap(?:\\.bundle)?(?:\\.min)?\\.js/i.test(html),'do not load the Bootstrap JavaScript framework on every page');
- assert(!/<link[^>]+bootstrap(?:\\.min)?\\.css/i.test(html),'do not load the Bootstrap CSS framework on every page');
+ assert(!html.toLowerCase().includes('bootstrap.min.js')&&!html.toLowerCase().includes('bootstrap.bundle.min.js'),'do not load the Bootstrap JavaScript framework on every page');
+ assert(!html.toLowerCase().includes('bootstrap.min.css'),'do not load the Bootstrap CSS framework on every page');
  assert(!html.includes('demo-data.js'));
  assert(!html.includes('demo-adapter.js'));
 });
@@ -79,7 +79,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(!auth.includes('if(body!==undefined)await ensureCsrfToken({force:true});'),'normal writes must not trigger an extra startup request');
  assert(auth.includes('response.status===403'),'refresh the token only when CSRF middleware rejects a write');
  assert(auth.includes("await Promise.all(unique.filter(key=>key!=='core').map(load))"),'independent route datasets should load concurrently after core data');
- assert(auth.includes("endpoint='/bootstrap'"));
+ assert(auth.includes("user?'/bootstrap':'/public/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
  assert(auth.includes('finally{if(loading)backendLoading(false)'));
@@ -122,7 +122,7 @@ test('Auth/startup architecture avoids large repeated profile payloads',()=>{
  assert(serializers.includes('def user_identity_dict'));
  assert(serializers.includes('def user_profile_dict'));
  assert(!serializers.slice(serializers.indexOf('def user_identity_dict'),serializers.indexOf('def user_profile_dict')).includes("'avatar'"));
- const snapshot=services.slice(services.indexOf('def snapshot(user):'),services.indexOf('def learner_dashboard_data'));
+ const snapshot=services.slice(services.indexOf('def snapshot(user,'),services.indexOf('def learner_dashboard_data'));
  assert(!snapshot.includes('Attempt.objects'));
  assert(!snapshot.includes('Bookmark.objects'));
  assert(!snapshot.includes('SavedPaper.objects'));
