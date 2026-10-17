@@ -31,7 +31,12 @@ class PastPapersSEOTests(TestCase):
         # A legacy Job row is intentionally present to confirm it is not part
         # of public navigation or the SEO index before the one-time DB cleanup.
         cls.legacy_job = Job.objects.create(id=98010, name='Assistant', paper=cls.ppsc)
-        invalidate_mcqcampus_cache('public-resources')
+        invalidate_mcqcampus_cache('public-resources','seo-index')
+
+    def setUp(self):
+        # The per-process cache survives TestCase DB rollbacks; each test needs
+        # a registry built against its own test transaction's fixture state.
+        invalidate_mcqcampus_cache('public-resources','seo-index')
 
     def page(self, path, status=200):
         response = self.client.get(path)
