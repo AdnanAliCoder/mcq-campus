@@ -58,26 +58,52 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
 App.fitBracketBreaks=function(root=document){
  const scope=root===document?document.getElementById('app'):root;if(!scope)return;
  const selector='.public-page h1,.public-page h2,.public-page h3,.public-page h4,.entity-showcase-card h3,.content-showcase-card h3,.card h3,.article h1,.article h2,.article h3,.breadcrumbs span,.breadcrumbs a,.mcq-answer-years .mcq-year-chip>span:last-child';
+ const candidates=[];
  scope.querySelectorAll(selector).forEach(el=>{
   if(el.closest('.admin-shell,.super-admin,form,table')||el.children.length&&![...el.children].every(x=>x.tagName==='BR'))return;
-  const original=el.dataset.bracketText||el.textContent||'';if(!original.includes('['))return;el.dataset.bracketText=original;el.textContent=original;
+  const cached=el.dataset.bracketText,original=cached||el.textContent||'';if(!original.includes('['))return;
+  // Reset a previously adjusted heading only when it contains our own inserted break.
+  // Fresh headings already contain plain text, so avoid an unnecessary DOM write/layout.
+  if(cached&&(el.childNodes.length!==1||el.firstChild?.nodeType!==Node.TEXT_NODE||el.textContent!==original))el.textContent=original;
+  el.dataset.bracketText=original;
   const node=el.firstChild,at=original.indexOf('[');if(!node||node.nodeType!==Node.TEXT_NODE||at<=0)return;
-  const range=document.createRange();range.setStart(node,0);range.setEnd(node,at);const before=range.getBoundingClientRect();range.setStart(node,at);range.setEnd(node,original.length);const suffix=range.getBoundingClientRect();
-  if(Math.abs(before.bottom-suffix.bottom)>1)el.innerHTML=UI.esc(original.slice(0,at).trimEnd())+'<br>'+UI.esc(original.slice(at).trimStart());
+  candidates.push({el,node,original,at});
  });
+ // Read geometry first, then write line breaks in a separate pass to prevent repeated
+ // synchronous layout recalculation as the DOM is adjusted heading-by-heading.
+ const breaks=[];
+ for(const item of candidates){
+  const {node,original,at}=item,range=document.createRange();
+  range.setStart(node,0);range.setEnd(node,at);const before=range.getBoundingClientRect();
+  range.setStart(node,at);range.setEnd(node,original.length);const suffix=range.getBoundingClientRect();
+  if(Math.abs(before.bottom-suffix.bottom)>1)breaks.push(item);
+ }
+ for(const {el,original,at} of breaks)el.innerHTML=UI.esc(original.slice(0,at).trimEnd())+'<br>'+UI.esc(original.slice(at).trimStart());
 };
 App.fitOverflowText=function(root=document){
  const selectors=['.entity-card-badge','.content-pill','.badge','.chip','.selection-chip','.stat-card-label'];
  root.querySelectorAll(selectors.join(',')).forEach(el=>{
-  el.style.removeProperty('font-size');el.style.removeProperty('letter-spacing');
+  // Most nodes are new after a render and have no inline adjustments to clear.
+  if(el.style.fontSize)el.style.removeProperty('font-size');
+  if(el.style.letterSpacing)el.style.removeProperty('letter-spacing');
   if(!el.clientWidth)return;
   const cs=getComputedStyle(el),singleLine=cs.whiteSpace==='nowrap'||el.classList.contains('entity-card-badge')||el.classList.contains('content-pill')||el.classList.contains('badge')||el.classList.contains('chip')||el.classList.contains('selection-chip');
   if(!singleLine)return;
   const over=()=>el.scrollWidth>el.clientWidth+1;
   if(!over())return;
-  let size=parseFloat(cs.fontSize)||12,min=el.classList.contains('entity-card-badge')?5.5:7;
-  while(size>min&&over()){size-=.25;el.style.setProperty('font-size',size+'px','important')}
-  if(over()){el.style.setProperty('letter-spacing','-.045em','important')}
+  const size=parseFloat(cs.fontSize)||12,min=el.classList.contains('entity-card-badge')?5.5:7;
+  let low=Math.min(min,size),high=size,best=null;
+  el.style.setProperty('font-size',low+'px','important');
+  if(!over())best=low;
+  // Binary search preserves quarter-pixel fit precision in far fewer layout checks
+  // than reducing the font size by 0.25px on every iteration.
+  for(let i=0;i<7&&high-low>=.25;i++){
+   const mid=Math.round(((low+high)/2)*4)/4;if(mid<=low||mid>=high)break;
+   el.style.setProperty('font-size',mid+'px','important');
+   if(!over()){best=mid;low=mid}else high=mid;
+  }
+  if(best!==null)el.style.setProperty('font-size',best+'px','important');
+  else{el.style.setProperty('font-size',low+'px','important');if(over())el.style.setProperty('letter-spacing','-.045em','important')}
  });
 };
 App.refreshQuick=function(){
