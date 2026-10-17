@@ -54,10 +54,7 @@ jobs:
           core.test_past_papers_seo
           --verbosity 2
       - name: Test frontend navigation, SEO, interactions and integration
-        run: |
-          node tools/verify-navigation.cjs
-          node tools/verify-past-papers.cjs
-          node tools/verify-interactions.cjs
+        run: npm test
       - name: Test cache utilities
         env:
           DEBUG: "false"
