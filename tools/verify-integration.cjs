@@ -15,11 +15,19 @@ test('All frontend JavaScript parses',()=>{});
 
 const html=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
 const scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(x=>x[1].split('?')[0]);
-test('Final frontend and backend adapter load in the required order',()=>{
- const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/admin.js','assets/js/motion.js','assets/js/enhancements.js','assets/js/auth.js','assets/js/app.js'];
+test('Initial page loads only shared frontend assets and defers admin code',()=>{
+ const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/carousel.js','assets/js/seo.js','assets/js/motion.js','assets/js/auth.js','assets/js/app.js'];
  for(const file of required){assert(scripts.includes(file),file+' missing');assert(fs.existsSync(path.join(frontend,file)),file+' not found')}
  assert(scripts.indexOf('assets/js/public-layout.js')<scripts.indexOf('assets/js/public.js'));
  assert(scripts.indexOf('assets/js/auth.js')<scripts.indexOf('assets/js/app.js'));
+ const app=fs.readFileSync(path.join(frontend,'assets/js/app.js'),'utf8');
+ assert(app.includes('ensureAdminBundle()'),'admin bundle must load only when an admin route is opened');
+ for(const file of ['importer.js','enhancements.js','admin.js']) {
+  assert(app.includes('/assets/js/'+file),file+' must remain available to the lazy loader');
+  assert(!scripts.includes('assets/js/'+file),file+' should not load on every public page');
+ }
+ assert(!/<script[^>]+bootstrap(?:\\.bundle)?(?:\\.min)?\\.js/i.test(html),'do not load the Bootstrap JavaScript framework on every page');
+ assert(!/<link[^>]+bootstrap(?:\\.min)?\\.css/i.test(html),'do not load the Bootstrap CSS framework on every page');
  assert(!html.includes('demo-data.js'));
  assert(!html.includes('demo-adapter.js'));
 });
@@ -43,7 +51,7 @@ test('Loading system is asset-free, CSS-based and non-blocking by default',()=>{
  assert(html.includes('id="backend-loader"'));
  assert(html.includes('app-loader-spinner'));
  assert(html.includes('global-spinner'));
- const mediaFiles=fs.readdirSync(path.join(frontend,'assets/images'));
+ const imageDir=path.join(frontend,'assets/images');\n const mediaFiles=fs.existsSync(imageDir)?fs.readdirSync(imageDir):[];
  assert(!mediaFiles.some(name=>/\.(webm|mp4|gif)$/i.test(name)),'loader media assets should not be packaged');
  const css=fs.readFileSync(path.join(frontend,'assets/css/styles.css'),'utf8');
  assert(css.includes('.app-loader-spinner'));
@@ -65,7 +73,7 @@ test('Database API is authoritative for authentication and persistent writes',()
  assert(service.includes('function hydrate(snapshot,user)'));
  assert(service.includes('function mergeCore(snapshot)'));
  assert(auth.includes("credentials:'same-origin'"));
- assert(auth.includes("request('/startup')"));
+ assert(auth.includes("request('/startup')"));\n assert(auth.includes('if(body!==undefined)await ensureCsrfToken();'),'writes should reuse the startup CSRF token when available');\n assert(!auth.includes('if(body!==undefined)await ensureCsrfToken({force:true});'),'normal writes must not trigger an extra startup request');\n assert(auth.includes('response.status===403'),'refresh the token only when CSRF middleware rejects a write');\n assert(auth.includes("await Promise.all(unique.filter(key=>key!=='core').map(load))"),'independent route datasets should load concurrently after core data');
  assert(auth.includes("endpoint='/bootstrap'"));
  assert(auth.includes("'/commands'"));
  assert(auth.includes('backendLoading(true)'));
