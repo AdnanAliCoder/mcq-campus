@@ -162,7 +162,7 @@ test('Admin MCQ pagination stays low-egress and progressive',()=>{
  assert(admin.includes('const ADMIN_MCQ_PAGE_SIZE=10,IMPORT_PAGE_SIZE=50;'));
  assert(admin.includes('function progressivePageNumbers'));
  assert(admin.includes("btn('Next ›','import-page'"));
- assert(!admin.includes('Show entries'));
+ assert(admin.includes('const clean={...(params||{})};delete clean.limit;'),'MCQ pagination URLs must not carry a stale entries-limit filter');
  assert(services.includes("max_page_size=50 if is_admin(user)"));
  assert(services.includes("'importedIds':imported_ids"));
  assert(services.includes("'pageSize':50"));
