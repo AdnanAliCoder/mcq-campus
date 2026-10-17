@@ -295,9 +295,10 @@ window.Auth=(()=>{
    loadingSections.set(cacheKey,task);await task;return true;
   };
   const unique=[...new Set(wants)];
+  // Load hierarchy/reference data first because it intentionally initializes
+  // empty MCQ rows; then fetch the route's independent datasets together.
   if(unique.includes('core'))await load('core');
-  for(const key of ['workspace-mcqs','public-mcqs','entity-page'])if(unique.includes(key))await load(key);
-  await Promise.all(unique.filter(key=>!['core','workspace-mcqs','public-mcqs','entity-page'].includes(key)).map(load));
+  await Promise.all(unique.filter(key=>key!=='core').map(load));
   return changed;
  }
  function setIdentity(identity){
