@@ -164,3 +164,16 @@ class PastPapersSEOTests(TestCase):
         self.assertIn(board.id, catalog['paper_paths'])
         self.assertEqual(catalog['paper_paths'][board.id], '/nts-past-papers')
         self.assertTrue(_seo_indexed_path('year', year))
+
+    def test_public_api_cache_varies_by_session_and_geo_country(self):
+        for path in [
+            '/api/public/bootstrap', '/api/public/content',
+            '/api/public/resources', '/api/public/catalog', '/api/public/legal',
+        ]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200, response.content.decode()[:300])
+                vary = {part.strip().lower() for part in response.get('Vary', '').split(',') if part.strip()}
+                self.assertIn('cookie', vary)
+                self.assertIn('cf-ipcountry', vary)
+                self.assertIn('cloudfront-viewer-country', vary)
