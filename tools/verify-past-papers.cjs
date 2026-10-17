@@ -18,4 +18,14 @@ assert.equal(context.SEO.needsDocumentNavigation('/paper/ppsc'),false);
 context.location.pathname='/papers';
 assert.equal(context.SEO.descriptor('papers').title,'Organizations & Boards Past Papers — PPSC, FPSC, NTS & More');
 assert.equal(vm.runInContext("resolveRouteId('year','past-paper-2026',x=>Number(x.paper_id)===1)",context),'100');
-console.log('PASS landing metadata, discovery navigation, original routes, duplicate job names, and both sitemap/SPA slug spellings');
+// Missing SEO index entries must never send a year card back to the organization listing.
+assert.equal(context.SEO.cleanPath('paper',1),'/paper/1');
+assert.equal(context.SEO.cleanPath('year',100),'/paper/1/year/100');
+context.MCQ.db.seoIndex={items:{'paper:1':1,'year:100':2}};
+assert.equal(context.SEO.cleanPath('paper',1),'/past-papers/000001/ppsc-past-papers');
+assert.equal(context.SEO.cleanPath('year',100),'/past-papers/000002/ppsc-past-paper-2026');
+const premiumCss=fs.readFileSync(path.join(root,'frontend/assets/css/premium.css'),'utf8');
+assert(premiumCss.includes('.entity-icon-img[hidden],.entity-icon-fallback[hidden]{display:none!important}'));
+const uiSource=fs.readFileSync(path.join(root,'frontend/assets/js/ui.js'),'utf8');
+assert(uiSource.includes('svg\\+xml')&&uiSource.includes('media|static|assets|uploads'));
+console.log('PASS landing metadata, discovery navigation, icon fallback visibility, and paper/year routes with or without SEO indices');
