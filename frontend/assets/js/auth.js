@@ -233,7 +233,7 @@ window.Auth=(()=>{
    const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
    const activePage=key==='entity-page'?MCQ.db.entityPage:MCQ.db.mcqPage;
    if(fresh&&(!variable.has(key)||(activePage?.request===endpoint&&activePage?.routeKey===routeKey)))return false;
-   if(loadingSections.has(cacheKey)){await loadingSections.get(cacheKey);return load(key)}
+   if (loadingSections.has(cacheKey)) {   await loadingSections.get(cacheKey);   return false; }
    const task=(async()=>{
     try{
      const own=generation,data=await request(endpoint);
