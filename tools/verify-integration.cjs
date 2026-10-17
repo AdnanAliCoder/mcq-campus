@@ -13,8 +13,19 @@ for(const name of fs.readdirSync(path.join(frontend,'assets/js')).filter(x=>x.en
 }
 test('All frontend JavaScript parses',()=>{});
 
-const html=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
+const indexTemplate=fs.readFileSync(path.join(root,'templates/index.html'),'utf8');
+const partialTemplates=['head.html','app-shell.html','scripts.html'].map(name=>fs.readFileSync(path.join(root,'templates/partials',name),'utf8'));
+const html=[indexTemplate,...partialTemplates].join('\n');
 const scripts=[...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(x=>x[1].split('?')[0]);
+test('Django HTML document is decomposed into reusable partials',()=>{
+ assert(indexTemplate.includes('{% include "partials/head.html" %}'));
+ assert(indexTemplate.includes('{% include "partials/app-shell.html" %}'));
+ assert(indexTemplate.includes('{% include "partials/scripts.html" %}'));
+ assert(!indexTemplate.includes('<script defer src='));
+ assert(partialTemplates[0].includes('<link rel="stylesheet"'));
+ assert(partialTemplates[1].includes('id="app"'));
+ assert(partialTemplates[2].includes('assets/js/app.js'));
+});
 test('Initial page loads only shared frontend assets and defers admin code',()=>{
  const required=['assets/js/service.js','assets/js/ui.js','assets/js/public-layout.js','assets/js/public.js','assets/js/carousel.js','assets/js/seo.js','assets/js/motion.js','assets/js/auth.js','assets/js/app.js'];
  for(const file of required){assert(scripts.includes(file),file+' missing');assert(fs.existsSync(path.join(frontend,file)),file+' not found')}
