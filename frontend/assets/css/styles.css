@@ -2782,3 +2782,117 @@ body.dark .admin-mcq-full-table thead th{background:#10231f}
 @media(max-width:760px){
  .header-country-badge{width:25px;height:19px;margin-left:-9px;margin-right:7px}
 }
+
+/* ============================================================
+   SAFE IMPROVEMENTS — 2026 add-on
+   Append-only. No existing rule is removed or overridden in a
+   way that changes the current visual design.
+   ============================================================ */
+
+/* 1) Pseudo-elements ko bhi box-sizing reset mein include karein
+   (mojooda `*{box-sizing:border-box}` ::before/::after ko match
+   nahi karta kuch browsers mein). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 2) iOS text inflation stop + smoother font rendering. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 3) Mobile par tap flash (gray/blue highlight) remove. */
+a,
+button,
+[role="button"],
+summary,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 4) 300ms tap delay remove — pinch/pan intact rahega. */
+button,
+[role="button"],
+.btn,
+summary {
+  touch-action: manipulation;
+}
+
+/* 5) Selection color brand mint ke mutabiq. */
+::selection {
+  background: #d9f3e8;
+  color: #192b29;
+}
+
+/* 6) Media containers se bahar na nikle.
+   .icon aur .logo-crop img ki apni !important width rules hain,
+   unhe koi farq nahi padega. */
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 7) Modern balanced line breaks for headings & paragraphs. */
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+
+/* 8) Fieldset reset — class wale fieldset (e.g. .admin-permission-fieldset)
+   apni styling rakhenge (class specificity jeet ti hai). */
+fieldset {
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+/* 9) Placeholder contrast — current < WCAG AA. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted, #62736f);
+  opacity: 1;
+}
+
+/* 10) Long unbroken words page ko widen na karein. */
+body {
+  overflow-wrap: break-word;
+}
+
+/* 11) Sticky header ke liye anchor offset (header 66–84px). */
+[id] {
+  scroll-margin-top: 90px;
+}
+
+/* 12) Stat numbers mein horizontal jump na ho. */
+.stat-card-value,
+.metric strong,
+.callout-number,
+.learner-summary-item strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 13) Long chip text (URLs / job-year names) overflow na karein. */
+.mcq-answer-years .mcq-year-chip,
+.mcq-relation-group .chip {
+  overflow-wrap: anywhere;
+}
+
+/* 14) Button/chip text selection stop — copy galti se trigger na ho. */
+.btn,
+button,
+.selection-chip {
+  -webkit-user-select: none;
+  user-select: none;
+}
