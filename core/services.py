@@ -704,6 +704,18 @@ def _public_legal_data_uncached():
     return {'content':state['content']}
 
 
+def public_bootstrap_data(country=None):
+    """Cache the anonymous hierarchy/reference bootstrap by selected country."""
+    selected=str(country or '').strip()
+    identity={'country':selected.casefold()}
+    return cached_value(
+        'public-bootstrap',
+        identity,
+        lambda:snapshot(None,active_country=selected,active_role='public',public_only=True),
+        timeout=60,
+    )
+
+
 def public_content_data(country=None):
     identity={'country':str(country or '').strip().casefold()}
     return cached_value('public-content',identity,lambda:_public_content_data_uncached(country),timeout=60)
