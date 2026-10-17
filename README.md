@@ -1,90 +1,102 @@
-# MCQCampus — Vercel + Supabase Deployment Package
+# MCQCampus
 
-This package combines the final animated MCQCampus frontend with the existing Django backend. It is prepared for **Vercel** deployment and the existing **Supabase PostgreSQL** database.
+MCQCampus is a Django-based MCQ, past-paper, organization, PDF, and exam-preparation website.
 
-## What is included
+## Required application architecture
 
-- Final HTML/CSS/JavaScript frontend with animations and transitions.
-- Django API, authentication, admin permissions and existing database models.
-- Supabase/PostgreSQL connection through `DATABASE_URL`.
-- Vercel Django configuration in `vercel.json` (no Render build file is included).
-- Same-origin session authentication for Learner, Admin and Super Admin accounts stored in the database.
-- Asset-free CSS loading UI: compact button spinners for normal writes and a minimal blocking overlay only for session verification / bulk import.
-- Server-backed settings for footer, social links, legal pages, PDFs, Latest Jobs, ads/analytics and profile preferences without requiring a new database schema.
+- Frontend: HTML/Django templates, CSS, Tailwind CSS utility styling when needed, and vanilla JavaScript.
+- Backend: Python and Django views, services, authentication, and APIs.
+- Data: Django ORM with PostgreSQL in production; SQLite can be used for local development when DATABASE_URL is empty.
+- Web serving: Gunicorn behind the configured Oracle Cloud Ubuntu web-server/reverse-proxy setup.
+- Static assets: local files under frontend/assets, served through Django/WhiteNoise and versioned URLs.
 
-## Intentionally removed
+Keep this architecture. Do not migrate the application to React, Vue, Angular, Next.js, Express, NestJS, or a separate Node.js backend. Do not introduce TypeScript, PHP, Go, or another application language/framework. If Tailwind CSS is used, compile the resulting CSS to static assets served by Django; do not make a production page depend on a development CDN. The existing JavaScript regression checks are test tooling only and do not run the website backend.
 
-- Previous/obsolete frontend files.
-- Demo accounts, demo adapters and demo seed data.
-- Seed-import tooling and bundled sample-data folders.
-- Render deployment configuration.
-- Private `.env` credentials.
+## Local development
 
-The package does **not** delete or replace any records already stored in Supabase. Existing database users, including an existing Super Admin, remain the source of truth for login.
+Use Python 3.11 or another Python version supported by the installed Django dependencies.
 
-## Environment variables on Vercel
+Windows CMD:
 
-Set these in **Vercel Project → Settings → Environment Variables**. Never commit the real values to Git.
+    py -m venv .venv
+    .venv\Scripts\activate
+    python -m pip install -r requirements.txt
+    python manage.py check
+    python manage.py runserver
 
-```text
-SECRET_KEY=<long random Django secret>
-DEBUG=false
-DATABASE_URL=<your Supabase Transaction Pooler connection string, port 6543>
-ALLOWED_HOSTS=<your custom domain if used>
-CSRF_TRUSTED_ORIGINS=https://<your-custom-domain>
-```
+Linux/macOS:
 
-Vercel's runtime host variables are also accepted automatically by `mcqcampus/settings.py`, so preview and production `*.vercel.app` hosts can be recognized without adding Render-specific settings.
+    python3 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install -r requirements.txt
+    python manage.py check
+    python manage.py runserver
 
-For Vercel, use Supabase **Connect → Transaction pooler** (`:6543`) rather than the direct IPv6 database URL. Django persistent connections are disabled and psycopg prepared statements are disabled for transaction-pooler compatibility.
+For local development, leave DATABASE_URL unset to use the local SQLite database. Never run database reset, seed, or destructive initialization commands against production data. The repository's JavaScript regression checks can be run separately with npm test when Node.js is available; Node.js is not the website's server runtime.
 
-For email-based verification/password reset, configure the optional email variables shown in `.env.example`.
+## Configuration
 
+Copy .env.example to .env for local configuration. Never commit .env or real credentials.
 
-## Redis cache on a persistent server
+Important environment variables:
 
-On an Oracle Ubuntu VM where Redis is installed and bound to localhost, set `REDIS_URL=redis://127.0.0.1:6379/1` in the environment used by the Django service, then restart the application service. Install dependencies from `requirements.txt` after pulling the code. The app uses Django's built-in Redis cache backend when `REDIS_URL` is present and local-memory cache otherwise. Cache reads/writes are best-effort; Redis being temporarily unavailable should fall back to uncached database results. Public data/count caches use short TTLs and version invalidation after recognized successful writes. Authentication/session/private account responses are not placed in these shared cache groups.
+- SECRET_KEY: strong, private Django secret.
+- DEBUG: keep false on the public server.
+- ALLOWED_HOSTS: include mcqcampus.com and www.mcqcampus.com.
+- CSRF_TRUSTED_ORIGINS: include the HTTPS origins serving the site.
+- DATABASE_URL: production PostgreSQL URL. Leave empty locally if you want SQLite.
+- REDIS_URL: optional shared cache URL, such as redis://127.0.0.1:6379/1 on the Oracle VM.
+- PUBLIC_CANONICAL_HOST: normally www.mcqcampus.com.
+- EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, DEFAULT_FROM_EMAIL: configure email verification and password-reset delivery.
+- MCQCAMPUS_GEOLOOKUP_ENABLED: optional fallback visitor-country lookup control.
 
-## Public country homepage and login/signup country selection
+The sample environment file contains placeholders only. Do not replace production credentials or service settings with the example values.
 
-The public homepage resolves the visitor country before loading country-scoped MCQ totals, organizations, categories and past-paper data. It prefers country codes provided by hosting/CDN proxies, including Cloudflare's CF-IPCountry header, Vercel's country header, and CloudFront's viewer-country header. When no trusted country header is present, it can perform a short-timeout IP geolocation lookup. Only the resulting country code is cached, under a one-way hash of the IP address; the raw IP is not written to application logs or stored as the cache value.
+## Production deployment — Oracle Cloud
 
-The fallback provider can be changed with MCQCAMPUS_GEOLOCATION_URL (a URL template containing {ip}), or disabled with MCQCAMPUS_GEOLOOKUP_ENABLED=false. When lookup cannot identify a country or the country is not enabled in Country Management, the app uses the configured site country, then Pakistan as a safe fallback.
+The production application runs on the Oracle Cloud Ubuntu VM as the Django/Gunicorn systemd service mcqcampus.service. The project directory is /home/ubuntu/mcq-campus.
 
-The homepage and public exam/PDF routes are available without an account. The country chooser is used when a visitor opens Login or Sign up without an active country choice. Anonymous route data is served through /api/public/bootstrap, which returns active country-scoped catalogs and totals without sending a full, unpaginated MCQ dataset.
+After reviewing and merging an approved code change, the normal deployment sequence on the VM is:
 
-## Performance diagnostics
+    cd /home/ubuntu/mcq-campus
+    git pull origin main
+    source .venv/bin/activate
+    python -m pip install -r requirements.txt
+    python manage.py check
+    python manage.py migrate
+    python manage.py collectstatic --noinput
+    sudo systemctl restart mcqcampus
+    sudo systemctl status mcqcampus --no-pager
 
-For temporary performance investigation, set `PERFORMANCE_LOGGING=true` in the relevant Vercel environment and redeploy. The application then logs only endpoint names, elapsed milliseconds, query counts when Django exposes them, response byte sizes, and safe login phase durations. It does **not** log passwords, cookies, CSRF/session tokens, request form values, `DATABASE_URL`, or database credentials.
+Only run migrations when appropriate for the reviewed change. Back up the production database before any schema or data migration. Do not run these commands against production from a developer laptop unless that is explicitly intended.
 
-A Super Admin can use `GET /api/health/performance` while diagnostics are enabled to measure a simple `SELECT 1` round trip. Its response exposes only app/database milliseconds plus a coarse database backend/connection classification such as `postgresql / pooler / 6543`; it never exposes the database hostname, username, password, or connection URL.
+The application is served by Django/Gunicorn and the Oracle VM web-server configuration. Keep environment secrets on the server in its protected environment file, not in the repository. This repository should not contain hosting-provider deployment configuration files for other platforms.
 
-Use Supabase **Transaction Pooler** for Vercel serverless and verify the production `DATABASE_URL` in Vercel uses the pooler connection (normally port **6543**). The repository intentionally does not read or print the secret value. Keep `conn_max_age=0` and `prepare_threshold=None` for transaction-pooler compatibility.
+## Cache and performance
 
-When diagnosing latency, compare the first request after inactivity with two immediate warm requests for `/api/auth/session`, login, role switch, logout, `form:entity`, bootstrap, and the paginated MCQ endpoint. This separates Vercel cold-start latency from persistent database/network latency.
+Redis is optional. When REDIS_URL is configured, the application uses Django's Redis cache backend; otherwise, it uses local-memory cache. Cache failures should not prevent ordinary database-backed requests from working. Public catalog/count caches use short TTLs and version invalidation; private account/session responses must not be shared-cache responses.
 
-## Existing Super Admin login
+For short-term diagnostics, set PERFORMANCE_LOGGING=true in the server environment and restart the service. Logs should contain safe endpoint timing/query/response-size information only, never passwords, cookies, session/CSRF tokens, submitted form values, or database credentials. Disable diagnostics when they are no longer needed.
 
-The login form authenticates against Django's database-backed user table using the account email as the username. **No demo account is created by this package.** If your Supabase database already contains the Super Admin account and its password hash, use those existing credentials.
+Static URLs use content-derived version tokens, so browser caching can remain long-lived while changed assets receive new URLs. Keep local images optimized, defer non-critical scripts, and lazy-load below-the-fold images without changing public URL structures or exam content.
 
-`python manage.py ensure_superadmin` remains available only as an explicit maintenance command. It can create/update an owner from `SUPERADMIN_*` environment variables and can reset that account's password, so do not run it during routine deployment unless you intentionally want that behavior.
+## Public country routing
 
-## Local verification
+Visitor country detection first checks supported Cloudflare or CloudFront country headers. If no trusted country header is present, the application can use the configured short-timeout IP lookup fallback. Only a country code is cached under a one-way hash of the visitor IP; the raw IP is not stored as the cache value. If detection fails or the detected country is disabled, the configured site country and then Pakistan are safe fallbacks.
 
-```sh
-python -m venv .venv
-# Windows PowerShell: .\.venv\Scripts\Activate.ps1
-# Linux/macOS: source .venv/bin/activate
-python -m pip install -r requirements.txt
-python manage.py check
-npm test
-python manage.py runserver
-```
+## Data and account safety
 
-If `DATABASE_URL` is omitted locally, Django uses SQLite for development/testing. Do not run database initialization commands against the existing Supabase production database unless you know a schema change is required.
+The existing database remains the source of truth for users, MCQs, organizations/boards/agencies, past papers, years, PDFs, blogs, settings, and permissions. Do not add demo accounts, replace production records, reset the database, or run destructive import commands as part of normal deployment. The ensure_superadmin maintenance command can create/update an owner or reset that account's password; only run it deliberately.
 
-## Vercel deployment
+## Verification
 
-Deploy the **project root** — the folder containing `manage.py` and `vercel.json`. With Git integration, push this folder to the repository/branch connected to Vercel. Keep the Supabase connection string and Django secret only in Vercel Environment Variables.
+Before merging code changes, run the Django system check and regression tests:
 
-The current deployment configuration is `vercel.json`; no Render/Railway application-server configuration is required.
+    python manage.py check
+    python manage.py test
+
+Where Node.js is available, also run:
+
+    npm test
+
+Review the GitHub Actions result on the pull request. Passing automated checks is not a substitute for verifying login/signup, country selection, MCQs, past papers, admin actions, PDFs, and static assets on the intended Oracle-hosted environment before production release.
