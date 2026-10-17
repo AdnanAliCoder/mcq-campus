@@ -214,7 +214,7 @@ test('Web manifests use MCQCampus branding and existing favicon assets',()=>{
   assert(Array.isArray(manifest.icons)&&manifest.icons.length>0);
  }
  for(const icon of rootManifest.icons){
-  const local=path.join(frontend,'assets',icon.src.replace(/^\\/assets\\//,''));
+  const local=path.join(frontend,'assets',icon.src.replace('/assets/',''));
   assert(fs.existsSync(local),'Missing root manifest icon: '+icon.src);
  }
  for(const icon of assetManifest.icons){
