@@ -1976,6 +1976,151 @@ def _page_key_for_path(path, status=200):
 
 
 
+
+def _render_plain_spa_html(markup, context):
+    """Fill the small SEO/runtime slots in the plain HTML shell without template tags."""
+    from html import escape as html_escape
+
+    def escaped(value):
+        return html_escape(str(value if value is not None else ''), quote=True)
+
+    def replace_meta(source, attr, name, value):
+        pattern = re.compile(
+            r'(<meta\b(?=[^>]*\b' + re.escape(attr) + r'="' + re.escape(name) +
+            r'")[^>]*\bcontent=")[^"]*(")',
+            re.IGNORECASE,
+        )
+        return pattern.sub(lambda match: match.group(1) + escaped(value) + match.group(2), source, count=1)
+
+    title = str(context.get('seo_title') or 'MCQCampus — Practice MCQs, Past Papers & Exam Preparation')
+    description = str(context.get('seo_description') or '')
+    canonical = str(context.get('canonical_url') or (SEO_ORIGIN + '/'))
+    robots = str(context.get('seo_robots') or 'index,follow')
+    origin = str(context.get('seo_origin') or SEO_ORIGIN).rstrip('/')
+    asset_version = str(getattr(settings, 'STATIC_ASSET_VERSION', 'static-v1'))
+
+    markup = re.sub(r'<title>.*?</title>', '<title>' + escaped(title) + '</title>', markup, count=1, flags=re.DOTALL)
+    markup = re.sub(
+        r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
+        lambda match: match.group(1) + escaped(canonical) + match.group(2),
+        markup,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    for attr, name, value in (
+        ('name', 'description', description),
+        ('name', 'robots', robots),
+        ('property', 'og:title', title),
+        ('property', 'og:description', description),
+        ('property', 'og:url', canonical),
+        ('property', 'og:image', origin + '/assets/genfavicon-512.png?v=' + asset_version),
+        ('name', 'twitter:title', title),
+        ('name', 'twitter:description', description),
+        ('name', 'twitter:image', origin + '/assets/genfavicon-512.png?v=' + asset_version),
+    ):
+        markup = replace_meta(markup, attr, name, value)
+
+    markup = re.sub(
+        r'(<meta\s+name="mcq-asset-version"\s+content=")[^"]*(")',
+        lambda match: match.group(1) + escaped(asset_version) + match.group(2),
+        markup,
+        count=1,
+    )
+    markup = markup.replace('?v=static-v1', '?v=' + asset_version)
+    page_key = str(context.get('page_key') or 'home')
+    markup = re.sub(
+        r'(<body\b[^>]*\bdata-page-template=")[^"]*(")',
+        lambda match: match.group(1) + escaped(page_key) + match.group(2),
+        markup,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+
+    heading = str(context.get('seo_heading') or title)
+    intro = str(context.get('seo_intro') or description)
+    markup = re.sub(
+        r'(<h1\s+id="seo-heading">).*?(</h1>)',
+        lambda match: match.group(1) + escaped(heading) + match.group(2),
+        markup,
+        count=1,
+        flags=re.DOTALL,
+    )
+    markup = re.sub(
+        r'(<p\s+id="seo-summary">).*?(</p>)',
+        lambda match: match.group(1) + escaped(intro) + match.group(2),
+        markup,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+    section_html = []
+    for section_title, section_body in (context.get('seo_sections') or []):
+        section_html.append(
+            '<section class="seo-fallback-section"><h2>' + escaped(section_title) +
+            '</h2><p>' + escaped(section_body) + '</p></section>'
+        )
+    markup = markup.replace('<div id="seo-sections"></div>',
+                            '<div id="seo-sections">' + ''.join(section_html) + '</div>')
+
+    links = context.get('seo_links') or []
+    if links:
+        link_html = ''.join(
+            '<li><a href="' + escaped(href) + '">' + escaped(label) + '</a></li>'
+            for label, href in links
+        )
+        nav = (
+            '<nav id="seo-links" aria-label="Explore related MCQCampus pages">'
+            '<h2>Explore related pages</h2><ul id="seo-links-list">' + link_html +
+            '</ul></nav>'
+        )
+    else:
+        nav = ''
+    markup = re.sub(
+        r'<nav\s+id="seo-links".*?</nav>',
+        nav,
+        markup,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+    jsonld = str(context.get('seo_jsonld') or '{}').replace('</script', '<\\/script')
+    markup = re.sub(
+        r'(<script\s+id="server-jsonld"\s+type="application/ld\+json">).*?(</script>)',
+        lambda match: match.group(1) + jsonld + match.group(2),
+        markup,
+        count=1,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    route_data = json.dumps(context.get('seo_route'), ensure_ascii=False, separators=(',', ':'))
+    route_data = route_data.replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+    markup = re.sub(
+        r'(<script\s+id="seo-route"\s+type="application/json">).*?(</script>)',
+        lambda match: match.group(1) + route_data + match.group(2),
+        markup,
+        count=1,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    discovery_data = json.dumps(context.get('seo_discovery_page'), ensure_ascii=False, separators=(',', ':'))
+    discovery_data = discovery_data.replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+    markup = re.sub(
+        r'(<script\s+id="seo-discovery-page"\s+type="application/json">).*?(</script>)',
+        lambda match: match.group(1) + discovery_data + match.group(2),
+        markup,
+        count=1,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    setting = context.get('settings')
+    integrations = []
+    if setting and getattr(setting, 'analytics_enabled', False) and getattr(setting, 'google_analytics_id', ''):
+        integrations.append('<meta name="mcq-analytics-id" content="' + escaped(setting.google_analytics_id) + '">')
+    if setting and getattr(setting, 'adsense_enabled', False) and getattr(setting, 'adsense_client_id', ''):
+        integrations.append('<meta name="mcq-adsense-client" content="' + escaped(setting.adsense_client_id) + '">')
+    markup = markup.replace('<!-- MCQ_OPTIONAL_INTEGRATIONS -->', ''.join(integrations))
+    return markup
+
+
 def spa_index(request):
     fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
     s=SiteSetting.objects.only(*fields).filter(pk=1).first()
@@ -2048,12 +2193,14 @@ def spa_index(request):
     robots='noindex,nofollow' if status==404 or root in private_roots else ('noindex,follow' if path=='/mcqs/important-mcqs' else ('index,follow' if path=='/' or root in target_roots else 'noindex,follow'))
     sections=[] if robots.startswith('noindex') else _seo_supporting_sections(seo_path,heading,description)
     jsonld=_seo_jsonld(title,description,canonical,seo_path,catalog,links)
-    response=render(request,'index.html',{
+    context={
         'settings':s,'page_key':_page_key_for_path(request.path,status=status),'seo_title':title,'seo_description':description,'canonical_url':canonical,
         'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_sections':sections,
         'seo_origin':SEO_ORIGIN,'seo_robots':robots,'seo_jsonld':jsonld,'seo_discovery_page':None,
         'seo_route':{'path':path,'base':resolved['kind'],'id':resolved['key']} if resolved else None,
-    },status=status)
+    }
+    response=render(request,'index.html',{},status=status)
+    response.content=_render_plain_spa_html(response.content.decode('utf-8'),context).encode('utf-8')
     if status==200 and (path=='/' or root in target_roots):
         response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
     else:
