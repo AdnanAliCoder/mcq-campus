@@ -10,7 +10,6 @@ from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.middleware.csrf import get_token
-from django.shortcuts import render
 from django.utils import timezone
 from django.utils.html import escape
 from django.utils.cache import patch_vary_headers
@@ -1912,299 +1911,90 @@ def _seo_discovery_sections(path,heading,description,catalog):
         ]
     return []
 
-def _page_template_for_path(path, status=200):
-    """Choose a route-specific HTML template while retaining the existing UI during migration."""
-    if status != 200:
-        return 'not_found.html'
-    path = str(path or '/').rstrip('/') or '/'
-    if path in {'/', '/index.html', '/index.php'}: return 'index.html'
-    if path in {'/mcqs/important-mcqs', '/important'}: return 'important_mcqs.html'
-    if path.startswith(('/mcqs/', '/mcq/', '/practice/')): return 'mcq_detail.html'
-    if path == '/mcqs': return 'mcqs.html'
-    if path == '/categories': return 'categories.html'
-    if path.startswith(('/categories/', '/category/', '/subcategory/', '/topic/')): return 'category_detail.html'
-    if path in {'/past-papers/pdfs', '/pdfs'}: return 'pdfs.html'
-    if path.startswith(('/past-papers/pdfs/', '/pdf/')): return 'pdf_detail.html'
-    if path in {'/past-papers', '/papers'}: return 'past_papers.html'
-    if path.startswith(('/past-papers/', '/paper/', '/job/', '/year/')): return 'past_paper_detail.html'
-    if path == '/latest-jobs': return 'latest_jobs.html'
-    if path.startswith(('/latest-jobs/', '/latest-job/')): return 'latest_job_detail.html'
-    if path in {'/blog', '/posts'}: return 'blog.html'
-    if path.startswith(('/blog/', '/post/')): return 'blog_detail.html'
-    if path == '/tests': return 'tests.html'
-    if path.startswith('/test/'): return 'test_detail.html'
-    if path in {'/about', '/contact', '/faq', '/privacy', '/terms', '/disclaimer', '/cookies', '/advertising'}: return 'info.html'
-    if path == '/sitemap': return 'sitemap.html'
-    if path == '/jobs-exams': return 'jobs_exams.html'
-    if path == '/search' or path.startswith('/search/'): return 'search.html'
-    if any(path == root or path.startswith(root + '/') for root in ('/login', '/register', '/signup', '/forgot', '/reset', '/reset-code', '/reset-password', '/verify')): return 'auth.html'
-    if path == '/dashboard' or path.startswith('/dashboard/') or path == '/profile': return 'dashboard.html'
-    if path == '/admin' or path.startswith('/admin/') or path == '/super-admin' or path.startswith('/super-admin/'): return 'admin.html'
-    return 'page.html'
-
-
-def _page_key_for_path(path, status=200):
-    """Map legacy route-template names to the single shared HTML document."""
-    template_name = _page_template_for_path(path, status=status)
-    return {
-        'index.html': 'home',
-        'important_mcqs.html': 'important-mcqs',
-        'mcq_detail.html': 'mcq-detail',
-        'mcqs.html': 'mcqs',
-        'categories.html': 'categories',
-        'category_detail.html': 'category-detail',
-        'pdfs.html': 'pdfs',
-        'pdf_detail.html': 'pdf-detail',
-        'past_papers.html': 'past-papers',
-        'past_paper_detail.html': 'past-paper-detail',
-        'latest_jobs.html': 'latest-jobs',
-        'latest_job_detail.html': 'latest-job-detail',
-        'blog.html': 'blog',
-        'blog_detail.html': 'blog-detail',
-        'tests.html': 'tests',
-        'test_detail.html': 'test-detail',
-        'info.html': 'information',
-        'sitemap.html': 'sitemap',
-        'jobs_exams.html': 'jobs-exams',
-        'search.html': 'search',
-        'auth.html': 'authentication',
-        'dashboard.html': 'dashboard',
-        'admin.html': 'admin',
-        'page.html': 'page',
-        'not_found.html': 'page',
-    }.get(template_name, 'page')
-
-
-
-
-def _render_plain_spa_html(markup, context):
-    """Fill the small SEO/runtime slots in the plain HTML shell without template tags."""
-    from html import escape as html_escape
-
-    def escaped(value):
-        return html_escape(str(value if value is not None else ''), quote=True)
-
-    def replace_meta(source, attr, name, value):
-        pattern = re.compile(
-            r'(<meta\b(?=[^>]*\b' + re.escape(attr) + r'="' + re.escape(name) +
-            r'")[^>]*\bcontent=")[^"]*(")',
-            re.IGNORECASE,
-        )
-        return pattern.sub(lambda match: match.group(1) + escaped(value) + match.group(2), source, count=1)
-
-    title = str(context.get('seo_title') or 'MCQCampus — Practice MCQs, Past Papers & Exam Preparation')
-    description = str(context.get('seo_description') or '')
-    canonical = str(context.get('canonical_url') or (SEO_ORIGIN + '/'))
-    robots = str(context.get('seo_robots') or 'index,follow')
-    origin = str(context.get('seo_origin') or SEO_ORIGIN).rstrip('/')
-    asset_version = str(getattr(settings, 'STATIC_ASSET_VERSION', 'static-v1'))
-
-    markup = re.sub(r'<title>.*?</title>', '<title>' + escaped(title) + '</title>', markup, count=1, flags=re.DOTALL)
-    markup = re.sub(
-        r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
-        lambda match: match.group(1) + escaped(canonical) + match.group(2),
-        markup,
-        count=1,
-        flags=re.IGNORECASE,
-    )
-    for attr, name, value in (
-        ('name', 'description', description),
-        ('name', 'robots', robots),
-        ('property', 'og:title', title),
-        ('property', 'og:description', description),
-        ('property', 'og:url', canonical),
-        ('property', 'og:image', origin + '/assets/genfavicon-512.png?v=' + asset_version),
-        ('name', 'twitter:title', title),
-        ('name', 'twitter:description', description),
-        ('name', 'twitter:image', origin + '/assets/genfavicon-512.png?v=' + asset_version),
-    ):
-        markup = replace_meta(markup, attr, name, value)
-
-    markup = re.sub(
-        r'(<meta\s+name="mcq-asset-version"\s+content=")[^"]*(")',
-        lambda match: match.group(1) + escaped(asset_version) + match.group(2),
-        markup,
-        count=1,
-    )
-    markup = markup.replace('?v=static-v1', '?v=' + asset_version)
-    page_key = str(context.get('page_key') or 'home')
-    markup = re.sub(
-        r'(<body\b[^>]*\bdata-page-template=")[^"]*(")',
-        lambda match: match.group(1) + escaped(page_key) + match.group(2),
-        markup,
-        count=1,
-        flags=re.IGNORECASE,
-    )
-
-    heading = str(context.get('seo_heading') or title)
-    intro = str(context.get('seo_intro') or description)
-    markup = re.sub(
-        r'(<h1\s+id="seo-heading">).*?(</h1>)',
-        lambda match: match.group(1) + escaped(heading) + match.group(2),
-        markup,
-        count=1,
-        flags=re.DOTALL,
-    )
-    markup = re.sub(
-        r'(<p\s+id="seo-summary">).*?(</p>)',
-        lambda match: match.group(1) + escaped(intro) + match.group(2),
-        markup,
-        count=1,
-        flags=re.DOTALL,
-    )
-
-    section_html = []
-    for section_title, section_body in (context.get('seo_sections') or []):
-        section_html.append(
-            '<section class="seo-fallback-section"><h2>' + escaped(section_title) +
-            '</h2><p>' + escaped(section_body) + '</p></section>'
-        )
-    markup = markup.replace('<div id="seo-sections"></div>',
-                            '<div id="seo-sections">' + ''.join(section_html) + '</div>')
-
-    links = context.get('seo_links') or []
-    if links:
-        link_html = ''.join(
-            '<li><a href="' + escaped(href) + '">' + escaped(label) + '</a></li>'
-            for label, href in links
-        )
-        nav = (
-            '<nav id="seo-links" aria-label="Explore related MCQCampus pages">'
-            '<h2>Explore related pages</h2><ul id="seo-links-list">' + link_html +
-            '</ul></nav>'
-        )
-    else:
-        nav = ''
-    markup = re.sub(
-        r'<nav\s+id="seo-links".*?</nav>',
-        nav,
-        markup,
-        count=1,
-        flags=re.DOTALL,
-    )
-
-    jsonld = str(context.get('seo_jsonld') or '{}').replace('</script', '<\\/script')
-    markup = re.sub(
-        r'(<script\s+id="server-jsonld"\s+type="application/ld\+json">).*?(</script>)',
-        lambda match: match.group(1) + jsonld + match.group(2),
-        markup,
-        count=1,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    route_data = json.dumps(context.get('seo_route'), ensure_ascii=False, separators=(',', ':'))
-    route_data = route_data.replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
-    markup = re.sub(
-        r'(<script\s+id="seo-route"\s+type="application/json">).*?(</script>)',
-        lambda match: match.group(1) + route_data + match.group(2),
-        markup,
-        count=1,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-    discovery_data = json.dumps(context.get('seo_discovery_page'), ensure_ascii=False, separators=(',', ':'))
-    discovery_data = discovery_data.replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
-    markup = re.sub(
-        r'(<script\s+id="seo-discovery-page"\s+type="application/json">).*?(</script>)',
-        lambda match: match.group(1) + discovery_data + match.group(2),
-        markup,
-        count=1,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    setting = context.get('settings')
-    integrations = []
-    if setting and getattr(setting, 'analytics_enabled', False) and getattr(setting, 'google_analytics_id', ''):
-        integrations.append('<meta name="mcq-analytics-id" content="' + escaped(setting.google_analytics_id) + '">')
-    if setting and getattr(setting, 'adsense_enabled', False) and getattr(setting, 'adsense_client_id', ''):
-        integrations.append('<meta name="mcq-adsense-client" content="' + escaped(setting.adsense_client_id) + '">')
-    markup = markup.replace('<!-- MCQ_OPTIONAL_INTEGRATIONS -->', ''.join(integrations))
-    return markup
-
-
 def spa_index(request):
-    fields=['singleton','seo_title','seo_description','analytics_enabled','google_analytics_id','adsense_enabled','adsense_client_id']
-    s=SiteSetting.objects.only(*fields).filter(pk=1).first()
-    if s is None: s=SiteSetting.objects.create(pk=1)
-    default_title=s.seo_title or 'MCQCampus — Practice MCQs, Past Papers & Exam Preparation'
-    default_description=s.seo_description or 'MCQCampus offers practice MCQs, organization-wise past papers, answers and explanations for learners in Pakistan and India.'
+    """Serve the standalone HTML app shell; Django only handles API and URL compatibility."""
+    from pathlib import Path
+
     path=request.path.rstrip('/') or '/'
-    registry=seo_index_snapshot()
     if path in {'/index.html','/index.php'}:
-        response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+'/';return response
+        response=HttpResponse(status=301)
+        response['Location']=SEO_ORIGIN+'/'
+        return response
 
-    static_redirects={'/papers':'/past-papers','/pdfs':'/past-papers/pdfs','/posts':'/blog','/mcqs/all-mcqs':'/mcqs','/past-papers/all-past-papers':'/past-papers','/categories/all-categories':'/categories','/jobs':'/past-papers','/jobs-exams':'/past-papers','/profile':'/dashboard/settings','/my-downloads':'/dashboard/downloads','/user-dashboard':'/dashboard','/user-dashboard/profile':'/dashboard/settings'}
+    static_redirects={
+        '/papers':'/past-papers',
+        '/pdfs':'/past-papers/pdfs',
+        '/posts':'/blog',
+        '/mcqs/all-mcqs':'/mcqs',
+        '/past-papers/all-past-papers':'/past-papers',
+        '/categories/all-categories':'/categories',
+        '/jobs':'/past-papers',
+        '/jobs-exams':'/past-papers',
+        '/profile':'/dashboard/settings',
+        '/my-downloads':'/dashboard/downloads',
+        '/user-dashboard':'/dashboard',
+        '/user-dashboard/profile':'/dashboard/settings',
+    }
     if path in static_redirects:
-        response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+static_redirects[path];response['Cache-Control']='public, max-age=3600';return response
+        response=HttpResponse(status=301)
+        response['Location']=SEO_ORIGIN+static_redirects[path]
+        response['Cache-Control']='public, max-age=3600'
+        return response
 
+    # Preserve legacy URL redirects and canonical URL normalization. This is URL
+    # routing only: the HTML response below is never rendered or modified by Django.
+    registry=seo_index_snapshot()
+    legacy_candidate=(
+        path.startswith(('/mcq/','/practice/','/category/','/pdf/','/latest-job/','/post/','/paper/','/mcqs/important-mcqs/'))
+        or _seo_is_past_papers_path(path)
+    )
     catalog=None
-    legacy_candidate=path.startswith(('/mcq/','/practice/','/category/','/pdf/','/latest-job/','/post/','/paper/','/mcqs/important-mcqs/')) or _seo_is_past_papers_path(path)
     if legacy_candidate:
         catalog=_seo_past_papers_catalog() if path.startswith('/paper/') or _seo_is_past_papers_path(path) else None
         target=_seo_legacy_target(path,catalog,registry)
         if target and target!=path:
-            response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+target;response['Cache-Control']='public, max-age=3600';return response
+            response=HttpResponse(status=301)
+            response['Location']=SEO_ORIGIN+target
+            response['Cache-Control']='public, max-age=3600'
+            return response
 
     resolved=_seo_resolve_indexed_path(path,registry)
     if resolved and resolved['canonical']!=path:
-        response=HttpResponse(status=301);response['Location']=SEO_ORIGIN+resolved['canonical'];response['Cache-Control']='public, max-age=3600';return response
+        response=HttpResponse(status=301)
+        response['Location']=SEO_ORIGIN+resolved['canonical']
+        response['Cache-Control']='public, max-age=3600'
+        return response
 
-    static_internal={'/past-papers':'/papers','/past-papers/pdfs':'/pdfs','/blog':'/posts','/mcqs/important-mcqs':'/important'}
+    static_internal={
+        '/past-papers':'/papers',
+        '/past-papers/pdfs':'/pdfs',
+        '/blog':'/posts',
+        '/mcqs/important-mcqs':'/important',
+    }
     seo_path=resolved['internal'] if resolved else static_internal.get(path,path)
     if resolved and resolved['kind'] in {'paper','job','year'}:
         catalog=_seo_past_papers_catalog()
     elif catalog is None and (seo_path.startswith('/paper/') or _seo_is_past_papers_path(seo_path)):
         catalog=_seo_past_papers_catalog()
 
-    landing=_seo_past_papers_record(seo_path,catalog) if catalog else None
     known=bool(resolved) or path in static_internal or _seo_known_spa_path(seo_path,catalog)
     status=200 if known else 404
-    custom_title=''
-    custom_description=''
-    if known:
-        title,description,heading,intro,links=_seo_page_context(seo_path,default_title,default_description,catalog)
-        links=[(label,static_redirects.get(href) or _seo_legacy_target(href,catalog,registry) or href) for label,href in links]
-        page_seo=page_seo_snapshot(s)
-        static_key={'/':'home','/mcqs':'mcqs','/past-papers':'past-papers','/past-papers/pdfs':'pdfs','/categories':'categories','/blog':'blog','/latest-jobs':'latest-jobs'}.get(path)
-        override=page_seo.get('static:'+static_key,{}) if static_key else {}
-        if resolved:
-            kind=resolved['kind']; key=resolved['key']; obj=resolved['obj']
-            override=page_seo.get(f'{kind}:{key}',{}) or {}
-            if kind in {'pdf','latest-job'} and isinstance(obj,dict):
-                override={'title':str(obj.get('seo_title') or override.get('title') or ''),'description':str(obj.get('seo_description') or override.get('description') or '')}
-            elif kind=='post':
-                override={'title':str(getattr(obj,'seo_title','') or override.get('title') or ''),'description':str(getattr(obj,'seo_description','') or override.get('description') or '')}
-        custom_title=str((override or {}).get('title') or '').strip()
-        custom_description=str((override or {}).get('description') or '').strip()
-        if custom_title:
-            title=custom_title
-            heading=custom_title
-        if custom_description:
-            description=custom_description
-            intro=custom_description
-    else:
-        title='Page Not Found';description='The requested page could not be found.';heading='Page not found';intro='The address you opened does not match a public MCQCampus page.';links=[('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/past-papers'),('Home','/')]
 
-    title=_seo_clean_title(title) if landing or custom_title else _seo_title(title)
-    canonical_path=resolved['canonical'] if resolved else path
-    canonical=SEO_ORIGIN+canonical_path
-    target_roots={'mcqs','past-papers','categories','latest-jobs','blog'}
+    html_path=Path(__file__).resolve().parents[2]/'frontend'/'index.html'
+    try:
+        markup=html_path.read_bytes()
+    except OSError as exc:
+        raise Http404('The frontend HTML entry file is unavailable.') from exc
+
+    response=HttpResponse(markup,content_type='text/html; charset=utf-8',status=status)
     root=path.strip('/').split('/')[0] if path!='/' else ''
-    private_roots={'admin','super-admin','dashboard','profile','login','register','forgot','reset','verify','search'}
-    robots='noindex,nofollow' if status==404 or root in private_roots else ('noindex,follow' if path=='/mcqs/important-mcqs' else ('index,follow' if path=='/' or root in target_roots else 'noindex,follow'))
-    sections=[] if robots.startswith('noindex') else _seo_supporting_sections(seo_path,heading,description)
-    jsonld=_seo_jsonld(title,description,canonical,seo_path,catalog,links)
-    context={
-        'settings':s,'page_key':_page_key_for_path(request.path,status=status),'seo_title':title,'seo_description':description,'canonical_url':canonical,
-        'seo_heading':heading,'seo_intro':intro,'seo_links':links,'seo_sections':sections,
-        'seo_origin':SEO_ORIGIN,'seo_robots':robots,'seo_jsonld':jsonld,'seo_discovery_page':None,
-        'seo_route':{'path':path,'base':resolved['kind'],'id':resolved['key']} if resolved else None,
-    }
-    response=render(request,'index.html',{},status=status)
-    response.content=_render_plain_spa_html(response.content.decode('utf-8'),context).encode('utf-8')
+    target_roots={'mcqs','past-papers','categories','latest-jobs','blog'}
     if status==200 and (path=='/' or root in target_roots):
         response['Cache-Control']='public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
     else:
-        response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0';response['Pragma']='no-cache';response['Expires']='0'
+        response['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma']='no-cache'
+        response['Expires']='0'
     return response
 
 
