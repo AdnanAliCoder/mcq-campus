@@ -24,6 +24,8 @@ class PageTemplateRoutingTests(TestCase):
                 body = response.content.decode("utf-8")
                 self.assertIn(marker, body, path)
                 self.assertIn('id="app"', body, path)
+                self.assertNotIn('{{', body, path)
+                self.assertNotIn('{%', body, path)
 
     def test_unknown_route_uses_not_found_template(self):
         response = self.client.get("/this-route-does-not-exist", secure=True)
