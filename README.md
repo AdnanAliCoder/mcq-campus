@@ -7,9 +7,9 @@ MCQCampus is the existing Django website. This package keeps the current HTML/CS
 ```text
 mcq-campus-clean/
 ├── frontend/
-│   ├── index.html       # One shared semantic HTML shell and SEO fallback
-│   ├── style.css        # Combined first-party stylesheet
-│   ├── app.js           # Combined first-party vanilla JavaScript runtime
+│   ├── index.html       # Standalone HTML shell + reusable HTML templates; no Django template syntax
+│   ├── style.css        # Frontend styling; independent of Django
+│   ├── app.js           # Vanilla JavaScript UI, routing, and API client
 │   └── assets/          # Existing favicon/logo/icon assets and public assets
 ├── backend/
 │   ├── core/            # Django models, APIs, services, middleware and tests
@@ -25,11 +25,18 @@ mcq-campus-clean/
 └── sw.js                # Existing service-worker endpoint
 ```
 
-## Important frontend behavior
+## Frontend and backend boundary
 
-The public frontend has exactly three first-party entry files: `frontend/index.html`, `frontend/style.css`, and `frontend/app.js`. The HTML file is the shared semantic document shell; route-specific interactive content is rendered by the existing JavaScript runtime. This keeps the existing login/session/CSRF behavior, API integration, country selection, MCQ flows, past-paper hierarchy, admin tools and public URLs intact. The original CSS and JavaScript source modules/build tools are not included in this clean package, so edit `frontend/style.css` and `frontend/app.js` directly.
+The frontend has three first-party entry files: `frontend/index.html`, `frontend/style.css`, and `frontend/app.js`.
 
-The existing icons and favicon files remain in `frontend/assets/` with the filenames/public URLs used by the application. They have not been renamed or recompressed.
+- `index.html` is plain HTML and contains reusable `<template>` structures for the shared site layout, navigation, page families, MCQ cards, authentication screens, learner dashboard, and admin workspace. It contains no Django template tags.
+- `style.css` is responsible for all presentation and responsive styling.
+- `app.js` is the vanilla-JavaScript frontend. It handles navigation, page data binding, form interactions, login/signup screens, and calls the Django JSON APIs.
+- Django does not render the page through its template engine or inject SEO/meta values into HTML. The SPA fallback serves the same `frontend/index.html` bytes on each route; Django remains responsible for API endpoints, database access, sessions, CSRF, authentication, permissions, legacy/canonical redirects, and HTTP route status.
+
+The browser updates page-specific title, description, canonical metadata, and JSON-LD through the JavaScript SEO module after the route data loads. This is the trade-off of a fully standalone SPA shell: page-specific SEO metadata is not present in the initial HTML response for crawlers or clients that do not execute JavaScript. The canonical/legacy redirect logic and sitemap endpoints remain on the backend.
+
+The existing icons and favicon files remain in `frontend/assets/` with the filenames/public URLs used by the application. The CSS, JavaScript, and HTML release query token in `frontend/index.html` should be updated when frontend assets are changed, to avoid browsers reusing cached files.
 
 ## Local run (Windows CMD)
 
