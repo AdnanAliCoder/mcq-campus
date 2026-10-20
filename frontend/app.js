@@ -353,7 +353,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
   const navHtml=main.map(([p,l,i])=>link(p,icon(i)+`<span>${esc(l)}</span>`,is(p)?'active':'')).join('');
   const mobileMenu=MCQ.db.session?btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"'):'';
-  return `<header class="header reference-header"><div class="container header-inner">${brand(true)}<nav class="nav" id="main-nav" aria-label="Main navigation">${navHtml}${MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth')}</nav><form class="header-search" data-form="search" role="search">${publicSearch('Search MCQs, papers, categories, jobs...',currentQuery)}</form><div class="header-actions">${userMenu()}${mobileMenu}</div></div></header>`
+  return templateMarkup('mcq-header-template',{HEADER_BRAND:brand(true),HEADER_NAV:navHtml,HEADER_AUTH_LINK:MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth'),HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
 }
  function footer(){
   const settings=MCQ.db.settings||{},cfg=settings.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),safeUrl=u=>/^https?:\/\//i.test(String(u||''));
@@ -366,7 +366,20 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const description=cfg.description||'Practice MCQs, solve past papers, discover exam opportunities, and prepare confidently for competitive examinations.';const country=cfg.showCountryText!==false&&cfg.countryText?`<p class="footer-country">${esc(cfg.countryText)}</p>`:'';
   const bottom=[];if(cfg.showSitemap!==false)bottom.push(link('sitemap','Sitemap'));
   const copy=String(cfg.copyrightText||`${settings.siteName||'MCQ Campus'}. All rights reserved.`).replace(/^©\s*\d{4}\s*/,'');
-  return `<footer class="footer" aria-label="Site footer"><div class="container"><div class="footer-grid footer-grid-compact"><div class="footer-brand-block">${footerBrand}<p>${esc(description)}</p>${emailHtml}${socialHtml?`<div class="footer-social" aria-label="MCQ Campus social media">${socialHtml}</div>`:''}${country}</div><div class="footer-column"><strong>Quick Links</strong>${link('mcqs','MCQs')}${link('papers','Past Papers')}${link('pdfs','PDFs')}${link('latest-jobs','Latest Jobs')}</div><div class="footer-column"><strong>Help & Legal</strong>${help.map(([p,l])=>link(p,l)).join('')}</div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} ${esc(copy)}</span>${bottom.length?`<span class="footer-bottom-links">${bottom.join('')}</span>`:''}</div></div></footer><nav class="bottom-nav" aria-label="Mobile navigation">${[['home','home','Home'],['mcqs','book','MCQs'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('')}</nav>`
+  const mobileLinks=[['home','home','Home'],['mcqs','book','MCQs'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('');
+  return templateMarkup('mcq-footer-template',{
+   FOOTER_BRAND:footerBrand,
+   FOOTER_DESCRIPTION:esc(description),
+   FOOTER_EMAIL:emailHtml,
+   FOOTER_SOCIALS:socialHtml?'<div class="footer-social" aria-label="MCQ Campus social media">'+socialHtml+'</div>':'',
+   FOOTER_COUNTRY:country,
+   FOOTER_QUICK_LINKS:link('mcqs','MCQs')+link('papers','Past Papers')+link('pdfs','PDFs')+link('latest-jobs','Latest Jobs'),
+   FOOTER_HELP_LINKS:help.map(([p,l])=>link(p,l)).join(''),
+   FOOTER_YEAR:new Date().getFullYear(),
+   FOOTER_COPY:esc(copy),
+   FOOTER_BOTTOM_LINKS:bottom.length?'<span class="footer-bottom-links">'+bottom.join('')+'</span>':'',
+   FOOTER_MOBILE_LINKS:mobileLinks
+  })||'';
 }
  function ensureLinkNames(root=document){
   if(!root||typeof root.querySelectorAll!=='function')return;
@@ -390,7 +403,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
    anchor.setAttribute('aria-label',routeLabels[route]||(/^https?:\/\//i.test(href)?'Open external resource':'Open linked resource'));
   });
  }
- const layout=(body,active='')=>header(active)+adSlot('header_ad')+`<main id="main" tabindex="-1">${body}</main>`+adSlot('footer_ad')+footer();
+ const layout=(body,active='')=>templateMarkup('mcq-layout-template',{LAYOUT_HEADER:header(active),LAYOUT_HEADER_AD:adSlot('header_ad'),LAYOUT_BODY:body,LAYOUT_FOOTER_AD:adSlot('footer_ad'),LAYOUT_FOOTER:footer()})||('<main id="main" tabindex="-1">'+body+'</main>');
  return {closeDropdowns,esc,icon,countryFlag,href,assetUrl,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,ensureLinkNames,mountCustomAds,userMenu,header,footer,layout};
 })();
 
