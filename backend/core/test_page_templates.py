@@ -26,6 +26,29 @@ class PageTemplateRoutingTests(TestCase):
                 self.assertIn('id="app"', body, path)
                 self.assertNotIn('{{', body, path)
                 self.assertNotIn('{%', body, path)
+                self.assertIn('id="mcq-layout-template"', body, path)
+                self.assertIn('id="mcq-question-card-template"', body, path)
+                self.assertNotIn('MCQ_OPTIONAL_INTEGRATIONS', body, path)
+
+
+    def test_plain_html_shell_preserves_dynamic_seo_and_route_slots(self):
+        response = self.client.get("/past-papers", secure=True)
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn('href="https://www.mcqcampus.com/past-papers"', body)
+        self.assertIn('id="seo-route"', body)
+        self.assertIn('id="server-jsonld"', body)
+        self.assertNotIn('{{', body)
+        self.assertNotIn('{%', body)
+        for template_id in (
+            "mcq-home-template",
+            "mcq-auth-layout-template",
+            "mcq-public-page-sidebar-template",
+            "mcq-learner-dashboard-template",
+            "mcq-admin-layout-template",
+        ):
+            with self.subTest(template_id=template_id):
+                self.assertIn(f'id="{template_id}"', body)
 
     def test_unknown_route_uses_not_found_template(self):
         response = self.client.get("/this-route-does-not-exist", secure=True)
