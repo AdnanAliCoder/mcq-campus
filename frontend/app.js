@@ -530,56 +530,36 @@ window.Public=(()=>{
   return PublicLayout.page({trail:[['MCQs','mcqs'],[q.question]],title:copy.title,desc:copy.desc,main,sidebar:PublicLayout.smart('mcq-detail',{question:q}),active:'mcqs',sidebarLabel:'Browse / Related'});
  }
 
- function questionCard(q,number=1,compact=false,contextYearId=null){const answer=App.answers[q.id],chosen=App.choices[q.id];const rows=MCQ.publicMcqs(),globalIndex=rows.findIndex(x=>x.id===q.id),next=globalIndex>=0&&globalIndex<rows.length-1?rows[globalIndex+1]:rows[0];return `<article class="card mcq-card mcq-reference-card ${compact?'mcq-card-compact':''}" data-question="${q.id}"><div class="mcq-top"><div class="mcq-question-label">${questionTags(q)}</div><div class="mcq-top-actions">${btn(icon('bookmark'),'bookmark','ghost',`data-id="${q.id}" aria-label="${MCQ.db.bookmarks.includes(q.id)?'Remove bookmark':'Bookmark question'}" aria-pressed="${MCQ.db.bookmarks.includes(q.id)}"`)}${compact&&next?link('practice/'+next.id,icon('arrow'),'btn ghost quick-next'):''}</div></div><div class="mcq-question-panel"><h2>${link('mcq/'+q.id,e(q.question),'mcq-question-link')}</h2></div><div class="options mcq-reference-options" role="group" aria-label="Answer options">${[1,2,3,4].map((n,i)=>{const text=q['option'+n];const state=answer?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';return btn(`<span class="letter">${'ABCD'[i]}</span><span class="option-text">${e(text)}</span><span class="option-indicator" aria-hidden="true"></span>`,'choose',`option ${state}`,`data-id="${q.id}" data-option="${n}" aria-pressed="${text===chosen}" ${answer?'disabled':''}`)}).join('')}</div>${answer?`<div class="explanation mcq-verified-answer" role="status"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>${e(q.correct_answer)}</b></strong></div><p>${e(q.description||'No explanation has been added yet.')}</p>${relationships(q,contextYearId)}</div>`:''}<div class="actions mcq-reference-actions">${!answer?'<span class="small muted">Select an option to check your answer instantly.</span>':''}<span class="spacer"></span>${btn(icon('share'),'share','ghost',`data-id="${q.id}" aria-label="Share question"`)}${btn(icon('copy'),'copy','ghost',`data-id="${q.id}" aria-label="Copy question link"`)}${btn(icon('flag'),'report','ghost',`data-id="${q.id}" aria-label="Report question"`)}</div></article>`}
- function mini(q,index){return questionCard(q,index+1,true)}
- function quickCard(){const quick=MCQ.topMcqs(),qi=Math.max(0,Math.min(Number(App.homeQuickIndex||0),Math.max(0,quick.length-1))),q=quick[qi];return q?`<div class="hero-quick mcq-reference-quick"><div class="quick-head"><div>${questionTags(q,{featured:true})}</div>${btn('›','home-quick-next','quick-next-control',`aria-label="Next quick MCQ"`)}</div><div class="quick-question-panel"><h3>${e(q.question)}</h3></div><div class="quick-options">${[1,2,3,4].map((n,i)=>{const text=q['option'+n],chosen=App.quickAnswer?.id===q.id?App.quickAnswer.choice:null,answered=App.quickAnswer?.id===q.id,state=answered?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';return btn(`<span class="letter">${'ABCD'[i]}</span><span class="option-text">${e(text)}</span><span class="option-indicator" aria-hidden="true"></span>`,'home-quick-choose',`quick-option ${state}`,`data-id="${q.id}" data-option="${n}" ${answered?'disabled':''}`)}).join('')}</div>${App.quickAnswer?.id===q.id?`<div class="quick-answer mcq-verified-answer"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>${e(q.correct_answer)}</b></strong></div><p>${e(q.description||'No explanation has been added yet.')}</p>${relationships(q)}</div>`:''}<div class="quick-dots">${quick.map((_,i)=>`<button type="button" class="quick-dot ${i===qi?'active':''}" data-action="home-quick-jump" data-index="${i}" aria-label="Quick MCQ ${i+1}"></button>`).join('')}</div></div>`:'';}
- function countryLanding(intent='register'){
-  const flow=intent==='login'?'login':'register';
-  const alternate=flow==='login'?'register':'login';
-  const alternateLabel=flow==='login'?'Create an account':'Sign in';
-  const source=Array.isArray(MCQ.db.countries)?MCQ.db.countries:[];
-  const countries=source
-   .filter(item=>item&&item.active!==false&&String(item.name||'').trim())
-   .map(item=>({...item,name:String(item.name||'').trim()}));
-  if(!countries.length)countries.push({name:'Pakistan',active:true,mcqCount:0});
-  const hasCountryCounts=countries.length>0&&countries.every(item=>item.mcqCount!==undefined&&item.mcqCount!==null&&Number.isFinite(Number(item.mcqCount)));
-  const countryTotal=countries.reduce((sum,item)=>sum+Math.max(0,Number(item.mcqCount)||0),0);
-  const totalApproved=hasCountryCounts
-   ?countryTotal
-   :(Number.isFinite(Number(MCQ.db.totalApprovedMcqs))?Number(MCQ.db.totalApprovedMcqs):countryTotal);
-  const globalTotal=Math.max(0,totalApproved).toLocaleString('en-US');
-  const countryCards=countries.map(item=>{
-   const name=item.name;
-   const mcqTotal=Math.max(0,Number(item.mcqCount)||0).toLocaleString('en-US');
-   const target=UI.href(flow,{country:name});
-   const current=name.toLowerCase()==='pakistan'?' country-entry-pakistan':'';
-   return '<a class="country-entry-card'+current+'" href="'+e(target)+'" aria-label="'+e(flow==='login'?'Sign in to':'Create an account for')+' '+e(name)+'">'+
-    '<span class="country-entry-flag" aria-hidden="true">'+UI.countryFlag(name)+'</span>'+
-    '<h2>'+e(name)+'</h2>'+
-    '<p><strong>'+mcqTotal+'</strong><span> approved MCQs</span></p>'+
-    '<span class="country-entry-card-action">'+e(flow==='login'?'Sign in':'Create account')+' '+icon('arrow')+'</span>'+
-   '</a>';
+
+ function questionCard(q,number=1,compact=false,contextYearId=null){
+  const answer=App.answers[q.id],chosen=App.choices[q.id];
+  const rows=MCQ.publicMcqs(),globalIndex=rows.findIndex(x=>x.id===q.id),next=globalIndex>=0&&globalIndex<rows.length-1?rows[globalIndex+1]:rows[0];
+  const bookmark=btn(icon('bookmark'),'bookmark','ghost','data-id="'+q.id+'" aria-label="'+(MCQ.db.bookmarks.includes(q.id)?'Remove bookmark':'Bookmark question')+'" aria-pressed="'+MCQ.db.bookmarks.includes(q.id)+'"');
+  const nextLink=compact&&next?link('practice/'+next.id,icon('arrow'),'btn ghost quick-next'):'';
+  const options=[1,2,3,4].map((n,i)=>{
+   const text=q['option'+n];
+   const state=answer?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';
+   return btn('<span class="letter">'+'ABCD'[i]+'</span><span class="option-text">'+e(text)+'</span><span class="option-indicator" aria-hidden="true"></span>','choose','option '+state,'data-id="'+q.id+'" data-option="'+n+'" aria-pressed="'+(text===chosen)+'" '+(answer?'disabled':''));
   }).join('');
-  const countryLabel=countries.length+' '+(countries.length===1?'country':'countries')+' available';
-  return '<main id="main" class="country-entry-page" tabindex="-1">'+
-   '<div class="country-entry-shell">'+
-    '<header class="country-entry-brand" aria-label="MCQCampus">'+
-     '<img class="country-entry-logo" src="'+e(UI.assetUrl('/assets/genfavicon-48.png'))+'" srcset="'+e(UI.assetUrl('/assets/genfavicon-48.png'))+' 1x, '+e(UI.assetUrl('/assets/genfavicon-128.png'))+' 2x" alt="MCQCampus logo" width="48" height="48">'+
-     '<span>MCQ<span>Campus</span></span>'+
-    '</header>'+
-    '<section class="country-entry-hero" aria-labelledby="country-entry-title">'+
-     '<p class="country-entry-eyebrow"><span class="country-entry-eyebrow-dot"></span> YOUR GLOBAL EXAM PREPARATION HUB</p>'+
-     '<h1 id="country-entry-title">'+(flow==='login'?'Choose your country.<br><span>Welcome back.</span>':'Prepare smarter.<br><span>Achieve more.</span>')+'</h1>'+
-     '<p class="country-entry-intro">'+(flow==='login'?'Choose the country for your sign-in journey, then continue with your existing account.':'Choose your country first, then create your MCQCampus account for that exam-preparation workspace.')+'</p>'+
-     '<div class="country-entry-global-stat"><span class="country-entry-stat-icon" aria-hidden="true">'+icon('book')+'</span><span><strong>'+globalTotal+'</strong><small>approved MCQs across all countries</small></span><span class="country-entry-live-dot" aria-hidden="true"></span></div>'+
-    '</section>'+
-    '<section class="country-entry-country-section" aria-labelledby="country-entry-country-title">'+
-     '<div class="country-entry-section-heading"><div><p class="country-entry-eyebrow">START LEARNING</p><h2 id="country-entry-country-title">Choose your country</h2><p>Explore the question bank available for your exam preparation.</p></div><span class="country-entry-country-count">'+countryLabel+'</span></div>'+
-     '<div class="country-entry-grid">'+countryCards+'</div>'+
-    '</section>'+
-    '<footer class="country-entry-footer"><span>Learn with confidence. Prepare for your next opportunity.</span><span>'+(flow==='login'?'New to MCQCampus? ':'Already have an account? ')+link(alternate,alternateLabel,'country-entry-signin')+'</span></footer>'+
-   '</div>'+
-  '</main>';
+  const explanation=answer?'<div class="explanation mcq-verified-answer" role="status"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>'+e(q.correct_answer)+'</b></strong></div><p>'+e(q.description||'No explanation has been added yet.')+'</p>'+relationships(q,contextYearId)+'</div>':'';
+  const hint=!answer?'<span class="small muted">Select an option to check your answer instantly.</span>':'';
+  const shareButton=btn(icon('share'),'share','ghost','data-id="'+q.id+'" aria-label="Share question"');
+  const copyButton=btn(icon('copy'),'copy','ghost','data-id="'+q.id+'" aria-label="Copy question link"');
+  const reportButton=btn(icon('flag'),'report','ghost','data-id="'+q.id+'" aria-label="Report question"');
+  return templateMarkup('mcq-question-card-template',{
+   QUESTION_ID:String(Number(q.id)||0),
+   COMPACT_CLASS:compact?'mcq-card-compact':'',
+   QUESTION_TAGS:questionTags(q),
+   QUESTION_BOOKMARK:bookmark,
+   QUESTION_NEXT_LINK:nextLink,
+   QUESTION_LINK:link('mcq/'+q.id,e(q.question),'mcq-question-link'),
+   QUESTION_OPTIONS:options,
+   QUESTION_EXPLANATION:explanation,
+   QUESTION_PRE_ANSWER_HINT:hint,
+   QUESTION_SHARE_BUTTON:shareButton,
+   QUESTION_COPY_BUTTON:copyButton,
+   QUESTION_REPORT_BUTTON:reportButton
+  })||('<article class="card mcq-card mcq-reference-card '+(compact?'mcq-card-compact':'')+'" data-question="'+q.id+'"><div class="mcq-top"><div class="mcq-question-label">'+questionTags(q)+'</div><div class="mcq-top-actions">'+bookmark+nextLink+'</div></div><div class="mcq-question-panel"><h2>'+link('mcq/'+q.id,e(q.question),'mcq-question-link')+'</h2></div><div class="options mcq-reference-options" role="group" aria-label="Answer options">'+options+'</div>'+explanation+'<div class="actions mcq-reference-actions">'+hint+'<span class="spacer"></span>'+shareButton+copyButton+reportButton+'</div></article>');
  }
  function home(){
   const server=activeServerMcqPage(),site=MCQ.db.siteCounts||{},pageSize=10,page=server?Math.max(1,Number(server.page)||1):1,rows=server?MCQ.publicMcqs():[],importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
