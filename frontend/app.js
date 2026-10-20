@@ -404,7 +404,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   });
  }
  const layout=(body,active='')=>templateMarkup('mcq-layout-template',{LAYOUT_HEADER:header(active),LAYOUT_HEADER_AD:adSlot('header_ad'),LAYOUT_BODY:body,LAYOUT_FOOTER_AD:adSlot('footer_ad'),LAYOUT_FOOTER:footer()})||('<main id="main" tabindex="-1">'+body+'</main>');
- return {closeDropdowns,esc,icon,countryFlag,href,assetUrl,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,ensureLinkNames,mountCustomAds,userMenu,header,footer,layout};
+ return {templateMarkup,closeDropdowns,esc,icon,countryFlag,href,assetUrl,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,ensureLinkNames,mountCustomAds,userMenu,header,footer,layout};
 })();
 
 /* ===== END MODULE: ui.js ===== */
@@ -482,10 +482,18 @@ window.PublicLayout=(()=>{
   return `<nav class="selection-bar ${e(className)}" aria-label="${e(label)}">${visible.map(x=>link(x.path||App.route.path,e(x.label),'selection-chip '+(x.active?'active':''),x.params||{})).join('')}</nav>`;
  }
  function selectionStack(rows=[]){const visible=rows.filter(x=>x&&x.html);return visible.length?`<div class="selection-stack">${visible.map(x=>`${x.title?`<span class="selection-row-label">${e(x.title)}</span>`:''}${x.html}`).join('')}</div>`:'';}
- function page({trail=[],title='',desc='',actions='',pre='',main='',sidebar='',active='',className='',sidebarLabel='Related / Browse'}){
-  const has=clean(sidebar);const sidebarId='public-smart-sidebar';
-  return UI.layout(`<div class="container page public-page ${e(className)}">${crumbs(trail)}${heading(title,desc,actions)}${pre}${has?`<div class="public-sidebar-mobile-bar">${btn(icon('menu')+' '+e(sidebarLabel),'public-sidebar-toggle','',`aria-expanded="false" aria-controls="${sidebarId}"`)}</div><div class="public-layout"><main class="public-main">${main}</main><aside class="public-sidebar" id="${sidebarId}" aria-label="Contextual sidebar"><div class="public-sidebar-head"><strong>${e(sidebarLabel)}</strong>${btn(icon('close'),'public-sidebar-close','ghost','aria-label="Close sidebar"')}</div><div class="public-sidebar-inner">${sidebar}</div></aside></div><button class="public-sidebar-backdrop" type="button" data-action="public-sidebar-close" aria-label="Close sidebar"></button>`:`<main class="public-main public-main-full">${main}</main>`}</div>`,active);
- }
+
+  function page({trail=[],title='',desc='',actions='',pre='',main='',sidebar='',active='',className='',sidebarLabel='Related / Browse'}){
+   const has=clean(sidebar),sidebarId='public-smart-sidebar';
+   const common={PUBLIC_CLASS:e(className),PUBLIC_BREADCRUMBS:crumbs(trail),PUBLIC_HEADING:heading(title,desc,actions),PUBLIC_PRE:pre,PUBLIC_MAIN:main};
+   let body;
+   if(has){
+    body=UI.templateMarkup('mcq-public-page-sidebar-template',{...common,PUBLIC_TOGGLE:btn(icon('menu')+' '+e(sidebarLabel),'public-sidebar-toggle','','aria-expanded="false" aria-controls="'+sidebarId+'"'),PUBLIC_SIDEBAR_ID:sidebarId,PUBLIC_SIDEBAR_LABEL:e(sidebarLabel),PUBLIC_CLOSE_BUTTON:btn(icon('close'),'public-sidebar-close','ghost','aria-label="Close sidebar"'),PUBLIC_SIDEBAR:sidebar});
+   }else{
+    body=UI.templateMarkup('mcq-public-page-full-template',common);
+   }
+   return UI.layout(body||('<div class="container page public-page '+e(className)+'">'+crumbs(trail)+heading(title,desc,actions)+pre+'<main class="public-main public-main-full">'+main+'</main></div>'),active);
+  }
  return {page,smart,module,linkList,selectionBar,selectionStack};
 })();
 
@@ -572,7 +580,24 @@ window.Public=(()=>{
    {title:'Categories',value:activeCategories.length,iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
   const homeSeo=staticCopy('home','Practice smarter. Prepare with purpose.','Start with important MCQs, then explore past papers, categories and exam-focused preparation.');
-  return UI.layout(`<div class="container"><section class="hero home-hero-compact"><div class="home-hero-copy"><p class="eyebrow">COMPETITIVE EXAM PREPARATION</p><h1>${e(homeSeo.title)}</h1><p class="hero-copy">${e(homeSeo.desc)}</p>${heroActions}</div><div class="home-stats home-top-stats">${homeStats.map(x=>UI.statCard(x)).join('')}</div></section>${UI.adSlot('home_top_ad')}<section class="section home-content-grid home-content-priority"><div><div class="section-head"><div><p class="eyebrow">PRACTICE</p><h2>Important MCQs</h2><p class="small muted">${importantTotal.toLocaleString('en-GB')} total important MCQs · only 10 load per page</p></div>${link('mcqs','Browse all MCQs','link')}</div><div class="home-mcq-list">${rows.length?rows.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1,true)).join(''):empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.')}</div>${UI.pager(importantTotal,page,pageSize,App.route.params,'home')}</div><aside class="home-category-nav card"><div class="section-head"><div><p class="eyebrow">EXPLORE</p><h2>Categories</h2></div></div><div class="home-cat-boxes">${cats.map(c=>`<div class="home-cat-group"><div class="home-cat-title">${link('category/'+c.id,`<span class="home-cat-icon">${UI.entityIcon(c,'grid')}</span><span>${e(c.name)}</span>${icon('arrow')}`)}</div><div class="home-sub-list"><span class="home-sub-link">${Number(categoryCounts[String(c.id)]||0).toLocaleString('en-GB')} MCQs</span></div></div>`).join('')}</div>${link('categories','View all categories '+icon('arrow'),'btn home-cat-more')}</aside></section>${UI.adSlot('home_middle_ad')}</div>`,'home')
+
+   const importantList=rows.length?rows.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1,true)).join(''):empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.');
+   const categoryList=cats.map(c=>'<div class="home-cat-group"><div class="home-cat-title">'+link('category/'+c.id,'<span class="home-cat-icon">'+UI.entityIcon(c,'grid')+'</span><span>'+e(c.name)+'</span>'+icon('arrow'))+'</div><div class="home-sub-list"><span class="home-sub-link">'+Number(categoryCounts[String(c.id)]||0).toLocaleString('en-GB')+' MCQs</span></div></div>').join('');
+   const body=UI.templateMarkup('mcq-home-template',{
+    HOME_TITLE:e(homeSeo.title),
+    HOME_DESCRIPTION:e(homeSeo.desc),
+    HOME_HERO_ACTIONS:heroActions,
+    HOME_STATS:homeStats.map(x=>UI.statCard(x)).join(''),
+    HOME_TOP_AD:UI.adSlot('home_top_ad'),
+    HOME_IMPORTANT_COUNT:importantTotal.toLocaleString('en-GB'),
+    HOME_IMPORTANT_LINK:link('mcqs','Browse all MCQs','link'),
+    HOME_MCQ_LIST:importantList,
+    HOME_PAGER:UI.pager(importantTotal,page,pageSize,App.route.params,'home'),
+    HOME_CATEGORY_LIST:categoryList,
+    HOME_ALL_CATEGORIES_LINK:link('categories','View all categories '+icon('arrow'),'btn home-cat-more'),
+    HOME_MIDDLE_AD:UI.adSlot('home_middle_ad')
+   });
+   return UI.layout(body||'', 'home');
  }
 
  function browse(type,id){
@@ -1488,7 +1513,7 @@ window.Auth=(()=>{
   if(type==='reset-code')form=`<p class="muted">Enter the 6-digit code sent to your email. You will choose a new password after the code is verified.</p><form data-form="auth-reset-code"><input type="hidden" name="email" value="${UI.esc(emailParam)}">${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true)}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Verify code</button></form><p class="text-center small" style="margin-top:18px">${UI.link('forgot','Use a different email','link')}</p>`;
   if(type==='reset-password')form=`<p class="muted">Your code is verified. Choose a new password for your account.</p><form data-form="auth-reset-password"><input type="hidden" name="email" value="${UI.esc(emailParam)}">${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
   if(type==='verify'){form=`<p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify & create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;setTimeout(()=>syncVerificationTimer(emailParam),0)}
-  return UI.layout(`<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>${titles[type]}</h1>${form}</div></div></div>`);
+  return UI.layout(UI.templateMarkup('mcq-auth-layout-template',{AUTH_TITLE:UI.esc(titles[type]),AUTH_FORM:form})||('<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>'+UI.esc(titles[type])+'</h1>'+form+'</div></div></div>'));
  }
 
  const pendingCommands=new Map();
