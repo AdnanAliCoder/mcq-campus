@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102823">
+  <meta name="mcq-asset-version" content="{{ asset_version }}">
+  <meta name="author" content="MCQCampus">
+  <meta name="application-name" content="MCQCampus">
+
+  <!-- Favicon files stay on stable public asset URLs for browsers and search engines. -->
+  <link rel="icon" href="/assets/favicon.ico?v={{ asset_version }}" type="image/x-icon">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/genfavicon-16.png?v={{ asset_version }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/genfavicon-32.png?v={{ asset_version }}">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/genfavicon-48.png?v={{ asset_version }}">
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/genfavicon-512.png?v={{ asset_version }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon-180x180.png?v={{ asset_version }}">
+  <link rel="manifest" href="/site.webmanifest?v={{ asset_version }}">
+
+  <meta name="description" content="{{ seo_description|default:settings.seo_description }}">
+  <title>{{ seo_title|default:settings.seo_title }}</title>
+  <link rel="canonical" href="{{ canonical_url|default:'https://www.mcqcampus.com/' }}">
+  <meta property="og:site_name" content="MCQCampus">
+  <meta property="og:title" content="{{ seo_title|default:settings.seo_title }}">
+  <meta property="og:description" content="{{ seo_description|default:settings.seo_description }}">
+  <meta property="og:url" content="{{ canonical_url|default:'https://www.mcqcampus.com/' }}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_PK">
+  <meta property="og:image" content="{{ seo_origin|default:'https://www.mcqcampus.com' }}/assets/genfavicon-512.png?v={{ asset_version }}">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="MCQCampus logo">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{{ seo_origin|default:'https://www.mcqcampus.com' }}/assets/genfavicon-512.png?v={{ asset_version }}">
+  <meta name="twitter:title" content="{{ seo_title|default:settings.seo_title }}">
+  <meta name="twitter:description" content="{{ seo_description|default:settings.seo_description }}">
+  <meta name="robots" content="{{ seo_robots|default:'index,follow' }}">
+  <script id="server-jsonld" type="application/ld+json">{{ seo_jsonld|safe }}</script>
+
+  <!-- All website styles are in the single stylesheet. -->
+  <link rel="stylesheet" href="/assets/style.css?v={{ asset_version }}">
+
+  <!-- Optional integrations are initialized by app.js only when enabled. -->
+  {% if settings.analytics_enabled and settings.google_analytics_id %}<meta name="mcq-analytics-id" content="{{ settings.google_analytics_id|escape }}">{% endif %}
+  {% if settings.adsense_enabled and settings.adsense_client_id %}<meta name="mcq-adsense-client" content="{{ settings.adsense_client_id|escape }}">{% endif %}
+</head>
+<body data-page-template="{{ page_key|default:'home' }}">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="app">
+    <main id="main" class="container" aria-busy="true" tabindex="-1">
+      <section id="seo-fallback" class="seo-fallback">
+        <h1>{{ seo_heading|default:seo_title }}</h1>
+        <p id="seo-summary">{{ seo_intro|default:seo_description }}</p>
+        {% if seo_sections %}
+          {% for section_title, section_body in seo_sections %}
+          <section class="seo-fallback-section">
+            <h2>{{ section_title }}</h2>
+            <p>{{ section_body }}</p>
+          </section>
+          {% endfor %}
+        {% endif %}
+        {% if seo_links %}
+        <nav aria-label="Explore related MCQCampus pages">
+          <h2>Explore related pages</h2>
+          <ul>
+            {% for label, href in seo_links %}
+            <li><a href="{{ href }}">{{ label }}</a></li>
+            {% endfor %}
+          </ul>
+        </nav>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== SHARED INTERACTION ELEMENTS ===== -->
+  <dialog id="backend-loader" class="backend-loader global-loading-overlay" aria-label="Loading MCQCampus data" aria-busy="true" tabindex="-1">
+    <div class="mcq-spinner app-loader-spinner global-spinner" aria-hidden="true"></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="modal"></dialog>
+  <noscript>
+    
+    JavaScript is required for interactive MCQ practice. The server-rendered study links above remain available.
+  </noscript>
+  {% if seo_discovery_page %}{{ seo_discovery_page|json_script:"seo-discovery-page" }}{% endif %}
+  {{ seo_route|json_script:"seo-route" }}
+
+  <!-- The entire first-party runtime is served from one JavaScript bundle. -->
+  <script defer src="/assets/app.js?v={{ asset_version }}"></script>
+</body>
+</html>
