@@ -19,28 +19,35 @@
   };
 })(window);
 
-/* Optional analytics and AdSense stay disabled unless enabled in Django settings. */
+/* Optional provider integrations are configured through the Django API, not injected into HTML. */
 (function (global) {
-  const metaValue = name => document.querySelector('meta[name="' + name + '"]')?.content?.trim() || '';
-  const analyticsId = metaValue('mcq-analytics-id');
-  if (analyticsId) {
-    global.dataLayer = global.dataLayer || [];
-    global.gtag = function () { global.dataLayer.push(arguments); };
-    global.gtag('js', new Date());
-    global.gtag('config', analyticsId);
-    const analytics = document.createElement('script');
-    analytics.async = true;
-    analytics.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(analyticsId);
-    document.head.appendChild(analytics);
-  }
-  const adsenseId = metaValue('mcq-adsense-client');
-  if (adsenseId) {
-    const adsense = document.createElement('script');
-    adsense.async = true;
-    adsense.crossOrigin = 'anonymous';
-    adsense.src = 'https://pagead2.googlesyndication.com/pagead/js?client=' + encodeURIComponent(adsenseId);
-    document.head.appendChild(adsense);
-  }
+  let analyticsStarted = '';
+  let adsenseStarted = '';
+
+  global.MCQCampusApplyOptionalIntegrations = function (settings = {}) {
+    const analyticsId = settings.analyticsEnabled ? String(settings.googleAnalyticsId || '').trim() : '';
+    if (analyticsId && !analyticsStarted) {
+      analyticsStarted = analyticsId;
+      global.dataLayer = global.dataLayer || [];
+      global.gtag = function () { global.dataLayer.push(arguments); };
+      global.gtag('js', new Date());
+      global.gtag('config', analyticsId);
+      const analytics = document.createElement('script');
+      analytics.async = true;
+      analytics.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(analyticsId);
+      document.head.appendChild(analytics);
+    }
+
+    const adsenseId = settings.adsenseEnabled ? String(settings.adsenseClientId || '').trim() : '';
+    if (adsenseId && !adsenseStarted) {
+      adsenseStarted = adsenseId;
+      const adsense = document.createElement('script');
+      adsense.async = true;
+      adsense.crossOrigin = 'anonymous';
+      adsense.src = 'https://pagead2.googlesyndication.com/pagead/js?client=' + encodeURIComponent(adsenseId);
+      document.head.appendChild(adsense);
+    }
+  };
 })(window);
 
 ;
@@ -1098,7 +1105,6 @@ window.Auth=(()=>{
  let ready=false,user=null,csrf='',csrfRefreshing=null,checking=null,expiryTimer=null,generation=0,routeRoleSync=null,pendingPublicAction=null;
  const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
  const SECTION_TTL=Number.POSITIVE_INFINITY;
- const serverRoute=(()=>{try{return JSON.parse(document.getElementById('seo-route')?.textContent||'null')}catch{return null}})();
  const ADMIN_PAGE_SIZES=[10],ADMIN_DEFAULT_PAGE_SIZE=10;
 
  function initialRoute(){
@@ -1250,8 +1256,7 @@ window.Auth=(()=>{
   if(!path)return false;
   const clean=String(path).split('?')[0].replace(/^\/+|\/+$/g,'')||'home';
   const parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
-  const initial=serverRoute?.path===location.pathname.replace(/\/$/,'')?serverRoute:null;
-  const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||initial?.base||workspace,resolvedId=context?.id??initial?.id??recordId,routeKey=location.pathname+location.search;
+  const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||workspace,resolvedId=context?.id??recordId,routeKey=location.pathname+location.search;
   if(!authRoutes.has(workspace))wants.push('core','resources');
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
@@ -1350,7 +1355,7 @@ window.Auth=(()=>{
      if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
      if(key==='core')MCQ.mergeCore(data);
      if(key==='public-content')MCQ.mergeCore(data);
-     if(key==='resources')MCQ.mergeCore(data);
+     if(key==='resources'){MCQ.mergeCore(data);window.MCQCampusApplyOptionalIntegrations?.(data.settings||MCQ.db.settings||{});}
      if(key==='catalog')MCQ.mergeCore(data);
      if(key==='legal')MCQ.mergeCore(data);
      if(key==='learner'){
@@ -1404,6 +1409,7 @@ window.Auth=(()=>{
  function hydrate(snapshot,identity){
   const incoming=snapshot||{};
   MCQ.hydrate(incoming,null);
+  window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});
   setIdentity(identity);
   // A lightweight startup snapshot intentionally omits taxonomy/MCQs/catalog.
   // Never keep stale "loaded" markers after replacing the client store with it.
@@ -1853,7 +1859,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}try{await check({loading:false});}finally{ready=true;App.render();}}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}try{await check({loading:false});window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});if(!authRoutes.has(base()))await ensureRouteData(route(),{});}finally{ready=true;App.render();}}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
@@ -1879,7 +1885,6 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
 },
 render(){if(!Auth.guard())return;const raw=location.pathname.replace(/^\/+|\/+$/g,'')||'home',query=location.search.replace(/^\?/,'');const path=raw||'home',parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
  const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
- const serverRoute=(()=>{try{return JSON.parse(document.getElementById('seo-route')?.textContent||'null')}catch{return null}})();
  if(base==='mcqs'&&parts[1]==='important-mcqs'){base='important'}
  else if(base==='mcqs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['mcq']);if(hit){base='mcq';id=hit.key}}
  else if(base==='categories'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['category']);if(hit){base='category';id=hit.key}}
@@ -1905,8 +1910,7 @@ render(){if(!Auth.guard())return;const raw=location.pathname.replace(/^\/+|\/+$/
  }
  else if(base==='latest-jobs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['latest-job']);if(hit){base='latest-job';id=hit.key}}
  else if(base==='blog'){if(/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['post']);if(hit){base='post';id=hit.key}}else base='posts'}
- if(serverRoute?.path===location.pathname.replace(/\/$/,'')&&id===undefined){base=serverRoute.base;id=serverRoute.id;}
- if(parts[0]==='paper'&&parts[1]){const paperId=resolveRouteId('paper',parts[1]);if(parts[2]==='year'&&parts[3]){base='year';rawId=parts[3];id=resolveRouteId('year',parts[3],x=>(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)===Number(paperId))}else if(parts[2]==='job'&&parts[3]){const jobId=resolveRouteId('job',parts[3],x=>Number(x.paper_id)===Number(paperId));if(parts[4]==='year'&&parts[5]){base='year';rawId=parts[5];id=resolveRouteId('year',parts[5],x=>Number(x.job_id)===Number(jobId))}else{base='job';rawId=parts[3];id=jobId}}else{base='paper';id=paperId}}if(id===undefined)id=resolveRouteId(base,rawId);if(this.activeQuestionId&&(base!=='practice'||Number(id)!==Number(this.activeQuestionId))){delete this.answers[this.activeQuestionId];delete this.choices[this.activeQuestionId];this.activeQuestionId=null}this.route={path,params:Object.fromEntries(new URLSearchParams(query))};
+ if(parts[0]==='paper'&&parts[1]){const paperId=resolveRouteId('paper',parts[1]);if(parts[2]==='year'&&parts[3]){base='year';rawId=parts[3];id=resolveRouteId('year',parts[3],x=>(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)===Number(paperId))}else if(parts[2]==='job'&&parts[3]){const jobId=resolveRouteId('job',parts[3],x=>Number(x.paper_id)===Number(paperId));if(parts[4]==='year'&&parts[5]){base='year';rawId=parts[5];id=resolveRouteId('year',parts[5],x=>Number(x.job_id)===Number(jobId))}else{base='job';rawId=parts[3];id=jobId}}else{base='paper';id=paperId}}if(id===undefined)id=resolveRouteId(base,rawId);if(this.activeQuestionId&&(base!=='practice'||Number(id)!==Number(this.activeQuestionId))){delete this.answers[this.activeQuestionId];delete this.choices[this.activeQuestionId];this.activeQuestionId=null}this.route={path,params:Object.fromEntries(new URLSearchParams(query))};document.body.dataset.pageTemplate=base;
  if((base==='admin'||base==='super-admin')&&(!window.Admin||!window.Importer||!window.MCQEnhancements)){
   this.ensureAdminBundle().then(()=>{if(this.route.path===path)this.render()}).catch(error=>{
    const loader=document.getElementById('backend-loader');if(loader?.open)loader.close();
