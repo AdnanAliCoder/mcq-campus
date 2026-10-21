@@ -1,0 +1,2 @@
+/* Admin page styles. */
+body[data-page-template="admin"] .seo-fallback .admin-actions{display:flex;flex-wrap:wrap;gap:.75rem}

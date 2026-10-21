@@ -1,0 +1,2 @@
+/* Contact page styles. */
+body[data-page-template="contact"] .seo-fallback form{display:grid;gap:.75rem;max-width:48rem}

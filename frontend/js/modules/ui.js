@@ -1,0 +1,201 @@
+/* ===== MCQCAMPUS MODULE: ui.js ===== */
+window.UI=(()=>{
+ const assetUrl=src=>{
+  const value=String(src||'').trim();
+  if(!value||!(/^(?:\/?assets\/|\/(?:favicon\.ico|favicon\.svg|site\.webmanifest)(?:$|\?))/i.test(value)))return value;
+  if(/[?&]v=/.test(value))return value;
+  const version=document.querySelector('meta[name="mcq-asset-version"]')?.content;
+  return version?value+(value.includes('?')?'&':'?')+'v='+encodeURIComponent(version):value;
+ };
+ const paths={search:'M21 21l-5-5m2-6a7 7 0 1 1-14 0 7 7 0 0 1 14 0',arrow:'M5 12h14m-6-6 6 6-6 6',book:'M12 6c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V5c-4-1-7-1-10 1v15',grid:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',paper:'M5 2h10l4 4v16H5zM14 2v5h5M8 12h8M8 16h8',star:'m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',user:'M20 21v-2a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v2m12-15a4 4 0 1 1-8 0 4 4 0 0 1 8 0',menu:'M3 6h18M3 12h18M3 18h18',check:'m5 12 4 4L19 6',home:'m3 10 9-7 9 7v11h-6v-7H9v7H3z',bookmark:'M6 3h12v19l-6-4-6 4z',clock:'M12 8v5l3 2m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0',code:'m8 6-6 6 6 6m8-12 6 6-6 6m-3-16-2 20',globe:'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18M12 3c5 6 5 12 0 18-5-6-5-12 0-18',chart:'M4 3v18h18M8 16v-4M13 16V8M18 16V5',bolt:'m13 2-9 12h7l-1 8 10-13h-7z',cpu:'M6 6h12v12H6zM9 1v5m6-5v5M9 18v5m6-5v5M1 9h5m-5 6h5m12-6h5m-5 6h5M10 10h4v4h-4z',leaf:'M20 3C6 2 2 7 5 15c8 7 17 0 15-12M3 22 16 8',science:'M9 2h6m-5 0v7L3 20q0 2 3 2h12q3 0 3-2l-7-11V2M7 15h10',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 4l2 2m12 12 2 2M2 12h4m12 0h4M4 20l2-2M18 6l2-2M12 2v4m0 12v4',upload:'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',download:'M12 3v13m-5-5 5 5 5-5M4 16v5h16v-5',edit:'m15 3 6 6M4 14 16 2l6 6-12 12-8 2z',close:'m6 6 12 12M6 18 18 6',shield:'m12 2 9 4v6c0 5-5 9-9 11-4-2-9-6-9-11V6z',copy:'M8 8h13v13H8zM16 8V3H3v13h5',share:'M16 5 6 11m0 2 10 6M6 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6m13-7a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 14a3 3 0 1 1 0 6 3 3 0 0 1 0-6',flag:'M4 22V3c6-4 10 4 16 0v10c-6 4-10-4-16 0',plus:'M12 4v16M4 12h16',logout:'M9 3H3v18h6m-2-9h15m-5-5 5 5-5 5',facebook:'M14 8h4V4h-4c-3 0-5 2-5 5v3H6v4h3v6h4v-6h4l1-4h-5V9c0-1 .5-1 1-1z',youtube:'M21 8c-.2-1.3-1-2.3-2.3-2.5C17 5 12 5 12 5s-5 0-6.7.5C4 5.7 3.2 6.7 3 8c-.2 1.2-.3 2.5-.3 4s.1 2.8.3 4c.2 1.3 1 2.3 2.3 2.5C7 19 12 19 12 19s5 0 6.7-.5C20 18.3 20.8 17.3 21 16c.2-1.2.3-2.5.3-4S21.2 9.2 21 8zM10 15V9l5 3-5 3z',instagram:'M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6-1h.01',mail:'M4 5h16v14H4zM4 7l8 6 8-6',linkedin:'M5 9v10M5 5v.01M9 19V9h4v2c1-2 6-3 6 3v5M13 14c0-2 1-3 3-3',briefcase:'M9 6V4h6v2m-11 3h16v10H4zM3 10h18M10 13h4',history:'M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l4 2',archive:'M3 6h18v4H3zM5 10v10h14V10M10 14h4',trash:'M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6m4-6v6',target:'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 11a1 1 0 1 0 1 1',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6','eye-off':'M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A11 11 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-4 4.7M6.2 6.2C3.6 7.8 2 12 2 12s4 7 10 7a10 10 0 0 0 4-.8'};
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // Shared, reusable markup is kept in index.html; this fills slots with runtime data.
+  function templateMarkup(id, values={}) {
+   const template=document.getElementById(id);
+   if(!template)return null;
+   let markup=template.innerHTML.trim();
+   for(const [key,value] of Object.entries(values)){
+    const safe=String(value??'');
+    markup=markup.replaceAll('<!-- SLOT:'+key+' -->',safe).replaceAll('__SLOT_'+key+'__',safe);
+   }
+   return markup.replace(/<!-- SLOT:[A-Z_]+ -->/g,'').replace(/__SLOT_[A-Z_]+__/g,'');
+  }
+ const icon=(name='book')=>`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.book}"/></svg>`;
+ const countryFlag=country=>{
+  const key=String(country||'').trim().toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ');
+  const flags={
+   'pakistan':'🇵🇰','india':'🇮🇳','usa':'🇺🇸','us':'🇺🇸','united states':'🇺🇸','united states of america':'🇺🇸',
+   'uk':'🇬🇧','united kingdom':'🇬🇧','great britain':'🇬🇧','britain':'🇬🇧','england':'🏴',
+   'canada':'🇨🇦','australia':'🇦🇺','new zealand':'🇳🇿','united arab emirates':'🇦🇪','uae':'🇦🇪',
+   'bangladesh':'🇧🇩','sri lanka':'🇱🇰','nepal':'🇳🇵','afghanistan':'🇦🇫','china':'🇨🇳',
+   'saudi arabia':'🇸🇦','malaysia':'🇲🇾','indonesia':'🇮🇩','nigeria':'🇳🇬','south africa':'🇿🇦',
+   'germany':'🇩🇪','france':'🇫🇷','philippines':'🇵🇭','egypt':'🇪🇬','qatar':'🇶🇦','oman':'🇴🇲',
+   'kuwait':'🇰🇼','turkey':'🇹🇷','türkiye':'🇹🇷','japan':'🇯🇵','singapore':'🇸🇬','italy':'🇮🇹',
+   'spain':'🇪🇸','brazil':'🇧🇷','ireland':'🇮🇪','kenya':'🇰🇪','iran':'🇮🇷','iraq':'🇮🇶'
+  };
+  return flags[key]||'🏳️';
+ };
+ const prettyPath=path=>{const parts=String(path||'').replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);if(parts[0]==='home'&&parts.length===1)return '';
+  if(window.SEO){
+   if(parts.length===1&&parts[0]==='important')return 'mcqs/important-mcqs';
+    if(parts[0]==='paper'&&parts[2]==='year'&&/^[0-9]+$/.test(parts[3]||''))return SEO.cleanPath('year',Number(parts[3])).slice(1);
+   if(parts[0]==='paper'&&parts[2]==='job'&&parts[4]==='year'&&/^\d+$/.test(parts[5]||''))return SEO.cleanPath('year',Number(parts[5])).replace(/^\//,'');
+   if(parts[0]==='paper'&&parts[2]==='job'&&/^\d+$/.test(parts[3]||''))return SEO.cleanPath('job',Number(parts[3])).replace(/^\//,'');
+   if(['mcq','practice','category','paper','job','year','pdf','latest-job','post'].includes(parts[0])&&/^\d+$/.test(parts[1]||''))return SEO.cleanPath(parts[0],Number(parts[1])).replace(/^\//,'');
+   if(parts.length===1&&parts[0]==='papers')return 'past-papers';
+   if(parts.length===1&&parts[0]==='pdfs')return 'past-papers/pdfs';
+   if(parts.length===1&&parts[0]==='posts')return 'blog';
+  }
+  return parts.join('/')};
+ const href=(path,params={})=>'/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'');
+ const link=(path,label,cls='',params={})=>`<a class="${cls}" href="${esc(href(path,params))}" ${String(label).startsWith('<svg')&&String(label).endsWith('</svg>')?'aria-label="'+esc(path==='search'?'Search':'Open '+path.replaceAll('/',' '))+'"':''}>${label}</a>`;
+ const brand=(showCountryCode=false)=>{const country=String(MCQ.db.session?.country||window.Auth?.user?.country||'').trim(),key=country.toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ').trim(),codes={pakistan:'PK',india:'IN','united states':'US','united states of america':'US',usa:'US',us:'US','united kingdom':'GB',uk:'GB','great britain':'GB',canada:'CA',australia:'AU','new zealand':'NZ','united arab emirates':'AE',uae:'AE',bangladesh:'BD','sri lanka':'LK',nepal:'NP',afghanistan:'AF',china:'CN','saudi arabia':'SA',malaysia:'MY',indonesia:'ID',nigeria:'NG','south africa':'ZA',germany:'DE',france:'FR',philippines:'PH',egypt:'EG',qatar:'QA',oman:'OM',kuwait:'KW',turkey:'TR','türkiye':'TR',japan:'JP',singapore:'SG',italy:'IT',spain:'ES',brazil:'BR',ireland:'IE',kenya:'KE',iran:'IR',iraq:'IQ'},code=country?(/^[a-z]{2}$/i.test(country)?country.toUpperCase():(codes[key]||country.slice(0,2).toUpperCase())):'',raised=showCountryCode&&code?`<sup class="brand-country-code" title="Country: ${esc(country)}" aria-label="Country code ${esc(code)}">${esc(code)}</sup>`:'';return link('home',`<span class="logo-crop"><img src="${esc(assetUrl('assets/favicon/genfavicon-48.png'))}" srcset="${esc(assetUrl('assets/favicon/genfavicon-48.png'))} 1x, ${esc(assetUrl('assets/favicon/genfavicon-128.png'))} 2x" width="42" height="42" alt=""></span><span>MCQ<em>Campus</em>${raised}</span>`,'brand')};
+ const btn=(label,action,cls='',extra='')=>`<button type="button" class="btn ${cls}" data-action="${action}" ${extra}>${label}</button>`;
+ const empty=(title,description='',action='')=>templateMarkup('mcq-empty-template',{EMPTY_ICON:icon('search'),EMPTY_TITLE:esc(title),EMPTY_DESCRIPTION:esc(description),EMPTY_ACTION:action})||('<div class="empty">'+icon('search')+'<h3>'+esc(title)+'</h3><p>'+esc(description)+'</p>'+action+'</div>');
+ const heading=(title,desc='',actions='')=>templateMarkup('mcq-page-heading-template',{HEADING_TITLE:esc(title),HEADING_DESCRIPTION:desc?'<p>'+esc(desc)+'</p>':'',HEADING_ACTIONS:actions})||('<div class="page-heading"><div class="section-head"><div><h1>'+esc(title)+'</h1>'+(desc?'<p>'+esc(desc)+'</p>':'')+'</div>'+actions+'</div></div>');
+ const crumbs=items=>{const inner=link('home','Home')+items.map(([label,path])=>'<span aria-hidden="true">/</span>'+(path?link(path,esc(label)):'<span aria-current="page">'+esc(label)+'</span>')).join('');return templateMarkup('mcq-breadcrumbs-template',{BREADCRUMB_ITEMS:inner})||('<nav class="breadcrumbs" aria-label="Breadcrumb">'+inner+'</nav>');};
+ const badge=(s,tone=s)=>`<span class="badge ${esc(tone)}">${esc(s[0]?.toUpperCase()+s.slice(1))}</span>`;
+ const field=(name,label,value='',type='text',required=false,extra='')=>`<div class="field"><label for="${name}">${esc(label)}${required?' *':''}</label><input id="${name}" name="${name}" type="${type}" value="${esc(value)}" ${required?'required':''} ${extra}></div>`;
+ const textarea=(name,label,value='',required=false)=>`<div class="field"><label for="${name}">${esc(label)}${required?' *':''}</label><textarea id="${name}" name="${name}" ${required?'required':''}>${esc(value)}</textarea></div>`;
+ const select=(name,label,items,selected='',required=false)=>`<div class="field"><label for="${name}">${esc(label)}</label><select name="${name}" id="${name}" ${required?'required':''}><option value="">Choose ${esc(label.toLowerCase())}</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(selected)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>`;
+ const search=(placeholder='Search…',value='',name='q')=>{const suggestions=name==='q'&&window.MCQ?[...new Set([...MCQ.db.categories.map(x=>x.name),...MCQ.db.papers.map(x=>x.name),...MCQ.db.jobs.map(x=>x.name),...(MCQ.db.posts||[]).map(x=>x.title),...(MCQ.db.pdfs||[]).map(x=>x.title||x.name)])].filter(Boolean).slice(0,40):[];const list=suggestions.length?'global-search-suggestions':'';return `<div class="searchbox">${icon('search')}<input aria-label="${esc(placeholder)}" name="${name}" placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off" ${list?`list="${list}"`:''}><button class="btn primary" type="submit">Search</button>${list?`<datalist id="${list}">${suggestions.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>`:''}</div>`};
+ const publicSearch=(placeholder='Search MCQs, Organizations, Past Papers, PDFs, Blog...',value='',name='q')=>`<div class="searchbox public-searchbox"><span class="public-search-icon" aria-hidden="true">${icon('search')}</span><input aria-label="${esc(placeholder)}" name="${name}" placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off"><button class="btn primary public-search-submit" type="submit">Search</button></div>`;
+ function pager(total,page,size=10,params={},path=App.route.path){
+  const count=Math.max(0,Number(total)||0),n=Math.max(1,Math.ceil(count/Math.max(1,Number(size)||10))),current=Math.max(1,Math.min(Number(page)||1,n));
+  if(n<=1)return `<div class="small muted pagination-count">${count.toLocaleString('en-GB')} total</div>`;
+  const start=Math.floor((current-1)/5)*5+1,end=Math.min(n,start+4);
+  const pages=Array.from({length:end-start+1},(_,i)=>start+i);
+  const numbers=pages.map(p=>link(path,String(p),`btn sm ${p===current?'current':''}`,{...params,page:p})).join('');
+  return `<nav class="pagination" aria-label="Pagination">${current>1?link(path,'‹ Previous','btn sm',{...params,page:current-1}):'<span></span>'}<div class="page-numbers">${numbers}</div>${current<n?link(path,'Next ›','btn sm primary',{...params,page:current+1}):'<span></span>'}<span class="small muted pagination-count">${count.toLocaleString('en-GB')} total · Page ${current} of ${n}</span></nav>`
+}
+ // Render stored timestamps only; never substitute the current clock for missing data.
+ const date=s=>{if(!s)return '—';const value=String(s);if(/^\d{4}-\d{2}-\d{2}$/.test(value))return value;if(!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value))return 'Timestamp timezone unavailable';const d=new Date(value);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Karachi',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}).format(d)+' PKT';};
+ const count=n=>{n=Math.max(0,Math.floor(Number(n)||0));if(n<1000)return n.toLocaleString();const unit=n>=1000000?1000000:1000,label=unit===1000000?'M':'K',scaled=Math.floor(n/unit*10)/10,base=Number.isInteger(scaled)?String(scaled):scaled.toFixed(1);return base+label+(n>scaled*unit?'+':'');};
+ const counter=n=>`<span title="${Number(n).toLocaleString('en-GB')}" aria-label="${Number(n).toLocaleString('en-GB')}">${count(n)}</span>`;
+
+ const statCard=({title,value,iconName='book',tone='primary',subtitle='',path='',params={},className='',loading=false}={})=>{
+  const toneName=['primary','success','info','warning','danger','neutral'].includes(tone)?tone:'primary';
+  const formatted=loading?'':(typeof value==='number'?value.toLocaleString('en-GB'):esc(value??'—'));
+  const content=templateMarkup('mcq-stat-card-content-template',{STAT_TITLE:esc(title||'Statistic'),STAT_TONE:toneName,STAT_ICON:icon(iconName),STAT_VALUE:formatted,STAT_SUBTITLE:subtitle?'<span class="stat-card-subtitle">'+esc(subtitle)+'</span>':'',STAT_SKELETON:loading?'<span class="stat-card-skeleton" aria-hidden="true"></span>':''});
+  const cls=`card stat-card tone-${toneName}${path?' stat-card-link clickable':''}${loading?' is-loading':''}${className?' '+className:''}`;
+  return path?link(path,content,cls,params):`<div class="${cls}"${loading?' aria-busy="true"':''}>${content}</div>`;
+ };
+
+ const catIcons=['chart','globe','bolt','code','cpu','grid','cpu','science','chart','leaf'];
+ const inheritedPaperIcon=x=>{if(!x||!window.MCQ)return '';if(x.paper_id){const p=MCQ.get('papers',x.paper_id);if(p?.icon)return p.icon}if(x.job_id){const j=MCQ.get('jobs',x.job_id),p=j&&MCQ.get('papers',j.paper_id);if(p?.icon)return p.icon}return ''};
+ const entityIcon=(x,fallback='grid')=>{const v=String(inheritedPaperIcon(x)||x?.icon||x?.paper_icon||fallback).trim();const dataImage=/^data:image\/(?:png|jpeg|jpg|webp|gif|avif|svg\+xml);/i.test(v),remoteImage=/^https?:\/\//i.test(v),fileImage=/^(?:\/(?:media|static|assets|uploads)\/|\.\.?\/)[^?#]+/i.test(v)||/\.(?:png|jpe?g|webp|gif|avif|svg)(?:[?#].*)?$/i.test(v);if(dataImage||remoteImage||fileImage)return `<img class="entity-icon-img" src="${esc(v)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.hidden=true">`;if(/^[a-z][a-z0-9-]*$/i.test(v))return icon(v);return v?`<span class="entity-emoji" aria-hidden="true">${esc(v.slice(0,4))}</span>`:icon(fallback)};
+ function showcaseCard(path,x,{badgeText='',title='',titleHtml='',subtitle='',meta='',fallback='grid'}={}){
+   const content=templateMarkup('mcq-showcase-card-template',{SHOWCASE_ICON:entityIcon(x,fallback),SHOWCASE_BADGE:esc(badgeText),SHOWCASE_TITLE:titleHtml||esc(title||x?.name||''),SHOWCASE_SUBTITLE:esc(subtitle),SHOWCASE_META_ICON:icon('briefcase'),SHOWCASE_META:esc(meta),SHOWCASE_ARROW:icon('arrow')});return link(path,content||('<div class="entity-card-media"><span class="entity-card-image">'+entityIcon(x,fallback)+'</span></div><div class="entity-card-body"><span class="entity-card-badge">'+esc(badgeText)+'</span><h3>'+(titleHtml||esc(title||x?.name||''))+'</h3><p>'+esc(subtitle)+'</p><div class="entity-card-meta"><span>'+icon('briefcase')+' '+esc(meta)+'</span></div></div><span class="entity-card-arrow" aria-hidden="true">'+icon('arrow')+'</span>'),'card clickable entity-showcase-card');
+ }
+ function card(type,x,index=0){
+  const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','years','paper_id','past papers'],jobs:['job','years','job_id','past papers'],years:['year',null,null,'MCQs']}[type];
+  let count=!['papers','jobs'].includes(type)&&Number.isFinite(Number(x?.mcq_count))?Number(x.mcq_count):null;
+  if(count===null){if(type==='categories')count=MCQ.publicMcqs().filter(q=>+q.category_id===+x.id).length;else count=conf[1]?MCQ.db[conf[1]].filter(y=>y[conf[2]]===x.id).length:MCQ.publicMcqs().filter(q=>MCQ.ids(q[type==='children'?'child_subcategory_ids':'job_years_ids']).includes(x.id)).length}
+  const title=x.name;
+  if(['categories','papers','jobs','years'].includes(type)){
+   const parentJob=type==='years'&&x.job_id?MCQ.get('jobs',x.job_id):null,parentPaper=type==='jobs'?MCQ.get('papers',x.paper_id):type==='years'?(MCQ.get('papers',x.paper_id)||(parentJob?MCQ.get('papers',parentJob.paper_id):null)):null;
+   const data={
+    categories:{badgeText:'Category',subtitle:'Practice approved MCQs in this category.',meta:`${count} MCQs`,fallback:catIcons[index%catIcons.length]},
+    papers:{badgeText:x.country||MCQ.db.settings.country||'Pakistan',subtitle:'Past papers for this Organization / Board.',meta:`${count} past paper${count===1?'':'s'}`,fallback:'paper'},
+    jobs:{badgeText:parentPaper?.name||'Recruitment',subtitle:'Legacy hierarchy record.',meta:`${count} past paper${count===1?'':'s'}`,fallback:'briefcase'},
+    years:{badgeText:parentPaper?.name||'Past Paper',subtitle:'Open this past paper to practise linked MCQs.',meta:`${count} MCQs`,fallback:'paper'}
+   }[type];
+   const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentPaper&&window.SEO?SEO.cleanPath('year',x.id):type==='years'&&parentPaper?'paper/'+parentPaper.id+'/year/'+x.id:conf[0]+'/'+x.id;
+   return showcaseCard(entityPath,x,{...data,title});
+  }
+  return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
+ }
+ function toast(msg){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>e.classList.remove('show'),4200)}
+ // One delegated close policy for navigation menus and searchable pickers.
+ function closeDropdowns(except=null){
+  document.querySelectorAll('details.user-menu[open],details.dropdown[open],details[data-dropdown][open]').forEach(menu=>{if(menu!==except)menu.open=false});
+  document.querySelectorAll('.picker-results').forEach(panel=>{if(!except?.contains(panel))panel.classList.add('hidden')});
+  document.querySelectorAll('[data-picker-input]').forEach(input=>{if(!except?.contains(input))input.setAttribute('aria-expanded','false')});
+ }
+ document.addEventListener('click',event=>{
+  const menu=event.target.closest('details.user-menu,details.dropdown,details[data-dropdown],.picker');
+  const selected=event.target.closest('a[href],button[data-action],[role="menuitem"]');
+  closeDropdowns(selected?null:menu);
+ },true);
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'){
+  const menu=document.activeElement?.closest('details.user-menu[open],details.dropdown[open],details[data-dropdown][open]');
+  closeDropdowns();menu?.querySelector('summary')?.focus({preventScroll:true});
+ }},true);
+ window.addEventListener('hashchange',()=>closeDropdowns());
+ let focusBefore;
+ function modal(title,body){const d=document.getElementById('modal');focusBefore=document.activeElement;d.innerHTML=`<div class="dialog-content"><div class="dialog-head"><h2>${esc(title)}</h2>${btn(icon('close'),'close','ghost','aria-label="Close dialog"')}</div>${body}</div>`;if(!d.open)d.showModal();const loader=document.getElementById('backend-loader');if(loader?.open){loader.close();loader.showModal();loader.focus({preventScroll:true})}d.addEventListener('close',()=>focusBefore?.focus(),{once:true})}
+ function download(filename,text,type='application/json'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ function adSlot(placement){
+  const cfg=MCQ.db.adSettings||{};if(cfg.enabled===false)return '';
+  const now=new Date().toISOString().slice(0,10),safe=u=>/^https?:\/\//i.test(String(u||''));
+  const ad=(MCQ.db.ads||[]).find(x=>x&&x.enabled!==false&&x.placement===placement&&x.provider!=='adsense'&&(!x.start_date||x.start_date<=now)&&(!x.end_date||x.end_date>=now));
+  if(!ad)return '';
+if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(unescape(encodeURIComponent(String(ad.code))));return '<aside class="ad-slot ad-slot-'+esc(placement)+' custom-code-ad" data-ad-slot="'+esc(placement)+'" data-ad-code="'+encoded+'" aria-label="Advertisement"><div class="custom-code-ad-body"></div></aside>';}
+  const image=safe(ad.image_url)?`<img src="${esc(ad.image_url)}" alt="${esc(ad.brand||'Sponsored advertisement')}">`:'';
+  const body=`<span class="ad-label">Sponsored</span>${image}<span class="ad-copy"><strong>${esc(ad.brand||'Advertisement')}</strong>${ad.text?`<small>${esc(ad.text)}</small>`:''}</span>`;
+  return `<aside class="ad-slot ad-slot-${esc(placement)}" data-ad-slot="${esc(placement)}" aria-label="Sponsored advertisement">${safe(ad.destination_url)?`<a href="${esc(ad.destination_url)}" target="_blank" rel="sponsored noopener noreferrer">${body}</a>`:body}</aside>`
+}
+ function mountCustomAds(root=document){const scope=root&&root.querySelectorAll?root:document;scope.querySelectorAll('.custom-code-ad[data-ad-code]').forEach(slot=>{if(slot.dataset.adMounted==='true')return;const body=slot.querySelector('.custom-code-ad-body');if(!body)return;let code='';try{code=decodeURIComponent(escape(atob(slot.dataset.adCode||'')))}catch{return}slot.dataset.adMounted='true';const template=document.createElement('template');template.innerHTML=code;const nodes=[...template.content.childNodes],scripts=[];nodes.forEach(node=>{if(node.nodeType===1&&node.tagName==='SCRIPT')scripts.push(node);else body.appendChild(node)});scripts.forEach(source=>{const script=document.createElement('script');for(const attr of source.attributes)script.setAttribute(attr.name,attr.value);script.text=source.textContent||'';body.appendChild(script)})});}
+ function userMenu(){const s=MCQ.db.session;if(!s)return link('login','Log in','btn primary header-login');const roles=s.roles||[s.role||'user'];const avatar=s.avatar?`<img src="${esc(s.avatar)}" alt="">`:`<span>${esc((s.name||'U').split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`;const switches=[];if(roles.includes('user'))switches.push(btn(icon('book')+' Learner dashboard','workspace-switch','user-menu-item user-menu-button',`data-role="user"`));if(roles.includes('admin'))switches.push(btn(icon('edit')+' Admin workspace','workspace-switch','user-menu-item user-menu-button',`data-role="admin"`));if(roles.includes('super-admin'))switches.push(btn(icon('shield')+' Super admin','workspace-switch','user-menu-item user-menu-button',`data-role="super-admin"`));return `<details class="user-menu"><summary class="header-user-avatar" aria-label="Open account menu">${avatar}</summary><div class="user-menu-panel"><div class="user-menu-head"><strong>${esc(s.name||'Account')}</strong><span>${esc(s.email||'')}</span></div>${switches.join('')}${link('dashboard/settings',icon('settings')+' Settings','user-menu-item')}${link('dashboard/downloads',icon('download')+' My Downloads','user-menu-item')}${btn(icon('logout')+' Log out','logout','user-menu-item user-menu-button')}</div></details>`} function header(active=''){
+  const routeParts=(App.route?.path||'home').split('/'),current=routeParts[0]==='past-papers'?(routeParts[1]==='pdfs'?'pdfs':'papers'):routeParts[0],aliases={category:'categories',subcategory:'categories',topic:'categories',paper:'papers',year:'papers',job:'papers',jobs:'papers',practice:'mcqs',mcq:'mcqs',important:'mcqs',post:'posts',blog:'posts',guide:'guides'},section=aliases[current]||current,is=p=>section===p;
+  const main=[['home','Home','home'],['mcqs','MCQs','book'],['papers','Past Papers','paper'],['categories','Categories','grid'],['pdfs','PDFs','download'],['latest-jobs','Latest Jobs','briefcase'],['posts','Blog','edit']];
+  const currentQuery=current==='search'?(App.route?.params?.q||''):'';
+  const navHtml=main.map(([p,l,i])=>link(p,icon(i)+`<span>${esc(l)}</span>`,is(p)?'active':'')).join('');
+  const mobileMenu=MCQ.db.session?btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"'):'';
+  return templateMarkup('mcq-header-template',{HEADER_BRAND:brand(true),HEADER_NAV:navHtml,HEADER_AUTH_LINK:MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth'),HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
+}
+ function footer(){
+  const settings=MCQ.db.settings||{},cfg=settings.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),safeUrl=u=>/^https?:\/\//i.test(String(u||''));
+  const visible=(key,toggle)=>cfg[toggle]!==false&&(coreHelpPages.has(key)||pages[key]?.published!==false);
+  const socials=settings.socialLinks||{},footerEmail=socials.email||{},emailAddress=String(footerEmail.address||'').trim(),emailHtml=footerEmail.enabled===true&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress)?`<a class="footer-email" href="mailto:${esc(emailAddress)}">${icon('mail')}<span>${esc(emailAddress)}</span></a>`:'';
+  const socialDefs=[['facebook','Facebook'],['youtube','YouTube'],['instagram','Instagram'],['linkedin','LinkedIn']];
+  const socialHtml=socialDefs.map(([key,label])=>{const x=socials[key]||{},url=String(x.url||settings[key+'Url']||'').trim(),custom=/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(x.iconData||'')),mark=custom?`<img class="footer-social-custom-icon" src="${esc(x.iconData)}" alt="">`:icon(x.icon||key);return x.enabled!==false&&safeUrl(url)?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${label}" title="${label}">${mark}</a>`:''}).filter(Boolean).join('');
+  const logoUrl=String(cfg.footerLogoUrl||'').trim(),logoSafe=safeUrl(logoUrl)||/^assets\//i.test(logoUrl);const footerBrand=logoSafe?link('home',`<span class="logo-crop"><img src="${esc(assetUrl(logoUrl))}" alt=""></span><span>${esc(settings.siteName||'MCQ Campus')}</span>`,'brand'):brand();
+  const help=[];if(visible('about','showAbout'))help.push(['about','About Us']);if(visible('contact','showContact'))help.push(['contact','Contact Us']);if(visible('privacy','showPrivacy'))help.push(['privacy','Privacy Policy']);if(visible('terms','showTerms'))help.push(['terms','Terms & Conditions']);if(visible('disclaimer','showDisclaimer'))help.push(['disclaimer','Disclaimer']);if(visible('cookies','showCookiePolicy'))help.push(['cookies','Cookie Policy']);if(visible('advertising','showAdvertisingPolicy'))help.push(['advertising','Advertising Policy']);if(cfg.showFaq&&pages.faq?.published!==false)help.push(['faq','FAQ']);
+  const description=cfg.description||'Practice MCQs, solve past papers, discover exam opportunities, and prepare confidently for competitive examinations.';const country=cfg.showCountryText!==false&&cfg.countryText?`<p class="footer-country">${esc(cfg.countryText)}</p>`:'';
+  const bottom=[];if(cfg.showSitemap!==false)bottom.push(link('sitemap','Sitemap'));
+  const copy=String(cfg.copyrightText||`${settings.siteName||'MCQ Campus'}. All rights reserved.`).replace(/^©\s*\d{4}\s*/,'');
+  const mobileLinks=[['home','home','Home'],['mcqs','book','MCQs'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('');
+  return templateMarkup('mcq-footer-template',{
+   FOOTER_BRAND:footerBrand,
+   FOOTER_DESCRIPTION:esc(description),
+   FOOTER_EMAIL:emailHtml,
+   FOOTER_SOCIALS:socialHtml?'<div class="footer-social" aria-label="MCQ Campus social media">'+socialHtml+'</div>':'',
+   FOOTER_COUNTRY:country,
+   FOOTER_QUICK_LINKS:link('mcqs','MCQs')+link('papers','Past Papers')+link('pdfs','PDFs')+link('latest-jobs','Latest Jobs'),
+   FOOTER_HELP_LINKS:help.map(([p,l])=>link(p,l)).join(''),
+   FOOTER_YEAR:new Date().getFullYear(),
+   FOOTER_COPY:esc(copy),
+   FOOTER_BOTTOM_LINKS:bottom.length?'<span class="footer-bottom-links">'+bottom.join('')+'</span>':'',
+   FOOTER_MOBILE_LINKS:mobileLinks
+  })||'';
+}
+ function ensureLinkNames(root=document){
+  if(!root||typeof root.querySelectorAll!=='function')return;
+  const routeLabels={
+   home:'Home',mcqs:'MCQs',important:'Important MCQs','past-papers':'Past Papers',papers:'Past Papers',
+   categories:'Categories',category:'Category',subcategory:'Subcategory',topic:'Topic',pdfs:'PDFs',pdf:'PDF',
+   'latest-jobs':'Latest Jobs','latest-job':'Job details',posts:'Blog',post:'Blog post',tests:'Tests',test:'Practice test',
+   search:'Search',login:'Log in',register:'Sign up',dashboard:'My learning',profile:'Profile',admin:'Admin panel','super-admin':'Super Admin panel'
+  };
+  root.querySelectorAll('a[href]').forEach(anchor=>{
+   if(anchor.getAttribute('aria-label')?.trim()||anchor.getAttribute('aria-labelledby')?.trim()||anchor.getAttribute('title')?.trim()||anchor.textContent?.trim())return;
+   const imageLabel=[...anchor.querySelectorAll('img[alt]')].map(image=>(image.getAttribute('alt')||'').trim()).filter(Boolean).join(' ');
+   if(imageLabel){anchor.setAttribute('aria-label',imageLabel);return;}
+   const href=String(anchor.getAttribute('href')||'').trim();
+   if(/^mailto:/i.test(href)){anchor.setAttribute('aria-label','Send email');return;}
+   if(/^tel:/i.test(href)){anchor.setAttribute('aria-label','Call phone number');return;}
+   if(href.startsWith('#')){anchor.setAttribute('aria-label',href.length>1?'Go to '+href.slice(1).replace(/[-_]+/g,' '):'Open linked section');return;}
+   let pathname=href;
+   try{pathname=new URL(href,window.location.href).pathname;}catch(_){}
+   const route=pathname.split('/').filter(Boolean)[0]||'home';
+   anchor.setAttribute('aria-label',routeLabels[route]||(/^https?:\/\//i.test(href)?'Open external resource':'Open linked resource'));
+  });
+ }
+ const layout=(body,active='')=>templateMarkup('mcq-layout-template',{LAYOUT_HEADER:header(active),LAYOUT_HEADER_AD:adSlot('header_ad'),LAYOUT_BODY:body,LAYOUT_FOOTER_AD:adSlot('footer_ad'),LAYOUT_FOOTER:footer()})||('<main id="main" tabindex="-1">'+body+'</main>');
+ return {templateMarkup,closeDropdowns,esc,icon,countryFlag,href,assetUrl,link,brand,btn,empty,heading,crumbs,badge,field,textarea,select,search,publicSearch,pager,date,count,counter,statCard,showcaseCard,card,toast,modal,download,entityIcon,adSlot,ensureLinkNames,mountCustomAds,userMenu,header,footer,layout};
+})();
+
+/* ===== END MODULE: ui.js ===== */
+
+;

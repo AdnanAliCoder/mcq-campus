@@ -1,0 +1,22 @@
+{
+  "name": "MCQCampus",
+  "short_name": "MCQCampus",
+  "description": "Practice MCQs, past papers and exam preparation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#102823",
+  "icons": [
+    {
+      "src": "/assets/genfavicon-128.png?v=20261021-static-multipage-v1",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/genfavicon-512.png?v=20261021-static-multipage-v1",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

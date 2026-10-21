@@ -1,0 +1,2 @@
+/* Dashboard page styles. */
+body[data-page-template="dashboard"] .seo-fallback .dashboard-actions{display:flex;flex-wrap:wrap;gap:.75rem}
