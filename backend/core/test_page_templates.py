@@ -11,6 +11,14 @@ class IndependentFrontendTests(TestCase):
         "admin":"admin.html", "super-admin":"super-admin.html", "latest-jobs":"latest-jobs.html",
     }
 
+    def test_every_page_contains_editable_runtime_templates(self):
+        for page,filename in self.PAGE_FILES.items():
+            body=(settings.BASE_DIR/"frontend"/filename).read_text(encoding="utf-8")
+            with self.subTest(page=page):
+                self.assertIn('id="mcq-home-template"',body)
+                self.assertIn('id="mcq-header-template"',body)
+                self.assertIn('id="mcq-admin-layout-template"',body)
+
     def test_physical_html_entries(self):
         for page,filename in self.PAGE_FILES.items():
             body=(settings.BASE_DIR/"frontend"/filename).read_text(encoding="utf-8")

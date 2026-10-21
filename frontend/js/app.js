@@ -38,6 +38,21 @@ render(){if(!Auth.guard())return;const raw=location.pathname.replace(/^\/+|\/+$/
  else if(base==='latest-jobs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['latest-job']);if(hit){base='latest-job';id=hit.key}}
  else if(base==='blog'){if(/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['post']);if(hit){base='post';id=hit.key}}else base='posts'}
  if(parts[0]==='paper'&&parts[1]){const paperId=resolveRouteId('paper',parts[1]);if(parts[2]==='year'&&parts[3]){base='year';rawId=parts[3];id=resolveRouteId('year',parts[3],x=>(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)===Number(paperId))}else if(parts[2]==='job'&&parts[3]){const jobId=resolveRouteId('job',parts[3],x=>Number(x.paper_id)===Number(paperId));if(parts[4]==='year'&&parts[5]){base='year';rawId=parts[5];id=resolveRouteId('year',parts[5],x=>Number(x.job_id)===Number(jobId))}else{base='job';rawId=parts[3];id=jobId}}else{base='paper';id=paperId}}if(id===undefined)id=resolveRouteId(base,rawId);if(this.activeQuestionId&&(base!=='practice'||Number(id)!==Number(this.activeQuestionId))){delete this.answers[this.activeQuestionId];delete this.choices[this.activeQuestionId];this.activeQuestionId=null}this.route={path,params:Object.fromEntries(new URLSearchParams(query))};document.body.dataset.pageTemplate=base;
+ const pageTemplateMap={home:'index',mcqs:'mcqs',mcq:'mcqs',practice:'mcqs',important:'mcqs',search:'mcqs',categories:'categories',category:'categories',subcategory:'categories',topic:'categories',papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',tests:'tests',test:'tests',login:'login',register:'register',forgot:'login','forgot-password':'login','reset-password':'login','password-reset':'login',verify:'login',pdfs:'pdfs',pdf:'pdfs',blog:'blog',posts:'blog',post:'blog',about:'about',contact:'contact',dashboard:'dashboard',profile:'dashboard',admin:'admin','super-admin':'super-admin','latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs'};
+ const templatePage=pageTemplateMap[base]||'index';
+ if(document.body.dataset.mcqTemplatesPage!==templatePage){
+  const pending=this.pageTemplatesPromise;if(pending&&pending.page===templatePage)return;
+  const state={page:templatePage};this.pageTemplatesPromise=state;
+  const entryUrl=templatePage==='index'?'/index.html':'/'+templatePage+'.html';
+  fetch(entryUrl,{credentials:'same-origin',cache:'no-cache'}).then(response=>{if(!response.ok)throw Error('Could not load page templates: '+entryUrl);return response.text()}).then(markup=>{
+   if(this.route.path!==path)return;
+   const doc=new DOMParser().parseFromString(markup,'text/html'),nodes=[...doc.querySelectorAll('template[id]')];
+   if(!nodes.length)throw Error('No editable HTML templates in '+entryUrl);
+   for(const node of nodes){const old=document.getElementById(node.id);if(old)old.replaceWith(node.cloneNode(true));else document.body.appendChild(node.cloneNode(true))}
+   document.body.dataset.mcqTemplatesPage=templatePage;
+  }).catch(error=>{console.warn('Using shared HTML templates for '+templatePage,error);if(this.route.path===path)document.body.dataset.mcqTemplatesPage=templatePage}).finally(()=>{if(this.pageTemplatesPromise===state)this.pageTemplatesPromise=null;if(this.route.path===path)this.render()});
+  return;
+ }
  if((base==='admin'||base==='super-admin')&&(!window.Admin||!window.Importer||!window.MCQEnhancements)){
   this.ensureAdminBundle().then(()=>{if(this.route.path===path)this.render()}).catch(error=>{
    const loader=document.getElementById('backend-loader');if(loader?.open)loader.close();
