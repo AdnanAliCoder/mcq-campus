@@ -66,6 +66,29 @@ window.Public=(()=>{
    QUESTION_REPORT_BUTTON:reportButton
   })||('<article class="card mcq-card mcq-reference-card '+(compact?'mcq-card-compact':'')+'" data-question="'+q.id+'"><div class="mcq-top"><div class="mcq-question-label">'+questionTags(q)+'</div><div class="mcq-top-actions">'+bookmark+nextLink+'</div></div><div class="mcq-question-panel"><h2>'+link('mcq/'+q.id,e(q.question),'mcq-question-link')+'</h2></div><div class="options mcq-reference-options" role="group" aria-label="Answer options">'+options+'</div>'+explanation+'<div class="actions mcq-reference-actions">'+hint+'<span class="spacer"></span>'+shareButton+copyButton+reportButton+'</div></article>');
  }
+
+ function countryLanding(type='login'){
+  const countries=(MCQ.db.countries||[{name:'Pakistan',active:true},{name:'India',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  const title=type==='register'?'Choose your country to create an account':'Choose your country';
+  const description=type==='register'?'Select your country to continue creating your MCQCampus learner account.':'Select your country to continue to your MCQCampus account.';
+  const cards=countries.map(item=>{
+   const name=String(item.name||'').trim();
+   const label='<span class="country-choice-flag">'+UI.countryFlag(name)+'</span><span class="country-choice-copy"><strong>'+e(name)+'</strong><small>Continue '+(type==='register'?'to sign up':'to sign in')+'</small></span>'+icon('arrow');
+   return link(type,label,'card country-choice-card',{country:name});
+  }).join('');
+  const body='<div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1>'+e(title)+'</h1><p class="muted">'+e(description)+'</p><div class="country-choice-grid">'+(cards||empty('No countries available','Please try again later.'))+'</div><p class="small muted country-landing-back">'+link('home','Return to home','link')+'</p></section></div>';
+  return UI.layout(body);
+ }
+ function mini(q,number=0){
+  if(!q)return '';
+  return questionCard(q,Math.max(1,Number(number)+1),true);
+ }
+ function quickCard(){
+  const rows=MCQ.topMcqs(),total=rows.length,index=total?Math.max(0,Math.min(Number(App.homeQuickIndex||0),total-1)):0,q=rows[index];
+  if(!q)return '<section class="hero-quick card">'+empty('No quick questions available yet','Explore all approved MCQs to start practising.',link('mcqs','Browse MCQs','btn primary'))+'</section>';
+  return '<section class="hero-quick"><div class="hero-quick-heading"><p class="eyebrow">QUICK PRACTICE</p><span class="small muted">Question '+(index+1)+' of '+total+'</span></div>'+questionCard(q,index+1,true)+'</section>';
+ }
+
  function home(){
   const server=activeServerMcqPage(),site=MCQ.db.siteCounts||{},pageSize=10,page=server?Math.max(1,Number(server.page)||1):1,rows=server?MCQ.publicMcqs():[],importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
   const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`;
