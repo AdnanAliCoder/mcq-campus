@@ -1,6 +1,6 @@
 /* ===== MCQCAMPUS MODULE: public.js ===== */
 window.Public=(()=>{
- const {esc:e,icon,link,btn,card,heading,crumbs,empty,badge,field,textarea,select}=UI;
+ const {templateMarkup,esc:e,icon,link,btn,card,heading,crumbs,empty,badge,field,textarea,select}=UI;
  const yearPath=x=>{const p=x&&(MCQ.get('papers',x.paper_id)||MCQ.get('papers',MCQ.get('jobs',x.job_id)?.paper_id));return p?'paper/'+p.id+'/year/'+x.id:'year/'+x.id};
  const jobPath=x=>{const p=x&&MCQ.get('papers',x.paper_id);return p?'paper/'+p.id+'/job/'+x.id:'job/'+x.id};
  const pageCopy=(kind,key,title,desc)=>{const row=(MCQ.db.pageSeo||{})[kind+':'+String(key)]||{};return {title:String(row.title||title||''),desc:String(row.description||desc||'')}};

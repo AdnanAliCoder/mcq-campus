@@ -10,7 +10,7 @@ window.MCQCampusLoadPageScript=function(name){
  if(pending)return pending;
  const task=new Promise(resolve=>{
   const script=document.createElement("script");
-  script.src="/assets/js/pages/"+safeName+".js?v=20261021-public-runtime-fix-v1";
+  script.src="/assets/js/pages/"+safeName+".js?v=20261021-frontend-runtime-fix-v2";
   script.dataset.mcqCampusPageScript=safeName;
   script.async=true;
   script.onload=()=>{window.MCQCampusPageScriptsLoaded.add(safeName);resolve(true)};
