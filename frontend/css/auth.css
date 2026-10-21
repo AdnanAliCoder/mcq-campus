@@ -1,0 +1,3 @@
+/* Login and signup styles. */
+body.auth-screen .seo-fallback form{display:grid;gap:.875rem;max-width:38rem;margin-inline:auto}
+body.auth-screen .seo-fallback input{width:100%}

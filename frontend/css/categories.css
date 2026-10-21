@@ -1,0 +1,2 @@
+/* Category page styles. */
+body[data-page-template="categories"] .seo-fallback .category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:1rem}

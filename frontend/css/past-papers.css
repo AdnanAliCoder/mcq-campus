@@ -1,0 +1,2 @@
+/* Past paper page styles. */
+body[data-page-template="past-papers"] .seo-fallback .paper-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:1rem}

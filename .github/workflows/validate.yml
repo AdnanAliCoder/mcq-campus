@@ -21,7 +21,9 @@ jobs:
           node-version: "22"
 
       - name: Check JavaScript syntax
-        run: node --check frontend/app.js
+        run: node --check frontend/js/bootstrap.js
+      - name: Check main frontend runtime syntax
+        run: node --check frontend/js/app.js
 
       - name: Check embedded JavaScript modules
         run: node scripts/check-bundled-modules.cjs
