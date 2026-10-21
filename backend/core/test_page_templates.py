@@ -19,6 +19,14 @@ class IndependentFrontendTests(TestCase):
                 self.assertIn('id="mcq-header-template"',body)
                 self.assertIn('id="mcq-admin-layout-template"',body)
 
+    def test_each_page_has_a_separate_javascript_extension(self):
+        frontend=settings.BASE_DIR/"frontend"
+        for page in ("home","mcqs","categories","past-papers","tests","login","register","pdfs","blog","about","contact","dashboard","admin","super-admin","latest-jobs"):
+            script=frontend/"js"/"pages"/(page+".js")
+            with self.subTest(page=page):
+                self.assertTrue(script.is_file(),str(script))
+                self.assertIn("MCQCampusPageHooks",script.read_text(encoding="utf-8"))
+
     def test_physical_html_entries(self):
         for page,filename in self.PAGE_FILES.items():
             body=(settings.BASE_DIR/"frontend"/filename).read_text(encoding="utf-8")
@@ -34,7 +42,7 @@ class IndependentFrontendTests(TestCase):
     def test_assets_are_separate_files(self):
         frontend=settings.BASE_DIR/"frontend"
         for relative in ("css/common.css","css/auth.css","css/mcqs.css","js/bootstrap.js",
-            "js/modules/public.js","js/modules/auth.js","js/admin/admin.js","templates.html","sw.js","site.webmanifest"):
+            "js/modules/public.js","js/modules/auth.js","js/admin/admin.js","js/pages/home.js","js/pages/mcqs.js","templates.html","sw.js","site.webmanifest"):
             with self.subTest(path=relative): self.assertTrue((frontend/relative).is_file(),relative)
 
     def test_django_does_not_serve_frontend_pages(self):

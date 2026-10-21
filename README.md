@@ -2,7 +2,7 @@
 
 `frontend/` contains physical HTML pages, a shared plain HTML component library, shared/page-specific CSS, and separate JavaScript modules. Nginx serves these files directly. Django serves JSON APIs under `/api/` and backend-generated sitemap/crawler endpoints only; it no longer has a catch-all route serving the website HTML.
 
-The structural separation retains the existing vanilla JavaScript behavior, API contracts, auth/session/CSRF handling, database models, permissions, and public URLs. Some data-driven content and controls are still assembled by vanilla JavaScript; feature modules and reusable HTML templates are separate and editable. Continue migrating page-specific content to explicit HTML templates without breaking shared page components or API contracts.
+The structural separation retains the existing vanilla JavaScript behavior, API contracts, auth/session/CSRF handling, database models, permissions, and public URLs. Every page also has a small route-specific JavaScript entry in `frontend/js/pages/`. The frontend loads that file for the matching page and calls its `afterRender` hook after UI updates; the hook emits `mcqcampus:page-ready` so you can attach page-only interactions without changing shared code. Edit physical page HTML and `frontend/css/<page>.css` for markup and styling. API-driven lists, cards and admin data are still populated by vanilla JavaScript modules and are not all static HTML.
 
 Run `node --check frontend/js/bootstrap.js`, `node --check frontend/js/app.js`, `node scripts/check-bundled-modules.cjs`, `python manage.py check`, and `python manage.py test`.
 

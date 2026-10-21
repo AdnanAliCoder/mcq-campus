@@ -5,7 +5,7 @@ const files=['frontend/js/bootstrap.js','frontend/js/admin-loader.js','frontend/
 'frontend/js/modules/service.js','frontend/js/modules/ui.js','frontend/js/modules/public-layout.js',
 'frontend/js/modules/public.js','frontend/js/modules/carousel.js','frontend/js/modules/seo.js',
 'frontend/js/modules/motion.js','frontend/js/modules/auth.js','frontend/js/app.js',
-'frontend/js/admin/importer.js','frontend/js/admin/enhancements.js','frontend/js/admin/admin.js'];
+'frontend/js/admin/importer.js','frontend/js/admin/enhancements.js','frontend/js/admin/admin.js','frontend/js/pages/home.js','frontend/js/pages/mcqs.js','frontend/js/pages/categories.js','frontend/js/pages/past-papers.js','frontend/js/pages/tests.js','frontend/js/pages/login.js','frontend/js/pages/register.js','frontend/js/pages/pdfs.js','frontend/js/pages/blog.js','frontend/js/pages/about.js','frontend/js/pages/contact.js','frontend/js/pages/dashboard.js','frontend/js/pages/admin.js','frontend/js/pages/super-admin.js','frontend/js/pages/latest-jobs.js'];
 let failed=false;
 for(const relative of files){const file=path.join(root,relative);if(!fs.existsSync(file)){console.error('Missing frontend module:',relative);failed=true;continue}
 const result=spawnSync(process.execPath,['--check',file],{encoding:'utf8'});
