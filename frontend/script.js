@@ -2455,6 +2455,136 @@ showStaticShell(){
  return true;
 },
 
+mountStaticPage(base,renderedHtml){
+ const map={
+  home:'home',mcqs:'mcqs',important:'mcqs',topic:'mcqs',
+  categories:'categories',category:'categories',subcategory:'categories',
+  papers:'past-papers',paper:'past-papers',year:'past-papers',
+  tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
+  posts:'blog',post:'blog','latest-jobs':'latest-jobs','latest-job':'latest-jobs',
+  about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',
+  contact:'contact'
+ };
+ const page=map[base];
+ if(!page||base==='search'||base==='mcq'||base==='practice')return false;
+ const parent=document.getElementById('static-page-shells');
+ const sourceShell=parent?.querySelector('[data-static-page="'+page+'"]');
+ if(!sourceShell)return false;
+ let parsed;
+ try{parsed=new DOMParser().parseFromString(String(renderedHtml||''),'text/html')}catch{return false}
+ const sourceMain=parsed.querySelector('main#main')||parsed.querySelector('main');
+ if(!sourceMain)return false;
+ const content=sourceMain.querySelector('.public-main')||sourceMain;
+ const shell=sourceShell.cloneNode(true);
+ shell.dataset.staticFallback='true';
+ const main=shell.querySelector('main');
+ if(main){main.id='main';main.tabIndex=-1;if(page!=='home')main.classList.add('public-page')}
+ const target=(name)=>shell.querySelector('[data-api-region="'+name+'"]');
+ const nodes=(scope,selector)=>Array.from((scope||content).querySelectorAll(selector));
+ const fill=(name,selector,scope=content,mode='outer')=>{
+  const dest=target(name),found=nodes(scope,selector);
+  if(!dest||!found.length)return false;
+  dest.replaceChildren();
+  if(mode==='inner'){
+   found.slice(0,1).forEach(src=>{
+    Array.from(src.childNodes).forEach(node=>dest.appendChild(node.cloneNode(true)));
+    String(src.className||'').split(/\s+/).filter(Boolean).forEach(cls=>dest.classList.add(cls));
+   });
+  }else found.forEach(src=>dest.appendChild(src.cloneNode(true)));
+  dest.hidden=false;
+  return true;
+ };
+ const fillAny=(name,selectors,scope=content)=>{
+  for(const selector of selectors){if(fill(name,selector,scope))return true}
+  return false;
+ };
+ const copyHeading=()=>{
+  if(page==='home'){
+   const sourceTitle=sourceMain.querySelector('.home-hero-copy h1');
+   const sourceDesc=sourceMain.querySelector('.home-hero-copy .hero-copy');
+   const title=shell.querySelector('[data-static-home-title]');
+   const desc=shell.querySelector('[data-static-home-description]');
+   if(sourceTitle&&title)title.textContent=sourceTitle.textContent.trim();
+   if(sourceDesc&&desc)desc.textContent=sourceDesc.textContent.trim();
+   return;
+  }
+  const sourceTitle=sourceMain.querySelector('.page-heading h1');
+  const sourceDesc=sourceMain.querySelector('.page-heading p');
+  const title=shell.querySelector('.page-heading h1');
+  const desc=shell.querySelector('.page-heading p');
+  if(sourceTitle&&title)title.textContent=sourceTitle.textContent.trim();
+  if(sourceDesc&&desc)desc.textContent=sourceDesc.textContent.trim();
+ };
+ copyHeading();
+ let populated=false;
+ if(page==='home'){
+  populated=fill('home-stats','.home-stats',sourceMain,'inner')||populated;
+  populated=fill('home-mcqs','.home-mcq-list',sourceMain,'inner')||populated;
+  populated=fillAny('home-pagination',['.pagination','.pagination-count'],sourceMain)||populated;
+  populated=fill('home-categories','.home-cat-boxes',sourceMain,'inner')||populated;
+ }else if(page==='mcqs'){
+  if(base==='mcqs'||base==='important'||base==='topic'){
+   populated=fillAny('mcq-summary',['.mcq-count','.result-count'],sourceMain)||populated;
+   populated=fillAny('mcq-list',['.mcq-reference-card, .empty'],content)||populated;
+   populated=fillAny('mcq-pagination',['.pagination','.pagination-count'],sourceMain)||populated;
+  }
+ }else if(page==='categories'){
+  if(base==='categories'){
+   populated=fillAny('category-list',['.grid','.empty'],content)||populated;
+  }else{
+   populated=fillAny('category-context',['.seo-related-block','.chips'],sourceMain)||populated;
+   populated=fillAny('mcq-summary',['.result-count','.mcq-count'],sourceMain)||populated;
+   populated=fillAny('mcq-list',['.mcq-reference-card, .empty'],content)||populated;
+   populated=fillAny('mcq-pagination',['.pagination','.pagination-count'],sourceMain)||populated;
+  }
+ }else if(page==='past-papers'){
+  populated=fillAny('past-paper-summary',['.result-count','.mcq-count'],sourceMain)||populated;
+  if(base==='papers')populated=fillAny('organization-list',['.grid.paper-grid','.grid','.empty'],content)||populated;
+  else if(base==='paper')populated=fillAny('past-paper-list',['.grid.paper-grid','.grid','.empty'],content)||populated;
+  else if(base==='year') {
+   populated=fillAny('past-paper-list',['.mcq-reference-card, .empty'],content)||populated;
+   populated=fillAny('past-paper-list',['.pagination','.pagination-count'],sourceMain)||populated;
+  }else if(base==='job')populated=fillAny('route-detail',['.public-main','.empty'],sourceMain)||populated;
+ }else if(page==='tests'){
+  if(base==='tests')populated=fillAny('test-list',['.automatic-test-hero','.empty'],content)||populated;
+  else populated=fillAny('route-detail',['.test-form','.test-result-grid','.test-result-actions','.empty'],content)||populated;
+ }else if(page==='pdfs'){
+  populated=fillAny('pdf-summary',['.result-count','.small.muted'],sourceMain)||populated;
+  if(base==='pdfs') {
+   populated=fillAny('pdf-list',['.pdf-resource-grid','.empty'],content)||populated;
+   populated=fillAny('pdf-pagination',['.pagination','.pagination-count'],sourceMain)||populated;
+  }else populated=fillAny('route-detail',['.pdf-direct-card','.pdf-card','.empty'],content)||populated;
+ }else if(page==='blog'){
+  if(base==='posts'||base==='blog'){
+   populated=fillAny('blog-filters',['.selection-stack','.selection-bar','.chips'],sourceMain)||populated;
+   populated=fillAny('blog-list',['.content-showcase-grid','.empty'],content)||populated;
+   populated=fillAny('blog-pagination',['.pagination','.pagination-count'],sourceMain)||populated;
+  }else populated=fillAny('route-detail',['.public-article','.article','.empty'],content)||populated;
+ }else if(page==='latest-jobs'){
+  if(base==='latest-jobs')populated=fillAny('jobs-list',['.latest-jobs-list','.empty'],content)||populated;
+  else populated=fillAny('route-detail',['.latest-job-card','.empty'],content)||populated;
+ }else if(page==='about'){
+  populated=fillAny('about-content',['.public-article','.faq-list','.article','.empty'],content,'inner')||populated;
+  if(!populated)populated=fill('about-content',':scope > *',content)||populated;
+ }else if(page==='contact'){
+  populated=fillAny('contact-form',['form[data-form="contact"]'],sourceMain)||populated;
+  populated=fillAny('route-detail',['.contact-details','.empty'],content)||populated;
+ }
+ if(!populated)return false;
+ shell.querySelectorAll('[data-static-loading]').forEach(node=>node.remove());
+ shell.querySelectorAll('[data-api-region]').forEach(region=>{if(!region.children.length)region.hidden=true});
+ const root=document.getElementById('app');
+ if(!root)return false;
+ root.innerHTML=[
+  window.UI?.header?.(page)||'',
+  window.UI?.adSlot?.('header_ad')||'',
+  shell.outerHTML,
+  window.UI?.adSlot?.('footer_ad')||'',
+  window.UI?.footer?.()||''
+ ].join('');
+ document.body.dataset.staticFallback=page;
+ return true;
+},
 render(){if(!Auth.guard())return;
  if(window.MCQCampusBackendReady===false&&document.querySelector('#app [data-static-fallback="true"]')){
   const root=document.getElementById('app');
@@ -2511,7 +2641,7 @@ render(){if(!Auth.guard())return;
   });
   return;
  }
- if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}let html;try{if(window.SEO?.discoveryPage(path))html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else html=Public.notFound();document.getElementById('app').innerHTML=html;try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
+ if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}let html;try{if(window.SEO?.discoveryPage(path))html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else html=Public.notFound();const mountedStatic=this.mountStaticPage(base,html);if(!mountedStatic)document.getElementById('app').innerHTML=html;try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
 
 App.fitBracketBreaks=function(root=document){
  const scope=root===document?document.getElementById('app'):root;if(!scope)return;
@@ -2711,6 +2841,15 @@ App.quickTimer=McqCarousel.create({advance(){
  window.addEventListener('pagehide',()=>{App.quickTimer.stop();App.quickAnswer=null;});
  window.addEventListener('pageshow',event=>{if(event.persisted)App.render()});
  window.addEventListener('popstate',()=>{document.getElementById('modal')?.open&&close();App.render();window.scrollTo(0,0)});
+ document.addEventListener('submit',event=>{
+  const form=event.target.closest('form[data-form="mcq-filter"]');
+  if(!form)return;
+  event.preventDefault();
+  const query=String(form.elements.q?.value||'').trim();
+  if(query)App.go('search',{q:query});
+  else App.go('mcqs',{});
+ });
+
  document.documentElement.dataset.theme='light';try{localStorage.removeItem('mcq-campus-theme')}catch{}const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content='#f6f8f7';
  Auth.start();
  // Optional agent navigation mirrors the visible search form; unsupported browsers skip it.

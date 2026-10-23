@@ -83,6 +83,8 @@ check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; 
 check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
 const runtime = read('frontend/script.js');
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
+check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
+check(runtime.includes('form[data-form="mcq-filter"]'), 'the static MCQ search form has an interaction handler');
 check(runtime.includes('window.UI?.header?.(page)'), 'static fallback includes the shared header template');
 check(runtime.includes('window.UI?.footer?.()'), 'static fallback includes the shared footer template');
 check(runtime.includes("window.MCQCampusBackendReady===false"), 'static fallback remains visible when API bootstrap fails');
