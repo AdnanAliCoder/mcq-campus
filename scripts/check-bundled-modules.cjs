@@ -1,13 +1,46 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..');
-const files=['frontend/js/bootstrap.js','frontend/js/admin-loader.js','frontend/js/integrations.js',
-'frontend/js/modules/service.js','frontend/js/modules/ui.js','frontend/js/modules/public-layout.js',
-'frontend/js/modules/public.js','frontend/js/modules/carousel.js','frontend/js/modules/seo.js',
-'frontend/js/modules/motion.js','frontend/js/modules/auth.js','frontend/js/app.js',
-'frontend/js/admin/importer.js','frontend/js/admin/enhancements.js','frontend/js/admin/admin.js','frontend/js/pages/home.js','frontend/js/pages/mcqs.js','frontend/js/pages/categories.js','frontend/js/pages/past-papers.js','frontend/js/pages/tests.js','frontend/js/pages/login.js','frontend/js/pages/register.js','frontend/js/pages/pdfs.js','frontend/js/pages/blog.js','frontend/js/pages/about.js','frontend/js/pages/contact.js','frontend/js/pages/dashboard.js','frontend/js/pages/admin.js','frontend/js/pages/super-admin.js','frontend/js/pages/latest-jobs.js'];
-let failed=false;
-for(const relative of files){const file=path.join(root,relative);if(!fs.existsSync(file)){console.error('Missing frontend module:',relative);failed=true;continue}
-const result=spawnSync(process.execPath,['--check',file],{encoding:'utf8'});
-if(result.status!==0){console.error('Syntax check failed:',relative);if(result.stderr)process.stderr.write(result.stderr);failed=true}else console.log('Syntax OK:',relative)}
-if(failed)process.exit(1);
+
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const root = path.resolve(__dirname, '..');
+const scriptPath = path.join(root, 'frontend', 'script.js');
+const requiredModules = [
+  'frontend/js/modules/service.js',
+  'frontend/js/modules/ui.js',
+  'frontend/js/modules/public-layout.js',
+  'frontend/js/modules/public.js',
+  'frontend/js/modules/seo.js',
+  'frontend/js/modules/auth.js',
+  'frontend/js/admin/importer.js',
+  'frontend/js/admin/admin.js',
+];
+
+let failed = false;
+if (!fs.existsSync(scriptPath)) {
+  console.error('Missing unified frontend runtime: frontend/script.js');
+  process.exit(1);
+}
+
+const script = fs.readFileSync(scriptPath, 'utf8');
+const syntax = spawnSync(process.execPath, ['--check', scriptPath], { encoding: 'utf8' });
+if (syntax.status !== 0) {
+  console.error('Syntax check failed: frontend/script.js');
+  if (syntax.stderr) process.stderr.write(syntax.stderr);
+  failed = true;
+} else {
+  console.log('Syntax OK: frontend/script.js');
+}
+
+for (const modulePath of requiredModules) {
+  const marker = 'SOURCE: ' + modulePath + ' */';
+  if (!script.includes(marker)) {
+    console.error('Missing bundled module marker:', modulePath);
+    failed = true;
+  } else {
+    console.log('Bundled module present:', modulePath);
+  }
+}
+
+if (failed) process.exit(1);

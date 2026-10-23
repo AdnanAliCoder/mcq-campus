@@ -20,10 +20,11 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Check JavaScript syntax
-        run: node --check frontend/js/bootstrap.js
       - name: Check main frontend runtime syntax
-        run: node --check frontend/js/app.js
+        run: node --check frontend/script.js
+
+      - name: Check single-document frontend structure
+        run: node scripts/check-static-frontend.cjs
 
       - name: Check embedded JavaScript modules
         run: node scripts/check-bundled-modules.cjs

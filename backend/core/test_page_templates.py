@@ -3,72 +3,76 @@ from django.test import TestCase
 
 
 class IndependentFrontendTests(TestCase):
-    PAGE_FILES = {
-        "home":"index.html", "mcqs":"mcqs.html", "categories":"categories.html",
-        "past-papers":"past-papers.html", "tests":"tests.html", "login":"login.html",
-        "register":"register.html", "pdfs":"pdfs.html", "blog":"blog.html",
-        "about":"about.html", "contact":"contact.html", "dashboard":"dashboard.html",
-        "admin":"admin.html", "super-admin":"super-admin.html", "latest-jobs":"latest-jobs.html",
-    }
+    """Guard the current single-document frontend + Django API boundary."""
 
-    def test_every_page_contains_editable_runtime_templates(self):
-        for page,filename in self.PAGE_FILES.items():
-            body=(settings.BASE_DIR/"frontend"/filename).read_text(encoding="utf-8")
+    FRONTEND = settings.BASE_DIR / "frontend"
+
+    def setUp(self):
+        self.html = (self.FRONTEND / "index.html").read_text(encoding="utf-8")
+        self.nginx = (
+            settings.BASE_DIR
+            / "deploy"
+            / "nginx"
+            / "mcqcampus-frontend-locations.conf"
+        ).read_text(encoding="utf-8")
+
+    def test_single_document_contains_static_page_shells(self):
+        self.assertIn("<!doctype html>", self.html.lower())
+        pages = (
+            "home", "mcqs", "categories", "past-papers", "tests", "pdfs",
+            "blog", "latest-jobs", "login", "register", "dashboard", "admin",
+            "super-admin", "about", "contact",
+        )
+        for page in pages:
             with self.subTest(page=page):
-                self.assertIn('id="mcq-home-template"',body)
-                self.assertIn('id="mcq-header-template"',body)
-                self.assertIn('id="mcq-admin-layout-template"',body)
+                self.assertIn('data-static-page="' + page + '"', self.html)
 
-    def test_each_page_has_a_separate_javascript_extension(self):
-        frontend=settings.BASE_DIR/"frontend"
-        for page in ("home","mcqs","categories","past-papers","tests","login","register","pdfs","blog","about","contact","dashboard","admin","super-admin","latest-jobs"):
-            script=frontend/"js"/"pages"/(page+".js")
-            with self.subTest(page=page):
-                self.assertTrue(script.is_file(),str(script))
-                self.assertIn("MCQCampusPageHooks",script.read_text(encoding="utf-8"))
+        for template_id in (
+            "mcq-layout-template", "mcq-header-template", "mcq-footer-template",
+            "mcq-home-template", "mcq-auth-layout-template",
+            "mcq-learner-dashboard-template", "mcq-admin-layout-template",
+            "mcq-question-card-template", "mcq-country-landing-template",
+        ):
+            with self.subTest(template=template_id):
+                self.assertIn('id="' + template_id + '"', self.html)
 
-    def test_physical_html_entries(self):
-        for page,filename in self.PAGE_FILES.items():
-            body=(settings.BASE_DIR/"frontend"/filename).read_text(encoding="utf-8")
-            with self.subTest(page=page):
-                self.assertIn("<!doctype html>",body.lower())
-                self.assertIn('id="app"',body)
-                self.assertIn('name="mcq-page-entry" content="'+page+'"',body)
-                self.assertIn('/assets/js/bootstrap.js?',body)
-                self.assertIn('/assets/css/common.css?',body)
-                self.assertNotIn("{{",body)
-                self.assertNotIn("{%",body)
+        self.assertNotIn("{{", self.html)
+        self.assertNotIn("{%", self.html)
 
-    def test_assets_are_separate_files(self):
-        frontend=settings.BASE_DIR/"frontend"
-        for relative in ("css/common.css","css/auth.css","css/mcqs.css","js/bootstrap.js",
-            "js/modules/public.js","js/modules/auth.js","js/admin/admin.js","js/pages/home.js","js/pages/mcqs.js","templates.html","sw.js","site.webmanifest"):
-            with self.subTest(path=relative): self.assertTrue((frontend/relative).is_file(),relative)
+    def test_entry_document_uses_one_first_party_script_and_stylesheet(self):
+        self.assertTrue((self.FRONTEND / "script.js").is_file())
+        self.assertTrue((self.FRONTEND / "style.css").is_file())
+        self.assertIn('href="/assets/style.css', self.html)
+        self.assertIn('src="/assets/script.js', self.html)
+        self.assertEqual(self.html.count('rel="stylesheet"'), 1)
+        self.assertNotIn("/assets/js/bootstrap.js", self.html)
+        self.assertNotIn("/assets/css/common.css", self.html)
 
     def test_django_does_not_serve_frontend_pages(self):
-        shell=(settings.BASE_DIR/"frontend"/"index.html").read_bytes()
-        for path in ("/","/mcqs","/past-papers","/login","/admin"):
+        shell = (self.FRONTEND / "index.html").read_bytes()
+        for path in ("/", "/mcqs", "/past-papers", "/login", "/admin"):
             with self.subTest(path=path):
-                response=self.client.get(path,secure=True)
-                self.assertEqual(response.status_code,404,path)
-                self.assertNotEqual(response.content,shell)
-
-    def test_plain_html_component_library(self):
-        body=(settings.BASE_DIR/"frontend"/"templates.html").read_text(encoding="utf-8")
-        self.assertNotIn("{{",body); self.assertNotIn("{%",body)
-        for key in ("mcq-layout-template","mcq-header-template","mcq-footer-template",
-            "mcq-question-card-template","mcq-home-template","mcq-auth-layout-template",
-            "mcq-public-page-sidebar-template","mcq-learner-dashboard-template","mcq-admin-layout-template"):
-            with self.subTest(key=key): self.assertIn('id="'+key+'"',body)
+                response = self.client.get(path, secure=True)
+                self.assertEqual(response.status_code, 404, path)
+                self.assertNotEqual(response.content, shell)
 
     def test_api_stays_json(self):
-        response=self.client.get("/api/public/bootstrap",secure=True)
-        self.assertEqual(response.status_code,200)
-        self.assertIn("application/json",response.get("Content-Type",""))
-        self.assertNotEqual(response.content,(settings.BASE_DIR/"frontend"/"index.html").read_bytes())
+        response = self.client.get("/api/public/bootstrap", secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/json", response.get("Content-Type", ""))
+        self.assertNotEqual(
+            response.content, (self.FRONTEND / "index.html").read_bytes()
+        )
 
-    def test_nginx_static_and_api_paths_are_separate(self):
-        conf=(settings.BASE_DIR/"deploy"/"nginx"/"mcqcampus-frontend-locations.conf").read_text(encoding="utf-8")
-        self.assertIn("root /home/ubuntu/mcq-campus/frontend;",conf)
-        self.assertIn("location ^~ /api/",conf)
-        self.assertIn("try_files $uri $uri.html /index.html;",conf)
+    def test_nginx_serves_entry_assets_and_proxies_api_separately(self):
+        self.assertIn("root /home/ubuntu/mcq-campus/frontend;", self.nginx)
+        self.assertIn("location = /assets/style.css", self.nginx)
+        self.assertIn(
+            "alias /home/ubuntu/mcq-campus/frontend/style.css;", self.nginx
+        )
+        self.assertIn("location = /assets/script.js", self.nginx)
+        self.assertIn(
+            "alias /home/ubuntu/mcq-campus/frontend/script.js;", self.nginx
+        )
+        self.assertIn("location ^~ /api/", self.nginx)
+        self.assertIn("try_files $uri $uri.html /index.html;", self.nginx)
