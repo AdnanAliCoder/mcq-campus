@@ -1,2 +1,0 @@
-/* PDF page styles. */
-body[data-page-template="pdfs"] .seo-fallback .pdf-resource-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:1rem}
