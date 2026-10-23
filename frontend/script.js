@@ -2428,12 +2428,14 @@ showStaticShell(){
   blog:'blog',blogs:'blog',posts:'blog',post:'blog',
   'latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs',
   login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login',
-  'reset-password':'login',verify:'login',
+  'reset-password':'login',verify:'login',dashboard:'dashboard',admin:'admin','super-admin':'super-admin',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',
   cookies:'about',advertising:'about',contact:'contact'
  };
- const page=map[first];
- if(!page||['login','register','dashboard','admin','super-admin'].includes(page))return false;
+ let page=map[first];
+ const requestedCountry=new URLSearchParams(location.search).get('country');
+ if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';
+ if(!page)return false;
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+page+'"]');
  if(!source)return false;
