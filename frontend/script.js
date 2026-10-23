@@ -2295,3 +2295,382 @@ window.MCQEnhancements=(()=>{
  };
 })(window);
 
+
+/* SOURCE: frontend/js/pages/register.js */
+/* Page-specific JavaScript: frontend/js/pages/register.js
+ * Add custom buttons, event handlers and behavior for the register page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["register"]||(registry["register"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="register";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"register",path:context.path||global.location.pathname,base:context.base||"register",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/super-admin.js */
+/* Page-specific JavaScript: frontend/js/pages/super-admin.js
+ * Add custom buttons, event handlers and behavior for the super-admin page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["super-admin"]||(registry["super-admin"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="super-admin";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"super-admin",path:context.path||global.location.pathname,base:context.base||"super-admin",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/tests.js */
+/* Page-specific JavaScript: frontend/js/pages/tests.js
+ * Add custom buttons, event handlers and behavior for the tests page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["tests"]||(registry["tests"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="tests";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"tests",path:context.path||global.location.pathname,base:context.base||"tests",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/app.js */
+/* Route-specific JavaScript extensions are independent files under frontend/js/pages/. */
+window.MCQCampusPageScriptsLoaded=window.MCQCampusPageScriptsLoaded||new Set();
+window.MCQCampusPageScriptPromises=window.MCQCampusPageScriptPromises||new Map();
+window.MCQCampusPageHooks=window.MCQCampusPageHooks||Object.create(null);
+window.MCQCampusLoadPageScript=function(name){
+ const safeName=String(name||"");
+ if(!/^[a-z-]+$/.test(safeName))return Promise.resolve(false);
+ if(window.MCQCampusPageScriptsLoaded.has(safeName))return Promise.resolve(true);
+ const pending=window.MCQCampusPageScriptPromises.get(safeName);
+ if(pending)return pending;
+ const task=new Promise(resolve=>{
+  const script=document.createElement("script");
+  script.src="/assets/js/pages/"+safeName+".js?v=20261023-static-html-components-v4";
+  script.dataset.mcqCampusPageScript=safeName;
+  script.async=true;
+  script.onload=()=>{window.MCQCampusPageScriptsLoaded.add(safeName);resolve(true)};
+  script.onerror=()=>{script.remove();console.warn("Page-specific JavaScript is unavailable:",safeName);resolve(false)};
+  document.head.appendChild(script);
+ }).finally(()=>window.MCQCampusPageScriptPromises.delete(safeName));
+ window.MCQCampusPageScriptPromises.set(safeName,task);
+ return task;
+};
+window.MCQCampusSharedTemplatesPromise=null;
+window.MCQCampusLoadSharedTemplates=function(){
+ const required=['mcq-layout-template','mcq-header-template','mcq-footer-template','mcq-home-template','mcq-auth-layout-template','mcq-learner-dashboard-template','mcq-admin-layout-template'];
+ const ready=()=>required.every(id=>document.getElementById(id));
+ if(ready())return Promise.resolve(true);
+ if(window.MCQCampusSharedTemplatesPromise)return window.MCQCampusSharedTemplatesPromise;
+ const task=fetch('/index.html',{credentials:'same-origin',cache:'no-cache'})
+  .then(response=>{if(!response.ok)throw Error('Could not load the central HTML templates from /index.html');return response.text()})
+  .then(markup=>{
+   const doc=new DOMParser().parseFromString(markup,'text/html');
+   const nodes=Array.from(doc.querySelectorAll('template[id]'));
+   if(!nodes.length||!nodes.some(node=>node.id==='mcq-layout-template'))throw Error('The central index.html has no usable page templates');
+   nodes.forEach(node=>{const current=document.getElementById(node.id);if(current)current.replaceWith(node.cloneNode(true));else document.body.appendChild(node.cloneNode(true))});
+   if(!ready())throw Error('The central index.html page templates are incomplete');
+   return true;
+  })
+  .catch(error=>{window.MCQCampusSharedTemplatesPromise=null;throw error});
+ window.MCQCampusSharedTemplatesPromise=task;
+ return task;
+};
+/* ===== MCQCAMPUS MODULE: app.js ===== */
+const resolveRouteId=(base,token,predicate=null)=>{if(!token)return token;const map={category:'categories',subcategory:'subcategories',topic:'children',paper:'papers',job:'jobs',year:'years',mcq:'mcqs',practice:'mcqs',post:'posts',pdf:'pdfs','latest-job':'latestJobs'},type=map[base];if(!type||!window.MCQ)return token;const rows=(MCQ.db[type]||[]).filter(x=>!predicate||predicate(x));if(/^\d+$/.test(String(token))){const row=rows.find(x=>Number(x.id)===Number(token));return row?String(row.id):token}const wanted=decodeURIComponent(token).toLowerCase(),row=rows.find(x=>[String(x.slug||MCQ.slug(x.name||x.title||x.question||'')).toLowerCase(),window.SEO?.hierarchySlug(x.name||x.title||x.question||'')].includes(wanted));return row?String(row.id):token};
+window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId:null,homeQuickIndex:0,quickAnswer:null,homeRandomIds:[],homeRandomSignature:'',draft:null,draftKey:null,importRows:null,importSummary:null,importedIds:[],importPage:null,testResult:null,testNonce:0,page(total,size=12){const requested=Number(this.route.params.page);const perPage=Math.max(1,Number(size)||12);return Math.max(1,Math.min(Number.isFinite(requested)?Math.floor(requested):1,Math.max(1,Math.ceil(total/perPage))))},go(path,params={}){history.pushState(null,'',UI.href(path,params));this.render();window.scrollTo(0,0)},ensureAdminBundle(){
+ if(window.Admin&&window.Importer&&window.MCQEnhancements)return Promise.resolve();
+ if(this.adminBundlePromise)return this.adminBundlePromise;
+ if(typeof window.MCQCampusLoadBundledModule!=='function')return Promise.reject(new Error('Bundled admin loader is unavailable.'));
+ this.adminBundlePromise=window.MCQCampusLoadBundledModule('importer.js')
+  .then(()=>window.MCQCampusLoadBundledModule('enhancements.js'))
+  .then(()=>window.MCQCampusLoadBundledModule('admin.js'))
+  .catch(error=>{this.adminBundlePromise=null;throw error});
+ return this.adminBundlePromise;
+},
+render(){if(!Auth.guard())return;const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
+ const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
+ if(base==='mcqs'&&parts[1]==='important-mcqs'){base='important'}
+ else if(base==='mcqs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['mcq']);if(hit){base='mcq';id=hit.key}}
+ else if(base==='categories'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['category']);if(hit){base='category';id=hit.key}}
+ else if(base==='past-papers'){
+  if(parts[1]==='pdfs'){if(/^\d+$/.test(parts[2]||'')){const hit=indexed(parts[2],['pdf']);if(hit){base='pdf';id=hit.key}}else base='pdfs'}
+  else if(/^\d+$/.test(parts[1]||'')){
+   let hit=indexed(parts[1],['paper','job','year']);
+   if(!hit&&parts[2]&&window.SEO){
+    const wanted=String(parts[2]).toLowerCase(),slug=SEO.slug,short=SEO.shortName;
+    const paper=MCQ.db.papers.find(x=>x.active!==false&&`${slug(short(x.name))}-past-papers`===wanted);
+    if(paper)hit={kind:'paper',key:String(paper.id)};
+    if(!hit){
+     const job=MCQ.db.jobs.find(x=>{const p=MCQ.get('papers',x.paper_id);return x.active!==false&&p?.active!==false&&`${slug(short(p.name))}-${slug(x.name)}-past-papers`===wanted});
+     if(job)hit={kind:'job',key:String(job.id)};
+    }
+    if(!hit){
+     const year=MCQ.db.years.find(x=>{const p=MCQ.get('papers',x.paper_id)||MCQ.get('papers',MCQ.get('jobs',x.job_id)?.paper_id);return x.active!==false&&p?.active!==false&&slug(short(p.name)+' '+x.name)===wanted});
+     if(year)hit={kind:'year',key:String(year.id)};
+    }
+   }
+   if(hit){base=hit.kind;id=hit.key}
+  } else base='papers';
+ }
+ else if(base==='latest-jobs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['latest-job']);if(hit){base='latest-job';id=hit.key}}
+ else if(base==='blog'){if(/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['post']);if(hit){base='post';id=hit.key}}else base='posts'}
+ if(parts[0]==='paper'&&parts[1]){const paperId=resolveRouteId('paper',parts[1]);if(parts[2]==='year'&&parts[3]){base='year';rawId=parts[3];id=resolveRouteId('year',parts[3],x=>(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)===Number(paperId))}else if(parts[2]==='job'&&parts[3]){const jobId=resolveRouteId('job',parts[3],x=>Number(x.paper_id)===Number(paperId));if(parts[4]==='year'&&parts[5]){base='year';rawId=parts[5];id=resolveRouteId('year',parts[5],x=>Number(x.job_id)===Number(jobId))}else{base='job';rawId=parts[3];id=jobId}}else{base='paper';id=paperId}}if(id===undefined)id=resolveRouteId(base,rawId);if(this.activeQuestionId&&(base!=='practice'||Number(id)!==Number(this.activeQuestionId))){delete this.answers[this.activeQuestionId];delete this.choices[this.activeQuestionId];this.activeQuestionId=null}this.route={path,params:Object.fromEntries(new URLSearchParams(query))};document.body.dataset.pageTemplate=base;
+ const pageTemplateMap={home:'index',mcqs:'mcqs',mcq:'mcqs',practice:'mcqs',important:'mcqs',search:'mcqs',categories:'categories',category:'categories',subcategory:'categories',topic:'categories',papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',tests:'tests',test:'tests',login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login','forgot-password':'login','reset-password':'login','password-reset':'login',verify:'login',pdfs:'pdfs',pdf:'pdfs',blog:'blog',posts:'blog',post:'blog',about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',contact:'contact',dashboard:'dashboard',profile:'dashboard',admin:'admin','super-admin':'super-admin','latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs'};
+ const templatePage=pageTemplateMap[base]||'index';
+ if(!document.getElementById('mcq-layout-template')||document.body.dataset.mcqTemplatesPage!==templatePage){
+  const pending=this.pageTemplatesPromise;
+  if(pending&&pending.page===templatePage)return;
+  const state={page:templatePage};this.pageTemplatesPromise=state;
+  Promise.resolve(window.MCQCampusLoadSharedTemplates())
+   .then(()=>window.MCQCampusLoadPageScript(templatePage==='index'?'home':templatePage))
+   .then(()=>{if(this.route.path===path)document.body.dataset.mcqTemplatesPage=templatePage})
+   .catch(error=>{console.warn('Using the central index.html templates for '+templatePage,error);if(this.route.path===path)document.body.dataset.mcqTemplatesPage=templatePage})
+   .finally(()=>{if(this.pageTemplatesPromise===state)this.pageTemplatesPromise=null;if(this.route.path===path)this.render()});
+  return;
+ }
+ if((base==='admin'||base==='super-admin')&&(!window.Admin||!window.Importer||!window.MCQEnhancements)){
+  this.ensureAdminBundle().then(()=>{if(this.route.path===path)this.render()}).catch(error=>{
+   const loader=document.getElementById('backend-loader');if(loader?.open)loader.close();
+   const root=document.getElementById('app');
+   if(root)root.innerHTML=UI.layout('<div class="container page"><div class="notice error" role="alert">Admin tools could not load. Please refresh the page.</div></div>');
+   console.error('Admin assets failed to load',error);
+  });
+  return;
+ }
+ if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}let html;try{if(window.SEO?.discoveryPage(path))html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else html=Public.notFound();document.getElementById('app').innerHTML=html;try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
+
+App.fitBracketBreaks=function(root=document){
+ const scope=root===document?document.getElementById('app'):root;if(!scope)return;
+ const selector='.public-page h1,.public-page h2,.public-page h3,.public-page h4,.entity-showcase-card h3,.content-showcase-card h3,.card h3,.article h1,.article h2,.article h3,.breadcrumbs span,.breadcrumbs a,.mcq-answer-years .mcq-year-chip>span:last-child';
+ const candidates=[];
+ scope.querySelectorAll(selector).forEach(el=>{
+  if(el.closest('.admin-shell,.super-admin,form,table')||el.children.length&&![...el.children].every(x=>x.tagName==='BR'))return;
+  const cached=el.dataset.bracketText,original=cached||el.textContent||'';if(!original.includes('['))return;
+  // Reset a previously adjusted heading only when it contains our own inserted break.
+  // Fresh headings already contain plain text, so avoid an unnecessary DOM write/layout.
+  if((cached||el.children.length)&&(el.childNodes.length!==1||el.firstChild?.nodeType!==Node.TEXT_NODE||el.textContent!==original))el.textContent=original;
+  el.dataset.bracketText=original;
+  const node=el.firstChild,at=original.indexOf('[');if(!node||node.nodeType!==Node.TEXT_NODE||at<=0)return;
+  candidates.push({el,node,original,at});
+ });
+ // Read geometry first, then write line breaks in a separate pass to prevent repeated
+ // synchronous layout recalculation as the DOM is adjusted heading-by-heading.
+ const breaks=[];
+ for(const item of candidates){
+  const {node,original,at}=item,range=document.createRange();
+  range.setStart(node,0);range.setEnd(node,at);const before=range.getBoundingClientRect();
+  range.setStart(node,at);range.setEnd(node,original.length);const suffix=range.getBoundingClientRect();
+  if(Math.abs(before.bottom-suffix.bottom)>1)breaks.push(item);
+ }
+ for(const {el,original,at} of breaks)el.innerHTML=UI.esc(original.slice(0,at).trimEnd())+'<br>'+UI.esc(original.slice(at).trimStart());
+};
+App.fitOverflowText=function(root=document){
+ const selectors=['.entity-card-badge','.content-pill','.badge','.chip','.selection-chip','.stat-card-label'];
+ root.querySelectorAll(selectors.join(',')).forEach(el=>{
+  // Most nodes are new after a render and have no inline adjustments to clear.
+  if(el.style.fontSize)el.style.removeProperty('font-size');
+  if(el.style.letterSpacing)el.style.removeProperty('letter-spacing');
+  if(!el.clientWidth)return;
+  const cs=getComputedStyle(el),singleLine=cs.whiteSpace==='nowrap'||el.classList.contains('entity-card-badge')||el.classList.contains('content-pill')||el.classList.contains('badge')||el.classList.contains('chip')||el.classList.contains('selection-chip');
+  if(!singleLine)return;
+  const over=()=>el.scrollWidth>el.clientWidth+1;
+  if(!over())return;
+  const size=parseFloat(cs.fontSize)||12,min=el.classList.contains('entity-card-badge')?5.5:7;
+  let low=Math.min(min,size),high=size,best=null;
+  el.style.setProperty('font-size',low+'px','important');
+  if(!over())best=low;
+  // Binary search preserves quarter-pixel fit precision in far fewer layout checks
+  // than reducing the font size by 0.25px on every iteration.
+  for(let i=0;i<7&&high-low>=.25;i++){
+   const mid=Math.round(((low+high)/2)*4)/4;if(mid<=low||mid>=high)break;
+   el.style.setProperty('font-size',mid+'px','important');
+   if(!over()){best=mid;low=mid}else high=mid;
+  }
+  if(best!==null)el.style.setProperty('font-size',best+'px','important');
+  else{el.style.setProperty('font-size',low+'px','important');if(over())el.style.setProperty('letter-spacing','-.045em','important')}
+ });
+};
+App.refreshQuick=function(){
+ if(this.route.path!=='home'){this.quickTimer.stop();this.quickAnswer=null;return;}
+ const rows=MCQ.topMcqs();this.homeQuickIndex=Math.max(0,Math.min(this.homeQuickIndex,Math.max(0,rows.length-1)));
+ const q=rows[this.homeQuickIndex];if(this.quickAnswer?.id!==q?.id)this.quickAnswer=null;
+ const panel=document.querySelector('.hero-quick');if(panel){panel.outerHTML=Public.quickCard();window.MCQMotion?.enter(document.querySelector('.hero-quick')?.parentElement||document.getElementById('app'));}
+ this.quickTimer.sync(q?String(q.id):null);
+};
+App.quickTimer=McqCarousel.create({advance(){
+ const total=MCQ.topMcqs().length;
+ if(App.route.path!=='home'||!total)return;
+ App.quickAnswer=null;App.homeQuickIndex=(Number(App.homeQuickIndex||0)+1)%total;
+ App.refreshQuick();
+}});
+(()=>{
+ const {esc:e,icon,btn,link}=UI;
+ function refreshQuestion(id){const q=MCQ.get('mcqs',id),old=document.querySelector(`[data-question="${+id}"]`);if(old){const number=Number(old.dataset.number||1),compact=old.classList.contains('mcq-card-compact');old.outerHTML=Public.questionCard(q,number,compact)}}
+ function resetActiveQuestion(exceptId=null){const previous=Number(App.activeQuestionId||0);if(previous&&previous!==Number(exceptId||0)){delete App.answers[previous];delete App.choices[previous];refreshQuestion(previous)}App.activeQuestionId=exceptId?Number(exceptId):null}
+ function error(msg,target){if(target)target.innerHTML=`<div class="notice error" role="alert">${e(msg)}</div>`;else UI.toast(msg)}
+ function close(){document.getElementById('modal').close()}
+ async function copyLink(id,share=false){const url=location.origin+UI.href('mcq/'+id);if(share&&navigator.share){try{await navigator.share({title:'MCQ Campus',text:MCQ.get('mcqs',id)?.question,url});return}catch(err){if(err.name==='AbortError')return}}try{await navigator.clipboard.writeText(url);UI.toast('Question link copied.')}catch{UI.modal('Copy question link',`<p class="small muted">Copy this address. Local file links work only on the same device.</p><input style="width:100%" value="${e(url)}" readonly aria-label="Question link">`);document.querySelector('#modal input').select()}}
+ function review(ids,status){if(!ids.length){UI.toast('Select at least one question.');return}MCQ.assert('review');if(status==='approved'){UI.modal('Approve questions',`<p>Make ${ids.length} question${ids.length===1?'':'s'} visible on the public website?</p><form data-form="review" data-ids="${ids.join(',')}" data-status="approved"><button class="btn primary">Approve</button> ${btn('Cancel','close','')}</form>`)}else UI.modal(status==='pending'?'Send back for correction':'Reject questions',`<p>${ids.length} selected question${ids.length===1?'':'s'}.</p><form data-form="review" data-ids="${ids.join(',')}" data-status="${status}">${UI.textarea('reason',status==='pending'?'Correction needed':'Rejection reason','',true)}<button class="btn primary">Confirm</button></form>`)}
+ function template(ext){const q=MCQ.clone(MCQ.db.mcqs[0]||{});q.question='What is 10% of 500?';q.option1='50';q.option2='5';q.option3='100';q.option4='500';q.correct_answer='50';q.description='500 × 0.10 = 50.';q.country=MCQ.db.activeCountry||MCQ.db.session?.country||'Pakistan';const label=(t,ids)=>MCQ.ids(ids).map(id=>MCQ.get(t,id)?.name).filter(Boolean).join('|');const category=MCQ.get('categories',q.category_id)?.name||MCQ.db.categories.find(x=>x.active!==false&&!x.legacy)?.name||'General Knowledge';const organizationRow=MCQ.get('papers',MCQ.ids(q.paper_id)[0])||MCQ.db.papers.find(x=>x.active!==false&&(x.country===q.country||x.country==='Both'));const organization=organizationRow?.name||'PPSC';const pastPaperRow=MCQ.db.years.find(x=>x.active!==false&&String(x.paper_id)===String(organizationRow?.id||''));const pastPaper=pastPaperRow?.name||'Past Paper 2025';const fields=['question','option1','option2','option3','option4','correct_answer','description','country','category','organization','past_paper'];const row={question:q.question,option1:q.option1,option2:q.option2,option3:q.option3,option4:q.option4,correct_answer:q.correct_answer,description:q.description,country:q.country,category,organization,past_paper:pastPaper};if(ext==='json')UI.download('mcq-import-template.json',JSON.stringify([row],null,2));else if(ext==='csv'){const quote=v=>'"'+String(Array.isArray(v)?JSON.stringify(v):v).replace(/"/g,'""')+'"';UI.download('mcq-import-template.csv',fields.map(quote).join(',')+'\n'+fields.map(k=>quote(row[k])).join(','),'text/csv')}else{const text=[q.question,'Option 1: '+q.option1,'Option 2: '+q.option2,'Option 3: '+q.option3,'Option 4: '+q.option4,'Correct Answer: '+q.correct_answer,'Country: '+q.country,'Category: '+category,'Organization / Board: '+organization,'Past Paper: '+pastPaper,'Description: '+q.description].join('\n');UI.download('mcq-import-template.txt',text,'text/plain')}}
+ document.addEventListener('click',ev=>{const a=ev.target.closest('a[href^="/"]');if(!a)return;document.getElementById('main-nav')?.classList.remove('open');document.querySelector('[data-action="menu"]')?.setAttribute('aria-expanded','false');document.getElementById('public-smart-sidebar')?.classList.remove('open');document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');if(ev.defaultPrevented||ev.button!==0||ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey||a.target==='_blank'||a.hasAttribute('download'))return;const url=new URL(a.href,location.origin);if(url.origin!==location.origin||window.SEO?.needsDocumentNavigation(url.pathname))return;ev.preventDefault();history.pushState(null,'',url.pathname+url.search);App.render();window.scrollTo(0,0);});
+ document.addEventListener('click',async ev=>{if(ev.target.closest('.skip')){ev.preventDefault();document.getElementById('main')?.focus();document.getElementById('main')?.scrollIntoView();return}const el=ev.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=+el.dataset.id;try{
+ if(a==='close')close();
+ if(a==='password-toggle'){const input=document.getElementById(el.dataset.target);if(input){const show=input.type==='password';input.type=show?'text':'password';el.setAttribute('aria-label',show?'Hide password':'Show password');el.innerHTML=UI.icon(show?'eye':'eye-off');}}
+
+ if(a==='menu'){const n=document.getElementById('main-nav');el.setAttribute('aria-expanded',String(n.classList.toggle('open')))}
+ if(a==='faq-slide'){const panel=el.closest('[data-faq-rotator]');const index=Number(el.dataset.index||0);if(panel){panel.querySelectorAll('.faq-slide').forEach((x,i)=>x.classList.toggle('active',i===index));panel.querySelectorAll('.faq-dot').forEach((x,i)=>x.classList.toggle('active',i===index));const c=panel.querySelector('.faq-count');if(c)c.textContent=String(index+1).padStart(2,'0')+' / 04';panel.dataset.current=index}}
+ if(a==='home-quick-next'){App.quickTimer.stop();App.quickAnswer=null;const total=MCQ.topMcqs().length;App.homeQuickIndex=total?(Number(App.homeQuickIndex||0)+1)%total:0;App.refreshQuick()}
+ if(a==='home-quick-jump'){App.quickTimer.stop();App.quickAnswer=null;App.homeQuickIndex=Number(el.dataset.index||0);App.refreshQuick()}
+ if(a==='home-quick-choose'){const q=MCQ.topMcqs()[App.homeQuickIndex];if(!q||q.id!==id||App.quickAnswer?.id===id)return;const choice=q['option'+el.dataset.option];if(!choice)return;App.quickAnswer={id,choice};App.quickTimer.stop();App.refreshQuick();await MCQ.attempt(id,choice)}
+ if(a==='sidebar'){const n=document.getElementById('admin-sidebar');el.setAttribute('aria-expanded',String(n.classList.toggle('open')))}
+ if(a==='learner-sidebar-toggle'){const n=document.getElementById('learner-sidebar');if(n)n.classList.toggle('open')}
+ if(a==='public-sidebar-toggle'){const n=document.getElementById('public-smart-sidebar'),b=document.querySelector('.public-sidebar-backdrop');if(n){const open=n.classList.toggle('open');b?.classList.toggle('open',open);el.setAttribute('aria-expanded',String(open));if(open)n.querySelector('select,input,button,a')?.focus()}}
+ if(a==='public-sidebar-close'){const n=document.getElementById('public-smart-sidebar'),b=document.querySelector('.public-sidebar-backdrop'),t=document.querySelector('[data-action="public-sidebar-toggle"]');n?.classList.remove('open');b?.classList.remove('open');t?.setAttribute('aria-expanded','false');t?.focus()}
+ if(a==='choose'){const q=MCQ.get('mcqs',id);if(!q)return;if(App.activeQuestionId&&App.activeQuestionId!==id)resetActiveQuestion(id);else App.activeQuestionId=id;if(App.answers[id])return;App.choices[id]=q['option'+el.dataset.option];App.answers[id]=true;refreshQuestion(id);await MCQ.attempt(id,App.choices[id])}
+ if(a==='bookmark'){const saved=await MCQ.toggleBookmark(id);refreshQuestion(id);UI.toast(saved?'Question saved to your revision list.':'Bookmark removed.')}
+ if(a==='copy'||a==='share')await copyLink(id,a==='share');
+ if(a==='report')UI.modal('Report a question',`<p class="small">${e(MCQ.get('mcqs',id)?.question)}</p><form data-form="report" data-id="${id}">${UI.textarea('reason','What should we review?','',true)}<div class="actions"><button class="btn primary">Save report</button>${link('contact','Contact support','btn',{subject:'Report Incorrect MCQ',mcq:id,url:UI.href('mcq/'+id)})}</div></form>`);
+	 if(a==='save-paper'){const saved=await MCQ.savePaper(id);App.render();UI.toast(saved?'Paper saved.':'Saved paper removed.')}
+ if(a==='workspace-switch'){App.draftKey=null;App.draft=null;App.importRows=null;App.importSummary=null;App.importedIds=[];App.importPage=null;const r=await Auth.switchRole(el.dataset.role);App.go(r==='user'?'dashboard':r+'/overview');App.render()} if(a==='logout'){App.draftKey=null;App.draft=null;App.importRows=null;App.importSummary=null;App.importedIds=[];App.importPage=null;await Auth.logout()}
+ if(a==='resend')UI.toast('Resend state preview. No email was sent.');
+ if(a==='latest-jobs-select-all')document.querySelectorAll('.latest-job-row-check').forEach(c=>c.checked=el.checked);
+ if(a==='select-all'){document.querySelectorAll('.row-check').forEach(c=>c.checked=el.checked);const allPending=document.querySelector('[data-action="select-all-pending"]');if(allPending&&!el.checked)allPending.checked=false;selectionCount()}
+ if(a==='select-all-pending'){document.querySelectorAll('.row-check').forEach(c=>c.checked=el.checked);const pageSelect=document.querySelector('[data-action="select-all"]');if(pageSelect)pageSelect.checked=el.checked;const box=document.getElementById('selection-count');if(box)box.textContent=el.checked?Number(el.dataset.total||0).toLocaleString('en-GB')+' selected':'0 selected'}
+ if(a==='sort')App.go(App.route.path,{...App.route.params,sort:el.dataset.sort,page:1});
+ if(a==='review')review([id],el.dataset.status);
+ if(a==='bulk-review'){const allPending=document.querySelector('[data-action="select-all-pending"]:checked');if(allPending){MCQ.assert('review');if(el.dataset.status!=='approved')throw Error('Select-all pending is available for approval only.');const total=Number(allPending.dataset.total||0);UI.modal('Approve all pending MCQs',`<div class="notice warning"><strong>${total.toLocaleString('en-GB')} pending MCQ${total===1?'':'s'} will be approved.</strong><p>This includes pending MCQs on every pagination page, not only the 10 currently visible.</p></div><form data-form="review" data-all-pending="true" data-status="approved"><button class="btn primary">Approve all pending</button> ${btn('Cancel','close','')}</form>`)}else review([...document.querySelectorAll('.row-check:checked')].map(x=>+x.value),el.dataset.status)}
+ if(a==='bulk-mcq-delete'){const ids=id?[id]:[...document.querySelectorAll('.row-check:checked')].map(x=>+x.value);if(!ids.length)throw Error('Select at least one MCQ.');if(MCQ.role()!=='super-admin')throw Error('Only the Super Admin can delete MCQs.');UI.modal('Move selected MCQs to Trash?',`<div class="notice warning"><strong>${ids.length} MCQ${ids.length===1?'':'s'} will be removed from the website.</strong><p>They will stay recoverable in Trash & recovery.</p></div>${btn('Move to Trash','bulk-mcq-delete-confirm','danger',`data-ids="${ids.join(',')}"`)} ${btn('Cancel','close','')}`)}
+ if(a==='bulk-mcq-delete-confirm'){const ids=String(el.dataset.ids||'').split(',').map(Number).filter(Boolean);if(!ids.length)throw Error('No MCQs selected.');const result=await Auth.request('/admin/mcqs/delete',{ids});MCQ.remove('mcqs',result.deletedIds||ids);close();App.render();UI.toast((result?.count||ids.length)+' MCQ(s) moved to Trash.')}
+ if(a==='bulk-important'){const on=el.dataset.value==='true',target=el.dataset.target;let qs=[];if(target==='mcqs'){MCQ.assert('edit');const ids=[...document.querySelectorAll('.row-check:checked')].map(x=>+x.value);if(!ids.length)throw Error('Select at least one MCQ.');qs=MCQ.db.mcqs.filter(q=>ids.includes(+q.id));}else if(target==='papers'){MCQ.assert('papers');const ids=[...document.querySelectorAll('.entity-row-check[data-type="papers"]:checked')].map(x=>+x.value);if(!ids.length)throw Error('Select at least one Paper.');qs=MCQ.db.mcqs.filter(q=>MCQ.ids(q.paper_id).some(pid=>ids.includes(pid)));}if(!qs.length)throw Error('No linked MCQs found.');for(const q of qs)q.important=on;MCQ.log(on?'Bulk marked Important':'Bulk removed manual importance',qs.length+' MCQ(s)');MCQ.save();App.render();UI.toast(qs.length+' MCQ(s) updated. Automatic repeated-year importance remains active.');}
+ if(a==='entity-delete'){const type=el.dataset.type;MCQ.assert(type);const impact=MCQ.deleteImpact(type,id);const childCount=Object.values(impact.sets).reduce((n,set)=>n+set.size,0)-1;UI.modal('Delete '+(impact.root?.name||'record')+'?',`<div class="notice warning"><strong>This is a recoverable delete.</strong><p>${impact.mcqs.length} MCQ${impact.mcqs.length===1?'':'s'} and ${childCount} linked child record${childCount===1?'':'s'} will be moved to Trash with this record.</p></div><p>You can restore the complete set later from <strong>Trash & recovery</strong>.</p>${btn('Move to Trash','entity-delete-confirm','danger',`data-type="${type}" data-id="${id}"`)} ${btn('Cancel','close','')}`)}
+ if(a==='entity-delete-confirm'){MCQ.assert(el.dataset.type);const item=MCQ.softDeleteEntity(el.dataset.type,id);close();App.render();UI.toast(item.name+' moved to Trash with '+item.mcqs.length+' MCQ(s).')}
+ if(a==='select-all-trash'){document.querySelectorAll('.trash-row-check').forEach(c=>c.checked=el.checked);const box=document.getElementById('trash-selection-count');if(box)box.textContent=document.querySelectorAll('.trash-row-check:checked').length+' selected'}
+ if(a==='trash-restore'){MCQ.assert('restore');const result=await Auth.request('/admin/trash/restore',{ids:[id]});MCQ.remove('trash',result.ids||[id]);App.render();UI.toast('Deleted record recovered from Trash.')}
+ if(a==='trash-bulk-restore'){const ids=[...document.querySelectorAll('.trash-row-check:checked')].map(x=>+x.value);if(!ids.length)throw Error('Select at least one Trash record.');const result=await Auth.request('/admin/trash/restore',{ids});MCQ.remove('trash',result.ids||ids);App.render();UI.toast((result?.restored||ids.length)+' Trash record(s) recovered.')}
+ if(a==='trash-permanent-delete'||a==='trash-bulk-delete'){const ids=a==='trash-permanent-delete'?[id]:[...document.querySelectorAll('.trash-row-check:checked')].map(x=>+x.value);if(!ids.length)throw Error('Select at least one Trash record.');UI.modal('Permanently delete from Trash?',`<div class="notice warning"><strong>This cannot be recovered.</strong><p>${ids.length} Trash record${ids.length===1?'':'s'} will be permanently removed.</p></div>${btn('Delete permanently','trash-permanent-delete-confirm','danger',`data-ids="${ids.join(',')}"`)} ${btn('Cancel','close','')}`)}
+ if(a==='trash-permanent-delete-confirm'){const ids=String(el.dataset.ids||'').split(',').map(Number).filter(Boolean);const result=await Auth.request('/admin/trash/delete',{ids});MCQ.remove('trash',result.deleted?.ids||ids);close();App.render();UI.toast((result?.count||ids.length)+' Trash record(s) permanently deleted.')}
+
+ if(a==='view-mcq'){const q=MCQ.managedMcq(id),pu=q.pending_update,show=pu?.proposed||q;const names=(type,v)=>MCQ.ids(v).map(x=>MCQ.get(type,x)?.name).filter(Boolean).join(', ')||'—';const details=[['Question',show.question],['Option 1',show.option1],['Option 2',show.option2],['Option 3',show.option3],['Option 4',show.option4],['Correct Answer',show.correct_answer],['Description',show.description||'—'],['Category',MCQ.get('categories',show.category_id)?.name||'—'],['Organization / Board',names('papers',show.paper_id)],['Past Paper',names('years',show.job_years_ids)],['Importance',MCQ.isImportant(show)?(show.important?'Manual / automatic':'Automatic: repeated in 2+ Past Papers'):'Normal'],['Created by',q.created_by||'—'],['Created date',UI.date(q.created_at)],['Updated date',UI.date(q.updated_at)],['Updated by',pu?.submitted_by||q.updated_by||'—'],['Submission Type',pu?'UPDATE':(q.submission_type||'NEW').toUpperCase()],['Submitted By',pu?.submitted_by||q.submitted_by||q.created_by||'—'],['Submission Date/Time',UI.date(pu?.submitted_at||q.submitted_at||q.updated_at)]];const label={question:'Question',option1:'Option 1',option2:'Option 2',option3:'Option 3',option4:'Option 4',correct_answer:'Correct Answer',description:'Description',category_id:'Category',paper_id:'Organization / Board',job_ids:'Legacy Job IDs',job_years_ids:'Past Paper',important:'Manual Important'};const format=(k,v)=>{if(k==='category_id')return MCQ.get('categories',v)?.name||'—';if(k==='paper_id')return names('papers',v);if(k==='job_ids')return names('jobs',v);if(k==='job_years_ids')return names('years',v);return Array.isArray(v)?v.join(', '):String(v??'—')};const changed=pu?.changes?.length?`<section class="change-panel"><h3>Changes · Before → After</h3>${pu.changes.map(c=>`<div class="change-row"><strong>${e(label[c.field]||c.field)}</strong><div class="change-before"><span>Before</span>${e(format(c.field,c.before))}</div><div class="change-after"><span>After</span>${e(format(c.field,c.after))}</div></div>`).join('')}</section>`:'';UI.modal('Review MCQ #'+id,`${changed}<div class="review-record">${details.map(([k,v])=>`<div><span>${e(k)}</span><strong>${e(v)}</strong></div>`).join('')}</div>${q.rejection_reason?`<div class="notice warning">${e(q.rejection_reason)}</div>`:''}<div class="actions review-actions">${link(Admin.url('edit/'+id),'Edit question','btn')}${MCQ.allowed('approve')?btn('Approve','review','primary',`data-id="${id}" data-status="approved"`):''}${MCQ.role()==='super-admin'?btn('Delete','bulk-mcq-delete','danger',`data-id="${id}"`):''}</div>`)}
+ if(a==='pick'||a==='remove-chip')Admin.pick(el.dataset.field,id,a==='remove-chip');
+ if(a==='clear-draft'){UI.modal('Clear this form?',`<p>Unsaved changes in this form will be removed.</p>${btn('Clear form','clear-draft-confirm','danger')} ${btn('Keep editing','close','')}`)}
+ if(a==='clear-draft-confirm'){App.draftKey=null;close();App.render()}
+ if(a==='preview-draft'){Admin.syncDraft();const q=App.draft;UI.modal('Question preview',`<h3>${e(q.question||'Untitled question')}</h3><ol type="A">${[1,2,3,4].map(i=>`<li>${e(q['option'+i])}</li>`).join('')}</ol><p><strong>Correct answer:</strong> ${e(q.correct_answer||'Not selected')}</p><p>${e(q.description)}</p>`)}
+ if(a==='entity-new'||a==='entity-edit')Admin.entityModal(el.dataset.type,id||undefined,el.dataset.parent?+el.dataset.parent:undefined);
+ if(a==='entity-pin'){const type=el.dataset.type,mode=el.dataset.mode||'pin';if(MCQ.role()!=='super-admin')throw Error('Only the Super Admin can manage pins.');const result=await Auth.command('action:entity-pin',{type,id,mode});if(result?.pinnedEntities)MCQ.db.pinnedEntities=result.pinnedEntities;App.render();UI.toast(mode==='unpin'?'Unpinned.':'Pin order updated.')}
+ if(a==='bulk-hierarchy')Admin.bulkHierarchyModal();
+ if(a==='bulk-categories')Admin.bulkCategoriesModal();
+ if(a==='use-entity'){close();App.go(Admin.url(el.dataset.type),{q:MCQ.get(el.dataset.type,id).name});UI.toast('Using existing record. No duplicate created.')}
+ if(a==='user-new'||a==='user-edit')Admin.userModal(id||undefined);
+ 
+ if(a==='post-new'||a==='post-edit')Admin.postModal(id||undefined);
+ if(a==='ad-toggle'){MCQ.assert('ads');const ad=(MCQ.db.ads||[]).find(x=>+x.id===id);if(ad){ad.enabled=ad.enabled===false;MCQ.save();App.render()}}
+	 if(a==='ad-delete'){MCQ.assert('ads');MCQ.db.ads=(MCQ.db.ads||[]).filter(x=>+x.id!==id);MCQ.save();App.render();UI.toast('Advertisement removed.')}
+	 if(a==='report-resolve'){MCQ.assert('reports');const r=MCQ.get('reports',id);r.status='resolved';MCQ.log('Resolved report',String(id));MCQ.save();App.render();UI.toast('Report resolved.')}
+ if(a==='import-template')template(el.dataset.ext);
+ if(a==='import-page')await Admin.loadImportPage(Number(el.dataset.page||1));
+ if(a==='import-report')UI.download('mcq-validation-report.json',JSON.stringify(App.importRows,null,2));
+ if(['backup-export','mcqs-export','taxonomy-export'].includes(a)){MCQ.assert('backup');let d=a==='backup-export'?MCQ.exportData():a==='mcqs-export'?MCQ.db.mcqs:{categories:MCQ.db.categories};if(a==='backup-export')d.session=null;UI.download('mcq-campus-'+a.replace('-export','')+'.json',JSON.stringify(d,null,2))}
+ }catch(err){error(err.message)}});
+ function selectionCount(){const count=document.querySelectorAll('.row-check:checked').length;const box=document.getElementById('selection-count');if(box)box.textContent=count+' selected'}
+ document.addEventListener('change',ev=>{
+  const control=ev.target.closest('[data-auto-filter]');
+  const form=control?.closest('form[data-form="filter"]');
+  if(!form)return;
+  const values=Object.fromEntries(new FormData(form)),p={};
+  for(const [k,v] of Object.entries(values))if(v)p[k]=v;
+  p.page='1';
+  App.go(App.route.path,p);
+ });
+ document.addEventListener('submit',async ev=>{const f=ev.target.closest('form[data-form]');if(!f)return;ev.preventDefault();const type=f.dataset.form,values=Object.fromEntries(new FormData(f));try{
+ if(type==='search')App.go('search',{q:values.q||''});
+ if(type==='filter'){const p={};for(const[k,v]of Object.entries(values))if(v)p[k]=v;App.go(App.route.path,p)}
+ if(type==='paper-job-select'){const ids=new FormData(f).getAll('job_id').map(Number).filter(Boolean);if(!ids.length)throw Error('Select at least one job/post.');App.go(Admin.url('paper-mcqs/'+f.dataset.paper),{jobs:ids.join(',')})}
+ if(type==='test-submit'){const testRows=MCQ.publicMcqs().filter(q=>f.querySelector(`[name="test_q_${q.id}"]`));const answers={};let correct=0,wrong=0,unanswered=0;for(const q of testRows){const chosen=values['test_q_'+q.id]||'';answers[q.id]=chosen;if(!chosen)unanswered++;else if(chosen===q.correct_answer)correct++;else wrong++;}const started=Number(f.dataset.startedAt||Date.now()),timeTaken=Math.max(0,Math.round((Date.now()-started)/1000));App.testResult={key:f.dataset.testKey,total:testRows.length,correct,wrong,unanswered,answers,timeTaken,completedAt:new Date().toISOString()};if(MCQ.db.session){await MCQ.saveProfile({testsTaken:Number(MCQ.db.session.testsTaken||0)+1,lastTestSummary:{total:testRows.length,correct,wrong,unanswered,timeTaken,completedAt:App.testResult.completedAt}});}App.render();window.scrollTo(0,0)}
+ if(type==='profile'){const data=new FormData(f);await MCQ.saveProfile({name:values.name.trim(),email:values.email.trim(),country:values.country,exam_goal:values.exam_goal||'PPSC',interests:data.getAll('interests'),daily_goal:Number(values.daily_goal||25)});UI.toast('Profile saved.');App.render()} if(type==='password-change'){if(values.new_password!==values.confirm_password)throw Error('New passwords do not match.');if(String(values.new_password||'').length<8)throw Error('New password must be at least 8 characters.');await MCQ.changePassword({current_password:values.current_password,new_password:values.new_password,confirm_password:values.confirm_password});f.reset();UI.toast('Password changed.')}
+ if(type==='contact'){MCQ.db.contacts.unshift({...values,mcq_id:values.mcq_id?Number(values.mcq_id):null,page_url:String(values.page_url||''),id:Date.now(),at:new Date().toISOString(),by_id:MCQ.db.session?.id||null,by:MCQ.db.session?.name||values.name});MCQ.save();f.reset();UI.toast('Message sent.')}
+ if(type==='report'){await MCQ.report(f.dataset.id,values.reason);close();UI.toast('Report submitted.')}
+ if(type==='review'){await Auth.command('form:review',{values,fields:[...new FormData(f)],context:{ids:f.dataset.ids,status:f.dataset.status}});close();App.render();UI.toast('Review status updated.')}
+ if(type==='mcq'){Admin.syncDraft();const paper=MCQ.ids(App.draft.paper_id).map(id=>MCQ.get('papers',id)).find(Boolean);if(paper?.country)App.draft.country=paper.country;else App.draft.country=App.draft.country||MCQ.db.settings.mcqEntryCountry||'Pakistan';const q=MCQ.saveMcq(App.draft);App.draftKey=null;App.go(Admin.url('mcqs'),{q:q.question});UI.toast('Question saved. Status: '+q.status)}
+ if(type==='bulk-hierarchy'){MCQ.assert('papers');MCQ.assert('years');const lines=String(values.hierarchy||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(!lines.length)throw Error('Add at least one Organization / Board | Past Paper line.');let created=0,reused=0;const country=MCQ.db.settings.mcqEntryCountry||MCQ.db.settings.country||'Pakistan';const exact=(type,name,parentKey,parentId)=>MCQ.db[type].find(x=>MCQ.norm(x.name)===MCQ.norm(name)&&(!parentKey||Number(x[parentKey])===Number(parentId)));for(const [index,line] of lines.entries()){const parts=line.split(/\s*(?:\||>)\s*/).map(x=>x.trim()).filter(Boolean);if(parts.length!==2&&parts.length!==3)throw Error('Line '+(index+1)+' must contain: Organization / Board | Past Paper.');const [paperName,yearName]=parts.length===2?parts:[parts[0],parts[2]];let paper=exact('papers',paperName);if(!paper){const r=MCQ.saveEntity('papers',{name:paperName,country,icon:'paper',active:true});paper=r.record||r.existing;created++}else reused++;let year=exact('years',yearName,'paper_id',paper.id)||MCQ.db.years.find(x=>MCQ.norm(x.name)===MCQ.norm(yearName)&&Number(MCQ.get('jobs',x.job_id)?.paper_id)===Number(paper.id));if(!year){const r=MCQ.saveEntity('years',{name:yearName,paper_id:paper.id,icon:'paper',active:true});year=r.record||r.existing;created++}else reused++;}close();App.render();UI.toast(lines.length+' hierarchy line(s) processed · '+created+' records added · '+reused+' existing records reused.')}
+ if(type==='entity'){const type=f.dataset.type,rel=MCQ.parents[type];const iconUrl=(values['entity-icon-url']||'').trim();if(iconUrl&&!/^https?:\/\//i.test(iconUrl))throw Error('Icon URL must start with http:// or https://.');const record={id:f.dataset.id?+f.dataset.id:undefined,name:values['entity-name'].trim(),...((type==='categories'||type==='papers')?{country:values['entity-country']||'Pakistan'}:{}),icon:(iconUrl||(values['entity-icon']||'').trim()||(values['entity-icon-data']||'').trim()),active:values['entity-active']==='on'};if(rel)record[rel[1]]=+values['entity-parent'];const result=MCQ.saveEntity(type,record);if(result.existing){Admin.entityState();return}close();App.render();UI.toast('Record saved.')}
+ if(type==='user'){const data=new FormData(f),id=+f.dataset.id,old=MCQ.get('users',id),isOwner=MCQ.role()==='super-admin',targetRole=old?.role||values.role;MCQ.assert(targetRole==='user'&&values.role==='user'?'users':'admins');if(MCQ.db.users.some(x=>x.id!==id&&MCQ.norm(x.email)===MCQ.norm(values.email)))throw Error('An account with this email already exists.');if(old?.id===MCQ.db.session.id&&(values.role!=='super-admin'||values.status!=='active'))throw Error('Keep the active owner account enabled with Super admin access.');if(!['user','admin','super-admin'].includes(values.role))throw Error('Invalid role.');if(!isOwner&&old&&values.role!==old.role)throw Error('Only the Super Admin can change administrator roles.');if(!isOwner&&!old&&values.role!=='user')throw Error('Only the Super Admin can create administrator accounts.');if(!isOwner&&values.role==='super-admin')throw Error('Only the Super Admin can create or assign Super Admin access.');const roles=values.role==='user'?['user']:['user',values.role],selectedPermissions=isOwner?MCQ.permissionCatalog.filter(key=>data.has('perm_'+key)):(old?.permissions||[]),defaultPermissions=Object.entries(MCQ.db.rolePermissions?.admin?.permissions||{}).filter(([,enabled])=>enabled).map(([key])=>key),isDefaultPermissionSet=selectedPermissions.length===defaultPermissions.length&&selectedPermissions.every(key=>defaultPermissions.includes(key));const now=new Date().toISOString(),actor=MCQ.db.session;const row={...old,...values,created_at:old?old.created_at:now,created_by:old?old.created_by:actor.name,created_by_id:old?old.created_by_id:actor.id,updated_at:now,updated_by:actor.name,updated_by_id:actor.id,roles,activeRole:(old?.activeRole&&roles.includes(old.activeRole))?old.activeRole:values.role,permissions:values.role==='super-admin'?[...MCQ.permissionCatalog]:values.role==='admin'?selectedPermissions:[],permissionsCustomized:values.role==='admin'&&!isDefaultPermissionSet,avatar:old?.avatar||'',id:old?.id||Math.max(0,...MCQ.db.users.map(x=>x.id))+1};if(old)MCQ.db.users.splice(MCQ.db.users.indexOf(old),1,row);else MCQ.db.users.push(row);if(row.id===MCQ.db.session.id)MCQ.db.session=MCQ.clone(row);MCQ.log('Saved account',row.name);MCQ.save();close();App.render();UI.toast('Account saved. Use password reset to set or change credentials.')}
+ if(type==='post'){MCQ.assert('posts');const old=MCQ.get('posts',f.dataset.id),now=new Date().toISOString(),actor=MCQ.db.session,title=String(values.title||'').trim(),body=String(values.body||'').trim(),excerpt=String(values.excerpt||'').trim();if(!title||!body)throw Error('Blog title and content are required.');const status=['draft','published'].includes(values.status)?values.status:'draft',autoDescription=(excerpt||body.replace(/\s+/g,' ').trim()).slice(0,155);const row={...old,title,slug:MCQ.slug(title),excerpt,body,featured_image:String(values.featured_image_data||values.featured_image||old?.featured_image||'').trim(),category:old?.category||'Exam preparation',seo_title:title,seo_description:autoDescription,status,links:old?.links||[],published:status==='published',created_at:old?old.created_at:now,created_by:old?old.created_by:actor.name,created_by_id:old?old.created_by_id:actor.id,updated_at:now,updated_by:actor.name,updated_by_id:actor.id,id:old?.id||Math.max(0,...MCQ.db.posts.map(x=>x.id))+1};if(old)MCQ.db.posts.splice(MCQ.db.posts.indexOf(old),1,row);else MCQ.db.posts.unshift(row);MCQ.log('Saved post',row.title);MCQ.save();close();App.render();UI.toast('Blog saved with automatic SEO URL and metadata.')}
+ if(type==='ad-config'){MCQ.assert('ads');const slots={};for(const [k,v] of Object.entries(values))if(k.startsWith('slot_')&&String(v).trim())slots[k.slice(5)]=String(v).trim();MCQ.db.adSettings={...(MCQ.db.adSettings||{}),enabled:values.enabled==='on',adsenseClient:String(values.adsenseClient||'').trim(),analyticsId:String(values.analyticsId||'').trim(),slots};MCQ.save();App.render();UI.toast('Ad and analytics configuration saved.')}
+ if(type==='custom-ad'){MCQ.assert('ads');await Auth.command('form:ad',{values,fields:[...new FormData(f)]});f.reset();App.render();UI.toast('Custom ad code saved.')}  if(type==='direct-ad'){MCQ.assert('ads');const safeUrl=v=>!v||/^https?:\/\//i.test(v);if(!safeUrl(values.image_url)||!safeUrl(values.destination_url))throw Error('Banner and destination URLs must use http:// or https://.');MCQ.db.ads=MCQ.db.ads||[];MCQ.db.ads.unshift({id:Date.now(),provider:'direct',brand:String(values.brand||'').trim(),image_url:String(values.image_url||'').trim(),destination_url:String(values.destination_url||'').trim(),text:String(values.text||'').trim(),placement:values.placement,start_date:values.start_date||'',end_date:values.end_date||'',enabled:true});MCQ.save();f.reset();App.render();UI.toast('Direct advertisement added.')}
+ if(type==='footer-settings'){MCQ.assert('footer');const safeUrl=v=>!v||/^https?:\/\//i.test(v)||/^assets\//i.test(v),email=String(values.supportEmail||'').trim();if(!safeUrl(values.footerLogoUrl))throw Error('Footer logo URL must use http://, https://, or an assets/ path.');if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter a valid support email address.');MCQ.db.settings.footer={...(MCQ.db.settings.footer||{}),description:String(values.description||'').trim(),copyrightText:String(values.copyrightText||'').trim(),footerLogoUrl:String(values.footerLogoUrl||'').trim(),showCountryText:values.showCountryText==='on',countryText:String(values.countryText||'').trim(),showAbout:values.showAbout==='on',showContact:values.showContact==='on',showPrivacy:values.showPrivacy==='on',showTerms:values.showTerms==='on',showDisclaimer:values.showDisclaimer==='on',showCookiePolicy:values.showCookiePolicy==='on',showAdvertisingPolicy:values.showAdvertisingPolicy==='on',showFaq:values.showFaq==='on',showSitemap:values.showSitemap==='on'};MCQ.db.settings.contact={...(MCQ.db.settings.contact||{}),supportEmail:email,advertisingContact:String(values.advertisingContact||'').trim()};MCQ.log('Updated footer settings','Footer visibility and contact details');MCQ.save();App.render();UI.toast('Footer settings saved.')}
+ if(type==='social-links'){MCQ.assert('social');const next={},allowedIcons=['facebook','youtube','instagram','linkedin','share','globe'];for(const key of ['facebook','youtube','instagram','linkedin']){const url=String(values[key+'_url']||'').trim(),chosen=String(values[key+'_icon']||key),iconData=String(values[key+'_icon_data']||'').trim();if(url&&!/^https?:\/\//i.test(url))throw Error(key[0].toUpperCase()+key.slice(1)+' URL must start with http:// or https://.');if(iconData&&!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(iconData))throw Error('Custom social icon must be a PNG, JPG or WebP image.');next[key]={url,enabled:values[key+'_enabled']==='on',icon:allowedIcons.includes(chosen)?chosen:key,iconData}}MCQ.db.settings.socialLinks=next;MCQ.log('Updated social links','Footer social links and icons');MCQ.save();App.render();UI.toast('Social links saved.')}
+ if(type==='legal-page'){MCQ.assert('legal');const key=f.dataset.page,page=MCQ.db.content?.legalPages?.[key];if(!page)throw Error('Legal page not found.');const title=String(values.title||'').trim(),content=String(values.content||'').trim();if(!title||!content)throw Error('Page title and content are required.');Object.assign(page,{title,content,lastUpdated:values.lastUpdated||new Date().toISOString().slice(0,10),published:values.published==='on',slug:MCQ.slug(title),seoTitle:title,metaDescription:content.replace(/\s+/g,' ').trim().slice(0,155)});MCQ.log('Updated legal page',title);MCQ.save();App.render();UI.toast('Page settings saved.')}
+ if(type==='config'){const view=f.dataset.view;if(view==='roles'){if(MCQ.role()!=='super-admin')throw Error('Only the Super Admin can change role defaults.');const permissions=Object.fromEntries(MCQ.permissionCatalog.map(k=>[k,values['perm_'+k]==='on']));MCQ.db.rolePermissions.admin={review:values.review==='on',import:values.import==='on',defaultsVersion:3,permissions}}else{MCQ.assert('settings');Object.assign(MCQ.db[view==='content'?'content':view==='seo'?'seo':'settings'],values);}MCQ.log('Updated '+view,'Site configuration');MCQ.save();App.render();UI.toast('Changes saved.')}
+ }catch(err){if(type==='mcq'&&err.existing&&!err.existing.restricted){document.getElementById('mcq-errors').innerHTML=`<div class="notice warning">Already exists: ${e(err.existing.question)}<p>${link(Admin.url('edit/'+err.existing.id),'Open existing question','btn sm')}</p></div>`}else error(err.message,type==='mcq'?document.getElementById('mcq-errors'):type==='entity'?document.getElementById('entity-state'):null)}});
+ let questionMatchTimer=0,questionMatchSeq=0;
+ function checkQuestionDuplicate(input){
+  const box=document.getElementById('question-duplicate');if(!box)return;
+  clearTimeout(questionMatchTimer);
+  const question=String(input.value||'').trim();
+  if(!question||App.draft?.id){box.innerHTML='';return}
+  const local=MCQ.managedRows('mcqs').find(x=>x.id!==App.draft.id&&MCQ.norm(x.question)===MCQ.norm(question));
+  if(local){
+   const canEdit=MCQ.canEditMcq(local);
+   box.innerHTML=`<div class="notice warning"><strong>This MCQ already exists.</strong><div class="small muted">${e(local.question)}</div>${canEdit?`<div class="actions" style="margin-top:8px">${link(Admin.url('edit/'+local.id),'Update existing MCQ','btn sm primary')}</div>`:'<div class="small muted">Use the existing MCQ instead of creating a duplicate.</div>'}</div>`;
+  }else box.innerHTML='';
+  const seq=++questionMatchSeq;
+  questionMatchTimer=setTimeout(async()=>{
+   try{
+    const data=await Auth.request('/mcqs/match?question='+encodeURIComponent(question));
+    if(seq!==questionMatchSeq||String(input.value||'').trim()!==question)return;
+    const dup=data?.match;
+    if(!dup){box.innerHTML='';return}
+    MCQ.upsert('mcqs',dup);
+    const canEdit=MCQ.canEditMcq(dup);
+    box.innerHTML=`<div class="notice warning"><strong>This MCQ already exists in the database.</strong><div class="small muted">${e(dup.question)}</div><div class="small muted">Do not create another copy. Open the existing MCQ and add any new Organization / Board or Past Paper links.</div>${canEdit?`<div class="actions" style="margin-top:8px">${link(Admin.url('edit/'+dup.id),'Update existing MCQ','btn sm primary')}</div>`:''}</div>`;
+   }catch{}
+  },350);
+ }
+ document.addEventListener('input',ev=>{const el=ev.target;if(el.dataset.pickerInput)Admin.showPicker(el);if(el.closest('#mcq-form')){Admin.syncDraft();if(/^option[1-4]$/.test(el.name)){const sel=document.getElementById('answer-select');const current=App.draft.correct_answer;sel.innerHTML='<option value="">Choose the correct option</option>'+[1,2,3,4].filter(i=>App.draft['option'+i]).map(i=>`<option value="${e(App.draft['option'+i])}" ${current===App.draft['option'+i]?'selected':''}>${'ABCD'[i-1]} · ${e(App.draft['option'+i])}</option>`).join('')}if(el.name==='question')checkQuestionDuplicate(el)}if(el.closest('form[data-form="entity"]')){if(el.dataset.parentSearch){const rel=MCQ.parents[el.dataset.parentSearch];const s=document.getElementById('entity-parent');const val=s.value;s.innerHTML='<option value="">Choose parent</option>'+MCQ.list(rel[0],el.value).map(x=>`<option value="${x.id}" ${+val===x.id?'selected':''}>${e(x.name)}</option>`).join('')}if(el.name==='entity-icon'){const f=el.closest('form');f.querySelector('[name="entity-icon-data"]').value='';const url=f.querySelector('[name="entity-icon-url"]');if(url)url.value='';const v=el.value.trim().slice(0,4);el.value=v;document.getElementById('entity-icon-preview').innerHTML=v?`<span class="entity-emoji">${e(v)}</span>`:icon('grid')}if(el.name==='entity-icon-url'){const f=el.closest('form'),v=el.value.trim();f.querySelector('[name="entity-icon-data"]').value='';const chars=f.querySelector('[name="entity-icon"]');if(chars)chars.value='';document.getElementById('entity-icon-preview').innerHTML=/^https?:\/\//i.test(v)?`<img class="entity-icon-img" src="${e(v)}" alt="">`:icon('grid')}Admin.entityState()}});
+ document.addEventListener('focusin',ev=>{if(ev.target.dataset.pickerInput)Admin.showPicker(ev.target)});
+ document.addEventListener('change',ev=>{if(ev.target.id==='import-file')Admin.loadFile(ev.target.files[0]);if(ev.target.classList.contains('row-check'))selectionCount();if(ev.target.classList.contains('trash-row-check')){const box=document.getElementById('trash-selection-count');if(box)box.textContent=document.querySelectorAll('.trash-row-check:checked').length+' selected'}if(ev.target.name==='entity-parent')Admin.entityState();if(ev.target.id==='entity-icon-file'&&ev.target.files[0]){const file=ev.target.files[0];if(!/^image\/(png|jpeg|webp)$/i.test(file.type))return error('Image must be PNG, JPG or WebP.',document.getElementById('entity-state'));if(file.size>600*1024)return error('Image must be 600 KB or smaller.',document.getElementById('entity-state'));const r=new FileReader();r.onload=()=>{const f=ev.target.closest('form');f.querySelector('[name="entity-icon-data"]').value=r.result;f.querySelector('[name="entity-icon"]').value='';const url=f.querySelector('[name="entity-icon-url"]');if(url)url.value='';document.getElementById('entity-icon-preview').innerHTML=`<img class="entity-icon-img" src="${e(r.result)}" alt="">`;};r.readAsDataURL(file)}if(ev.target.id==='post-image-file'&&ev.target.files[0]){const file=ev.target.files[0],preview=document.getElementById('post-image-preview');if(!/^image\/(png|jpeg|webp)$/i.test(file.type))return error('Image must be PNG, JPG or WebP.');if(file.size>900*1024)return error('Image must be 900 KB or smaller.');const r=new FileReader();r.onload=()=>{const f=ev.target.closest('form');f.querySelector('[name="featured_image_data"]').value=r.result;f.querySelector('[name="featured_image"]').value='';if(preview)preview.innerHTML=`<img src="${e(r.result)}" alt="">`;};r.readAsDataURL(file)}if(ev.target.dataset.socialIconFile&&ev.target.files[0]){const file=ev.target.files[0],key=ev.target.dataset.socialIconFile,row=ev.target.closest('[data-social-row]'),hidden=row?.querySelector(`[name="${key}_icon_data"]`),preview=document.getElementById('social-preview-'+key);if(!/^image\/(png|jpeg|webp)$/i.test(file.type))return error('Social icon must be PNG, JPG or WebP.');if(file.size>300*1024)return error('Social icon must be 300 KB or smaller.');const r=new FileReader();r.onload=()=>{if(hidden)hidden.value=r.result;if(preview)preview.innerHTML=`<img class="social-custom-preview" src="${e(r.result)}" alt="">`;};r.readAsDataURL(file)}if(ev.target.dataset.socialIconSelect){const key=ev.target.dataset.socialIconSelect,row=ev.target.closest('[data-social-row]'),hidden=row?.querySelector(`[name="${key}_icon_data"]`),preview=document.getElementById('social-preview-'+key);if(hidden)hidden.value='';if(preview)preview.innerHTML=UI.icon(ev.target.value||key)}if(ev.target.id==='profile-image'&&ev.target.files[0]){const file=ev.target.files[0];if(!/^image\/(png|jpeg|webp)$/i.test(file.type))return error('Profile image must be PNG, JPG or WebP.');if(file.size>600*1024)return error('Profile image must be 600 KB or smaller.');const r=new FileReader();r.onload=async()=>{await MCQ.saveProfile({avatar:r.result});App.render();UI.toast('Profile image updated.');};r.readAsDataURL(file)}});
+ document.addEventListener('click',ev=>{if(!ev.target.closest('.picker'))document.querySelectorAll('.picker-results').forEach(x=>{x.classList.add('hidden');x.previousElementSibling?.setAttribute('aria-expanded','false')})});
+ document.addEventListener('keydown',ev=>{const input=ev.target.closest('[data-picker-input]');if(input&&ev.key==='Enter'){ev.preventDefault();const query=input.value.trim();if(!query)return;Admin.showPicker(input);const buttons=[...document.querySelectorAll('#results-'+input.dataset.pickerInput+' button[data-action="pick"]')],choice=buttons.find(b=>MCQ.norm(b.textContent)===MCQ.norm(query))||buttons[0];if(choice){Admin.pick(choice.dataset.field,+choice.dataset.id);UI.toast(choice.textContent.trim()+' selected.')}else UI.toast('No matching record found.');return}if(input&&ev.key==='ArrowDown'){ev.preventDefault();Admin.showPicker(input);document.querySelector('#results-'+input.dataset.pickerInput+' button')?.focus()}if(ev.target.closest('.picker-results')){const buttons=[...ev.target.parentElement.querySelectorAll('button')],i=buttons.indexOf(ev.target);if(['ArrowDown','ArrowUp'].includes(ev.key)){ev.preventDefault();buttons[(i+(ev.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus()}}if(ev.key==='Escape'){document.querySelectorAll('.picker-results').forEach(x=>x.classList.add('hidden'));document.querySelectorAll('.picker input').forEach(x=>x.setAttribute('aria-expanded','false'));document.getElementById('admin-sidebar')?.classList.remove('open');document.getElementById('main-nav')?.classList.remove('open');document.getElementById('public-smart-sidebar')?.classList.remove('open');document.querySelector('.public-sidebar-backdrop')?.classList.remove('open')}});
+ document.addEventListener('dragover',ev=>{const zone=ev.target.closest('#dropzone');if(zone){ev.preventDefault();zone.classList.add('dragover')}});
+ document.addEventListener('dragleave',ev=>ev.target.closest('#dropzone')?.classList.remove('dragover'));
+ document.addEventListener('drop',ev=>{const zone=ev.target.closest('#dropzone');if(zone){ev.preventDefault();zone.classList.remove('dragover');Admin.loadFile(ev.dataTransfer.files[0]);}});
+ window.addEventListener('pagehide',()=>{App.quickTimer.stop();App.quickAnswer=null;});
+ window.addEventListener('pageshow',event=>{if(event.persisted)App.render()});
+ window.addEventListener('popstate',()=>{document.getElementById('modal')?.open&&close();App.render();window.scrollTo(0,0)});
+ document.documentElement.dataset.theme='light';try{localStorage.removeItem('mcq-campus-theme')}catch{}const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content='#f6f8f7';
+ Auth.start();
+ // Optional agent navigation mirrors the visible search form; unsupported browsers skip it.
+ if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'search_mcq_campus',title:'Search MCQ Campus',description:'Navigate to MCQ search results for a query. Does not answer questions or change records.',inputSchema:{type:'object',properties:{query:{type:'string'}},required:['query'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute(input){if(!input||typeof input.query!=='string'||!input.query.trim())throw Error('A non-empty query is required.');App.go('search',{q:input.query});App.render();return {query:input.query,matches:MCQ.publicMcqs().filter(q=>MCQ.norm(q.question).includes(MCQ.norm(input.query))).length}}})).catch(()=>{})}catch{}}
+})();
+
+
+
+let mcqBracketResizeTimer;window.addEventListener('resize',()=>{clearTimeout(mcqBracketResizeTimer);mcqBracketResizeTimer=setTimeout(()=>App.fitBracketBreaks?.(),120)},{passive:true});
+
+
+/* ===== END MODULE: app.js ===== */
+
