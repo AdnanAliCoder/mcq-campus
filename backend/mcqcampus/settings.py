@@ -9,11 +9,7 @@ def _static_asset_version():
     """Fingerprint served entry assets without walking the full static directory on cold start."""
     digest = hashlib.sha256()
     relative_paths = (
-        'frontend/css/common.css', 'frontend/css/home.css', 'frontend/css/mcqs.css',
-        'frontend/css/categories.css', 'frontend/css/past-papers.css', 'frontend/css/tests.css',
-        'frontend/css/auth.css', 'frontend/css/pdfs.css', 'frontend/css/blog.css',
-        'frontend/css/about.css', 'frontend/css/contact.css', 'frontend/css/dashboard.css',
-        'frontend/css/admin.css', 'frontend/css/super-admin.css', 'frontend/css/latest-jobs.css',
+        'frontend/style.css',
         'frontend/js/bootstrap.js', 'frontend/js/admin-loader.js', 'frontend/js/integrations.js',
         'frontend/js/modules/service.js', 'frontend/js/modules/ui.js', 'frontend/js/modules/public-layout.js',
         'frontend/js/modules/public.js', 'frontend/js/modules/carousel.js', 'frontend/js/modules/seo.js',
