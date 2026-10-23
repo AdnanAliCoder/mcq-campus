@@ -10,14 +10,16 @@ def _profile_extra(p):
         except Exception: extra={'avatar':''}
     return extra
 
-def user_identity_dict(u,session=None):
+def user_identity_dict(u,session=None,include_avatar=False):
     p=profile_for(u); role=user_role(u); permissions=p.permissions or []; elevated=role=='super-admin'
     roles=['user']
     if role in {'admin','super-admin'}: roles.append('admin')
     if elevated: roles.append('super-admin')
     active=(session or {}).get('active_role') or ('super-admin' if elevated else 'admin' if role=='admin' else 'user')
     if active not in roles: active='super-admin' if elevated else roles[-1]
-    return {'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':permissions,'country':p.country,'status':'active' if u.is_active else 'disabled'}
+    data={'id':u.id,'name':user_name(u),'email':u.email,'role':role,'roles':roles,'activeRole':active,'permissions':permissions,'country':p.country,'status':'active' if u.is_active else 'disabled'}
+    if include_avatar: data['avatar']=_profile_extra(p).get('avatar','')
+    return data
 
 def user_admin_dict(u,session=None):
     return {**user_identity_dict(u,session),'created_at':iso(u.date_joined),'updated_at':iso(u.last_login or u.date_joined)}

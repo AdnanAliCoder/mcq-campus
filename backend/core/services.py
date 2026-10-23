@@ -657,7 +657,7 @@ def startup_payload(user,session,country=None):
     return {'snapshot':{'schemaVersion':14,**_startup_site_state(settings,selected or None),
                         'totalApprovedMcqs':cached_value('public-counts',{'metric':'approved-total','country':selected.casefold()},lambda:count_qs.count(),timeout=30),
                         'countries':country_catalog(user,include_counts=True,include_inactive=is_super(user))},
-            'user':user_identity_dict(user,session) if authenticated else None}
+            'user':user_identity_dict(user,session,include_avatar=True) if authenticated else None}
 
 def _public_content_data_uncached(country=None):
     settings=SiteSetting.get_solo()

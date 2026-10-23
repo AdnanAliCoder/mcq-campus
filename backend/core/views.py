@@ -222,7 +222,7 @@ def auth_login(request):
     request.session.set_expiry(60*60*24*30 if d.get('remember') else 60*60*2)
     session_prepare_ms=(time.perf_counter()-phase)*1000
     phase=time.perf_counter()
-    out=user_dict(user,request.session); out['expiresAt']=request.session.get_expiry_date().isoformat()
+    out=user_identity_dict(user,request.session,include_avatar=True); out['expiresAt']=request.session.get_expiry_date().isoformat()
     user_dict_ms=(time.perf_counter()-phase)*1000
     if perf_enabled():
         logger.info('login_phase email_lookup_ms=%.1f authenticate_ms=%.1f session_prepare_ms=%.1f user_dict_ms=%.1f total_ms=%.1f',lookup_ms,authenticate_ms,session_prepare_ms,user_dict_ms,(time.perf_counter()-started)*1000)
