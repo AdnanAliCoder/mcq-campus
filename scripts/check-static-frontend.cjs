@@ -37,7 +37,6 @@ check(html.includes('href="/assets/style.css'), 'index.html loads the single sty
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
-check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
 check(!html.includes('<nav data-api-region="mcq-pagination"'), 'pagination regions avoid nested navigation elements');
 check(!html.includes('{{') && !html.includes('{%'), 'index.html contains no Django template tags');
 check((html.match(/rel="stylesheet"/g) || []).length === 1, 'index.html references one stylesheet');
@@ -86,6 +85,7 @@ check(!nginx.includes('location ^~ /assets/js/'), 'obsolete split JavaScript ass
 check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; }'), 'missing favicon.ico routes to the existing SVG icon');
 check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
 const runtime = read('frontend/script.js');
+check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
