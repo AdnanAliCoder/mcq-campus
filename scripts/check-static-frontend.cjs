@@ -12,7 +12,7 @@ const nginx = read('deploy/nginx/mcqcampus-frontend-locations.conf');
 
 const expectedPages = [
   'home', 'mcqs', 'categories', 'past-papers', 'tests', 'pdfs', 'blog',
-  'latest-jobs', 'login', 'register', 'dashboard', 'admin', 'super-admin',
+  'latest-jobs', 'login', 'register', 'country-entry', 'dashboard', 'admin', 'super-admin',
   'about', 'contact',
 ];
 const requiredTemplates = [
@@ -87,6 +87,8 @@ check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser rou
 const runtime = read('frontend/script.js');
 check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
+check(runtime.includes("if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';"), 'login and signup fall back to country selection when no country is selected');
+check(runtime.includes("dashboard:'dashboard',admin:'admin','super-admin':'super-admin'"), 'dashboard and admin routes have static fallback shells');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
 check(runtime.includes('form[data-form="mcq-filter"]'), 'the static MCQ search form has an interaction handler');
