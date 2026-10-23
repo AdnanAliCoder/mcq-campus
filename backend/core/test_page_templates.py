@@ -52,6 +52,8 @@ class IndependentFrontendTests(TestCase):
         self.assertIn("mountStaticPage(base,renderedHtml){", runtime)
         self.assertIn('data-api-region="home-stats"', self.html)
         self.assertIn('data-api-region="blog-filters"', self.html)
+        self.assertIn('data-api-region="past-paper-pagination"', self.html)
+        self.assertNotIn('<nav data-api-region="mcq-pagination"', self.html)
         self.assertIn('form[data-form="mcq-filter"]', runtime)
         self.assertIn("window.UI?.header?.(page)", runtime)
         self.assertIn("window.UI?.footer?.()", runtime)

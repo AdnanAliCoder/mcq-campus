@@ -2543,7 +2543,7 @@ mountStaticPage(base,renderedHtml){
   else if(base==='paper')populated=fillAny('past-paper-list',['.grid.paper-grid','.grid','.empty'],content)||populated;
   else if(base==='year') {
    populated=fillAny('past-paper-list',['.mcq-reference-card, .empty'],content)||populated;
-   populated=fillAny('past-paper-list',['.pagination','.pagination-count'],sourceMain)||populated;
+   populated=fillAny('past-paper-pagination',['.pagination','.pagination-count'],sourceMain)||populated;
   }else if(base==='job')populated=fillAny('route-detail',['.public-main','.empty'],sourceMain)||populated;
  }else if(page==='tests'){
   if(base==='tests')populated=fillAny('test-list',['.automatic-test-hero','.empty'],content)||populated;
