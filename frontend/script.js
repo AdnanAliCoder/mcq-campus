@@ -2055,3 +2055,123 @@ window.MCQEnhancements=(()=>{
  return {};
 })();
 
+
+/* SOURCE: frontend/js/pages/about.js */
+/* Page-specific JavaScript: frontend/js/pages/about.js
+ * Add custom buttons, event handlers and behavior for the about page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["about"]||(registry["about"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="about";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"about",path:context.path||global.location.pathname,base:context.base||"about",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/admin.js */
+/* Page-specific JavaScript: frontend/js/pages/admin.js
+ * Add custom buttons, event handlers and behavior for the admin page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["admin"]||(registry["admin"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="admin";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"admin",path:context.path||global.location.pathname,base:context.base||"admin",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/blog.js */
+/* Page-specific JavaScript: frontend/js/pages/blog.js
+ * Add custom buttons, event handlers and behavior for the blog page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["blog"]||(registry["blog"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="blog";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"blog",path:context.path||global.location.pathname,base:context.base||"blog",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/categories.js */
+/* Page-specific JavaScript: frontend/js/pages/categories.js
+ * Add custom buttons, event handlers and behavior for the categories page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["categories"]||(registry["categories"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="categories";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"categories",path:context.path||global.location.pathname,base:context.base||"categories",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/contact.js */
+/* Page-specific JavaScript: frontend/js/pages/contact.js
+ * Add custom buttons, event handlers and behavior for the contact page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["contact"]||(registry["contact"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="contact";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"contact",path:context.path||global.location.pathname,base:context.base||"contact",root}
+  }));
+ };
+})(window);
+
+
+/* SOURCE: frontend/js/pages/dashboard.js */
+/* Page-specific JavaScript: frontend/js/pages/dashboard.js
+ * Add custom buttons, event handlers and behavior for the dashboard page here.
+ * Shared API, session/authentication and site-wide UI helpers live in frontend/js/modules/.
+ * This hook runs after each client-side render. Use the supplied root to scope DOM changes.
+ */
+(function(global){
+ const registry=global.MCQCampusPageHooks||(global.MCQCampusPageHooks=Object.create(null));
+ const hooks=registry["dashboard"]||(registry["dashboard"]={});
+ hooks.afterRender=function(root,context={}){
+  if(!root)return;
+  root.dataset.pageScript="dashboard";
+  root.dispatchEvent(new CustomEvent("mcqcampus:page-ready",{
+   bubbles:true,
+   detail:{page:"dashboard",path:context.path||global.location.pathname,base:context.base||"dashboard",root}
+  }));
+ };
+})(window);
+
