@@ -3390,3 +3390,15 @@ body.auth-screen{background:radial-gradient(circle at 15% 12%,#e4f7ed 0,transpar
 
 /* Keep the global loader from blocking the page when JavaScript is disabled. */
 noscript #backend-loader{display:none!important;}
+
+/* Fixed semantic page-shell styles. Kept independent from API-fed content lists. */
+[data-static-page] .page-heading{margin-block:1.5rem}
+[data-static-page] .page-heading h1{margin:0 0 .5rem;font-size:clamp(1.65rem,3vw,2.35rem);line-height:1.15}
+[data-static-page] .page-heading p{max-width:68ch;color:var(--muted,#667085)}
+[data-static-page] [data-api-region]{min-height:2rem}
+[data-static-page] nav[aria-label] a{display:inline-flex;align-items:center;margin:.25rem .5rem .25rem 0}
+[data-static-page] form[data-form]{display:grid;gap:1rem;max-width:38rem}
+[data-static-page] form[data-form] label{display:grid;gap:.4rem}
+[data-static-page] form[data-form] input,[data-static-page] form[data-form] select,[data-static-page] form[data-form] textarea{width:100%;min-height:2.6rem}
+[data-static-page] .auth-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,1fr);gap:2rem;max-width:60rem;margin:2rem auto}
+@media(max-width:700px){[data-static-page] .auth-layout{grid-template-columns:1fr;gap:1rem}}
