@@ -50,6 +50,7 @@ class IndependentFrontendTests(TestCase):
         runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
         self.assertIn("showStaticShell(){", runtime)
         self.assertIn("mountStaticPage(base,renderedHtml){", runtime)
+        self.assertLess(runtime.index("const fill=(name,selector"), runtime.index("fill('breadcrumbs','.breadcrumbs',sourceMain)"))
         self.assertIn('data-api-region="home-stats"', self.html)
         self.assertIn('data-api-region="blog-filters"', self.html)
         self.assertIn('data-api-region="past-paper-pagination"', self.html)

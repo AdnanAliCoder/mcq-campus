@@ -2477,7 +2477,6 @@ mountStaticPage(base,renderedHtml){
  const content=sourceMain.querySelector('.public-main')||sourceMain;
  const shell=sourceShell.cloneNode(true);
  shell.dataset.staticFallback='true';
- fill('breadcrumbs','.breadcrumbs',sourceMain);
  const main=shell.querySelector('main');
  if(main){main.id='main';main.tabIndex=-1;if(page!=='home')main.classList.add('public-page')}
  const target=(name)=>shell.querySelector('[data-api-region="'+name+'"]');
@@ -2518,6 +2517,7 @@ mountStaticPage(base,renderedHtml){
   if(sourceDesc&&desc)desc.textContent=sourceDesc.textContent.trim();
  };
  copyHeading();
+ fill('breadcrumbs','.breadcrumbs',sourceMain);
  let populated=false;
  if(page==='home'){
   populated=fill('home-stats','.home-stats',sourceMain,'inner')||populated;

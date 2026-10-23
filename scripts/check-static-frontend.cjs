@@ -88,6 +88,7 @@ check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser rou
 const runtime = read('frontend/script.js');
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
+check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
 check(runtime.includes('form[data-form="mcq-filter"]'), 'the static MCQ search form has an interaction handler');
 check(runtime.includes('window.UI?.header?.(page)'), 'static fallback includes the shared header template');
 check(runtime.includes('window.UI?.footer?.()'), 'static fallback includes the shared footer template');
