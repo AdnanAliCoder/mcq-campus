@@ -36,6 +36,8 @@ check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standard
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
+check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
+check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
 check(!html.includes('<nav data-api-region="mcq-pagination"'), 'pagination regions avoid nested navigation elements');
 check(!html.includes('{{') && !html.includes('{%'), 'index.html contains no Django template tags');
 check((html.match(/rel="stylesheet"/g) || []).length === 1, 'index.html references one stylesheet');
