@@ -920,3 +920,1138 @@ window.Public=(()=>{
 
 ;
 
+
+/* SOURCE: frontend/js/modules/carousel.js */
+/* ===== MCQCAMPUS MODULE: carousel.js ===== */
+/* One cancellable countdown. Renders retain the deadline; interaction resets it. */
+window.McqCarousel = {
+  create({advance, now = () => performance.now(), schedule = setTimeout, cancel = clearTimeout}) {
+    const delay = 10000;
+    let timer = null, current = null, deadline = 0;
+    function clear() {
+      if (timer !== null) cancel(timer);
+      timer = null;
+    }
+    function stop() {
+      clear();
+      current = null;
+      deadline = 0;
+    }
+    function sync(key) {
+      if (key == null) { stop(); return; }
+      if (key !== current) {
+        current = key;
+        deadline = now() + delay;
+      }
+      clear();
+      timer = schedule(() => {
+        timer = null;
+        current = null;
+        deadline = 0;
+        advance();
+      }, Math.max(0, deadline - now()));
+    }
+    return {sync, stop, restart(key) { stop(); sync(key); }};
+  }
+};
+
+/* ===== END MODULE: carousel.js ===== */
+
+;
+
+
+/* SOURCE: frontend/js/modules/seo.js */
+/* ===== MCQCAMPUS MODULE: seo.js ===== */
+window.SEO=(()=>{
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const slug=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,96)||'item';
+ // Accept the existing Django sitemap spelling as well as the SPA spelling.
+ // For example, [2026][Morning] and A & B are slugged differently by each.
+ const hierarchySlug=s=>String(s??'').normalize('NFKD').replace(/[^\x00-\x7F]/g,'').toLowerCase().replace(/[^\w\s-]/g,'').trim().replace(/[-\s]+/g,'-').replace(/^[-_]+|[-_]+$/g,'').slice(0,96)||'item';
+ const brand=value=>String(value??'').replace(/\bMCQs?\s*Campus\b/ig,'MCQCampus');
+ const fitTitle=(value,limit=60)=>{const text=brand(value).replace(/\s+/g,' ').replace(/\s*(?:\||-|—|–)\s*MCQCampus\s*$/i,'').trim();if(text.length<=limit)return text;return text.slice(0,limit-3).replace(/[\s\-—–|,:]+$/,'')+'...'};
+ const site=()=>brand(MCQ?.db?.settings?.siteName||'MCQCampus');
+ const shortName=value=>{const text=String(value||'').trim(),bracket=[...text.matchAll(/\[([^\]]{2,16})\]/g)].map(m=>m[1].trim()).filter(Boolean);if(bracket.length)return bracket[bracket.length-1];const paren=[...text.matchAll(/\(([^)]{2,16})\)/g)].map(m=>m[1].trim()).filter(x=>/^[A-Z0-9&. -]+$/.test(x));if(paren.length)return paren[paren.length-1];const caps=text.match(/\b[A-Z][A-Z0-9&.-]{1,15}\b/g);return caps?.[caps.length-1]||text};
+ const yearLabel=(job,value)=>{
+  let text=String(value||'').trim();
+  const jobText=String(job||'').trim();
+  if(jobText&&text.toLowerCase().startsWith(jobText.toLowerCase())) text=text.slice(jobText.length).replace(/^\s*[-–—:]?\s*/,'');
+  text=text.replace(/\bPast\s+Paper\b/ig,' ').replace(/[\[\]()]/g,' ').replace(/\s+/g,' ').trim();
+  const dated=text.match(/\b\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2}\b(?:\s+(?:Morning|Evening|Night|Shift\s*\d+))?/i);
+  const year=text.match(/\b20\d{2}\b/);
+  return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim();
+ };
+ const baseUrl=()=>{try{return new URL(document.querySelector('link[rel="canonical"]')?.href||document.querySelector('meta[property="og:url"]')?.content||location.href).origin}catch{return 'https://www.mcqcampus.com'}};
+ const seoItems=()=>MCQ?.db?.seoIndex?.items||{};
+ const catalogKey=x=>String(x?.id??x?.slug??slug(x?.title||x?.name||'item'));
+ const indexFor=(kind,key)=>{const value=seoItems()[kind+':'+String(key)];return value?String(value).padStart(6,'0'):''};
+ const resolveIndex=(token,kinds=[])=>{const n=Number.parseInt(String(token||''),10);if(!Number.isFinite(n))return null;for(const [key,value] of Object.entries(seoItems())){if(Number(value)!==n)continue;const at=key.indexOf(':'),kind=key.slice(0,at),entityKey=key.slice(at+1);if(!kinds.length||kinds.includes(kind))return {kind,key:entityKey,index:String(n).padStart(6,'0')}}return null};
+
+ // The server resolves these discovery URLs from database IDs. Keep that exact
+ // content after hydration; loading another discovery page uses its document.
+ const serverDiscoveryPage=(()=>{try{return JSON.parse(document.getElementById('seo-discovery-page')?.textContent||'null')}catch{return null}})();
+ const routePath=path=>'/'+String(path||'').split('?')[0].replace(/^\/+|\/+$/g,'');
+ const discoveryPage=path=>serverDiscoveryPage?.path===routePath(path)?serverDiscoveryPage:null;
+ const isDiscoveryPath=path=>routePath(path)==='/sitemap'||/^\/[a-z0-9_][a-z0-9_-]*-past-papers$/.test(routePath(path));
+ const needsDocumentNavigation=path=>isDiscoveryPath(path)&&!discoveryPage(path);
+ function renderDiscovery(path){
+  const page=discoveryPage(path);if(!page)return '';
+  const landing=page.landing||null;
+  if(landing?.type==='paper'&&landing.id)return Public.browse('paper',landing.id);
+  if(landing?.type==='job'&&landing.id)return Public.browse('job',landing.id);
+  const groups=page.groups||[];
+  const main='<div class="sitemap-grid">'+groups.map(([name,links])=>'<section class="card"><h2>'+esc(name)+'</h2>'+links.map(([label,href])=>UI.link(href,esc(label),'discovery-link')).join('')+'</section>').join('')+'</div>';
+  const crumbs=(page.breadcrumbs||[]).slice(1).map(([label,href],i,all)=>i===all.length-1?[label]:[label,href]);
+  return PublicLayout.page({trail:crumbs,title:page.heading,desc:page.intro,main,sidebar:PublicLayout.smart('papers'),active:'papers',sidebarLabel:'Related / Browse'});
+ }
+ function cleanPath(base,id){
+  const get=(t,i)=>MCQ.get(t,i), s=x=>x?.slug||slug(x?.name||x?.title||x?.question||id);
+  if(base==='home')return '/';
+  if(base==='mcqs')return '/mcqs'; if(base==='important')return '/mcqs/important-mcqs';
+  if(base==='categories')return '/categories';
+  if(base==='papers')return '/past-papers';
+  if(base==='pdfs')return '/past-papers/pdfs';
+  if(base==='latest-jobs')return '/latest-jobs';
+  if(base==='posts')return '/blog';
+  if(base==='category'){const x=get('categories',id),idx=indexFor('category',id);return x&&idx?`/categories/${idx}/${s(x)}`:'/categories'}
+  if(base==='paper'){const x=get('papers',id),idx=indexFor('paper',id);return x&&idx?`/past-papers/${idx}/${slug(shortName(x.name))}-past-papers`:x?`/paper/${x.id}`:'/past-papers'}
+  if(base==='job')return '/past-papers'
+  if(base==='year'){const x=get('years',id),p=x&&(get('papers',x.paper_id)||get('papers',get('jobs',x.job_id)?.paper_id)),idx=indexFor('year',id);return x&&p&&idx?`/past-papers/${idx}/${slug(shortName(p.name)+' '+x.name)}`:x&&p?`/paper/${p.id}/year/${x.id}`:'/past-papers'}
+  if(base==='mcq'||base==='practice'){const x=get('mcqs',id),idx=indexFor('mcq',id);return x&&idx?`/mcqs/${idx}/${s(x)}`:'/mcqs'}
+  if(base==='pdf'){const x=get('pdfs',id),idx=indexFor('pdf',catalogKey(x));return x&&idx?`/past-papers/pdfs/${idx}/${s(x)}`:'/past-papers/pdfs'}
+  if(base==='latest-job'){const x=get('latestJobs',id),p=x&&get('papers',x.paper_id),idx=indexFor('latest-job',catalogKey(x));const label=(p?shortName(p.name)+' ':'')+(x?.title||'job');return x&&idx?`/latest-jobs/${idx}/${slug(label)}`:'/latest-jobs'}
+  if(base==='post'){const x=get('posts',id),idx=indexFor('post',id);return x&&idx?`/blog/${idx}/${s(x)}`:'/blog'}
+  if(base==='tests')return '/tests'; if(base==='test')return `/test/${slug(id)}`;
+  if(base==='jobs-exams')return '/past-papers';
+  if(base==='subcategory'){const x=get('subcategories',id);return x?`/subcategory/${s(x)}`:'/categories'}
+  if(base==='topic'){const x=get('children',id);return x?`/topic/${s(x)}`:'/categories'}
+  return `/${slug(base)}`;
+ }
+ function descriptor(base,id){
+  const discovery=discoveryPage(location.pathname);
+  if(discovery)return {...discovery,discovery:true};
+  const get=(t,i)=>MCQ.get(t,i), suffix=''; let title=site(),description=MCQ.db.seo.description,robots='index,follow';
+  if(base==='home'){title='MCQCampus — Organizations, Past Papers & Exam Preparation';description='Prepare for PPSC, FPSC, NTS, SPSC, BPSC and other competitive exams with organization-wise past papers, solved MCQs, answers and explanations.'}
+  if(base==='categories'){title='MCQ Categories'+suffix;description='Browse MCQ categories and practise approved questions with answers and explanations.'}
+  if(base==='category'){const x=get('categories',id);title=(x?.name||'Category')+' MCQs'+suffix;description=`Practice ${x?.name||'category'} MCQs with answers and explanations.`}
+  if(base==='subcategory'){const x=get('subcategories',id);title=(x?.name||'Subcategory')+' MCQs with Answers'+suffix;description=`Practice ${x?.name||'subcategory'} MCQs with correct answers and explanations.`}
+  if(base==='topic'){const x=get('children',id);title=(x?.name||'Topic')+' MCQs with Answers'+suffix;description=`Practice ${x?.name||'topic'} MCQs with correct answers and explanations.`}
+  if(base==='papers'){title='Organizations & Boards Past Papers — PPSC, FPSC, NTS & More'+suffix;description='Browse organizations and testing boards, choose available past papers, then practice linked MCQs with correct answers and explanations.'}
+  if(base==='paper'){const x=get('papers',id),short=x?shortName(x.name):'Organization / Board';title=short+' Past Papers & Solved MCQs'+suffix;description=`Browse past papers directly under ${x?.name||'this organization or board'}, then practise linked MCQs with correct answers, explanations and related preparation resources.`}
+  if(base==='job'){const x=get('jobs',id),p=x&&get('papers',x.paper_id),short=p?shortName(p.name):'';title=(short||'Organizations / Boards')+' Past Papers & Solved MCQs'+suffix;description=`Browse ${p?.name||'this organization or board'} and open its Past Papers to practise linked MCQs with answers and explanations.`}
+  if(base==='year'){const x=get('years',id),p=x&&(get('papers',x.paper_id)||get('papers',get('jobs',x.job_id)?.paper_id)),short=p?shortName(p.name):'';title=((short?short+' ':'')+(x?.name||'Past Paper')+' Solved MCQs')+suffix;description=`Practice ${(p?.name||'this organization or board')} ${x?.name||'Past Paper'} MCQs with correct answers and explanations.`}
+  if(base==='important'){title='Important MCQs for Practice'+suffix;description='Practice MCQs marked important by the MCQCampus editorial workflow.'}
+  if(base==='mcqs'){title='Practice MCQs with Answers & Explanations'+suffix;description='Practice approved MCQs across categories, organizations and past papers.'}
+  if(base==='mcq'||base==='practice'){const q=get('mcqs',id);title=(q?.question||'MCQ').slice(0,70)+suffix;description=(q?.description||`Practice this MCQ and review the correct answer on ${site()}.`).slice(0,155)}
+  if(base==='tests'){title='Automatic MCQ Tests'+suffix;description='Attempt an automatically generated 10-question test that rotates between important MCQs, categories and past papers.'}
+  if(base==='test'){title='Automatic 10-MCQ Test'+suffix;description='Attempt the current automatic 10-question set and review answers, explanations, score and time taken.'}
+  if(base==='jobs-exams'){title='Organizations / Boards — Past Papers & MCQs'+suffix;description='Browse organizations and boards, then open past papers and practise linked MCQs with answers and explanations.'}
+  if(base==='latest-jobs'){title='Latest Jobs & Exam Opportunities'+suffix;description='Browse current job and exam opportunities with organization details, deadlines and preparation resources.'}
+  if(base==='latest-job'){const x=get('latestJobs',id),p=x&&get('papers',x.paper_id),short=p?shortName(p.name):'';title=((short?short+' ':'')+(x?.title||'Latest Job')+' Latest Job')+suffix;description=(`${(short?short+' ':'')}${x?.title||'Job opportunity'} latest job details${x?.last_date?', last date '+x.last_date:''}. View related past papers and preparation resources.`).slice(0,155)}
+  if(base==='pdfs'){title='Exam Preparation PDFs & Study Resources'+suffix;description='Browse preparation PDFs and downloadable study resources for MCQs, past papers and competitive exams.'}
+  if(base==='pdf'){const x=get('pdfs',id);title=(x?.title||x?.name||'Exam Preparation')+' PDF Download'+suffix;description=(x?.description||`Download ${x?.title||x?.name||'this exam preparation'} PDF for MCQ and competitive exam preparation.`).slice(0,155)}
+  if(base==='posts'){title='Exam Preparation Blog & Updates'+suffix;description='Read exam preparation articles, study guides, updates and useful learning resources.'}
+  if(base==='post'){const x=get('posts',id);title=(x?.seo_title||x?.title||'Post')+suffix;description=(x?.seo_description||x?.excerpt||String(x?.body||'').slice(0,155))}
+  if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(base)){const x=MCQ.db.content?.legalPages?.[base];title=(x?.seoTitle||x?.title||base.replace(/-/g,' '))+suffix;description=(x?.metaDescription||description).slice(0,155)}
+  if(base==='faq'){title='Frequently Asked Questions'+suffix;description='Answers to common questions about MCQCampus, exam preparation content, corrections and official-information verification.'}
+  if(base==='sitemap'){title='Sitemap'+suffix;description='Browse the main MCQCampus preparation, account, support and legal pages.'}
+  if(['search','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin'].includes(base))robots='noindex,nofollow';
+  const pageSeo=MCQ?.db?.pageSeo||{};
+  const staticKey={home:'home',mcqs:'mcqs',papers:'past-papers',pdfs:'pdfs',categories:'categories','latest-jobs':'latest-jobs',posts:'blog'}[base];
+  const entityKind={category:'category',paper:'paper',job:'job',year:'year',mcq:'mcq'}[base];
+  let override=staticKey?pageSeo['static:'+staticKey]:(entityKind?pageSeo[entityKind+':'+String(id)]:null);
+  if(base==='pdf'){const x=get('pdfs',id);override={title:x?.seo_title||override?.title||'',description:x?.seo_description||override?.description||''}}
+  if(base==='latest-job'){const x=get('latestJobs',id);override={title:x?.seo_title||override?.title||'',description:x?.seo_description||override?.description||''}}
+  if(base==='post'){const x=get('posts',id);override={title:x?.seo_title||override?.title||'',description:x?.seo_description||override?.description||''}}
+  const customTitle=String(override?.title||'').trim(),customDescription=String(override?.description||'').trim();
+  if(customTitle)title=customTitle;
+  if(customDescription)description=customDescription;
+  return {title:fitTitle(title),description:brand(description),robots,canonical:baseUrl()+cleanPath(base,id)};
+ }
+ function setMeta(selector,attrs){let el=document.querySelector(selector);if(!el){el=document.createElement('meta');document.head.appendChild(el)}Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));}
+ function apply(base,id){if(typeof document==='undefined'||!document.head)return;const d=descriptor(base,id);document.title=d.title;setMeta('meta[name="description"]',{name:'description',content:d.description});setMeta('meta[name="robots"]',{name:'robots',content:d.robots});setMeta('meta[property="og:title"]',{property:'og:title',content:d.title});setMeta('meta[property="og:description"]',{property:'og:description',content:d.description});setMeta('meta[property="og:type"]',{property:'og:type',content:['post'].includes(base)?'article':'website'});setMeta('meta[property="og:url"]',{property:'og:url',content:d.canonical});setMeta('meta[name="twitter:card"]',{name:'twitter:card',content:'summary_large_image'});setMeta('meta[name="twitter:title"]',{name:'twitter:title',content:d.title});setMeta('meta[name="twitter:description"]',{name:'twitter:description',content:d.description});let canonical=document.querySelector('link[rel="canonical"]');if(!canonical){canonical=document.createElement('link');canonical.rel='canonical';document.head.appendChild(canonical)}canonical.href=d.canonical||cleanPath(base,id);
+  document.getElementById('server-jsonld')?.remove();
+  let node=document.getElementById('mcq-jsonld');if(node)node.remove();
+  if(d.discovery){node=document.createElement('script');node.id='mcq-jsonld';node.type='application/ld+json';node.textContent=JSON.stringify(d.schema);document.head.appendChild(node);return;}
+  const graph=[{'@type':'WebSite','name':site(),'alternateName':['mcqcampus.com'],'url':baseUrl()||'/'},{'@type':'WebPage','name':d.title,'description':d.description,'url':d.canonical||cleanPath(base,id),'speakable':{'@type':'SpeakableSpecification','cssSelector':['#main h1','#seo-summary']}}];const get=(t,i)=>MCQ.get(t,i),bc=[['Home','/']];if(base==='categories')bc.push(['Categories','/categories']);if(base==='category'){const x=get('categories',id);bc.push(['Categories','/categories'],[x?.name||'Category',cleanPath(base,id)])}if(base==='subcategory'){const x=get('subcategories',id),c=get('categories',x?.category_id);bc.push(['Categories','/categories']);if(c)bc.push([c.name,cleanPath('category',c.id)]);bc.push([x?.name||'Subcategory',cleanPath(base,id)])}if(base==='topic'){const x=get('children',id),sub=get('subcategories',x?.subcategory_id),c=get('categories',sub?.category_id);bc.push(['Categories','/categories']);if(c)bc.push([c.name,cleanPath('category',c.id)]);if(sub)bc.push([sub.name,`/subcategory/${slug(sub.name)}`]);bc.push([x?.name||'Topic',cleanPath(base,id)])}if(base==='papers')bc.push(['Past Papers','/past-papers']);if(base==='paper'){const p=get('papers',id);bc.push(['Past Papers','/past-papers'],[p?.name||'Paper',cleanPath(base,id)])}if(base==='job'){const j=get('jobs',id),p=j&&get('papers',j.paper_id);bc.push(['Past Papers','/past-papers']);if(p)bc.push([p.name,cleanPath('paper',p.id)]);bc.push([j?.name||'Job',cleanPath(base,id)])}if(base==='year'){const y=get('years',id),p=y&&(get('papers',y.paper_id)||get('papers',get('jobs',y.job_id)?.paper_id));bc.push(['Past Papers','/past-papers']);if(p)bc.push([p.name,cleanPath('paper',p.id)]);bc.push([y?.name||'Past Paper',cleanPath(base,id)])}if(base==='mcq'||base==='practice'){const q=get('mcqs',id),c=q&&get('categories',q.category_id);bc.push(['MCQs','/mcqs']);if(c)bc.push([c.name,cleanPath('category',c.id)]);bc.push([(q?.question||'MCQ').slice(0,80),cleanPath(base,id)])}if(base==='jobs-exams')bc.push(['Organizations / Boards','/past-papers']);if(base==='post'){const p=get('posts',id);bc.push(['Blog','/blog'],[p?.title||'Post',cleanPath(base,id)])}if(bc.length>1)graph.push({'@type':'BreadcrumbList','itemListElement':bc.map((x,i)=>({'@type':'ListItem','position':i+1,'name':x[0],'item':baseUrl()+x[1]}))});const itemRows=base==='category'?MCQ.publicMcqs().filter(q=>+q.category_id===+id).slice(0,20).map(q=>({name:q.question,url:baseUrl()+cleanPath('mcq',q.id)})):base==='subcategory'?MCQ.publicMcqs().filter(q=>MCQ.ids(q.subcategory_ids).includes(+id)).slice(0,20).map(q=>({name:q.question,url:baseUrl()+cleanPath('mcq',q.id)})):base==='topic'?MCQ.publicMcqs().filter(q=>MCQ.ids(q.child_subcategory_ids).includes(+id)).slice(0,20).map(q=>({name:q.question,url:baseUrl()+cleanPath('mcq',q.id)})):base==='paper'?MCQ.db.years.filter(y=>y.active!==false&&Number(y.paper_id||MCQ.get('jobs',y.job_id)?.paper_id||0)===Number(id)).slice(0,20).map(y=>({name:y.name,url:baseUrl()+cleanPath('year',y.id)})):base==='job'?[]:base==='year'?MCQ.publicMcqs().filter(q=>MCQ.ids(q.job_years_ids).includes(+id)).slice(0,20).map(q=>({name:q.question,url:baseUrl()+cleanPath('mcq',q.id)})):[];if(itemRows.length)graph.push({'@type':'ItemList','name':d.title,'itemListElement':itemRows.map((x,i)=>({'@type':'ListItem','position':i+1,'name':x.name,'url':x.url}))});if(base==='post'){const p=MCQ.get('posts',id);if(p)graph.push({'@type':'Article','headline':p.title,'description':p.excerpt||'','author':{'@type':'Organization','name':site(),'url':baseUrl()||'/'},'publisher':{'@type':'Organization','name':site(),'url':baseUrl()||'/'},'mainEntityOfPage':d.canonical||cleanPath(base,id),'datePublished':p.created_at||undefined,'dateModified':p.updated_at||p.created_at||undefined})}node=document.createElement('script');node.id='mcq-jsonld';node.type='application/ld+json';node.textContent=JSON.stringify({'@context':'https://schema.org','@graph':graph});document.head.appendChild(node);
+ }
+ return {slug,hierarchySlug,shortName,indexFor,resolveIndex,cleanPath,descriptor,apply,discoveryPage,isDiscoveryPath,needsDocumentNavigation,renderDiscovery};
+})();
+
+/* ===== END MODULE: seo.js ===== */
+
+;
+
+
+/* SOURCE: frontend/js/modules/motion.js */
+/* ===== MCQCAMPUS MODULE: motion.js ===== */
+/* MCQCampus motion system: small, accessible view transitions and staggered reveals. */
+window.MCQMotion=(()=>{
+ const reduce=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+ const selector=[
+  '.page-heading','.breadcrumbs','.hero > *','.home-top-stats','.section-head',
+  '.card','.mcq-card','.entity-showcase-card','.stat-card','.question-row',
+  '.table-wrap','.article','.cta','.empty','.notice','.auth-story','.auth-form',
+  '.automatic-test-hero','.home-cat-group','.selection-stack'
+ ].join(',');
+ function enter(root=document){
+  if(!root||reduce())return;
+  const scope=root.querySelector('#main')||root.querySelector('main')||root;
+  const nodes=[...scope.querySelectorAll(selector)]
+   .filter((el,i,all)=>!el.closest('dialog')&&!el.classList.contains('hidden')&&!all.some((parent,p)=>p<i&&parent.contains(el)&&['CARD','ARTICLE'].includes(parent.tagName)));
+  const entering=nodes.slice(0,28);
+  entering.forEach((el,i)=>{
+   el.classList.remove('mcq-motion-enter');
+   el.style.setProperty('--motion-delay',Math.min(i*24,192)+'ms');
+  });
+  if(!entering.length)return;
+  // Batch the layout flush once instead of forcing a reflow for every element.
+  void scope.offsetWidth;
+  entering.forEach(el=>el.classList.add('mcq-motion-enter'));
+ }
+ function pulse(el){
+  if(!el||reduce())return;
+  el.animate?.([
+   {transform:'scale(.985)',opacity:.92},
+   {transform:'scale(1)',opacity:1}
+  ],{duration:180,easing:'cubic-bezier(.22,.8,.28,1)'});
+ }
+ document.addEventListener('change',event=>{
+  const target=event.target;
+  if(target.matches?.('select,input[type="checkbox"],input[type="radio"]'))pulse(target.closest('.field,.check-line')||target);
+ },{passive:true});
+ return {enter,pulse};
+})();
+
+/* ===== END MODULE: motion.js ===== */
+
+;
+
+
+/* SOURCE: frontend/js/modules/auth.js */
+/* ===== MCQCAMPUS MODULE: auth.js ===== */
+/* Same-origin Django authentication and API adapter.
+   Country selection and auth screens are public; app sections require a signed-in session. */
+window.Auth=(()=>{
+ const authRoutes=new Set(['login','register','forgot','reset-code','reset-password','reset','verify']);
+ const protectedRoutes=new Set(['dashboard','profile','admin','super-admin']);
+ let ready=false,user=null,csrf='',csrfRefreshing=null,checking=null,expiryTimer=null,generation=0,routeRoleSync=null,pendingPublicAction=null;
+ const loadedSections=new Set(),sectionLoadedAt=new Map(),loadingSections=new Map();
+ const SECTION_TTL=Number.POSITIVE_INFINITY;
+ const ADMIN_PAGE_SIZES=[10],ADMIN_DEFAULT_PAGE_SIZE=10;
+
+ function initialRoute(){
+  if(location.hash){
+   const legacy=location.hash.replace(/^#\/?/,'');const [path,query='']=legacy.split('?'),params=Object.fromEntries(new URLSearchParams(query));history.replaceState(null,'',UI.href(path||'home',params));return;
+  }
+  let path=location.pathname.replace(/^\/+|\/+$/g,'').replace(/index\.html$/,'').replace(/\.html$/,'');
+  const aliases={
+   'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset-code','auth/new-password':'reset-password','auth/verify-email':'verify',
+   'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','':''
+  };
+  const mapped=aliases[path]??(path==='reset'?'reset-code':path.replace(/^public\//,''));
+  if(mapped!==path)history.replaceState(null,'',UI.href(mapped||'home',Object.fromEntries(new URLSearchParams(location.search))));
+ }
+ initialRoute();
+
+ const route=()=>{const path=location.pathname.replace(/^\/+|\/+$/g,'')||'home';return path+location.search};
+ const base=()=>route().split(/[/?]/)[0];
+ const authError='Account services are unavailable. Please try again shortly.';
+ function destination(value){
+  if(typeof value!=='string'||!value||value.length>2000||/^[\/\\]|[\x00-\x1f\\]/.test(value))return null;
+  const path=value.split('?')[0];
+  return /^[a-z0-9][a-z0-9_-]*(?:\/[a-z0-9_-]+)*$/i.test(path)&&!authRoutes.has(path.split('/')[0])?value:null;
+ }
+ function landing(){return user?.roles?.includes('super-admin')?'super-admin/overview':user?.roles?.includes('admin')?'admin/overview':'home';}
+ function allowed(value){
+  const [b,section]=value.split('?')[0].split('/');
+  if(!protectedRoutes.has(b))return true;
+  if(!user)return false;
+  if(b==='dashboard'||b==='profile')return true;
+  if(b==='super-admin')return user.roles?.includes('super-admin');
+  if(!user.roles?.some(x=>['admin','super-admin'].includes(x)))return false;
+  if(user.roles.includes('super-admin'))return true;
+  const permissions={categories:'manage_categories',subcategories:'manage_subcategories',children:'manage_child_categories',papers:'manage_papers',jobs:'manage_jobs',years:'manage_job_years',import:'bulk_import_mcqs',guides:'manage_guides',posts:'manage_posts',reports:'view_reports',analytics:'view_analytics',add:'add_mcq'};
+  if(['users','admins','roles','settings','backup','trash','content','seo','duplicates'].includes(section))return false;
+  return !permissions[section]||(user.permissions||[]).includes(permissions[section]);
+ }
+ function clearPrivateState(){
+  generation++; clearTimeout(expiryTimer); user=null; csrf='';
+  for(const key of [...loadedSections])if(!['core','public-content','resources','catalog','legal'].includes(key)){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  for(const [key] of loadingSections)if(!['core','public-content','resources','catalog','legal'].includes(key))loadingSections.delete(key);
+  MCQ.clearSession();
+  if(window.App){App.answers={};App.choices={};App.quickAnswer=null;App.activeQuestionId=null;App.draft=null;App.draftKey=null;App.importRows=null;App.importSummary=null;App.importedIds=[];App.importPage=null;App.homeRandomIds=[];App.quickTimer?.stop();}
+  document.getElementById('modal')?.close();
+ }
+ let pendingRequests=0,loadingFocus=null;
+ function backendLoading(on){
+  const wasActive=pendingRequests>0;
+  pendingRequests=Math.max(0,pendingRequests+(on?1:-1));
+  const active=pendingRequests>0,loader=document.getElementById('backend-loader');
+  if(active===wasActive||!loader)return;
+  if(active){
+   UI.closeDropdowns();
+   loadingFocus=document.activeElement;
+   document.body.classList.add('backend-loading');
+   document.getElementById('main-nav')?.classList.remove('open');
+   document.querySelector('[data-action="menu"]')?.setAttribute('aria-expanded','false');
+   document.getElementById('public-smart-sidebar')?.classList.remove('open');
+   document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');
+   document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');
+   if(!loader.open)loader.showModal();
+   loader.focus({preventScroll:true});
+  }else{
+   if(loader.open)loader.close();
+   document.body.classList.remove('backend-loading');
+   if(loadingFocus?.isConnected)loadingFocus.focus({preventScroll:true});
+   loadingFocus=null;
+  }
+ }
+ function setButtonLoading(button,label='Working...'){
+  if(!button)return ()=>{};
+  if(button.dataset.loading==='true')return ()=>{};
+  const original={html:button.innerHTML,disabled:button.disabled,minWidth:button.style.minWidth};
+  const width=button.getBoundingClientRect?.().width||0;
+  button.dataset.loading='true';
+  button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  if(width)button.style.minWidth=Math.ceil(width)+'px';
+  button.innerHTML='<span class="mcq-spinner button-loader-spinner button-spinner" aria-hidden="true"></span><span>'+label+'</span>';
+  return ()=>{
+   button.innerHTML=original.html;
+   button.disabled=original.disabled;
+   button.style.minWidth=original.minWidth;
+   button.removeAttribute('aria-busy');
+   delete button.dataset.loading;
+  };
+ }
+ document.getElementById('backend-loader')?.addEventListener('cancel',event=>event.preventDefault());
+ // Only explicit blocking operations use the global overlay.
+ for(const type of ['click','dblclick','pointerdown','keydown','keyup','submit','wheel','touchmove']){
+  document.addEventListener(type,event=>{if(!pendingRequests)return;event.preventDefault();event.stopImmediatePropagation();},{capture:true,passive:false});
+ }
+ async function ensureCsrfToken({force=false}={}){
+  if(csrf&&!force)return csrf;
+  if(!csrfRefreshing){
+   csrfRefreshing=(async()=>{
+    let response;
+    try{
+     response=await fetch('/api/startup',{method:'GET',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
+    }catch{
+     throw Error('Unable to initialize account security. Refresh the page and try again.');
+    }
+    if(!response.ok||!response.headers.get('content-type')?.includes('application/json')){
+     throw Error('Unable to initialize account security. Refresh the page and try again.');
+    }
+    const data=await response.json();
+    if(typeof data.csrfToken!=='string'||!data.csrfToken){
+     throw Error('Unable to initialize account security. Refresh the page and try again.');
+    }
+    csrf=data.csrfToken;
+    return csrf;
+   })().finally(()=>{csrfRefreshing=null});
+  }
+  return csrfRefreshing;
+ }
+ async function request(path,body,{loading=false,timeout=15000}={}){
+  if(body!==undefined)await ensureCsrfToken();
+  if(loading)backendLoading(true);
+  try{
+   let response;
+   const method=body===undefined?'GET':'POST';
+   const publicCachedGet=method==='GET'&&!user&&new Set(['/public/content','/public/resources','/public/catalog','/public/legal']).has(path);
+   const serializedBody=body===undefined?undefined:JSON.stringify(body);
+   const send=()=>fetch('/api'+path,{
+    method,
+    credentials:'same-origin',
+    cache:publicCachedGet?'default':'no-store',
+    headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-CSRFToken':csrf})},
+    ...(serializedBody===undefined?{}:{body:serializedBody}),
+    signal:AbortSignal.timeout(timeout)
+   });
+   try{response=await send();}catch{throw Error('Unable to reach MCQCampus. Check your connection and try again.');}
+   // A fresh startup token is only requested when Django rejects a write with
+   // a non-JSON 403 (the CSRF middleware response). Normal POSTs reuse the
+   // token already received from /startup, avoiding an extra request each time.
+   if(body!==undefined&&response.status===403&&!response.headers.get('content-type')?.includes('application/json')){
+    await ensureCsrfToken({force:true});
+    try{response=await send();}catch{throw Error('Unable to reach MCQCampus. Check your connection and try again.');}
+   }
+   if(response.status===401&&!path.startsWith('/auth/')){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
+   if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
+   const data=await response.json();
+   if(data.csrfToken)csrf=data.csrfToken;
+   if(!response.ok){const error=Error(data.message||'The request could not be completed.');error.fields=data.fields;throw error;}
+   return data;
+  }finally{if(loading)backendLoading(false);}
+ }
+ async function ensureRouteData(path,context={}){
+  if(!path)return false;
+  const clean=String(path).split('?')[0].replace(/^\/+|\/+$/g,'')||'home';
+  const parts=clean.split('/'),workspace=parts[0],section=parts[1]||'overview',recordId=parts[2]||'',wants=[];
+  const routeParams=new URLSearchParams(location.search),resolvedBase=context?.base||workspace,resolvedId=context?.id??recordId,routeKey=location.pathname+location.search;
+  if(!authRoutes.has(workspace))wants.push('core','resources');
+  if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
+  if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
+  if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
+  if(['home','mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
+  if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
+  if(user&&(workspace==='dashboard'||workspace==='profile')){
+   wants.push('learner');
+   if(workspace==='profile'||section==='settings')wants.push('profile');
+  }
+  if(user&&['admin','super-admin'].includes(workspace)){
+   if(section==='overview'||section==='admin-records')wants.push('overview');
+   if(['users','admins','admin-records'].includes(section)||(section==='all-mcqs'&&user.roles?.includes('super-admin')))wants.push('users');
+   if(['add','edit','all-mcqs','mcqs','paper-mcqs','categories','papers','years','import'].includes(section))wants.push('core');
+   if(['all-mcqs','mcqs','edit','paper-mcqs'].includes(section))wants.push('workspace-mcqs');
+   if(['categories','papers','years'].includes(section))wants.push('entity-page');
+   if(section==='reports')wants.push('reports');
+   if(section==='trash')wants.push('trash');
+   if(section==='logs')wants.push('logs');
+   if(['posts','guides','ads'].includes(section))wants.push('content');
+   if(['settings','content','seo','page-seo','roles','footer','social','ads'].includes(section))wants.push('resources');
+   if(['pdfs','latest-jobs','current-affairs','pdfs-manager','latest-jobs-manager'].includes(section))wants.push('catalog');
+   if(['content','legal'].includes(section))wants.push('legal');
+  }
+  const workspaceEndpoint=()=>{
+   const q=new URLSearchParams();
+   q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
+   q.set('page_size',String(section==='edit'?1:ADMIN_DEFAULT_PAGE_SIZE));
+   for(const key of ['status','category','paper','job','year','author','from','to','search']){
+    const value=routeParams.get(key);if(value)q.set(key,value);
+   }
+   if(section==='mcqs')q.set('owner','me');
+   if(section==='edit'&&recordId)q.set('id',recordId);
+   if(section==='paper-mcqs'&&recordId)q.set('paper',recordId);
+   if(workspace==='super-admin'&&user.activeRole==='super-admin')q.set('admin_scope','1');
+   return '/mcqs?'+q.toString();
+  };
+  const publicMcqEndpoint=()=>{
+   const q=new URLSearchParams(),page=Math.max(1,Number(routeParams.get('page'))||1);
+   q.set('public','1');q.set('page',String(page));q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));
+   if(!['mcqs','important'].includes(resolvedBase)){const passthrough=['category','paper','job','year','country','search'];for(const key of passthrough){const value=routeParams.get(key);if(value)q.set(key,value)}}
+   if(resolvedBase==='home'||resolvedBase==='important')q.set('important','1');
+   if(resolvedBase==='category'&&resolvedId)q.set('category',String(resolvedId));
+   if(resolvedBase==='subcategory'&&resolvedId)q.set('subcategory',String(resolvedId));
+   if(resolvedBase==='topic'&&resolvedId)q.set('child',String(resolvedId));
+   if(resolvedBase==='year'&&resolvedId)q.set('year',String(resolvedId));
+   if(['mcq','practice'].includes(resolvedBase)&&resolvedId)q.set('id',String(resolvedId));
+   return '/mcqs?'+q.toString();
+  };
+  const entityEndpoint=()=>{
+   const q=new URLSearchParams(),adminScope=user&&['admin','super-admin'].includes(workspace);
+   let type=adminScope&&['categories','papers','years'].includes(section)?section:null;
+   let parent='';
+   if(!adminScope){
+    if(resolvedBase==='categories')type='categories';
+    else if(resolvedBase==='papers')type='papers';
+    else if(resolvedBase==='paper'){type='years';parent=String(resolvedId||'')}
+    else if(resolvedBase==='job'){type='years';parent=String(resolvedId||'')}
+    else if(resolvedBase==='jobs')type=null;
+   }
+   if(!type)return '';
+   q.set('type',type);q.set('page',String(Math.max(1,Number(routeParams.get('page'))||1)));
+   if(!adminScope)q.set('scope','public');
+   else if(workspace==='super-admin'&&user.activeRole==='super-admin')q.set('admin_scope','1');
+   if(parent)q.set('parent',parent);
+   else if(routeParams.get('parent'))q.set('parent',routeParams.get('parent'));
+   if(adminScope&&routeParams.get('country'))q.set('country',routeParams.get('country'));
+   if(routeParams.get('sort'))q.set('sort',routeParams.get('sort'));
+   return '/entities?'+q.toString();
+  };
+  let changed=false;
+  const load=async key=>{
+   let endpoint='/admin/'+key;
+   if(key==='core')endpoint=user?'/bootstrap':'/public/bootstrap';
+   else if(key==='public-content')endpoint='/public/content';
+   else if(key==='resources')endpoint='/public/resources';
+   else if(key==='catalog')endpoint='/public/catalog';
+   else if(key==='legal')endpoint='/public/legal';
+   else if(key==='learner')endpoint='/learner/dashboard';
+   else if(key==='profile')endpoint='/profile';
+   else if(key==='workspace-mcqs')endpoint=workspaceEndpoint();
+   else if(key==='public-mcqs')endpoint=publicMcqEndpoint();
+   else if(key==='entity-page')endpoint=entityEndpoint();
+   if(!endpoint)return false;
+   const variable=new Set(['workspace-mcqs','public-mcqs','entity-page']);
+   const cacheKey=variable.has(key)?key+'|'+endpoint:key;
+   const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
+   const activePage=key==='entity-page'?MCQ.db.entityPage:MCQ.db.mcqPage;
+   if(fresh&&(!variable.has(key)||(activePage?.request===endpoint&&activePage?.routeKey===routeKey)))return false;
+   if (loadingSections.has(cacheKey)) {   await loadingSections.get(cacheKey);   return false; }
+   const task=(async()=>{
+    try{
+     const own=generation,data=await request(endpoint);
+     if(!['core','public-content','resources','catalog','legal'].includes(key)&&own!==generation)return;
+     if(variable.has(key)&&routeKey!==location.pathname+location.search)return;
+     if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
+     if(key==='core')MCQ.mergeCore(data);
+     if(key==='public-content')MCQ.mergeCore(data);
+     if(key==='resources'){MCQ.mergeCore(data);window.MCQCampusApplyOptionalIntegrations?.(data.settings||MCQ.db.settings||{});}
+     if(key==='catalog')MCQ.mergeCore(data);
+     if(key==='legal')MCQ.mergeCore(data);
+     if(key==='learner'){
+      if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
+      if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
+      if(Array.isArray(data.savedPapers))MCQ.db.savedPapers=data.savedPapers;
+      const attemptedIds=[...new Set((data.attempts||[]).map(row=>Number(row.id)).filter(id=>Number.isInteger(id)&&id>0))].slice(0,100);
+      if(attemptedIds.length){try{const historyData=await request('/mcqs?public=1&ids='+attemptedIds.join(',')+'&page_size='+attemptedIds.length);if(Array.isArray(historyData.items))historyData.items.forEach(row=>MCQ.upsert('mcqs',row));}catch(error){console.warn('Learner history question details unavailable.')}}
+     }
+     if(key==='profile'&&data.user)setIdentity({...user,...data.user});
+     if(key==='workspace-mcqs'||key==='public-mcqs'){
+      if(Array.isArray(data.items))MCQ.db.mcqs=data.items;
+      MCQ.db.mcqPage={page:data.page,pageSize:data.pageSize,total:data.total,hasNext:data.hasNext,server:true,scope:key==='public-mcqs'?'public':'admin',request:endpoint,routeKey};
+     }
+     if(key==='entity-page'){
+      if(Array.isArray(data.items))for(const row of data.items)MCQ.upsert(data.type,row);
+      MCQ.db.entityPage={...data,server:true,request:endpoint,routeKey};
+     }
+     if(key==='overview')MCQ.db.adminOverview=data||{};
+     if(key==='users')MCQ.db.users=Array.isArray(data.items)?data.items:[];
+     if(key==='reports'){MCQ.db.reports=Array.isArray(data.items)?data.items:[];MCQ.db.contacts=Array.isArray(data.contacts)?data.contacts:[]}
+     if(key==='trash')MCQ.db.trash=Array.isArray(data.items)?data.items:[];
+     if(key==='logs')MCQ.db.logs=Array.isArray(data.items)?data.items:[];
+     if(key==='content'){
+      if(Array.isArray(data.posts))MCQ.db.posts=data.posts;
+      if(Array.isArray(data.guides))MCQ.db.guides=data.guides;
+      if(Array.isArray(data.ads))MCQ.db.ads=data.ads;
+     }
+     loadedSections.add(cacheKey);sectionLoadedAt.set(cacheKey,Date.now());changed=true;
+    }catch(error){
+     if(error?.message)console.warn('Lazy route data unavailable:',key);
+    }finally{loadingSections.delete(cacheKey)}
+   })();
+   loadingSections.set(cacheKey,task);await task;return true;
+  };
+  const unique=[...new Set(wants)];
+  // Load hierarchy/reference data first because it intentionally initializes
+  // empty MCQ rows; then fetch the route's independent datasets together.
+  if(unique.includes('core'))await load('core');
+  await Promise.all(unique.filter(key=>key!=='core').map(load));
+  return changed;
+ }
+ function setIdentity(identity){
+  user=identity?{...identity,activeRole:identity.roles?.includes(identity.activeRole)?identity.activeRole:(identity.roles?.includes('super-admin')?'super-admin':identity.roles?.includes('admin')?'admin':'user')}:null;
+  MCQ.setSession(user);
+  clearTimeout(expiryTimer);
+  if(user?.expiresAt&&Number.isFinite(Date.parse(user.expiresAt))){
+   expiryTimer=setTimeout(()=>{validateSession(true).then(()=>App.render())},Math.min(2147483647,Math.max(1000,Date.parse(user.expiresAt)-Date.now())));
+  }
+ }
+ function hydrate(snapshot,identity){
+  const incoming=snapshot||{};
+  MCQ.hydrate(incoming,null);
+  window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});
+  setIdentity(identity);
+  // A lightweight startup snapshot intentionally omits taxonomy/MCQs/catalog.
+  // Never keep stale "loaded" markers after replacing the client store with it.
+  const sections=[
+   ['core',['categories','papers','jobs','years','mcqs']],
+   ['public-content',['posts']],
+   ['catalog',['pdfs','latestJobs']],
+   ['legal',['content']],
+   ['resources',['seoIndex']]
+  ];
+  for(const [section,keys] of sections){
+   const supplied=keys.some(key=>Object.prototype.hasOwnProperty.call(incoming,key));
+   if(!supplied){loadedSections.delete(section);sectionLoadedAt.delete(section)}
+  }
+ }
+ async function check({loading=true}={}){
+  if(checking)return checking;
+  const own=generation;
+  checking=(async()=>{
+   if(loading)backendLoading(true);
+   try{
+    const data=await request('/startup');
+    if(own!==generation)return;
+    csrf=data.csrfToken||'';
+    hydrate(data.snapshot||{},data.user||null);
+   }catch{
+    if(own===generation){clearPrivateState();hydrate({},null);}
+   }finally{if(loading)backendLoading(false);ready=true;checking=null;}
+  })();
+  return checking;
+ }
+ function guard(){
+  if(!ready){document.getElementById('app').setAttribute('aria-busy','true');return false;}
+  document.getElementById('app').removeAttribute('aria-busy');
+  const current=route(),b=base();
+  document.body.classList.toggle('auth-screen',authRoutes.has(b));
+  const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim().toLowerCase();
+  const validCountry=(MCQ.db.countries||[]).some(item=>item&&item.active!==false&&String(item.name||'').trim().toLowerCase()===requestedCountry);
+  const countryChooser=!user&&['login','register'].includes(b)&&!validCountry;
+  document.body.classList.toggle('country-entry-screen',countryChooser);
+  if(authRoutes.has(b)){
+   if(user){history.replaceState(null,'',UI.href(landing()));return false;}
+   return true;
+  }
+  if(!user && protectedRoutes.has(b)){
+   const next=destination(current);
+   history.replaceState(null,'',UI.href('login',next?{next}:{}));
+   App.route={path:'login',params:next?{next}:{}};
+   document.body.classList.add('auth-screen');
+   document.getElementById('app').innerHTML=view('login');
+   return false;
+  }
+  if(!user)return true;
+  if(!allowed(current)){history.replaceState(null,'',UI.href(landing()));return false;}
+  // Keep the URL and server-side workspace role in sync, including direct dashboard links.
+  const desiredRole=b==='super-admin'?'super-admin':b==='admin'?'admin':null;
+  if(desiredRole&&user.roles?.includes(desiredRole)&&user.activeRole!==desiredRole){
+   if(!routeRoleSync){
+    routeRoleSync=switchRole(desiredRole).then(()=>App.render()).catch(()=>{}).finally(()=>{routeRoleSync=null;});
+   }
+   return false;
+  }
+  return true;
+ }
+
+ let verificationTimer=null;
+ const resendKey=email=>'mcq-verify-resend-until:'+String(email||'').toLowerCase();
+ const armVerificationTimer=(email,seconds=60)=>{
+  const until=Date.now()+Math.max(0,Number(seconds)||0)*1000;
+  try{sessionStorage.setItem(resendKey(email),String(until))}catch{}
+  syncVerificationTimer(email);
+ };
+ const syncVerificationTimer=email=>{
+  clearInterval(verificationTimer);
+  const tick=()=>{
+   const button=document.querySelector('[data-auth-resend]');
+   const label=document.querySelector('[data-auth-resend-timer]');
+   if(!button||!label)return;
+   let until=0;try{until=Number(sessionStorage.getItem(resendKey(email))||0)}catch{}
+   const left=Math.max(0,Math.ceil((until-Date.now())/1000));
+   button.disabled=left>0;
+   const mins=Math.floor(left/60),secs=left%60;
+   label.textContent=left>0?`Resend code in ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`:'You can request a new code now.';
+   if(left<=0){clearInterval(verificationTimer);verificationTimer=null}
+  };
+  tick();
+  verificationTimer=setInterval(tick,1000);
+ };
+ const field=(name,label,type='text',auto='',extra='',mark=false,showHelp=true)=>{
+  const required=mark?' <span class="required-mark" aria-hidden="true">*</span>':'';
+  const input='<input id="'+UI.esc(name)+'" name="'+UI.esc(name)+'" type="'+UI.esc(type)+'" autocomplete="'+UI.esc(auto)+'" '+(type==='password'?'minlength="8" ':'')+extra+' required>';
+  const values={FIELD_NAME:UI.esc(name),FIELD_LABEL:UI.esc(label),FIELD_REQUIRED:required,FIELD_INPUT:input};
+  if(type!=='password')return UI.templateMarkup('mcq-auth-field-template',values)||('<div class="field"><label for="'+UI.esc(name)+'">'+label+required+'</label>'+input+'</div>');
+  const help=showHelp&&['password','new_password'].includes(name)?'<small class="password-help">Use at least 8 characters. A longer password with a mix of letters, numbers and symbols is stronger.</small>':'';
+  values.FIELD_LABEL_LOWER=UI.esc(String(label).toLowerCase());values.FIELD_TOGGLE_ICON=UI.icon('eye-off');values.FIELD_HELP=help;
+  return UI.templateMarkup('mcq-auth-password-field-template',values)||('<div class="field"><label for="'+UI.esc(name)+'">'+label+required+'</label><div class="password-input-wrap">'+input+'<button class="password-toggle-btn" type="button" data-password-toggle="'+UI.esc(name)+'" aria-label="Show '+UI.esc(String(label).toLowerCase())+'" aria-pressed="false">'+UI.icon('eye-off')+'</button></div>'+help+'</div>');
+ };
+ function view(type){
+  const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
+  const activeCountries=(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  const requestedCountry=String(params.get('country')||'').trim();
+  const selectedCountry=(activeCountries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name||'';
+  if(['login','register'].includes(type)&&!selectedCountry){
+   document.body.classList.add('country-entry-screen');
+   return Public.countryLanding(type);
+  }
+  document.body.classList.remove('country-entry-screen');
+  const defaultCountry=selectedCountry||(activeCountries.find(item=>String(item.name).toLowerCase()==='pakistan')||activeCountries[0]||{name:'Pakistan'}).name;
+  const countryOptions=activeCountries.map(item=>'<option value="'+UI.esc(item.name)+'" '+(String(item.name).toLowerCase()===String(defaultCountry).toLowerCase()?'selected':'')+'>'+UI.esc(item.name)+'</option>').join('');
+  const countryField='<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
+  const titles={login:'Welcome back',register:selectedCountry?'Create your '+selectedCountry+' account':'Your next chapter',forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',reset:'Choose a new password',verify:'Email verification'};
+  let form='';
+  if(type==='login')form=UI.templateMarkup('mcq-auth-login-form-template',{
+   AUTH_LOGIN_EMAIL:field('email','Email address','email','email'),
+   AUTH_LOGIN_PASSWORD:field('password','Password','password','current-password','',false,false),
+   AUTH_LOGIN_FORGOT:UI.link('forgot','Forgot password?','link'),
+   AUTH_LOGIN_REGISTER:UI.link('register','Create an account','link')
+  })||'';
+  if(type==='register')form=UI.templateMarkup('mcq-auth-register-form-template',{
+   AUTH_REGISTER_FIRST:field('first_name','First name','text','given-name','',true),
+   AUTH_REGISTER_LAST:field('last_name','Last name','text','family-name','',true),
+   AUTH_REGISTER_EMAIL:field('email','Email address','email','email','',true),
+   AUTH_REGISTER_COUNTRY:countryField,
+   AUTH_REGISTER_PASSWORD:field('password','Password','password','new-password','',true,false),
+   AUTH_REGISTER_CONFIRM:field('confirm','Confirm password','password','new-password','',true,false),
+   AUTH_REGISTER_TERMS:UI.link('terms','terms','link'),
+   AUTH_REGISTER_PRIVACY:UI.link('privacy','privacy policy','link'),
+   AUTH_REGISTER_LOGIN:UI.link('login','Log in','link')
+  })||'';
+  if(type==='forgot')form=UI.templateMarkup('mcq-auth-forgot-form-template',{AUTH_FORGOT_EMAIL:field('email','Email address','email','email')})||'';
+  if(type==='reset-code')form=UI.templateMarkup('mcq-auth-reset-code-form-template',{
+   RESET_CODE_EMAIL:UI.esc(emailParam),
+   AUTH_RESET_CODE_FIELD:field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true),
+   AUTH_RESET_CODE_FORGOT:UI.link('forgot','Use a different email','link')
+  })||'';
+  if(type==='reset-password')form=UI.templateMarkup('mcq-auth-reset-password-form-template',{
+   RESET_PASSWORD_EMAIL:UI.esc(emailParam),
+   AUTH_RESET_PASSWORD_FIELD:field('password','New password','password','new-password'),
+   AUTH_RESET_PASSWORD_CONFIRM:field('confirm','Confirm new password','password','new-password')
+  })||'';
+  if(type==='verify'){form=UI.templateMarkup('mcq-auth-verify-form-template',{
+   AUTH_VERIFY_EMAIL:field('email','Email address','email','email','value="'+UI.esc(emailParam)+'"'),
+   AUTH_VERIFY_CODE:field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"'),
+   AUTH_VERIFY_LOGIN:UI.link('login','Back to login','link')
+  })||'';setTimeout(()=>syncVerificationTimer(emailParam),0)}
+  return UI.layout(UI.templateMarkup('mcq-auth-layout-template',{AUTH_TITLE:UI.esc(titles[type]),AUTH_FORM:form})||('<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>'+UI.esc(titles[type])+'</h1>'+form+'</div></div></div>'));
+ }
+
+ const pendingCommands=new Map();
+ function applyCommandResult(action,result,payload){
+  const args=payload?.args||[];
+  if(action==='attempt'){
+   const [id,answer]=args,q=MCQ.get('mcqs',id);
+   MCQ.db.attempts.unshift({id:Number(id),answer,correct:!!result,at:new Date().toISOString(),by_id:user?.id||null,by:user?.name||'Unknown'});
+   MCQ.db.attempts=MCQ.db.attempts.slice(0,500);return;
+  }
+  if(action==='toggleBookmark'){
+   const id=Number(args[0]);MCQ.db.bookmarks=result?[...new Set([...MCQ.db.bookmarks,id])]:MCQ.db.bookmarks.filter(x=>Number(x)!==id);return;
+  }
+  if(action==='savePaper'){
+   const id=Number(args[0]);MCQ.db.savedPapers=result?[...new Set([...MCQ.db.savedPapers,id])]:MCQ.db.savedPapers.filter(x=>Number(x)!==id);return;
+  }
+  if(action==='saveProfile'||action==='form:profile'){
+   const next=result?.user||result;if(next?.id)setIdentity({...user,...next});return;
+  }
+  if(action==='report'&&result?.report){MCQ.upsert('reports',result.report);return}
+  if(action==='form:mcq'&&result?.mcq){MCQ.upsert('mcqs',result.mcq);return}
+  if(action==='form:review'){
+   if(Array.isArray(result?.mcqs))result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));
+   if(result?.allPending&&result?.status==='approved'){
+    for(const q of MCQ.db.mcqs||[])if(q.status==='pending'||q.pending_update){q.status='approved';q.pending_update=null;q.rejection_reason='';}
+   }
+   return
+  }
+  if(action==='form:entity'&&result?.type&&result?.entity){MCQ.upsert(result.type,result.entity);return}
+  if(action==='form:user'&&result?.user){MCQ.upsert('users',result.user);if(Number(result.user.id)===Number(user?.id))setIdentity({...user,...result.user});return}
+  if(action==='form:guide'&&result?.guide){MCQ.upsert('guides',result.guide);return}
+  if(action==='form:post'&&result?.post){MCQ.upsert('posts',result.post);return}
+  if(action==='form:ad'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(action==='action:report-resolve'&&result?.report){MCQ.upsert('reports',result.report);return}
+  if(action==='action:user-status'&&result?.user){MCQ.upsert('users',result.user);return}
+  if(action==='action:ad-toggle'&&result?.ad){MCQ.upsert('ads',result.ad);return}
+  if(result?.pageSeo)MCQ.mergeCore({pageSeo:result.pageSeo});
+  if(Array.isArray(result?.mcqs))result.mcqs.forEach(row=>MCQ.upsert('mcqs',row));
+  if(Array.isArray(result?.pdfs))MCQ.db.pdfs=result.pdfs;
+  if(Array.isArray(result?.latestJobs))MCQ.db.latestJobs=result.latestJobs;
+  if(result?.deleted?.type){MCQ.remove(result.deleted.type,result.deleted.ids||[]);return}
+ }
+ function invalidateWorkspaceMcqs(){for(const key of [...loadedSections])if(String(key).startsWith('workspace-mcqs|')){loadedSections.delete(key);sectionLoadedAt.delete(key)}}
+ function invalidatePagedLists(){
+  for(const key of [...loadedSections])if(['workspace-mcqs|','public-mcqs|','entity-page|'].some(prefix=>String(key).startsWith(prefix))){loadedSections.delete(key);sectionLoadedAt.delete(key)}
+  loadedSections.delete('core');sectionLoadedAt.delete('core');
+  if(window.MCQ?.db){MCQ.db.entityPage=null;MCQ.db.mcqPage={...(MCQ.db.mcqPage||{}),server:false}}
+ }
+ async function command(action,payload){
+  if(!user)throw Error('Sign in to save this activity.');
+  const key=JSON.stringify([action,payload]);if(pendingCommands.has(key))return pendingCommands.get(key);
+  const task=(async()=>{
+   const longBulkReview=action==='form:review'&&String(payload?.context?.allPending||'').toLowerCase()==='true';
+   const own=generation,data=await request('/commands',{action,payload},{loading:action==='action:import-confirm'||longBulkReview,timeout:action==='action:import-confirm'?60000:(longBulkReview?120000:15000)});
+   if(own!==generation)throw Error('The account changed. Please try again.');
+   if(data.user)setIdentity({...user,...data.user});
+   if(data.seoIndex)MCQ.mergeCore({seoIndex:data.seoIndex});
+   applyCommandResult(action,data.result,payload);
+   if(['form:mcq','form:review','action:import-confirm','action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore'].includes(action))invalidatePagedLists();
+   if(['form:entity','action:entity-pin','action:entity-delete','action:entity-delete-confirm','action:entity-bulk-delete','action:bulk-hierarchy','action:bulk-categories'].includes(action))invalidatePagedLists();
+   if(['action:mcq-delete','action:mcq-delete-confirm','action:mcq-bulk-delete','action:trash-restore','action:restore-trash','action:trash-restore-many','action:trash-bulk-restore','action:trash-permanent-delete','action:trash-bulk-delete'].includes(action)){loadedSections.delete('trash');sectionLoadedAt.delete('trash')}
+   if(data.refresh==='bootstrap'){
+    const snapshot=await request('/bootstrap');
+    if(own!==generation)throw Error('The account changed. Please try again.');
+    hydrate(snapshot,user);
+   }else if(['form:config','form:settings','form:entity'].includes(action)){
+    const snapshot=await request('/bootstrap');
+    if(own!==generation)throw Error('The account changed. Please try again.');
+    hydrate(snapshot,user);
+    loadedSections.delete('resources');sectionLoadedAt.delete('resources');
+   }
+   return data.result;
+  })();
+  pendingCommands.set(key,task);try{return await task}finally{pendingCommands.delete(key)}
+ }
+ const originalAttempt=MCQ.attempt;
+ MCQ.attempt=(...args)=>user?command('attempt',{args}):originalAttempt(...args);
+ for(const name of ['toggleBookmark','savePaper','saveProfile','changePassword'])MCQ[name]=(...args)=>command(name,{args});
+ MCQ.report=(id,reason)=>user?command('report',{args:[id,reason]}):request('/report',{id,reason});
+
+ document.addEventListener('click',event=>{
+  const toggle=event.target.closest('[data-password-toggle]');if(!toggle)return;
+  const input=toggle.closest('.password-input-wrap')?.querySelector('input');if(!input)return;
+  const reveal=input.type==='password';input.type=reveal?'text':'password';
+  toggle.setAttribute('aria-pressed',String(reveal));
+  toggle.setAttribute('aria-label',(reveal?'Hide ':'Show ')+(input.labels?.[0]?.textContent||'password').replace('*','').trim().toLowerCase());
+  toggle.innerHTML=UI.icon(reveal?'eye':'eye-off');
+ });
+
+ function resumePendingPublicAction(){
+  const action=pendingPublicAction;pendingPublicAction=null;
+  if(!action||!user)return;
+  const url=String(action.url||'');
+  if(/^data:application\/pdf;base64,/i.test(url)){
+   const a=document.createElement('a');a.href=url;a.download=String(action.downloadName||'mcqcampus.pdf');document.body.appendChild(a);a.click();a.remove();return;
+  }
+  if(/^https?:\/\//i.test(url))window.location.assign(url);
+ }
+ document.addEventListener('click',event=>{
+  const anchor=event.target.closest('a[data-auth-action]');if(!anchor||user)return;
+  const href=String(anchor.href||'').trim();if(!href)return;
+  const kind=anchor.dataset.authAction;
+  if(kind==='download-pdf'&&!(/^https?:\/\//i.test(href)||/^data:application\/pdf;base64,/i.test(href)))return;
+  if(kind==='apply-job'&&!/^https?:\/\//i.test(href))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  pendingPublicAction={kind,url:href,downloadName:anchor.dataset.authDownloadName||'mcqcampus.pdf'};
+  const next=(location.pathname||'/').replace(/^\/+/, '')+location.search;
+  App.go('login',next?{next}:{});
+  UI.toast(kind==='download-pdf'?'Sign in to download this PDF.':'Sign in to continue to the official application page.');
+ },true);
+
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-form^="auth-"]');if(!form)return;
+  event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
+  const values=Object.fromEntries(new FormData(form)),type=form.dataset.form.slice(5),button=form.querySelector('[type=submit]'),box=form.querySelector('[data-auth-error]');
+  box.textContent='';
+  const labels={login:'Signing in...',register:'Creating account...',forgot:'Sending...', 'reset-code':'Verifying...', 'reset-password':'Updating...',reset:'Updating...',verify:'Verifying...'};
+  const restoreButton=setButtonLoading(button,labels[type]||'Working...');
+  try{
+   if((type==='reset-password'||type==='reset'||type==='register')&&values.password!==values.confirm)throw Error('Passwords do not match.');
+   const params=new URLSearchParams(route().split('?')[1]||'');
+   const apiType=(type==='reset-code'||type==='reset-password')?'reset':type;
+   if(type==='reset-code')values.stage='verify';
+   if(type==='reset-password')values.stage='update';
+   const data=await request('/auth/'+apiType,values);
+   if(type==='login'){
+    csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();
+    const next=destination(params.get('next')),target=next&&allowed(next)?next:'home';App.go(target);setTimeout(resumePendingPublicAction,300);
+   }else if(type==='register'&&data.verificationRequired){
+    const verifyEmail=data.email||values.email;
+    armVerificationTimer(verifyEmail,data.resendAfter||60);
+    App.go('verify',{email:verifyEmail});
+   }else if(type==='forgot'){
+    box.textContent=data.message||'If an active account matches that email, a reset code has been sent.';
+    setTimeout(()=>App.go('reset-code',{email:values.email||''}),700);
+   }else if(type==='reset-code'&&data.completed){
+    box.textContent=data.message||'Code verified. Choose a new password.';
+    setTimeout(()=>App.go('reset-password',{email:values.email||''}),450);
+   }else if(type==='verify'&&data.completed){
+    if(data.user){csrf=data.csrfToken||csrf;setIdentity(data.user);ready=true;lastSessionValidation=Date.now();App.go('home');setTimeout(resumePendingPublicAction,300);}
+    else{box.textContent=data.message||'Email verified. You can now sign in.';setTimeout(()=>App.go('login'),700);}
+   }else if((type==='reset-password'||type==='reset')&&data.completed){
+    box.textContent=data.message||'Password updated. You can now sign in.';
+    setTimeout(()=>App.go('login'),700);
+   }else{
+    box.textContent=data.message||'Request completed.';
+   }
+  }catch(error){
+   if(type==='login'&&error?.fields?.verificationRequired){
+    App.go('verify',{email:values.email||''});
+   }else box.textContent=error.message;
+  }finally{restoreButton();}
+ },true);
+
+ document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-auth-resend]');if(!button)return;
+  event.preventDefault();
+  const form=button.closest('form[data-form="auth-verify"]'),box=form?.querySelector('[data-auth-error]');
+  const email=form?.querySelector('[name="email"]')?.value||'';
+  if(!email){if(box)box.textContent='Enter your email address.';return;}
+  const restore=setButtonLoading(button,'Sending...');
+  try{const data=await request('/auth/resend-verification',{email});armVerificationTimer(email,data.resendAfter||60);if(box)box.textContent=data.message||'If verification is required, a new code has been sent.';}
+  catch(error){if(box)box.textContent=error.message;}
+  finally{restore();}
+ },true);
+
+
+ function openPasswordChangeStart(){
+  const modal=document.getElementById('modal');if(!modal)return;
+  modal.innerHTML=`<div class="dialog-content"><div class="dialog-head"><div><p class="eyebrow">ACCOUNT SECURITY</p><h2>Change password</h2></div><button class="btn ghost sm" type="button" data-password-change-close>Close</button></div><p class="small muted">Enter your current password, then choose a new password. The new password must be different from your current password.</p><form data-password-change-step="start">${field('current_password','Current password','password','current-password','',true)}${field('new_password','New password','password','new-password','',true)}${field('confirm_password','Confirm new password','password','new-password','',true)}<p class="auth-error" role="alert" data-password-change-error></p><div class="actions"><button class="btn primary" type="submit">Send verification code</button></div></form></div>`;
+  if(!modal.open)modal.showModal();
+ }
+ function openPasswordChangeCode(message=''){
+  const modal=document.getElementById('modal');if(!modal)return;
+  modal.innerHTML=`<div class="dialog-content"><div class="dialog-head"><div><p class="eyebrow">EMAIL VERIFICATION</p><h2>Enter verification code</h2></div><button class="btn ghost sm" type="button" data-password-change-close>Close</button></div><p class="small muted">We sent a 6-digit code to your account email. Your password will not change until this code is verified.</p><form data-password-change-step="confirm">${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true)}<p class="small muted">Code expires in 10 minutes.</p><p class="auth-error" role="alert" data-password-change-error>${UI.esc(message)}</p><div class="actions"><button class="btn primary" type="submit">Verify & change password</button><button class="btn ghost" type="button" data-password-change-back>Back</button></div></form></div>`;
+  if(!modal.open)modal.showModal();
+ }
+ document.addEventListener('click',event=>{
+  if(event.target.closest('[data-password-change-open]')){event.preventDefault();openPasswordChangeStart();return}
+  if(event.target.closest('[data-password-change-close]')){event.preventDefault();document.getElementById('modal')?.close();return}
+  if(event.target.closest('[data-password-change-back]')){event.preventDefault();openPasswordChangeStart();return}
+ });
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-password-change-step]');if(!form)return;
+  event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
+  const box=form.querySelector('[data-password-change-error]'),button=form.querySelector('[type=submit]'),values=Object.fromEntries(new FormData(form));
+  if(box)box.textContent='';
+  const restore=setButtonLoading(button,form.dataset.passwordChangeStep==='start'?'Checking...':'Verifying...');
+  try{
+   if(form.dataset.passwordChangeStep==='start'){
+    if(values.new_password!==values.confirm_password)throw Error('New passwords do not match.');
+    const data=await request('/auth/password-change/start',values);
+    openPasswordChangeCode(data.message||'Verification code sent.');
+   }else{
+    const data=await request('/auth/password-change/confirm',{code:values.code});
+    document.getElementById('modal')?.close();
+    UI.toast(data.message||'Password changed successfully.');
+   }
+  }catch(error){if(box)box.textContent=error.message;}
+  finally{restore();}
+ },true);
+
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-form="move-past-paper-mcqs"]');if(!form)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(!user?.roles?.includes('super-admin')){UI.toast('Only a Super Admin can move MCQs between Past Papers.');return;}
+  if(!form.reportValidity())return;
+  const fd=new FormData(form),button=form.querySelector('[type="submit"]'),mcq_ids=fd.getAll('mcq_ids').map(Number).filter(id=>Number.isInteger(id)&&id>0);
+  if(!mcq_ids.length){UI.toast('Select at least one MCQ to move.');return;}
+  const restore=setButtonLoading(button,'Moving MCQs...');
+  try{
+   const result=await request('/admin/mcqs/move-past-paper',{
+    source_year_id:Number(fd.get('source_year_id')),
+    destination_year_id:Number(fd.get('destination_year_id')),
+    mcq_ids,
+    delete_empty_source:fd.has('delete_empty_source')
+   });
+   invalidatePagedLists();
+   const snapshot=await request('/bootstrap');
+   hydrate(snapshot,user);
+   UI.toast(result.message||('Moved '+Number(result.moved||0)+' MCQ(s).'));
+   if(result.source_deleted)App.go('super-admin/overview');else App.render();
+  }catch(error){UI.toast(error.message);}
+  finally{restore();}
+ },true);
+
+ const writeForms=new Set(['mcq','entity','review','profile','password-change','contact','settings','seo','roles','user','guide','post','config','page-seo','bulk-hierarchy','bulk-categories','bulk-pdfs','bulk-latest-jobs','bulk-posts','pdf','latest-job','ad-config','direct-ad','footer-settings','social-links','legal-page']);
+ document.addEventListener('submit',async event=>{
+  const form=event.target.closest('form[data-form]');if(!form||!writeForms.has(form.dataset.form))return;
+  event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
+  const button=form.querySelector('button[type=submit],button:not([type])');
+  const restoreButton=setButtonLoading(button,form.dataset.form==='mcq'?'Saving...':'Saving...');
+  try{
+   const fd=new FormData(form),values=Object.fromEntries(fd);
+   if(form.dataset.form==='profile')values.interests=fd.getAll('interests');
+   if(form.dataset.form==='mcq')Admin.syncDraft();
+   if(form.dataset.form==='contact'&&!user)await request('/contact',values);
+   else await command('form:'+form.dataset.form,{values,fields:[...fd],context:{...form.dataset},draft:App.draft});
+   window.mcqDirty=false;App.draft=null;document.getElementById('modal')?.close();App.render();UI.toast('Saved.');
+  }catch(error){let box=form.querySelector('[data-command-error]');if(!box){box=document.createElement('p');box.dataset.commandError='';box.className='auth-error';box.setAttribute('role','alert');form.prepend(box);}box.textContent=error.message;}
+  finally{restoreButton();}
+ },true);
+
+ const writeActions=new Set(['entity-delete-confirm','entity-bulk-delete','hierarchy-bulk-delete','report-resolve','import-confirm','user-status','post-delete','pdf-delete','latest-job-toggle','latest-job-delete','latest-job-bulk-delete','ad-toggle','ad-delete']);
+ document.addEventListener('click',async event=>{
+  const el=event.target.closest('[data-action]');if(!el||!writeActions.has(el.dataset.action))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(el.dataset.loading==='true')return;
+  const actionLabels={'entity-delete-confirm':'Deleting...','entity-bulk-delete':'Deleting...','hierarchy-bulk-delete':'Deleting...','trash-restore':'Restoring...','report-resolve':'Updating...','restore-trash':'Restoring...','import-confirm':'Importing...','user-status':'Updating...','post-delete':'Deleting...','pdf-delete':'Deleting...','latest-job-toggle':'Updating...','latest-job-delete':'Deleting...','latest-job-bulk-delete':'Deleting...','ad-toggle':'Updating...','ad-delete':'Deleting...'};
+  const restoreButton=setButtonLoading(el,actionLabels[el.dataset.action]||'Working...');
+  try{
+   let selectedImportRows=App.importRows;if(el.dataset.action==='import-confirm'){const selected=[...document.querySelectorAll('.import-row-check:checked')].map(x=>Number(x.value)).filter(Number.isInteger);if(!selected.length)throw Error('Select at least one MCQ to import.');selectedImportRows=selected.map(i=>App.importRows?.[i]).filter(Boolean);if(selectedImportRows.some(r=>!r?.q))throw Error('Selected import row is missing normalized MCQ data. Re-upload the file.');}const extra={...el.dataset,rows:el.dataset.action==='import-confirm'?selectedImportRows.map(r=>r.q):App.importRows};
+   if(['entity-bulk-delete','hierarchy-bulk-delete'].includes(el.dataset.action)){const type=el.dataset.type;extra.ids=[...document.querySelectorAll(`.${el.dataset.action==='entity-bulk-delete'?'entity':'hierarchy'}-row-check[data-type="${type}"]:checked`)].map(x=>Number(x.value)).filter(Boolean);if(!extra.ids.length)throw Error('Select at least one record.');}
+   if(el.dataset.action==='latest-job-bulk-delete'){MCQ.assert('latestJobDelete');extra.ids=[...document.querySelectorAll('.latest-job-row-check:checked')].map(x=>Number(x.value));if(!extra.ids.length)throw Error('Select at least one job.');if(!window.confirm('Delete '+extra.ids.length+' selected job announcements?'))return;}
+   const result=await command('action:'+el.dataset.action,extra);if(el.dataset.action==='import-confirm'){
+    App.importSummary=result?.summary||result;
+    App.importedIds=(result?.importedIds||result?.mcqs?.map(x=>x.id)||[]).map(Number).filter(Number.isInteger);
+    App.importPage={...(result?.importPage||{page:1,pageSize:50,total:App.importedIds.length,hasNext:App.importedIds.length>50}),ids:App.importedIds.slice(0,50)};
+    loadedSections.delete('overview');sectionLoadedAt.delete('overview');invalidateWorkspaceMcqs();
+    const freshOverview=await request('/admin/overview');
+    MCQ.db.adminOverview=freshOverview||{};
+    loadedSections.add('overview');sectionLoadedAt.set('overview',Date.now());
+    const summary=result?.summary||{};
+    const savedCount=Number(summary.imported||0)+Number(summary.updated||0);
+    const duplicateCount=Number(summary.duplicates||0);
+    if((Number(summary.failed||0)>0||Number(summary.invalid||0)>0)&&savedCount===0){
+      const first=summary.errors?.[0]?.message||('No MCQs were imported. Invalid rows: '+Number(summary.invalid||0)+'.');
+      throw Error(first);
+    }
+    if(savedCount>0){
+      const parts=[];
+      if(Number(summary.imported||0))parts.push(summary.imported+' new');
+      if(Number(summary.updated||0))parts.push(summary.updated+' update');
+      UI.toast(parts.join(' + ')+' MCQ(s) saved to Pending review.');
+    }else if(duplicateCount>0){
+      UI.toast(duplicateCount+' MCQ(s) already exist; no duplicate record created.');
+    }else{
+      UI.toast('No MCQ changes were needed.');
+    }
+   }else UI.toast('Saved.');document.getElementById('modal')?.close();App.render();
+  }
+  catch(error){UI.toast(error.message);}
+  finally{restoreButton();}
+ },true);
+
+ let lastSessionValidation=0;
+ async function validateSession(force=false){
+  if(!user)return null;
+  const now=Date.now();
+  if(!force&&now-lastSessionValidation<300000)return user;
+  lastSessionValidation=now;
+  try{
+   const session=await request('/auth/session');
+   csrf=session.csrfToken||csrf;
+   if(!session.user){clearPrivateState();ready=true;App.render();return null}
+   setIdentity({...user,...session.user});
+   return user;
+  }catch{return user}
+ }
+
+ let majorTransition=null;
+ async function switchRole(role){
+  if(majorTransition)return majorTransition;
+  if(!user?.roles?.includes(role))throw Error('This account does not have that workspace.');
+  if(user.activeRole===role)return role;
+  UI.closeDropdowns();
+  backendLoading(true);
+  majorTransition=(async()=>{
+   try{
+    const data=await request('/auth/switch-role',{role});
+    csrf=data.csrfToken||csrf;
+    setIdentity({...user,activeRole:data.activeRole||role});
+    loadedSections.delete('overview');sectionLoadedAt.delete('overview');
+    return data.activeRole||role;
+   }finally{
+    backendLoading(false);
+    majorTransition=null;
+   }
+  })();
+  return majorTransition;
+ }
+ async function logout(){
+  if(majorTransition)return majorTransition;
+  UI.closeDropdowns();
+  backendLoading(true);
+  majorTransition=(async()=>{
+   try{
+    await request('/auth/logout',{});
+    clearPrivateState();
+    ready=true;
+    App.go('home');
+   }finally{
+    backendLoading(false);
+    majorTransition=null;
+   }
+  })();
+  return majorTransition;
+ }
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}try{await check({loading:false});window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});if(!authRoutes.has(base()))await ensureRouteData(route(),{});}finally{ready=true;App.render();}}
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
+ window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
+ document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
+ window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
+ return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
+})();
+
+
+/* ===== END MODULE: auth.js ===== */
+
+;
+
+
+/* SOURCE: frontend/js/admin/importer.js */
+/* Strict UTF-8 TXT / RFC-style CSV / JSON importer. No numeric coercion of options. */
+window.Importer=(()=>{
+ const fields={question:'question',option1:'option1',option2:'option2',option3:'option3',option4:'option4',correctanswer:'correct_answer',description:'description',country:'country',category:'category',categoryname:'category',paper:'paper',organization:'paper',organizationboard:'paper',board:'paper',pastpaper:'pastpaper',pastpapername:'pastpaper',categoryid:'category_id',paperid:'paper_id',pastpaperid:'job_years_ids',pastpaperids:'job_years_ids',jobyearsids:'job_years_ids'};
+ const key=k=>fields[k.toLowerCase().replace(/[^a-z0-9]/g,'')]||k;
+ function csv(text){let rows=[],row=[],cell='',quote=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quote&&text[i+1]==='"'){cell+='"';i++}else if(!cell||quote)quote=!quote;else throw Error('Unexpected quote in CSV field.')}else if(c===','&&!quote){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell=''}else cell+=c}if(quote)throw Error('Unclosed quoted CSV field.');if(cell||row.length){row.push(cell);rows.push(row)}const headers=rows.shift()?.map(h=>key(h.trim()));if(!headers||!headers.includes('question'))throw Error('CSV needs a Question header.');if(new Set(headers).size!==headers.length)throw Error('CSV contains duplicate column headers.');return rows.map((r,i)=>{const o=Object.fromEntries(headers.map((h,j)=>[h,r[j]??'']));if(r.length!==headers.length)o._parseError='Column count does not match headers.';return o})}
+ function txt(text){const chunks=text.trim().split(/\n\s*\n(?=\S)/);return chunks.filter(x=>x.trim()).map(block=>{const lines=block.split('\n').map(x=>x.trim());let o={};let pos=0,last='';for(const line of lines){const m=line.match(/^(Question|Option\s*[1-4]|Correct Answer|Country|Category|Organization\s*\/\s*Board|Organization|Board|Past Paper|Paper|Description)\s*:\s*(.*)$/i);if(m){last=key(m[1]);o[last]=m[2]}else if(pos<5&&!last){o[pos===0?'question':'option'+pos]=line;pos++}else if(last==='description')o.description+='\n'+line;else o._parseError='Unexpected line: '+line}return o})}
+ function parse(text,ext){text=text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');if(ext==='csv')return csv(text);if(ext==='txt')return txt(text);if(ext==='json'){const d=JSON.parse(text);const rows=Array.isArray(d)?d:d.mcqs||d.data;if(!Array.isArray(rows))throw Error('JSON must be an array or an object containing an mcqs/data array.');return rows.map(r=>{if(!r||typeof r!=='object'||Array.isArray(r))return {_parseError:'Row must be an object.'};return Object.fromEntries(Object.entries(r).map(([k,v])=>[key(k),v]))})}throw Error('Choose a TXT, CSV or JSON file.')}
+ function resolveName(type,value,parentIds){const names=Array.isArray(value)?value:String(value??'').split('|').filter(Boolean);const parent=MCQ.parents[type];return names.map(name=>{const matches=MCQ.db[type].filter(x=>(type!=='categories'||!x.legacy)&&MCQ.norm(x.name)===MCQ.norm(name)&&(!parent||parentIds.includes(x[parent[1]]))&&(type!=='categories'||!MCQ.db.activeCountry||(x.country||'Pakistan')==='Both'||MCQ.norm(x.country||'Pakistan')===MCQ.norm(MCQ.db.activeCountry)));if(matches.length!==1)throw Error((matches.length?'Ambiguous':'Unknown')+' '+type+': '+name);return matches[0].id})}
+ function normalize(raw){const q={question:String(raw.question??'').trim(),description:String(raw.description??''),correct_answer:String(raw.correct_answer??'').trim(),subcategory_ids:[],child_subcategory_ids:[]};for(let i=1;i<=4;i++)q['option'+i]=String(raw['option'+i]??'').trim();q.country=String(raw.country||MCQ.db.activeCountry||MCQ.db.session?.country||'Pakistan').trim();q.category_id=raw.category_id?+raw.category_id:resolveName('categories',raw.category,[])[0];q.paper_id=raw.paper_id?MCQ.ids(raw.paper_id):resolveName('papers',raw.paper,[]);q.job_ids=[];const pastPaperValue=raw.pastpaper??raw.job_years_ids??raw.job_year_ids;q.job_years_ids=Array.isArray(pastPaperValue)||typeof pastPaperValue==='number'?MCQ.ids(pastPaperValue):resolveName('years',pastPaperValue,q.paper_id);return q}
+ function identityKey(value){return String(value??'').normalize('NFKC').replace(/\u00a0/g,' ').trim().toLowerCase().replace(/\s+/g,' ')}
+ function prepareRows(rows){
+  const groups=new Map,out=[];
+  const add=(a,b)=>[...new Set([...MCQ.ids(a),...MCQ.ids(b)].map(Number).filter(Boolean))];
+  for(const row of rows||[]){
+   if(!row?.q||row.status==='invalid'){out.push(row);continue}
+   const key=identityKey(row.q.question);
+   if(!groups.has(key)){
+    const copy={...row,q:{...row.q,paper_id:MCQ.ids(row.q.paper_id),job_ids:MCQ.ids(row.q.job_ids),job_years_ids:MCQ.ids(row.q.job_years_ids)},mergedRows:0,duplicateRows:0};
+    groups.set(key,copy);out.push(copy);continue;
+   }
+   const base=groups.get(key);
+   const before={p:MCQ.ids(base.q.paper_id),j:MCQ.ids(base.q.job_ids),y:MCQ.ids(base.q.job_years_ids)};
+   base.q.paper_id=add(base.q.paper_id,row.q.paper_id);
+   base.q.job_ids=add(base.q.job_ids,row.q.job_ids);
+   base.q.job_years_ids=add(base.q.job_years_ids,row.q.job_years_ids);
+   const changed=base.q.paper_id.length>before.p.length||base.q.job_ids.length>before.j.length||base.q.job_years_ids.length>before.y.length;
+   if(changed)base.mergedRows=(base.mergedRows||0)+1;
+   else base.duplicateRows=(base.duplicateRows||0)+1;
+  }
+  return out
+ }
+ function preview(raws){
+  const normalized=raws.map((raw,i)=>{
+   let row={line:i+1,raw,question:raw.question||'',errors:[],status:'valid'};
+   try{
+    row.q=normalize(raw);
+    row.errors=MCQ.validate(row.q);
+    if(raw._parseError)row.errors.unshift(raw._parseError);
+    if(row.errors.length)row.status='invalid';
+   }catch(e){row.status='invalid';row.errors=[e.message]}
+   return row
+  });
+  return prepareRows(normalized).map(row=>{
+   if(row.status==='invalid'||!row.q)return row;
+   const existing=MCQ.db.mcqs.find(x=>identityKey(x.question)===identityKey(row.q.question));
+   const ids=v=>[...new Set(MCQ.ids(v).map(Number).filter(Boolean))];
+   const current=existing?{p:ids(existing.paper_id),j:ids(existing.job_ids),y:ids(existing.job_years_ids)}:{p:[],j:[],y:[]};
+   const incoming={p:ids(row.q.paper_id),j:ids(row.q.job_ids),y:ids(row.q.job_years_ids)};
+   const hasNew=incoming.p.some(x=>!current.p.includes(x))||incoming.j.some(x=>!current.j.includes(x))||incoming.y.some(x=>!current.y.includes(x));
+   row.existing=existing&&MCQ.managedRows('mcqs').some(q=>q.id===existing.id)?existing.id:undefined;
+   if(existing&&!hasNew){
+    row.status='duplicate';
+    row.errors=['Duplicate ignored: this question already has the same Organization / Board / Past Paper links.'];
+   }else if(existing){
+    row.status='update';
+    row.errors=['Existing website MCQ: new unique Organization / Board / Past Paper links will be added to the stored MCQ.'+(row.mergedRows?' '+row.mergedRows+' repeated upload row(s) were consolidated first.':'')+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
+   }else if(row.mergedRows){
+    row.status='merge';
+    row.errors=['Repeated question in this upload: unique Organization / Board and Past Paper links were combined into one MCQ.'+(row.duplicateRows?' '+row.duplicateRows+' exact duplicate row(s) ignored.':'')];
+   }else{
+    row.status='valid';
+    if(row.duplicateRows)row.errors=[row.duplicateRows+' exact duplicate row(s) ignored.'];
+   }
+   return row
+  })
+ }
+ return {parse,preview,prepareRows,normalize,csv};
+})();
+
+
+/* SOURCE: frontend/js/admin/enhancements.js */
+/* Additional content-management interactions for the production frontend. */
+window.MCQEnhancements=(()=>{
+ const e=UI.esc;
+ const nextId=rows=>Math.max(0,...(rows||[]).map(x=>Number(x.id)||0))+1;
+ const stamp=()=>new Date().toISOString();
+ const actor=()=>MCQ.db.session||{name:'Unknown',id:null};
+ const checked=selector=>[...document.querySelectorAll(selector+':checked')].map(x=>Number(x.value)).filter(Boolean);
+ function saveAndRender(message){MCQ.save();App.render();if(message)UI.toast(message)}
+ function entityCount(type){const n=document.querySelectorAll(`.entity-row-check[data-type="${type}"]:checked`).length,box=document.querySelector(`[data-entity-selection-count="${type}"]`);if(box)box.textContent=n+' selected'}
+ function hierarchyCount(type){const n=document.querySelectorAll(`.hierarchy-row-check[data-type="${type}"]:checked`).length;document.querySelectorAll(`[data-hierarchy-count="${type}"]`).forEach(x=>x.textContent=n)}
+ function deleteEntityMany(type,ids){MCQ.assert(type);let removed=0;for(const id of ids){if(!MCQ.get(type,id))continue;MCQ.softDeleteEntity(type,id);removed++}return removed}
+ function readImage(file,done){if(!/^image\/(png|jpeg|webp)$/i.test(file.type))throw Error('Image must be PNG, JPG or WebP.');if(file.size>900*1024)throw Error('Image must be 900 KB or smaller.');const r=new FileReader();r.onload=()=>done(r.result);r.readAsDataURL(file)}
+ document.addEventListener('change',ev=>{
+  try{
+   if(ev.target.classList.contains('entity-row-check'))entityCount(ev.target.dataset.type);
+   if(ev.target.classList.contains('hierarchy-row-check'))hierarchyCount(ev.target.dataset.type);
+   if(ev.target.id==='pdf-cover-file'&&ev.target.files[0]){const f=ev.target.closest('form'),preview=document.getElementById('pdf-cover-preview');readImage(ev.target.files[0],data=>{f.querySelector('[name="cover_data"]').value=data;f.querySelector('[name="cover"]').value='';if(preview)preview.innerHTML=`<img src="${e(data)}" alt="">`})}
+   if(ev.target.id==='pdf-file'&&ev.target.files[0]){const file=ev.target.files[0],f=ev.target.closest('form'),name=f.querySelector('[data-pdf-file-name]');if(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))throw Error('Choose a PDF file.');if(file.size>1.5*1024*1024)throw Error('PDF uploads through this form are limited to 1.5 MB. Use an external HTTPS download URL for larger files.');const r=new FileReader();r.onload=()=>{f.querySelector('[name="pdf_file_data"]').value=r.result;f.querySelector('[name="download_url"]').value='';if(name)name.textContent=file.name;};r.readAsDataURL(file)}
+  }catch(err){UI.toast(err.message)}
+ });
+ document.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=Number(el.dataset.id)||0;try{
+  if(a==='entity-select-all'){const type=el.dataset.type;document.querySelectorAll(`.entity-row-check[data-type="${type}"]`).forEach(x=>x.checked=el.checked);entityCount(type)}
+  if(a==='entity-bulk-delete'){const type=el.dataset.type,ids=checked(`.entity-row-check[data-type="${type}"]`);if(!ids.length)return UI.toast('Select at least one record.');if(!confirm(`Move ${ids.length} selected ${type} record(s) to Trash?`))return;saveAndRender(deleteEntityMany(type,ids)+' record(s) moved to Trash.')}
+  if(a==='hierarchy-bulk-delete'){const type=el.dataset.type,ids=checked(`.hierarchy-row-check[data-type="${type}"]`);if(!ids.length)return UI.toast('Select at least one record.');if(!confirm(`Move ${ids.length} selected ${type} record(s) to Trash?`))return;saveAndRender(deleteEntityMany(type,ids)+' record(s) moved to Trash.')}
+  if(a==='post-delete'){MCQ.assert('postDelete');if(confirm('Delete this blog post?')){MCQ.db.posts=MCQ.db.posts.filter(x=>+x.id!==id);saveAndRender('Blog post deleted.')}}
+  if(a==='pdf-new'||a==='pdf-edit')Admin.pdfModal(id||undefined);
+  if(a==='pdf-delete'){MCQ.assert('pdfDelete');if(confirm('Delete this PDF record?')){MCQ.db.pdfs=(MCQ.db.pdfs||[]).filter(x=>+x.id!==id);saveAndRender('PDF deleted.')}}
+  if(a==='latest-job-new'||a==='latest-job-edit')Admin.latestJobModal(id||undefined);
+  if(a==='latest-job-toggle'){MCQ.assert('latestJobs');const row=(MCQ.db.latestJobs||[]).find(x=>+x.id===id);if(row){row.published=row.published===false;row.updated_at=stamp();saveAndRender(row.published?'Job published.':'Job unpublished.')}}
+  if(a==='latest-job-delete'){MCQ.assert('latestJobDelete');if(confirm('Delete this Latest Jobs announcement?')){MCQ.db.latestJobs=(MCQ.db.latestJobs||[]).filter(x=>+x.id!==id);saveAndRender('Latest Jobs announcement deleted.')}}
+ }catch(err){UI.toast(err.message)}});
+ document.addEventListener('submit',ev=>{const f=ev.target.closest('form[data-form]');if(!f)return;const type=f.dataset.form;if(!['pdf','latest-job'].includes(type))return;ev.preventDefault();const fd=new FormData(f),v=Object.fromEntries(fd),now=stamp(),who=actor();try{
+  if(type==='pdf'){
+   MCQ.assert('pdfs');const id=Number(f.dataset.id)||0,old=(MCQ.db.pdfs||[]).find(x=>+x.id===id),fileData=String(v.pdf_file_data||'').trim(),url=String(v.download_url||'').trim(),cover=String(v.cover_data||v.cover||old?.cover||'').trim();if(url&&!/^https?:\/\//i.test(url))throw Error('PDF Download URL must start with http:// or https://.');if(fileData&&!/^data:application\/pdf;base64,/i.test(fileData))throw Error('Uploaded PDF data is invalid.');if(cover&&!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(cover)&&!/^https?:\/\//i.test(cover))throw Error('Thumbnail must be an uploaded image or an http(s) URL.');const download=fileData||url||old?.download_url||'';const row={...old,id:old?.id||nextId(MCQ.db.pdfs),title:String(v.title||'').trim(),slug:MCQ.slug(String(v.title||'').trim()),description:String(v.description||'').trim(),seo_title:String(v.title||'').trim(),seo_description:String(v.description||'').trim().slice(0,155),download_url:download,cover:old?.cover||'',active:true,created_at:old?.created_at||now,created_by:old?.created_by||who.name,created_by_id:old?.created_by_id||who.id,updated_at:now,updated_by:who.name,updated_by_id:who.id};if(!row.title)throw Error('PDF Title is required.');if(!row.download_url)throw Error('Choose a PDF file or enter a Download URL.');MCQ.db.pdfs=MCQ.db.pdfs||[];if(old)MCQ.db.pdfs.splice(MCQ.db.pdfs.indexOf(old),1,row);else MCQ.db.pdfs.unshift(row);document.getElementById('modal')?.close();saveAndRender('PDF saved. It is now available from the direct-download listing.')
+  }
+  if(type==='latest-job'){
+   MCQ.assert('latestJobs');const id=Number(f.dataset.id)||0,old=(MCQ.db.latestJobs||[]).find(x=>+x.id===id),paperId=Number(v.paper_id),org=MCQ.get('papers',paperId),title=String(v.title||'').trim(),lastDate=String(v.last_date||'').trim(),apply=String(v.apply_url||'').trim();if(!org)throw Error('Choose a valid Organization / Paper.');if(!title)throw Error('Job Title is required.');if(!lastDate)throw Error('Last Date is required.');if(apply&&!/^https?:\/\//i.test(apply))throw Error('Apply URL must start with http:// or https://.');const row={...old,id:old?.id||nextId(MCQ.db.latestJobs),paper_id:paperId,title,slug:MCQ.slug(org.name+' '+title),seo_title:title,seo_description:(org.name+' — '+title+' · Last date '+lastDate).slice(0,155),last_date:lastDate,apply_url:apply,published:v.published==='on',created_at:old?.created_at||now,created_by:old?.created_by||who.name,created_by_id:old?.created_by_id||who.id,updated_at:now,updated_by:who.name,updated_by_id:who.id};MCQ.db.latestJobs=MCQ.db.latestJobs||[];if(old)MCQ.db.latestJobs.splice(MCQ.db.latestJobs.indexOf(old),1,row);else MCQ.db.latestJobs.unshift(row);document.getElementById('modal')?.close();saveAndRender('Latest Job saved.')
+  }
+ }catch(err){UI.toast(err.message)}});
+ return {};
+})();
+
