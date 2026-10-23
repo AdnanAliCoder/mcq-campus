@@ -1467,8 +1467,10 @@ window.Auth=(()=>{
     const data=await request('/startup');
     if(own!==generation)return;
     csrf=data.csrfToken||'';
+    window.MCQCampusBackendReady=true;
     hydrate(data.snapshot||{},data.user||null);
    }catch{
+    window.MCQCampusBackendReady=false;
     if(own===generation){clearPrivateState();hydrate({},null);}
    }finally{if(loading)backendLoading(false);ready=true;checking=null;}
   })();
@@ -2424,7 +2426,7 @@ showStaticShell(){
   papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   blog:'blog',blogs:'blog',posts:'blog',post:'blog',
-  'latest-jobs':'latest-jobs','latest-job':'latest-jobs',
+  'latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs',
   login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login',
   'reset-password':'login',verify:'login',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',
@@ -2435,13 +2437,31 @@ showStaticShell(){
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+page+'"]');
  if(!source)return false;
+ this.route={path:location.pathname.replace(/^\/+|\/+$/g,'')||'home',params:Object.fromEntries(new URLSearchParams(location.search))};
  const shell=source.cloneNode(true);
  shell.dataset.staticFallback='true';
- root.replaceChildren(shell);
+ const main=shell.querySelector('main');
+ if(main){main.id='main';main.tabIndex=-1;}
+ const chunks=[
+  window.UI?.header?.(page)||'',
+  window.UI?.adSlot?.('header_ad')||'',
+  shell.outerHTML,
+  window.UI?.adSlot?.('footer_ad')||'',
+  window.UI?.footer?.()||''
+ ];
+ root.innerHTML=chunks.join('');
  root.setAttribute('aria-busy','true');
+ document.body.dataset.staticFallback=page;
  return true;
 },
-render(){if(!Auth.guard())return;const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
+
+render(){if(!Auth.guard())return;
+ if(window.MCQCampusBackendReady===false&&document.querySelector('#app [data-static-fallback="true"]')){
+  const root=document.getElementById('app');
+  root?.removeAttribute('aria-busy');
+  root?.querySelectorAll('[data-static-loading]').forEach(node=>{node.textContent='Live content is temporarily unavailable. Check your connection and try again.';});
+  return;
+ }const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
  const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
  if(base==='mcqs'&&parts[1]==='important-mcqs'){base='important'}
  else if(base==='mcqs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['mcq']);if(hit){base='mcq';id=hit.key}}

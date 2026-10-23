@@ -49,6 +49,9 @@ class IndependentFrontendTests(TestCase):
         self.assertNotIn("/assets/css/common.css", self.html)
         runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
         self.assertIn("showStaticShell(){", runtime)
+        self.assertIn("window.UI?.header?.(page)", runtime)
+        self.assertIn("window.UI?.footer?.()", runtime)
+        self.assertIn("window.MCQCampusBackendReady=false", runtime)
         self.assertIn("else window.App?.showStaticShell?.()", runtime)
         self.assertIn("replace(/^\\\\/+|\\\\/+$/g,'')", runtime)
 
