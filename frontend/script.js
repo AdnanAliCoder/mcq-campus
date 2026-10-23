@@ -2414,7 +2414,7 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
 showStaticShell(){
  const root=document.getElementById('app');
  if(!root)return false;
- const parts=location.pathname.replace(/^\\/+|\\/+$/g,'').replace(/\\.html$/i,'').split('/').filter(Boolean);
+ const parts=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,'').split('/').filter(Boolean);
  const first=parts[0]||'home';
  const map={
   index:'home',home:'home',

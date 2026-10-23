@@ -47,6 +47,10 @@ class IndependentFrontendTests(TestCase):
         self.assertEqual(self.html.count('rel="stylesheet"'), 1)
         self.assertNotIn("/assets/js/bootstrap.js", self.html)
         self.assertNotIn("/assets/css/common.css", self.html)
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertIn("showStaticShell(){", runtime)
+        self.assertIn("else window.App?.showStaticShell?.()", runtime)
+        self.assertIn("replace(/^\\\\/+|\\\\/+$/g,'')", runtime)
 
     def test_django_does_not_serve_frontend_pages(self):
         shell = (self.FRONTEND / "index.html").read_bytes()

@@ -81,5 +81,8 @@ check(!nginx.includes('location ^~ /assets/css/'), 'obsolete split CSS asset rou
 check(!nginx.includes('location ^~ /assets/js/'), 'obsolete split JavaScript asset route is removed');
 check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; }'), 'missing favicon.ico routes to the existing SVG icon');
 check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
+const runtime = read('frontend/script.js');
+check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
+check(runtime.includes("else window.App?.showStaticShell?.()"), 'static shells are shown before the initial API bootstrap');
 
 if (failed) process.exit(1);
