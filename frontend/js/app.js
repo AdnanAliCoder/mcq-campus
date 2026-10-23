@@ -10,7 +10,7 @@ window.MCQCampusLoadPageScript=function(name){
  if(pending)return pending;
  const task=new Promise(resolve=>{
   const script=document.createElement("script");
-  script.src="/assets/js/pages/"+safeName+".js?v=20261023-single-index-static-v3";
+  script.src="/assets/js/pages/"+safeName+".js?v=20261023-static-html-components-v4";
   script.dataset.mcqCampusPageScript=safeName;
   script.async=true;
   script.onload=()=>{window.MCQCampusPageScriptsLoaded.add(safeName);resolve(true)};
