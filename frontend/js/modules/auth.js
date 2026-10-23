@@ -400,7 +400,15 @@ window.Auth=(()=>{
   tick();
   verificationTimer=setInterval(tick,1000);
  };
- const field=(name,label,type='text',auto='',extra='',mark=false,showHelp=true)=>{const required=mark?' <span class="required-mark" aria-hidden="true">*</span>':'';const input=`<input id="${name}" name="${name}" type="${type}" autocomplete="${auto}" ${type==='password'?'minlength="8"':''} ${extra} required>`;if(type!=='password')return `<div class="field"><label for="${name}">${label}${required}</label>${input}</div>`;const help=showHelp&&['password','new_password'].includes(name)?'<small class="password-help">Use at least 8 characters. A longer password with a mix of letters, numbers and symbols is stronger.</small>':'';return `<div class="field"><label for="${name}">${label}${required}</label><div class="password-input-wrap">${input}<button class="password-toggle-btn" type="button" data-password-toggle="${name}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false">${UI.icon('eye-off')}</button></div>${help}</div>`};
+ const field=(name,label,type='text',auto='',extra='',mark=false,showHelp=true)=>{
+  const required=mark?' <span class="required-mark" aria-hidden="true">*</span>':'';
+  const input='<input id="'+UI.esc(name)+'" name="'+UI.esc(name)+'" type="'+UI.esc(type)+'" autocomplete="'+UI.esc(auto)+'" '+(type==='password'?'minlength="8" ':'')+extra+' required>';
+  const values={FIELD_NAME:UI.esc(name),FIELD_LABEL:UI.esc(label),FIELD_REQUIRED:required,FIELD_INPUT:input};
+  if(type!=='password')return UI.templateMarkup('mcq-auth-field-template',values)||('<div class="field"><label for="'+UI.esc(name)+'">'+label+required+'</label>'+input+'</div>');
+  const help=showHelp&&['password','new_password'].includes(name)?'<small class="password-help">Use at least 8 characters. A longer password with a mix of letters, numbers and symbols is stronger.</small>':'';
+  values.FIELD_LABEL_LOWER=UI.esc(String(label).toLowerCase());values.FIELD_TOGGLE_ICON=UI.icon('eye-off');values.FIELD_HELP=help;
+  return UI.templateMarkup('mcq-auth-password-field-template',values)||('<div class="field"><label for="'+UI.esc(name)+'">'+label+required+'</label><div class="password-input-wrap">'+input+'<button class="password-toggle-btn" type="button" data-password-toggle="'+UI.esc(name)+'" aria-label="Show '+UI.esc(String(label).toLowerCase())+'" aria-pressed="false">'+UI.icon('eye-off')+'</button></div>'+help+'</div>');
+ };
  function view(type){
   const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
   const activeCountries=(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
@@ -416,12 +424,39 @@ window.Auth=(()=>{
   const countryField='<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
   const titles={login:'Welcome back',register:selectedCountry?'Create your '+selectedCountry+' account':'Your next chapter',forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',reset:'Choose a new password',verify:'Email verification'};
   let form='';
-  if(type==='login')form=`<p class="muted small">Sign in with your existing MCQCampus account.</p><form data-form="auth-login">${field('email','Email address','email','email')}${field('password','Password','password','current-password','',false,false)}<div class="actions" style="margin-bottom:20px"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span>${UI.link('forgot','Forgot password?','link')}</div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small" style="margin-top:18px">New here? ${UI.link('register','Create an account','link')}</p>`;
-  if(type==='register')form=`<p class="small muted">Create your learner account. All fields marked * are required.</p><form data-form="auth-register">${field('first_name','First name','text','given-name','',true)}${field('last_name','Last name','text','family-name','',true)}${field('email','Email address','email','email','',true)}${countryField}${field('password','Password','password','new-password','',true,false)}${field('confirm','Confirm password','password','new-password','',true,false)}<label class="check-line"><input type="checkbox" name="terms" required> I accept the ${UI.link('terms','terms','link')} and ${UI.link('privacy','privacy policy','link')} <span class="required-mark" aria-hidden="true">*</span></label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send verification code</button></form><p class="text-center small" style="margin-top:18px">Already registered? ${UI.link('login','Log in','link')}</p>`;
-  if(type==='forgot')form=`<p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot">${field('email','Email address','email','email')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form>`;
-  if(type==='reset-code')form=`<p class="muted">Enter the 6-digit code sent to your email. You will choose a new password after the code is verified.</p><form data-form="auth-reset-code"><input type="hidden" name="email" value="${UI.esc(emailParam)}">${field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true)}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Verify code</button></form><p class="text-center small" style="margin-top:18px">${UI.link('forgot','Use a different email','link')}</p>`;
-  if(type==='reset-password')form=`<p class="muted">Your code is verified. Choose a new password for your account.</p><form data-form="auth-reset-password"><input type="hidden" name="email" value="${UI.esc(emailParam)}">${field('password','New password','password','new-password')}${field('confirm','Confirm new password','password','new-password')}<p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form>`;
-  if(type==='verify'){form=`<p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify">${field('email','Email address','email','email',`value="${UI.esc(emailParam)}"`)}${field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"')}<p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify & create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small" style="margin-top:18px">${UI.link('login','Back to login','link')}</p>`;setTimeout(()=>syncVerificationTimer(emailParam),0)}
+  if(type==='login')form=UI.templateMarkup('mcq-auth-login-form-template',{
+   AUTH_LOGIN_EMAIL:field('email','Email address','email','email'),
+   AUTH_LOGIN_PASSWORD:field('password','Password','password','current-password','',false,false),
+   AUTH_LOGIN_FORGOT:UI.link('forgot','Forgot password?','link'),
+   AUTH_LOGIN_REGISTER:UI.link('register','Create an account','link')
+  })||'';
+  if(type==='register')form=UI.templateMarkup('mcq-auth-register-form-template',{
+   AUTH_REGISTER_FIRST:field('first_name','First name','text','given-name','',true),
+   AUTH_REGISTER_LAST:field('last_name','Last name','text','family-name','',true),
+   AUTH_REGISTER_EMAIL:field('email','Email address','email','email','',true),
+   AUTH_REGISTER_COUNTRY:countryField,
+   AUTH_REGISTER_PASSWORD:field('password','Password','password','new-password','',true,false),
+   AUTH_REGISTER_CONFIRM:field('confirm','Confirm password','password','new-password','',true,false),
+   AUTH_REGISTER_TERMS:UI.link('terms','terms','link'),
+   AUTH_REGISTER_PRIVACY:UI.link('privacy','privacy policy','link'),
+   AUTH_REGISTER_LOGIN:UI.link('login','Log in','link')
+  })||'';
+  if(type==='forgot')form=UI.templateMarkup('mcq-auth-forgot-form-template',{AUTH_FORGOT_EMAIL:field('email','Email address','email','email')})||'';
+  if(type==='reset-code')form=UI.templateMarkup('mcq-auth-reset-code-form-template',{
+   RESET_CODE_EMAIL:UI.esc(emailParam),
+   AUTH_RESET_CODE_FIELD:field('code','6-digit reset code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"',true),
+   AUTH_RESET_CODE_FORGOT:UI.link('forgot','Use a different email','link')
+  })||'';
+  if(type==='reset-password')form=UI.templateMarkup('mcq-auth-reset-password-form-template',{
+   RESET_PASSWORD_EMAIL:UI.esc(emailParam),
+   AUTH_RESET_PASSWORD_FIELD:field('password','New password','password','new-password'),
+   AUTH_RESET_PASSWORD_CONFIRM:field('confirm','Confirm new password','password','new-password')
+  })||'';
+  if(type==='verify'){form=UI.templateMarkup('mcq-auth-verify-form-template',{
+   AUTH_VERIFY_EMAIL:field('email','Email address','email','email','value="'+UI.esc(emailParam)+'"'),
+   AUTH_VERIFY_CODE:field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"'),
+   AUTH_VERIFY_LOGIN:UI.link('login','Back to login','link')
+  })||'';setTimeout(()=>syncVerificationTimer(emailParam),0)}
   return UI.layout(UI.templateMarkup('mcq-auth-layout-template',{AUTH_TITLE:UI.esc(titles[type]),AUTH_FORM:form})||('<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>'+UI.esc(titles[type])+'</h1>'+form+'</div></div></div>'));
  }
 

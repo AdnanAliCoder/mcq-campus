@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261023-single-index-master-v1">
+  <meta name="mcq-asset-version" content="20261023-static-html-shells-v2">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="home">
 
   <!-- Public asset URLs stay stable for browsers and search engines. -->
-  <link rel="icon" href="/assets/favicon.svg?v=20261023-single-index-master-v1" type="image/svg+xml">
-  <link rel="icon" type="image/png" sizes="16x16" href="/assets/genfavicon-16.png?v=20261023-single-index-master-v1">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/genfavicon-32.png?v=20261023-single-index-master-v1">
-  <link rel="icon" type="image/png" sizes="48x48" href="/assets/genfavicon-48.png?v=20261023-single-index-master-v1">
-  <link rel="manifest" href="/site.webmanifest?v=20261023-single-index-master-v1">
+  <link rel="icon" href="/assets/favicon.svg?v=20261023-static-html-shells-v2" type="image/svg+xml">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/genfavicon-16.png?v=20261023-static-html-shells-v2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/genfavicon-32.png?v=20261023-static-html-shells-v2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/genfavicon-48.png?v=20261023-static-html-shells-v2">
+  <link rel="manifest" href="/site.webmanifest?v=20261023-static-html-shells-v2">
 
   <meta name="description" content="MCQCampus offers practice MCQs, past papers, answers and explanations for learners in Pakistan and India">
   <title>MCQCampus — Practice MCQs, Past Papers &amp; Exam Preparation</title>
@@ -35,21 +35,21 @@
   <script id="server-jsonld" type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"MCQCampus","url":"https://www.mcqcampus.com/"}</script>
 
   <!-- Website styles live in one first-party stylesheet. -->
-  <link rel="stylesheet" href="/assets/css/common.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/home.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/mcqs.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/categories.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/past-papers.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/tests.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/auth.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/pdfs.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/blog.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/about.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/contact.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/dashboard.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/admin.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/super-admin.css?v=20261023-single-index-master-v1">
-  <link rel="stylesheet" href="/assets/css/latest-jobs.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/common.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/home.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/mcqs.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/categories.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/past-papers.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/tests.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/auth.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/pdfs.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/blog.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/about.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/contact.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/dashboard.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/admin.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/super-admin.css?v=20261023-static-html-shells-v2">
+  <link rel="stylesheet" href="/assets/css/latest-jobs.css?v=20261023-static-html-shells-v2">
 
   <!-- Optional analytics and advertising integrations are configured through the backend API. -->
 </head>
@@ -91,6 +91,17 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/js/bootstrap.js?v=20261023-single-index-master-v1"></script>
+  <script defer src="/assets/js/bootstrap.js?v=20261023-static-html-shells-v2"></script>
+
+  <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
+  <template id="mcq-country-landing-template"><div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1><!-- SLOT:COUNTRY_TITLE --></h1><p class="muted"><!-- SLOT:COUNTRY_DESCRIPTION --></p><div class="country-choice-grid"><!-- SLOT:COUNTRY_CARDS --></div><p class="small muted country-landing-back"><!-- SLOT:COUNTRY_BACK_LINK --></p></section></div></template>
+  <template id="mcq-auth-field-template"><div class="field"><label for="__SLOT_FIELD_NAME__">__SLOT_FIELD_LABEL__<!-- SLOT:FIELD_REQUIRED --></label><!-- SLOT:FIELD_INPUT --></div></template>
+  <template id="mcq-auth-password-field-template"><div class="field"><label for="__SLOT_FIELD_NAME__">__SLOT_FIELD_LABEL__<!-- SLOT:FIELD_REQUIRED --></label><div class="password-input-wrap"><!-- SLOT:FIELD_INPUT --><button class="password-toggle-btn" type="button" data-password-toggle="__SLOT_FIELD_NAME__" aria-label="Show __SLOT_FIELD_LABEL_LOWER__" aria-pressed="false"><!-- SLOT:FIELD_TOGGLE_ICON --></button></div><!-- SLOT:FIELD_HELP --></div></template>
+  <template id="mcq-auth-login-form-template"><p class="muted small">Sign in with your existing MCQCampus account.</p><form data-form="auth-login"><!-- SLOT:AUTH_LOGIN_EMAIL --><!-- SLOT:AUTH_LOGIN_PASSWORD --><div class="actions auth-form-actions"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span><!-- SLOT:AUTH_LOGIN_FORGOT --></div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small auth-bottom-copy">New here? <!-- SLOT:AUTH_LOGIN_REGISTER --></p></template>
+  <template id="mcq-auth-register-form-template"><p class="small muted">Create your learner account. All fields marked * are required.</p><form data-form="auth-register"><!-- SLOT:AUTH_REGISTER_FIRST --><!-- SLOT:AUTH_REGISTER_LAST --><!-- SLOT:AUTH_REGISTER_EMAIL --><!-- SLOT:AUTH_REGISTER_COUNTRY --><!-- SLOT:AUTH_REGISTER_PASSWORD --><!-- SLOT:AUTH_REGISTER_CONFIRM --><label class="check-line"><input type="checkbox" name="terms" required> I accept the <!-- SLOT:AUTH_REGISTER_TERMS --> and <!-- SLOT:AUTH_REGISTER_PRIVACY --> <span class="required-mark" aria-hidden="true">*</span></label><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send verification code</button></form><p class="text-center small auth-bottom-copy">Already registered? <!-- SLOT:AUTH_REGISTER_LOGIN --></p></template>
+  <template id="mcq-auth-forgot-form-template"><p class="muted">Enter your account email and we will send a 6-digit reset code.</p><form data-form="auth-forgot"><!-- SLOT:AUTH_FORGOT_EMAIL --><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Send reset code</button></form></template>
+  <template id="mcq-auth-reset-code-form-template"><p class="muted">Enter the 6-digit code sent to your email. You will choose a new password after the code is verified.</p><form data-form="auth-reset-code"><input type="hidden" name="email" value="__SLOT_RESET_CODE_EMAIL__"><!-- SLOT:AUTH_RESET_CODE_FIELD --><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Verify code</button></form><p class="text-center small auth-bottom-copy"><!-- SLOT:AUTH_RESET_CODE_FORGOT --></p></template>
+  <template id="mcq-auth-reset-password-form-template"><p class="muted">Your code is verified. Choose a new password for your account.</p><form data-form="auth-reset-password"><input type="hidden" name="email" value="__SLOT_RESET_PASSWORD_EMAIL__"><!-- SLOT:AUTH_RESET_PASSWORD_FIELD --><!-- SLOT:AUTH_RESET_PASSWORD_CONFIRM --><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Update password</button></form></template>
+  <template id="mcq-auth-verify-form-template"><p class="muted">Enter the 6-digit code sent to your email. Your account is created only after successful verification.</p><form data-form="auth-verify"><!-- SLOT:AUTH_VERIFY_EMAIL --><!-- SLOT:AUTH_VERIFY_CODE --><p class="small muted" data-auth-resend-timer>You can request a new code now.</p><p class="auth-error" role="alert" data-auth-error></p><div class="actions"><button class="btn primary" type="submit">Verify &amp; create account</button><button class="btn ghost" type="button" data-auth-resend>Resend code</button></div></form><p class="text-center small auth-bottom-copy"><!-- SLOT:AUTH_VERIFY_LOGIN --></p></template>
 </body>
 </html>

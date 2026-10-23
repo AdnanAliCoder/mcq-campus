@@ -76,7 +76,7 @@ window.Public=(()=>{
    const label='<span class="country-choice-flag">'+UI.countryFlag(name)+'</span><span class="country-choice-copy"><strong>'+e(name)+'</strong><small>Continue '+(type==='register'?'to sign up':'to sign in')+'</small></span>'+icon('arrow');
    return link(type,label,'card country-choice-card',{country:name});
   }).join('');
-  const body='<div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1>'+e(title)+'</h1><p class="muted">'+e(description)+'</p><div class="country-choice-grid">'+(cards||empty('No countries available','Please try again later.'))+'</div><p class="small muted country-landing-back">'+link('home','Return to home','link')+'</p></section></div>';
+  const body=UI.templateMarkup('mcq-country-landing-template',{COUNTRY_TITLE:e(title),COUNTRY_DESCRIPTION:e(description),COUNTRY_CARDS:cards||empty('No countries available','Please try again later.'),COUNTRY_BACK_LINK:link('home','Return to home','link')})||'';
   return UI.layout(body);
  }
  function mini(q,number=0){
