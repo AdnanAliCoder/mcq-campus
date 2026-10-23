@@ -10,7 +10,7 @@ window.MCQCampusLoadPageScript=function(name){
  if(pending)return pending;
  const task=new Promise(resolve=>{
   const script=document.createElement("script");
-  script.src="/assets/js/pages/"+safeName+".js?v=20261023-static-html-shells-v2";
+  script.src="/assets/js/pages/"+safeName+".js?v=20261023-single-index-static-v3";
   script.dataset.mcqCampusPageScript=safeName;
   script.async=true;
   script.onload=()=>{window.MCQCampusPageScriptsLoaded.add(safeName);resolve(true)};
@@ -52,7 +52,7 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
   .catch(error=>{this.adminBundlePromise=null;throw error});
  return this.adminBundlePromise;
 },
-render(){if(!Auth.guard())return;const raw=location.pathname.replace(/^\/+|\/+$/g,'')||'home',query=location.search.replace(/^\?/,'');const path=raw||'home',parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
+render(){if(!Auth.guard())return;const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
  const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
  if(base==='mcqs'&&parts[1]==='important-mcqs'){base='important'}
  else if(base==='mcqs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['mcq']);if(hit){base='mcq';id=hit.key}}
