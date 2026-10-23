@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261023-single-script-v4">
+  <meta name="mcq-asset-version" content="20261023-single-script-v5">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="home">
@@ -88,7 +88,7 @@
   <!-- Editable page-local HTML component templates used by the JavaScript runtime. -->
 <!-- Reusable semantic structures; JavaScript fills data slots and handles interaction. -->
   <template id="mcq-layout-template"><!-- SLOT:LAYOUT_HEADER --><!-- SLOT:LAYOUT_HEADER_AD --><main id="main" tabindex="-1"><!-- SLOT:LAYOUT_BODY --></main><!-- SLOT:LAYOUT_FOOTER_AD --><!-- SLOT:LAYOUT_FOOTER --></template>
-  <template id="mcq-header-template"><header class="header reference-header"><div class="container header-inner"><!-- SLOT:HEADER_BRAND --><nav class="nav" id="main-nav" aria-label="Main navigation"><!-- SLOT:HEADER_NAV --><!-- SLOT:HEADER_AUTH_LINK --></nav><form class="header-search" data-form="search" role="search"><!-- SLOT:HEADER_SEARCH --></form><div class="header-actions"><!-- SLOT:HEADER_USER_MENU --><!-- SLOT:HEADER_MOBILE_MENU --></div></div></header></template>
+  <template id="mcq-header-template"><header class="header reference-header"><div class="container header-inner"><a class="brand" href="/" aria-label="MCQCampus home"><span class="logo-crop"><img src="/assets/genfavicon-48.png" srcset="/assets/genfavicon-48.png 1x, /assets/genfavicon-64.png 2x" width="42" height="42" alt=""></span><span>MCQCampus</span></a><nav class="nav" id="main-nav" aria-label="Main navigation"><a href="/" data-nav-section="home">Home</a><a href="/mcqs" data-nav-section="mcqs">MCQs</a><a href="/past-papers" data-nav-section="papers">Past Papers</a><a href="/tests" data-nav-section="tests">Tests</a><a href="/latest-jobs" data-nav-section="latest-jobs">Jobs &amp; Exams</a><a href="/pdfs" data-nav-section="pdfs">PDFs</a><details class="nav-more"><summary>More <span aria-hidden="true">⌄</span></summary><div class="nav-more-menu"><a href="/categories" data-nav-section="categories">Categories</a><a href="/blog" data-nav-section="posts">Blog &amp; Updates</a><a href="/about" data-nav-section="about">About MCQCampus</a><a href="/contact" data-nav-section="contact">Contact</a></div></details><!-- SLOT:HEADER_AUTH_LINK --></nav><form class="header-search" data-form="search" role="search"><!-- SLOT:HEADER_SEARCH --></form><div class="header-actions"><!-- SLOT:HEADER_USER_MENU --><!-- SLOT:HEADER_MOBILE_MENU --></div></div></header></template>
   <template id="mcq-footer-template"><footer class="footer" aria-label="Site footer"><div class="container"><div class="footer-grid footer-grid-compact"><div class="footer-brand-block"><!-- SLOT:FOOTER_BRAND --><p><!-- SLOT:FOOTER_DESCRIPTION --></p><!-- SLOT:FOOTER_EMAIL --><!-- SLOT:FOOTER_SOCIALS --><!-- SLOT:FOOTER_COUNTRY --></div><div class="footer-column"><strong>Quick Links</strong><!-- SLOT:FOOTER_QUICK_LINKS --></div><div class="footer-column"><strong>Help &amp; Legal</strong><!-- SLOT:FOOTER_HELP_LINKS --></div></div><div class="footer-bottom"><span>© <!-- SLOT:FOOTER_YEAR --> <!-- SLOT:FOOTER_COPY --></span><!-- SLOT:FOOTER_BOTTOM_LINKS --></div></div></footer><nav class="bottom-nav" aria-label="Mobile navigation"><!-- SLOT:FOOTER_MOBILE_LINKS --></nav></template>
   <template id="mcq-empty-template"><div class="empty"><!-- SLOT:EMPTY_ICON --><h3><!-- SLOT:EMPTY_TITLE --></h3><p><!-- SLOT:EMPTY_DESCRIPTION --></p><!-- SLOT:EMPTY_ACTION --></div></template>
   <template id="mcq-page-heading-template"><div class="page-heading"><div class="section-head"><div><h1><!-- SLOT:HEADING_TITLE --></h1><!-- SLOT:HEADING_DESCRIPTION --></div><!-- SLOT:HEADING_ACTIONS --></div></div></template>
@@ -118,7 +118,7 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/script.js?v=20261023-single-script-v4"></script>
+  <script defer src="/assets/script.js?v=20261023-single-script-v5"></script>
 
   <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
   <template id="mcq-country-landing-template"><div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1><!-- SLOT:COUNTRY_TITLE --></h1><p class="muted"><!-- SLOT:COUNTRY_DESCRIPTION --></p><div class="country-choice-grid"><!-- SLOT:COUNTRY_CARDS --></div><p class="small muted country-landing-back"><!-- SLOT:COUNTRY_BACK_LINK --></p></section></div></template>

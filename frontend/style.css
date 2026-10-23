@@ -3402,3 +3402,70 @@ noscript #backend-loader{display:none!important;}
 [data-static-page] form[data-form] input,[data-static-page] form[data-form] select,[data-static-page] form[data-form] textarea{width:100%;min-height:2.6rem}
 [data-static-page] .auth-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,1fr);gap:2rem;max-width:60rem;margin:2rem auto}
 @media(max-width:700px){[data-static-page] .auth-layout{grid-template-columns:1fr;gap:1rem}}
+
+
+/* 2026-10-23 — static navigation follows the active SPA route without generating links in JavaScript. */
+.nav-more>summary{border-bottom:3px solid transparent;white-space:nowrap}
+.nav-more-menu a{display:block;text-decoration:none}
+.nav-more-menu a[data-nav-section]{border-bottom:0}
+body[data-page-template="home"] #main-nav [data-nav-section="home"],
+body[data-page-template="mcqs"] #main-nav [data-nav-section="mcqs"],
+body[data-page-template="mcq"] #main-nav [data-nav-section="mcqs"],
+body[data-page-template="practice"] #main-nav [data-nav-section="mcqs"],
+body[data-page-template="important"] #main-nav [data-nav-section="mcqs"],
+body[data-page-template="search"] #main-nav [data-nav-section="mcqs"],
+body[data-page-template="papers"] #main-nav [data-nav-section="papers"],
+body[data-page-template="paper"] #main-nav [data-nav-section="papers"],
+body[data-page-template="year"] #main-nav [data-nav-section="papers"],
+body[data-page-template="job"] #main-nav [data-nav-section="papers"],
+body[data-page-template="tests"] #main-nav [data-nav-section="tests"],
+body[data-page-template="test"] #main-nav [data-nav-section="tests"],
+body[data-page-template="latest-jobs"] #main-nav [data-nav-section="latest-jobs"],
+body[data-page-template="latest-job"] #main-nav [data-nav-section="latest-jobs"],
+body[data-page-template="pdfs"] #main-nav [data-nav-section="pdfs"],
+body[data-page-template="pdf"] #main-nav [data-nav-section="pdfs"]{
+ color:var(--green);
+ border-color:var(--green);
+}
+body[data-page-template="categories"] #main-nav .nav-more-menu [data-nav-section="categories"],
+body[data-page-template="category"] #main-nav .nav-more-menu [data-nav-section="categories"],
+body[data-page-template="subcategory"] #main-nav .nav-more-menu [data-nav-section="categories"],
+body[data-page-template="topic"] #main-nav .nav-more-menu [data-nav-section="categories"],
+body[data-page-template="posts"] #main-nav .nav-more-menu [data-nav-section="posts"],
+body[data-page-template="post"] #main-nav .nav-more-menu [data-nav-section="posts"],
+body[data-page-template="blog"] #main-nav .nav-more-menu [data-nav-section="posts"],
+body[data-page-template="about"] #main-nav .nav-more-menu [data-nav-section="about"],
+body[data-page-template="faq"] #main-nav .nav-more-menu [data-nav-section="about"],
+body[data-page-template="privacy"] #main-nav .nav-more-menu [data-nav-section="about"],
+body[data-page-template="terms"] #main-nav .nav-more-menu [data-nav-section="about"],
+body[data-page-template="contact"] #main-nav .nav-more-menu [data-nav-section="contact"]{
+ background:#edf6f1;
+ color:var(--green);
+ border-radius:8px;
+}
+body[data-page-template="categories"] #main-nav .nav-more>summary,
+body[data-page-template="category"] #main-nav .nav-more>summary,
+body[data-page-template="subcategory"] #main-nav .nav-more>summary,
+body[data-page-template="topic"] #main-nav .nav-more>summary,
+body[data-page-template="posts"] #main-nav .nav-more>summary,
+body[data-page-template="post"] #main-nav .nav-more>summary,
+body[data-page-template="blog"] #main-nav .nav-more>summary,
+body[data-page-template="about"] #main-nav .nav-more>summary,
+body[data-page-template="faq"] #main-nav .nav-more>summary,
+body[data-page-template="privacy"] #main-nav .nav-more>summary,
+body[data-page-template="terms"] #main-nav .nav-more>summary,
+body[data-page-template="contact"] #main-nav .nav-more>summary{
+ color:var(--green);
+ border-color:var(--green);
+}
+@media(max-width:1080px){
+ .header-inner{gap:18px}
+ .nav{gap:15px}
+ .header-search{width:clamp(170px,20vw,250px);flex-basis:250px}
+}
+@media(max-width:780px){
+ .header-inner{gap:12px}
+ .nav{gap:10px}
+ .nav a{font-size:.8rem}
+ .nav-more>summary{font-size:.8rem}
+}
