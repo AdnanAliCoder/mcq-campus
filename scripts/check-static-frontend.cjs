@@ -77,6 +77,9 @@ check(nginx.includes('alias /home/ubuntu/mcq-campus/frontend/style.css;'), 'Ngin
 check(nginx.includes('location = /assets/script.js'), 'Nginx maps the runtime URL to frontend/script.js');
 check(nginx.includes('alias /home/ubuntu/mcq-campus/frontend/script.js;'), 'Nginx runtime alias is correct');
 check(nginx.includes('location ^~ /api/'), 'API traffic is proxied separately to Django');
+check(!nginx.includes('location ^~ /assets/css/'), 'obsolete split CSS asset route is removed');
+check(!nginx.includes('location ^~ /assets/js/'), 'obsolete split JavaScript asset route is removed');
+check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; }'), 'missing favicon.ico routes to the existing SVG icon');
 check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
 
 if (failed) process.exit(1);

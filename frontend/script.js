@@ -1927,7 +1927,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}try{await check({loading:false});window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});if(!authRoutes.has(base()))await ensureRouteData(route(),{});}finally{ready=true;App.render();}}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else window.App?.showStaticShell?.();try{await check({loading:false});window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});if(!authRoutes.has(base()))await ensureRouteData(route(),{});}finally{ready=true;App.render();}}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
@@ -2410,6 +2410,36 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
   .then(()=>window.MCQCampusLoadBundledModule('admin.js'))
   .catch(error=>{this.adminBundlePromise=null;throw error});
  return this.adminBundlePromise;
+},
+showStaticShell(){
+ const root=document.getElementById('app');
+ if(!root)return false;
+ const parts=location.pathname.replace(/^\\/+|\\/+$/g,'').replace(/\\.html$/i,'').split('/').filter(Boolean);
+ const first=parts[0]||'home';
+ const map={
+  index:'home',home:'home',
+  mcqs:'mcqs',mcq:'mcqs',practice:'mcqs',important:'mcqs',search:'mcqs',
+  categories:'categories',category:'categories',subcategory:'categories',topic:'categories',
+  'past-papers':parts[1]==='pdfs'?'pdfs':'past-papers',
+  papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',
+  tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
+  blog:'blog',blogs:'blog',posts:'blog',post:'blog',
+  'latest-jobs':'latest-jobs','latest-job':'latest-jobs',
+  login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login',
+  'reset-password':'login',verify:'login',
+  about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',
+  cookies:'about',advertising:'about',contact:'contact'
+ };
+ const page=map[first];
+ if(!page||['login','register','dashboard','admin','super-admin'].includes(page))return false;
+ const parent=document.getElementById('static-page-shells');
+ const source=parent?.querySelector('[data-static-page="'+page+'"]');
+ if(!source)return false;
+ const shell=source.cloneNode(true);
+ shell.dataset.staticFallback='true';
+ root.replaceChildren(shell);
+ root.setAttribute('aria-busy','true');
+ return true;
 },
 render(){if(!Auth.guard())return;const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
  const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
