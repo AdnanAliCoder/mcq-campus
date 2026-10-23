@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261023-brand-logo-path-fix-v1">
+  <meta name="mcq-asset-version" content="20261023-single-index-master-v1">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="dashboard">
 
   <!-- Public asset URLs stay stable for browsers and search engines. -->
-  <link rel="icon" href="/assets/favicon.svg?v=20261023-brand-logo-path-fix-v1" type="image/svg+xml">
-  <link rel="icon" type="image/png" sizes="16x16" href="/assets/genfavicon-16.png?v=20261023-brand-logo-path-fix-v1">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/genfavicon-32.png?v=20261023-brand-logo-path-fix-v1">
-  <link rel="icon" type="image/png" sizes="48x48" href="/assets/genfavicon-48.png?v=20261023-brand-logo-path-fix-v1">
-  <link rel="manifest" href="/site.webmanifest?v=20261023-brand-logo-path-fix-v1">
+  <link rel="icon" href="/assets/favicon.svg?v=20261023-single-index-master-v1" type="image/svg+xml">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/genfavicon-16.png?v=20261023-single-index-master-v1">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/genfavicon-32.png?v=20261023-single-index-master-v1">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/genfavicon-48.png?v=20261023-single-index-master-v1">
+  <link rel="manifest" href="/site.webmanifest?v=20261023-single-index-master-v1">
 
   <meta name="description" content="Manage your learning profile and practice activity">
   <title>Learner Dashboard | MCQCampus</title>
@@ -35,21 +35,21 @@
   <script id="server-jsonld" type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"MCQCampus","url":"https://www.mcqcampus.com/"}</script>
 
   <!-- Website styles live in one first-party stylesheet. -->
-  <link rel="stylesheet" href="/assets/css/common.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/home.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/mcqs.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/categories.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/past-papers.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/tests.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/auth.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/pdfs.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/blog.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/about.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/contact.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/dashboard.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/admin.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/super-admin.css?v=20261023-brand-logo-path-fix-v1">
-  <link rel="stylesheet" href="/assets/css/latest-jobs.css?v=20261023-brand-logo-path-fix-v1">
+  <link rel="stylesheet" href="/assets/css/common.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/home.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/mcqs.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/categories.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/past-papers.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/tests.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/auth.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/pdfs.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/blog.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/about.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/contact.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/dashboard.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/admin.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/super-admin.css?v=20261023-single-index-master-v1">
+  <link rel="stylesheet" href="/assets/css/latest-jobs.css?v=20261023-single-index-master-v1">
 
   <!-- Optional analytics and advertising integrations are configured through the backend API. -->
 </head>
@@ -60,21 +60,21 @@
 
   <!-- Editable page-local HTML component templates used by the JavaScript runtime. -->
 <!-- Reusable semantic structures; JavaScript fills data slots and handles interaction. -->
-  <template id="mcq-layout-template"><!-- SLOT:LAYOUT_HEADER --><!-- SLOT:LAYOUT_HEADER_AD --><main id="main" tabindex="-1"><!-- SLOT:LAYOUT_BODY --></main><!-- SLOT:LAYOUT_FOOTER_AD --><!-- SLOT:LAYOUT_FOOTER --></template>
-  <template id="mcq-header-template"><header class="header reference-header"><div class="container header-inner"><!-- SLOT:HEADER_BRAND --><nav class="nav" id="main-nav" aria-label="Main navigation"><!-- SLOT:HEADER_NAV --><!-- SLOT:HEADER_AUTH_LINK --></nav><form class="header-search" data-form="search" role="search"><!-- SLOT:HEADER_SEARCH --></form><div class="header-actions"><!-- SLOT:HEADER_USER_MENU --><!-- SLOT:HEADER_MOBILE_MENU --></div></div></header></template>
-  <template id="mcq-footer-template"><footer class="footer" aria-label="Site footer"><div class="container"><div class="footer-grid footer-grid-compact"><div class="footer-brand-block"><!-- SLOT:FOOTER_BRAND --><p><!-- SLOT:FOOTER_DESCRIPTION --></p><!-- SLOT:FOOTER_EMAIL --><!-- SLOT:FOOTER_SOCIALS --><!-- SLOT:FOOTER_COUNTRY --></div><div class="footer-column"><strong>Quick Links</strong><!-- SLOT:FOOTER_QUICK_LINKS --></div><div class="footer-column"><strong>Help &amp; Legal</strong><!-- SLOT:FOOTER_HELP_LINKS --></div></div><div class="footer-bottom"><span>© <!-- SLOT:FOOTER_YEAR --> <!-- SLOT:FOOTER_COPY --></span><!-- SLOT:FOOTER_BOTTOM_LINKS --></div></div></footer><nav class="bottom-nav" aria-label="Mobile navigation"><!-- SLOT:FOOTER_MOBILE_LINKS --></nav></template>
-  <template id="mcq-empty-template"><div class="empty"><!-- SLOT:EMPTY_ICON --><h3><!-- SLOT:EMPTY_TITLE --></h3><p><!-- SLOT:EMPTY_DESCRIPTION --></p><!-- SLOT:EMPTY_ACTION --></div></template>
-  <template id="mcq-page-heading-template"><div class="page-heading"><div class="section-head"><div><h1><!-- SLOT:HEADING_TITLE --></h1><!-- SLOT:HEADING_DESCRIPTION --></div><!-- SLOT:HEADING_ACTIONS --></div></div></template>
-  <template id="mcq-breadcrumbs-template"><nav class="breadcrumbs" aria-label="Breadcrumb"><!-- SLOT:BREADCRUMB_ITEMS --></nav></template>
-  <template id="mcq-stat-card-content-template"><div class="stat-card-head"><span class="stat-card-label"><!-- SLOT:STAT_TITLE --></span><span class="stat-card-icon tone-__SLOT_STAT_TONE__"><!-- SLOT:STAT_ICON --></span></div><strong class="stat-card-value"><!-- SLOT:STAT_VALUE --></strong><!-- SLOT:STAT_SUBTITLE --><!-- SLOT:STAT_SKELETON --></template>
-  <template id="mcq-showcase-card-template"><div class="entity-card-media"><span class="entity-card-image"><!-- SLOT:SHOWCASE_ICON --></span></div><div class="entity-card-body"><span class="entity-card-badge"><!-- SLOT:SHOWCASE_BADGE --></span><h3><!-- SLOT:SHOWCASE_TITLE --></h3><p><!-- SLOT:SHOWCASE_SUBTITLE --></p><div class="entity-card-meta"><span><!-- SLOT:SHOWCASE_META_ICON --> <!-- SLOT:SHOWCASE_META --></span></div></div><span class="entity-card-arrow" aria-hidden="true"><!-- SLOT:SHOWCASE_ARROW --></span></template>
-  <template id="mcq-question-card-template"><article class="card mcq-card mcq-reference-card __SLOT_COMPACT_CLASS__" data-question="__SLOT_QUESTION_ID__"><div class="mcq-top"><div class="mcq-question-label"><!-- SLOT:QUESTION_TAGS --></div><div class="mcq-top-actions"><!-- SLOT:QUESTION_BOOKMARK --><!-- SLOT:QUESTION_NEXT_LINK --></div></div><div class="mcq-question-panel"><h2><!-- SLOT:QUESTION_LINK --></h2></div><div class="options mcq-reference-options" role="group" aria-label="Answer options"><!-- SLOT:QUESTION_OPTIONS --></div><!-- SLOT:QUESTION_EXPLANATION --><div class="actions mcq-reference-actions"><!-- SLOT:QUESTION_PRE_ANSWER_HINT --><span class="spacer"></span><!-- SLOT:QUESTION_SHARE_BUTTON --><!-- SLOT:QUESTION_COPY_BUTTON --><!-- SLOT:QUESTION_REPORT_BUTTON --></div></article></template>
-  <template id="mcq-public-page-sidebar-template"><div class="container page public-page __SLOT_PUBLIC_CLASS__"><!-- SLOT:PUBLIC_BREADCRUMBS --><!-- SLOT:PUBLIC_HEADING --><!-- SLOT:PUBLIC_PRE --><div class="public-sidebar-mobile-bar"><!-- SLOT:PUBLIC_TOGGLE --></div><div class="public-layout"><main class="public-main"><!-- SLOT:PUBLIC_MAIN --></main><aside class="public-sidebar" id="__SLOT_PUBLIC_SIDEBAR_ID__" aria-label="Contextual sidebar"><div class="public-sidebar-head"><strong><!-- SLOT:PUBLIC_SIDEBAR_LABEL --></strong><!-- SLOT:PUBLIC_CLOSE_BUTTON --></div><div class="public-sidebar-inner"><!-- SLOT:PUBLIC_SIDEBAR --></div></aside></div><button class="public-sidebar-backdrop" type="button" data-action="public-sidebar-close" aria-label="Close sidebar"></button></div></template>
-  <template id="mcq-public-page-full-template"><div class="container page public-page __SLOT_PUBLIC_CLASS__"><!-- SLOT:PUBLIC_BREADCRUMBS --><!-- SLOT:PUBLIC_HEADING --><!-- SLOT:PUBLIC_PRE --><main class="public-main public-main-full"><!-- SLOT:PUBLIC_MAIN --></main></div></template>
-  <template id="mcq-auth-layout-template"><div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1><!-- SLOT:AUTH_TITLE --></h1><!-- SLOT:AUTH_FORM --></div></div></div></template>
-  <template id="mcq-home-template"><div class="container"><section class="hero home-hero-compact"><div class="home-hero-copy"><p class="eyebrow">COMPETITIVE EXAM PREPARATION</p><h1><!-- SLOT:HOME_TITLE --></h1><p class="hero-copy"><!-- SLOT:HOME_DESCRIPTION --></p><!-- SLOT:HOME_HERO_ACTIONS --></div><div class="home-stats home-top-stats"><!-- SLOT:HOME_STATS --></div></section><!-- SLOT:HOME_TOP_AD --><section class="section home-content-grid home-content-priority"><div><div class="section-head"><div><p class="eyebrow">PRACTICE</p><h2>Important MCQs</h2><p class="small muted"><!-- SLOT:HOME_IMPORTANT_COUNT --> total important MCQs · only 10 load per page</p></div><!-- SLOT:HOME_IMPORTANT_LINK --></div><div class="home-mcq-list"><!-- SLOT:HOME_MCQ_LIST --></div><!-- SLOT:HOME_PAGER --></div><aside class="home-category-nav card"><div class="section-head"><div><p class="eyebrow">EXPLORE</p><h2>Categories</h2></div></div><div class="home-cat-boxes"><!-- SLOT:HOME_CATEGORY_LIST --></div><!-- SLOT:HOME_ALL_CATEGORIES_LINK --></aside></section><!-- SLOT:HOME_MIDDLE_AD --></div></template>
-  <template id="mcq-learner-dashboard-template"><div class="container page learner-dashboard-shell"><div class="learner-mobile-head"><button class="btn ghost" type="button" data-action="learner-sidebar-toggle"><!-- SLOT:LEARNER_MENU_ICON --> Learning menu</button></div><div class="learner-shell"><!-- SLOT:LEARNER_SIDE --><main class="learner-content"><div class="profile-band compact-profile-band"><!-- SLOT:LEARNER_AVATAR --><div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Welcome back, <!-- SLOT:LEARNER_NAME --></h2><span class="small muted">Practice, review mistakes, explore past papers, and track progress.</span></div></div><!-- SLOT:LEARNER_BODY --></main></div></div></template>
-  <template id="mcq-admin-layout-template"><div class="dash-layout"><aside class="sidebar" id="admin-sidebar"><!-- SLOT:ADMIN_BRAND --><div class="nav-label"><!-- SLOT:ADMIN_ROLE_LABEL --></div><!-- SLOT:ADMIN_OVERVIEW_LINK --><div class="nav-label">Question library</div><!-- SLOT:ADMIN_LIBRARY --><!-- SLOT:ADMIN_MANAGEMENT --></aside><div class="dash-main"><header class="dash-top"><!-- SLOT:ADMIN_MENU_BUTTON --><span class="small muted">Workspace / <strong><!-- SLOT:ADMIN_TITLE --></strong></span><span class="spacer"></span><!-- SLOT:ADMIN_COUNTRY_SWITCHER --><span class="badge">Database connected</span><!-- SLOT:ADMIN_USER_MENU --></header><main class="dash-content" id="main" tabindex="-1"><!-- SLOT:ADMIN_BODY --></main></div></div></template>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
   <!-- Shared interaction elements used by the JavaScript application. -->
   <dialog id="backend-loader" class="backend-loader global-loading-overlay" aria-label="Loading MCQCampus data" aria-busy="true" tabindex="-1">
@@ -91,6 +91,6 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/js/bootstrap.js?v=20261023-brand-logo-path-fix-v1"></script>
+  <script defer src="/assets/js/bootstrap.js?v=20261023-single-index-master-v1"></script>
 </body>
 </html>
