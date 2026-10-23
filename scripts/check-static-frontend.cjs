@@ -91,7 +91,7 @@ check(runtime.includes("if((first==='login'||first==='register')&&!String(reques
 check(html.includes('class="country-entry-grid"') && html.includes('class="country-entry-card"'), 'country selection fallback uses responsive static card markup');
 check(css.includes('.country-entry-grid') && css.includes('.country-entry-card'), 'country selection fallback uses existing responsive CSS');
 check(html.includes('Choose your country and create an account') && html.includes('Choose your country and sign in'), 'static auth forms provide a path between signup and sign-in');
-check(runtime.includes("dashboard:'dashboard',admin:'admin','super-admin':'super-admin'"), 'dashboard and admin routes have static fallback shells');
+check(runtime.includes("if(!page||['dashboard','admin','super-admin'].includes(page))return false;"), 'private dashboard and admin routes stay behind session-aware rendering');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
 check(runtime.includes('form[data-form="mcq-filter"]'), 'the static MCQ search form has an interaction handler');
