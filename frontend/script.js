@@ -2444,7 +2444,7 @@ showStaticShell(){
  shell.dataset.staticFallback='true';
  const main=shell.querySelector('main');
  if(main){main.id='main';main.tabIndex=-1;}
- const chunks=[
+ const chunks=page==='country-entry'?[shell.outerHTML]:[
   window.UI?.header?.(page)||'',
   window.UI?.adSlot?.('header_ad')||'',
   shell.outerHTML,
