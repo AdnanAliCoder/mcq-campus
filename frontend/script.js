@@ -2466,8 +2466,8 @@ staticMarkupFragment(markup){
  return holder.content;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post'];
- const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','pdf','latest-job','post'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post'];
+ const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','test','pdf','latest-job','post'];
  if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id))return false;
  const parent=document.getElementById('static-page-shells');
  const root=document.getElementById('app');
@@ -2502,7 +2502,7 @@ mountDataDrivenPage(base,id){
   return true;
  };
  if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
- const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:base==='latest-job'?'latest-jobs':base==='pdf'?'pdfs':base;
+ const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:base==='test'?'tests':base==='latest-job'?'latest-jobs':base==='pdf'?'pdfs':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
  const shell=source.cloneNode(true);
@@ -2842,6 +2842,9 @@ mountDataDrivenPage(base,id){
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
   setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
   if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'papers'));
+ }else if(base==='test'){
+  // Keep the existing test interactions, but mount the test view inside the static Tests shell.
+  return this.mountStaticPage(base,Public.test(id));
  }else if(base==='tests'){
   const plan=Public.automaticTestPlan(),next=new Date(plan.next);
   const title=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
