@@ -186,12 +186,15 @@ check(runtime.includes("dashboard:'dashboard',profile:'dashboard',sitemap:'sitem
 check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')"), 'learner dashboard content mounts into the hard-coded dashboard shell');
 check(html.includes('id="mcq-learner-overview-template"'), 'learner dashboard overview layout is hard-coded in index.html');
 check(html.includes('id="mcq-learner-side-template"'), 'learner navigation structure is hard-coded in index.html');
-const dashboardRouteStart = dataRenderer.indexOf("if(base==='dashboard'||base==='profile'){");
-const dashboardRouteEnd = dataRenderer.indexOf("}else if(base==='search'){", dashboardRouteStart);
-const dashboardRoute = dataRenderer.slice(dashboardRouteStart, dashboardRouteEnd);
-check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-dashboard-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-overview-template'"), 'dashboard overview renders from static templates without the legacy dashboard string renderer');
-check(dashboardRoute.includes("this.staticTemplateFragment('mcq-stat-card-content-template'") && dashboardRoute.includes("data-dashboard-category-progress"), 'dashboard metrics and category progress are populated as DOM nodes');
-check(dashboardRoute.includes("data-dashboard-recent-activities") && dashboardRoute.includes("categoryStats.slice(0,6)"), 'dashboard activity and subject progress use DOM-driven regions');
+const dashboardRenderStart = runtime.indexOf('mountDataDrivenPage(base,id){');
+const dashboardRenderEnd = runtime.indexOf('showStaticShell(){', dashboardRenderStart);
+const dashboardRenderer = runtime.slice(dashboardRenderStart, dashboardRenderEnd);
+const dashboardRouteStart = dashboardRenderer.indexOf("else if(base==='dashboard'||base==='profile'){");
+const dashboardRouteEnd = dashboardRenderer.indexOf("}else if(base==='sitemap'){", dashboardRouteStart);
+const dashboardRoute = dashboardRenderer.slice(dashboardRouteStart, dashboardRouteEnd);
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-dashboard-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-dashboard-section-template'"), 'dashboard views render from static templates without the legacy dashboard string renderer');
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-stat-card-content-template'") && dashboardRoute.includes("mcq-dashboard-progress-row-template"), 'dashboard metrics and category progress are populated as DOM nodes');
+check(dashboardRoute.includes("mcq-dashboard-activity-row-template") && dashboardRoute.includes("categoryStats.slice(0,6)"), 'dashboard activity and subject progress use DOM-driven regions');
 
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
 check(runtime.includes("base='not-found';html=Public.notFound()"), 'unknown routes are normalized to the static 404 shell');
