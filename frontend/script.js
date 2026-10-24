@@ -3004,7 +3004,7 @@ mountDataDrivenPage(base,id){
   const logo=organization?this.staticMarkupFragment(UI.entityIcon(organization,'briefcase')):this.staticMarkupFragment(UI.icon('briefcase'));
   const body=this.staticTemplateFragment('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:logo,JOB_DETAIL_ORGANIZATION:String(organization?.name||'Organization'),JOB_DETAIL_TITLE:title,JOB_DETAIL_DESCRIPTION:description,JOB_DETAIL_LAST_DATE:String(UI.date(job.last_date)||''),JOB_DETAIL_ACTIONS:actions});
   const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
- }}else if(base==='latest-jobs'){
+ }}else if(base==='latest-jobs'||base==='jobs-exams'){
   const pageSize=10,today=new Date().toISOString().slice(0,10);
   const rows=(data.latestJobs||[]).filter(x=>x&&x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))||Number(b.id)-Number(a.id));
   const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
