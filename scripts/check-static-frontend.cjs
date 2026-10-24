@@ -139,6 +139,9 @@ check(css.includes('.country-entry-grid') && css.includes('.country-entry-card')
 check(html.includes('Choose your country and create an account') && html.includes('Choose your country and sign in'), 'static auth forms provide a path between signup and sign-in');
 check(runtime.includes("if(!page||['admin','super-admin'].includes(page))return false;"), 'admin and super-admin routes stay on their protected workspace renderer');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
+check(runtime.includes("const discovery=window.SEO?.discoveryPage?.(location.pathname)"), 'SEO discovery pages are detected before static-shell mounting');
+check(runtime.includes("if(discovery?.landing?.type==='paper'&&discovery.landing.id)base='paper'"), 'organization SEO landing pages mount into the Past Papers shell');
+check(runtime.includes("else if(discovery?.landing?.type==='job'&&discovery.landing.id)base='job'"), 'legacy SEO landing pages retain their Past Papers shell route');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
 check(runtime.includes("['forgot','reset-code','reset-password','verify'].includes(base)"), 'secondary account flows are rendered in static shells');
 check(runtime.includes("const renderedAuth=Auth.view(base)"), 'account forms preserve existing reset and verification handlers');
