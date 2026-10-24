@@ -2554,12 +2554,12 @@ mountDataDrivenPage(base,id){
  };
  const appendManagedText=(container,value)=>{
   if(!container)return;
-  const lines=String(value||'').replace(/\\r/g,'').split('\\n');
+  const lines=String(value||'').replace(/\r/g,'').split('\n');
   let paragraph=[],list=null;
   const flushParagraph=()=>{
    if(!paragraph.length)return;
    const node=document.createElement('p'),text=paragraph.join(' ').trim();
-   text.split(/(\\*\\*[^*]+\\*\\*)/g).forEach(piece=>{
+   text.split(/(\*\*[^*]+\*\*)/g).forEach(piece=>{
     if(piece.startsWith('**')&&piece.endsWith('**')&&piece.length>4){const strong=document.createElement('strong');strong.textContent=piece.slice(2,-2);node.append(strong);}
     else node.append(document.createTextNode(piece));
    });
@@ -2569,9 +2569,9 @@ mountDataDrivenPage(base,id){
   for(const line of lines){
    const clean=line.trim();
    if(!clean){flushParagraph();flushList();continue;}
-   const heading=clean.match(/^(#{1,3})\\s+(.+)$/);
+   const heading=clean.match(/^(#{1,3})\s+(.+)$/);
    if(heading){flushParagraph();flushList();const node=document.createElement(heading[1].length===1?'h2':heading[1].length===2?'h3':'h4');node.textContent=heading[2];container.append(node);continue;}
-   const bullet=clean.match(/^[-*]\\s+(.+)$/);
+   const bullet=clean.match(/^[-*]\s+(.+)$/);
    if(bullet){flushParagraph();if(!list)list=document.createElement('ul');const item=document.createElement('li');item.textContent=bullet[1];list.append(item);continue;}
    flushList();paragraph.push(clean);
   }
@@ -2969,7 +2969,7 @@ mountDataDrivenPage(base,id){
  }else if(base==='pdf'){
   const resource=(data.pdfs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||row.name||''))===String(id));
   if(!resource||resource.active===false)return false;
-  const safeLink=url=>/^https?:\\/\\//i.test(String(url||''))||/^data:application\\/pdf;base64,/i.test(String(url||'')),safeImage=url=>/^https?:\\/\\//i.test(String(url||''))||/^data:image\\/(png|jpeg|jpg|webp);base64,/i.test(String(url||''));
+  const safeLink=url=>/^https?:\/\//i.test(String(url||''))||/^data:application\/pdf;base64,/i.test(String(url||'')),safeImage=url=>/^https?:\/\//i.test(String(url||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(url||''));
   const baseTitle=String(resource.title||resource.name||'Exam Preparation PDF'),title=String(resource.seo_title||baseTitle+' PDF'),description=String(resource.seo_description||resource.description||'Download this exam preparation PDF and continue with related past papers and MCQs.'),href=String(resource.download_url||'').trim(),filename=MCQ.slug(title)+'.pdf';
   pageHeading(title,description);setBreadcrumbs([['PDFs','pdfs'],[baseTitle]]);
   let cover=document.createDocumentFragment();if(resource.cover&&safeImage(resource.cover)){const image=document.createElement('img');image.src=String(resource.cover);image.alt=title;image.loading='lazy';image.decoding='async';cover.append(image);}
@@ -2998,8 +2998,8 @@ mountDataDrivenPage(base,id){
   const organization=MCQ.get('papers',job.paper_id),title=String(job.seo_title||((organization?.name?organization.name+' ':'')+(job.title||'Job opportunity')).trim()),description=String(job.seo_description||job.description||'Latest job details, application deadline and related past-paper preparation links.'),applyUrl=String(job.apply_url||'').trim(),prepUrl=String(job.prep_url||'').trim();
   pageHeading(title,description);setBreadcrumbs([['Latest Jobs','latest-jobs'],[job.title||'Job']]);
   const actions=document.createDocumentFragment();
-  if(/^https?:\\/\\//i.test(applyUrl)){const apply=document.createElement('a');apply.className='btn primary';apply.href=applyUrl;apply.target='_blank';apply.rel='noopener';apply.dataset.authAction='apply-job';apply.textContent='Apply / View Official Details';actions.append(apply);}
-  if(/^(https?:\\/\\/|\\/(?!\\/))/i.test(prepUrl)){const papers=document.createElement('a');papers.className='btn';papers.href=prepUrl;papers.textContent='Past Papers';if(/^https?:/i.test(prepUrl)){papers.target='_blank';papers.rel='noopener';}actions.append(papers);}
+  if(/^https?:\/\//i.test(applyUrl)){const apply=document.createElement('a');apply.className='btn primary';apply.href=applyUrl;apply.target='_blank';apply.rel='noopener';apply.dataset.authAction='apply-job';apply.textContent='Apply / View Official Details';actions.append(apply);}
+  if(/^(https?:\/\/|\/(?!\/))/i.test(prepUrl)){const papers=document.createElement('a');papers.className='btn';papers.href=prepUrl;papers.textContent='Past Papers';if(/^https?:/i.test(prepUrl)){papers.target='_blank';papers.rel='noopener';}actions.append(papers);}
   else if(organization)actions.append(makeInternalLink('paper/'+organization.id,'Past Papers','btn'));
   const logo=organization?this.staticMarkupFragment(UI.entityIcon(organization,'briefcase')):this.staticMarkupFragment(UI.icon('briefcase'));
   const body=this.staticTemplateFragment('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:logo,JOB_DETAIL_ORGANIZATION:String(organization?.name||'Organization'),JOB_DETAIL_TITLE:title,JOB_DETAIL_DESCRIPTION:description,JOB_DETAIL_LAST_DATE:String(UI.date(job.last_date)||''),JOB_DETAIL_ACTIONS:actions});
@@ -3074,13 +3074,13 @@ mountDataDrivenPage(base,id){
   if(!body)return false;
   const cover=body.querySelector('[data-post-cover]'),excerpt=body.querySelector('[data-post-excerpt]'),articleBody=body.querySelector('[data-post-body]'),linkSection=body.querySelector('[data-post-links]'),linkList=body.querySelector('[data-post-link-list]'),cta=body.querySelector('[data-post-practice-cta]');
   const imageUrl=String(post.featured_image||'').trim();
-  if(cover&&imageUrl&&(/^https?:\\/\\//i.test(imageUrl)||/^\\/(?!\\/)/.test(imageUrl))){const image=document.createElement('img');image.src=imageUrl;image.alt='';image.loading='lazy';image.decoding='async';cover.append(image);cover.hidden=false;}
+  if(cover&&imageUrl&&(/^https?:\/\//i.test(imageUrl)||/^\/(?!\/)/.test(imageUrl))){const image=document.createElement('img');image.src=imageUrl;image.alt='';image.loading='lazy';image.decoding='async';cover.append(image);cover.hidden=false;}
   if(excerpt&&String(post.excerpt||'').trim()){excerpt.textContent=String(post.excerpt).trim();excerpt.hidden=false;}
   if(articleBody){
-   String(post.body||'').split(/\\n\\s*\\n/).map(value=>value.trim()).filter(Boolean).forEach(value=>{const paragraph=document.createElement('p');paragraph.textContent=value;articleBody.append(paragraph);});
+   String(post.body||'').split(/\n\s*\n/).map(value=>value.trim()).filter(Boolean).forEach(value=>{const paragraph=document.createElement('p');paragraph.textContent=value;articleBody.append(paragraph);});
    articleBody.append(this.staticMarkupFragment(UI.adSlot('article_ad')));
   }
-  const seenLinks=new Set(),links=(post.links||[]).filter(item=>item&&item.label!=='__blog_url').filter(item=>/^(https?:\\/\\/|#\\/)/i.test(String(item.url||''))).filter(item=>{const key=String(item.url||'').trim().replace(/\\/+$/,'').toLowerCase();if(!key||seenLinks.has(key))return false;seenLinks.add(key);return true;});
+  const seenLinks=new Set(),links=(post.links||[]).filter(item=>item&&item.label!=='__blog_url').filter(item=>/^(https?:\/\/|#\/)/i.test(String(item.url||''))).filter(item=>{const key=String(item.url||'').trim().replace(/\/+$/,'').toLowerCase();if(!key||seenLinks.has(key))return false;seenLinks.add(key);return true;});
   if(linkSection&&linkList&&links.length){links.forEach((item,index)=>{const anchor=document.createElement('a');anchor.className='btn post-link-row';anchor.href=String(item.url);if(/^https?:/i.test(String(item.url))){anchor.target='_blank';anchor.rel='noopener';}const number=document.createElement('span');number.className='post-link-index';number.textContent=String(index+1);const label=document.createElement('span');label.textContent=String(item.label||item.url);anchor.append(number,label);linkList.append(anchor);});linkSection.hidden=false;}
   if(cta){cta.append(makeInternalLink('mcqs','Practice MCQs','btn primary'));cta.append(makeInternalLink('important','Important MCQs','btn'));}
   const destination=region('route-detail');if(destination){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
