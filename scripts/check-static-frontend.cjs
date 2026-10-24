@@ -13,7 +13,7 @@ const nginx = read('deploy/nginx/mcqcampus-frontend-locations.conf');
 const expectedPages = [
   'home', 'mcqs', 'categories', 'past-papers', 'tests', 'pdfs', 'blog',
   'latest-jobs', 'login', 'register', 'country-entry', 'dashboard', 'admin', 'super-admin',
-  'about', 'contact', 'sitemap', 'forgot', 'reset-code', 'reset-password', 'verify',
+  'about', 'contact', 'sitemap', 'not-found', 'forgot', 'reset-code', 'reset-password', 'verify',
 ];
 const requiredTemplates = [
   'mcq-layout-template', 'mcq-header-template', 'mcq-footer-template',
@@ -79,6 +79,7 @@ const requiredRegionsByPage = {
   about: ['about-content'],
   contact: ['contact-form'],
   sitemap: ['sitemap-content'],
+  'not-found': ['not-found-links'],
   forgot: ['auth-form'],
   'reset-code': ['auth-form'],
   'reset-password': ['auth-form'],
@@ -184,6 +185,8 @@ check(runtime.includes("else if(base==='year')"), 'past-paper year pages render 
 check(runtime.includes("dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap"), 'learner dashboard and sitemap have explicit static-shell routes');
 check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')"), 'learner dashboard content mounts into the hard-coded dashboard shell');
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
+check(runtime.includes("base='not-found';html=Public.notFound()"), 'unknown routes are normalized to the static 404 shell');
+check(html.includes('data-static-page="not-found"') && html.includes('data-api-region="not-found-links"'), '404 structure and suggested links live in index.html');
 check(runtime.includes("if(base==='search')"), 'search results use the data-driven MCQ shell renderer');
 const dataRendererStart = runtime.indexOf('mountDataDrivenPage(base,id){');
 const dataRendererEnd = runtime.indexOf('showStaticShell(){', dataRendererStart);
