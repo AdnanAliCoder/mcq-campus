@@ -3088,8 +3088,10 @@ mountDataDrivenPage(base,id){
   if(list){
    list.classList.add('grid','public-main','public-main-full');
    if(collection==='papers')list.classList.add('paper-grid');
-   const cards=shown.map((item,index)=>UI.card(collection,item,(page-1)*pageSize+index)).join('');
-   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No records available here','Try another section or return to the previous page.',UI.link(collection==='papers'?'papers':'categories',collection==='papers'?'Browse organizations / boards':'Browse categories','btn primary'))));
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach((item,index)=>cards.append(entityCardFragment(collection,item,(page-1)*pageSize+index)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No records available here','Try another section or return to the previous page.',UI.link(collection==='papers'?'papers':'categories',collection==='papers'?'Browse organizations / boards':'Browse categories','btn primary'))));
+   list.replaceChildren(cards);
    list.hidden=false;
   }
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
@@ -3177,8 +3179,10 @@ mountDataDrivenPage(base,id){
   const list=region('pdf-list');
   if(list){
    list.classList.add('pdf-resource-grid','public-main','public-main-full');
-   const cards=shown.map(item=>Public.pdfResourceCard(item)).join('');
-   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')));
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach(item=>cards.append(pdfCardFragment(item)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')));
+   list.replaceChildren(cards);
    list.hidden=false;
   }
   setText('pdf-summary',total.toLocaleString('en-GB')+' PDF resources · 12 per page');
@@ -3206,8 +3210,10 @@ mountDataDrivenPage(base,id){
   const list=region('jobs-list');
   if(list){
    list.classList.add('latest-jobs-list','public-main','public-main-full');
-   const cards=shown.map(item=>Public.latestJobCard(item)).join('');
-   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No active job announcements right now','Expired jobs stay available to administrators but are hidden from this Latest Jobs list.')));
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach(item=>cards.append(latestJobCardFragment(item)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No active job announcements right now','Expired jobs stay available to administrators but are hidden from this Latest Jobs list.')));
+   list.replaceChildren(cards);
    list.hidden=false;
   }
   setMarkup('jobs-pagination',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
@@ -3274,8 +3280,10 @@ mountDataDrivenPage(base,id){
   const list=region('blog-list');
   if(list){
    list.classList.add('content-showcase-grid','public-main','public-main-full');
-   const cards=shown.map(item=>Public.blogPostCard(item)).join('');
-   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No updates have been published yet','Exam news, preparation guidance and announcements will appear here.')));
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach(item=>cards.append(blogPostCardFragment(item)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No updates have been published yet','Exam news, preparation guidance and announcements will appear here.')));
+   list.replaceChildren(cards);
    list.hidden=false;
   }
   const filterBar=PublicLayout.selectionBar([{label:'All',path:'posts',params:{},active:!category},...categories.map(value=>({label:value,path:'posts',params:{category:value},active:category===value}))],'Update categories');
