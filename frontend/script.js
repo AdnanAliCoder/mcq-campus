@@ -911,7 +911,7 @@ window.Public=(()=>{
   if(MCQ.db.settings?.footer?.showSitemap===false)return notFound();const groups=[['Main Pages',[['Home','home'],['Past Papers','papers'],['Organizations / Boards','papers'],['MCQs','mcqs'],['Categories','categories'],['PDFs','pdfs'],['Latest Jobs','latest-jobs'],['Blog','posts']]]];const main=`<div class="sitemap-grid">${groups.map(([g,items])=>`<div class="card"><h2>${g}</h2>${items.map(([l,p])=>link(p,l,'discovery-link')).join('')}</div>`).join('')}</div>`;return PublicLayout.page({trail:[['Sitemap']],title:'Sitemap',desc:'Browse public study sections, organization pages, past papers and preparation resources.',main,sidebar:PublicLayout.smart('papers'),sidebarLabel:'Related / Browse'});
  }
  function notFound(){return UI.layout(`<div class="container page"><div class="error-page"><p class="eyebrow">404 · PAGE NOT FOUND</p><h1>We could not find that page.</h1><p>The link may be old, incomplete, or no longer available.</p><div class="actions">${link('home','Home','btn primary')}${link('search','Search','btn')}${link('categories','Categories','btn')}${link('papers','Past papers','btn')}</div></div></div>`)}
- return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,jobsExams,pdfs,pdf,latestJobs,latestJob,dashboard,info,profileForm,sitemap,notFound};
+ return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,jobsExams,pdfs,pdf,pdfResourceCard,latestJobs,latestJob,latestJobCard,blogPostCard,dashboard,info,profileForm,sitemap,notFound};
 })();
 
 
@@ -2466,9 +2466,9 @@ staticMarkupFragment(markup){
  return holder.content;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts'];
  if(!supported.includes(base)||id)return false;
- const shellKey=base==='papers'?'past-papers':base==='important'?'mcqs':base;
+ const shellKey=base==='papers'?'past-papers':base==='important'?'mcqs':base==='posts'?'blog':base;
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+shellKey+'"]');
  const root=document.getElementById('app');
@@ -2590,21 +2590,21 @@ mountDataDrivenPage(base,id){
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,App.route.path));
- }else{
+ }else if(base==='categories'||base==='papers'){
   const collection=base==='categories'?'categories':'papers',country=fixedCountry();
   const entityPage=data.entityPage||{},entityServer=entityPage.server===true&&entityPage.routeKey===location.pathname+location.search&&entityPage.type===collection?entityPage:null;
   let rows=(data[collection]||[]).filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy));
   if(collection==='papers'&&country)rows=rows.filter(x=>(x.country||data.settings?.country||'Pakistan')===country);
   if(collection==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||data.settings?.country||'Pakistan')===country);
   rows=MCQ.sortPinned(collection,rows);
-  const pageSize=12,total=entityServer?Number(entityServer.total||0):rows.length,page=entityServer?Math.max(1,Number(entityPage.page)||1):App.page(total,pageSize),shown=entityServer?(Array.isArray(entityPage.items)?entityPage.items:[]):rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=12,total=entityServer?Number(entityPage.total||0):rows.length,page=entityServer?Math.max(1,Number(entityPage.page)||1):App.page(total,pageSize),shown=entityServer?(Array.isArray(entityPage.items)?entityPage.items:[]):rows.slice((page-1)*pageSize,page*pageSize);
   const pageCopy=collection==='categories'?copy('categories','All categories','Choose a category to open its MCQ collection.'):copy('past-papers','Organizations / Boards','Browse organizations and boards, then choose a Past Paper.');
   const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
   if(heading)heading.textContent=pageCopy.title;
   if(description)description.textContent=pageCopy.description;
   const listName=collection==='categories'?'category-list':'organization-list',list=region(listName);
   if(list){
-   list.classList.add('grid');
+   list.classList.add('grid','public-main','public-main-full');
    if(collection==='papers')list.classList.add('paper-grid');
    const cards=shown.map((item,index)=>UI.card(collection,item,(page-1)*pageSize+index)).join('');
    list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No records available here','Try another section or return to the previous page.',UI.link(collection==='papers'?'papers':'categories',collection==='papers'?'Browse organizations / boards':'Browse categories','btn primary'))));
@@ -2613,8 +2613,53 @@ mountDataDrivenPage(base,id){
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
   setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
   if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'papers'));
- }
- root.replaceChildren(this.staticPageNode(shell,shellKey));
+ }else if(base==='pdfs'){
+  const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
+  const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
+  const page=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Math.max(1,Number(pdfPage.page)||1):App.page(total,pageSize);
+  const shown=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search&&Array.isArray(pdfPage.items)?pdfPage.items:rows.slice((page-1)*pageSize,page*pageSize);
+  const list=region('pdf-list');
+  if(list){
+   list.classList.add('pdf-resource-grid','public-main','public-main-full');
+   const cards=shown.map(item=>Public.pdfResourceCard(item)).join('');
+   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')));
+   list.hidden=false;
+  }
+  setText('pdf-summary',total.toLocaleString('en-GB')+' PDF resources · 12 per page');
+  setMarkup('pdf-pagination',UI.pager(total,page,pageSize,App.route.params,'pdfs'));
+ }else if(base==='latest-jobs'){
+  const pageSize=10,today=new Date().toISOString().slice(0,10);
+  const rows=(data.latestJobs||[]).filter(x=>x&&x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))||Number(b.id)-Number(a.id));
+  const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  const pageCopy=copy('latest-jobs','Latest Jobs','Current job opportunities with organization, job title, individual detail pages and last date to apply.');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  const list=region('jobs-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   const cards=shown.map(item=>Public.latestJobCard(item)).join('');
+   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No active job announcements right now','Expired jobs stay available to administrators but are hidden from this Latest Jobs list.')));
+   list.hidden=false;
+  }
+  setMarkup('route-detail',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
+ }else if(base==='posts'){
+  const pageSize=10,params=App.route.params||{},category=String(params.category||'');
+  const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
+  const categories=[...new Set(all.map(item=>item.category).filter(Boolean))];
+  const rows=category?all.filter(item=>item.category===category):all;
+  const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const list=region('blog-list');
+  if(list){
+   list.classList.add('content-showcase-grid','public-main','public-main-full');
+   const cards=shown.map(item=>Public.blogPostCard(item)).join('');
+   list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No updates have been published yet','Exam news, preparation guidance and announcements will appear here.')));
+   list.hidden=false;
+  }
+  const filterBar=PublicLayout.selectionBar([{label:'All',path:'posts',params:{},active:!category},...categories.map(value=>({label:value,path:'posts',params:{category:value},active:category===value}))],'Update categories');
+  setMarkup('blog-filters',filterBar);
+  setMarkup('blog-pagination',UI.pager(total,page,pageSize,params,'posts'));
+ } root.replaceChildren(this.staticPageNode(shell,shellKey));
  root.removeAttribute('aria-busy');
  document.body.dataset.pageTemplate=shellKey==='past-papers'?'papers':shellKey;
  document.body.dataset.staticFallback=shellKey;
