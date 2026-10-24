@@ -2580,6 +2580,69 @@ mountDataDrivenPage(base,id){
  const makeInternalLink=(path,label,className)=>{
   const anchor=document.createElement('a');anchor.href=UI.href(path);anchor.textContent=String(label||'');anchor.className=className||'link';return anchor;
  };
+ let cachedPublicQuestions=null;
+ const getPublicQuestions=()=>cachedPublicQuestions||(cachedPublicQuestions=MCQ.publicMcqs());
+ const questionCardFragment=(question,compact=false,contextYearId=null)=>{
+  const questionId=Number(question?.id)||0,chosen=App.choices[questionId],answer=App.answers[questionId];
+  const iconButton=(name,label,action)=>{
+   const button=document.createElement('button');button.type='button';button.className='btn ghost';button.dataset.action=action;button.dataset.id=String(questionId);button.setAttribute('aria-label',label);
+   button.append(this.staticMarkupFragment(UI.icon(name)));return button;
+  };
+  const tags=document.createDocumentFragment(),tagWrap=document.createElement('div');tagWrap.className='mcq-question-tags';
+  if(MCQ.isImportant(question)){const important=document.createElement('span');important.className='badge mcq-important-badge';important.textContent='Important';tagWrap.append(important);}
+  const paperId=MCQ.ids(question.paper_id)[0],paper=paperId?MCQ.get('papers',paperId):null,country=String(question.country||paper?.country||data.settings?.country||'Pakistan').trim()||'Pakistan';
+  if(String(question.bps||'').trim()){const bps=document.createElement('span');bps.className='badge';bps.textContent=String(question.bps).trim();tagWrap.append(bps);}
+  const countryBadge=document.createElement('span');countryBadge.className='badge mcq-country-badge';countryBadge.textContent=country;tagWrap.append(countryBadge);tags.append(tagWrap);
+  const bookmarkIds=Array.isArray(data.bookmarks)?data.bookmarks:[];
+  const bookmarked=bookmarkIds.some(value=>Number(value)===questionId);
+  const bookmark=iconButton('bookmark',bookmarked?'Remove bookmark':'Bookmark question','bookmark');bookmark.setAttribute('aria-pressed',String(bookmarked));
+  const rows=getPublicQuestions(),globalIndex=rows.findIndex(item=>Number(item.id)===questionId),next=globalIndex>=0&&globalIndex<rows.length-1?rows[globalIndex+1]:rows[0];
+  let nextLink=document.createDocumentFragment();
+  if(compact&&next&&Number(next.id)!==questionId){const link=makeInternalLink('practice/'+next.id,'','btn ghost quick-next');link.setAttribute('aria-label','Next practice question');link.append(this.staticMarkupFragment(UI.icon('arrow')));nextLink.append(link);}
+  const options=document.createDocumentFragment();
+  [1,2,3,4].forEach((number,index)=>{
+   const value=String(question['option'+number]||''),state=answer?(value===question.correct_answer?'correct':value===chosen?'wrong':''):value===chosen?'selected':'';
+   const button=document.createElement('button');button.type='button';button.className='btn option'+(state?' '+state:'');button.dataset.action='choose';button.dataset.id=String(questionId);button.dataset.option=String(number);button.setAttribute('aria-pressed',String(value===chosen));button.disabled=Boolean(answer);
+   const letter=document.createElement('span');letter.className='letter';letter.textContent='ABCD'[index];button.append(letter);
+   const text=document.createElement('span');text.className='option-text';text.textContent=value;button.append(text);
+   const indicator=document.createElement('span');indicator.className='option-indicator';indicator.setAttribute('aria-hidden','true');button.append(indicator);options.append(button);
+  });
+  let explanation=document.createDocumentFragment(),hint=document.createDocumentFragment();
+  if(answer){
+   const box=document.createElement('div');box.className='explanation mcq-verified-answer';box.setAttribute('role','status');
+   const head=document.createElement('div');head.className='verified-answer-head';
+   const mark=document.createElement('span');mark.className='verified-check';mark.setAttribute('aria-hidden','true');mark.textContent='✓';head.append(mark);
+   const statement=document.createElement('strong');statement.append(document.createTextNode('Correct Answer: '));const correct=document.createElement('b');correct.textContent=String(question.correct_answer||'');statement.append(correct);head.append(statement);box.append(head);
+   const details=document.createElement('p');details.textContent=String(question.description||'No explanation has been added yet.');box.append(details);
+   let years=MCQ.ids(question.job_years_ids).map(yearId=>MCQ.get('years',yearId)).filter(Boolean);
+   if(contextYearId)years=years.filter(item=>Number(item.id)===Number(contextYearId));
+   if(years.length){
+    const group=document.createElement('div');group.className='mcq-answer-years';group.setAttribute('aria-label','Years');const label=document.createElement('span');label.className='mcq-years-label';label.textContent='Years';const chips=document.createElement('div');chips.className='chips';
+    years.forEach(year=>chips.append(makeInternalLink('year/'+year.id,String(year.name||''),'chip mcq-year-chip')));
+    group.append(label,chips);box.append(group);
+   }
+   explanation.append(box);
+  }else{
+   const prompt=document.createElement('span');prompt.className='small muted';prompt.textContent='Select an option to check your answer instantly.';hint.append(prompt);
+  }
+  const share=iconButton('share','Share question','share'),copy=iconButton('copy','Copy question link','copy'),report=iconButton('flag','Report question','report');
+  const fragment=this.staticTemplateFragment('mcq-question-card-template',{
+   QUESTION_TAGS:tags,QUESTION_BOOKMARK:bookmark,QUESTION_NEXT_LINK:nextLink,
+   QUESTION_LINK:makeInternalLink('mcq/'+questionId,String(question.question||''),'mcq-question-link'),
+   QUESTION_OPTIONS:options,QUESTION_EXPLANATION:explanation,QUESTION_PRE_ANSWER_HINT:hint,
+   QUESTION_SHARE_BUTTON:share,QUESTION_COPY_BUTTON:copy,QUESTION_REPORT_BUTTON:report
+  });
+  const article=fragment?.querySelector('.mcq-card');
+  if(article){article.dataset.question=String(questionId);article.classList.remove('__SLOT_COMPACT_CLASS__');if(compact)article.classList.add('mcq-card-compact');return fragment;}
+  return this.staticMarkupFragment(Public.questionCard(question,1,compact,contextYearId));
+ };
+ const setQuestionCards=(name,questions,{compact=false,contextYearId=null,emptyMarkup=''}={})=>{
+  const destination=region(name);if(!destination)return false;
+  const fragment=document.createDocumentFragment();
+  if(questions.length)questions.forEach(question=>fragment.append(questionCardFragment(question,compact,contextYearId)));
+  else if(emptyMarkup)fragment.append(this.staticMarkupFragment(emptyMarkup));
+  destination.replaceChildren(fragment);destination.hidden=false;return true;
+ };
  const copy=(key,title,description)=>{
   const row=(MCQ.db.pageSeo||{})['static:'+key]||{};
   return {title:String(row.title||title),description:String(row.description||description)};
