@@ -911,7 +911,7 @@ window.Public=(()=>{
   if(MCQ.db.settings?.footer?.showSitemap===false)return notFound();const groups=[['Main Pages',[['Home','home'],['Past Papers','papers'],['Organizations / Boards','papers'],['MCQs','mcqs'],['Categories','categories'],['PDFs','pdfs'],['Latest Jobs','latest-jobs'],['Blog','posts']]]];const main=`<div class="sitemap-grid">${groups.map(([g,items])=>`<div class="card"><h2>${g}</h2>${items.map(([l,p])=>link(p,l,'discovery-link')).join('')}</div>`).join('')}</div>`;return PublicLayout.page({trail:[['Sitemap']],title:'Sitemap',desc:'Browse public study sections, organization pages, past papers and preparation resources.',main,sidebar:PublicLayout.smart('papers'),sidebarLabel:'Related / Browse'});
  }
  function notFound(){return UI.layout(`<div class="container page"><div class="error-page"><p class="eyebrow">404 · PAGE NOT FOUND</p><h1>We could not find that page.</h1><p>The link may be old, incomplete, or no longer available.</p><div class="actions">${link('home','Home','btn primary')}${link('search','Search','btn')}${link('categories','Categories','btn')}${link('papers','Past papers','btn')}</div></div></div>`)}
- return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,jobsExams,pdfs,pdf,pdfResourceCard,latestJobs,latestJob,latestJobCard,blogPostCard,dashboard,info,profileForm,sitemap,notFound};
+ return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,automaticTestPlan,jobsExams,pdfs,pdf,pdfResourceCard,latestJobs,latestJob,latestJobCard,blogPostCard,dashboard,info,profileForm,sitemap,notFound};
 })();
 
 
@@ -2466,7 +2466,7 @@ staticMarkupFragment(markup){
  return holder.content;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','login','register'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register'];
  if(!supported.includes(base)||id)return false;
  const parent=document.getElementById('static-page-shells');
  const root=document.getElementById('app');
@@ -2644,6 +2644,22 @@ mountDataDrivenPage(base,id){
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
   setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
   if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'papers'));
+ }else if(base==='tests'){
+  const plan=Public.automaticTestPlan(),next=new Date(plan.next);
+  const title=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(title)title.textContent='Automatic Tests';
+  if(description)description.textContent='A hands-off test system that continuously rotates 10-question sets from your approved MCQ library.';
+  const list=region('test-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   const content=UI.templateMarkup('mcq-tests-automatic-hero-template',{
+    AUTO_TEST_DAYS:String(plan.days),AUTO_TEST_SOURCE:UI.esc(plan.source?.name||'Mixed MCQs'),
+    AUTO_TEST_QUESTION_COUNT:String(plan.rows.length),AUTO_TEST_NEXT_DATE:UI.esc(next.toISOString().slice(0,10)),
+    AUTO_TEST_START_LINK:UI.link('test/auto','Start Automatic Test','btn primary')
+   })||'';
+   list.replaceChildren(this.staticMarkupFragment(content||UI.empty('No tests are available','Approved MCQs will be used to build automatic tests.')));
+   list.hidden=false;
+  }
  }else if(base==='pdfs'){
   const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
   const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
