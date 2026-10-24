@@ -135,7 +135,7 @@ check(runtime.includes("if(!page||['dashboard','admin','super-admin'].includes(p
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
-check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts']"), 'core public data renderer is explicitly scoped to migrated routes');
+check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','login','register']"), 'core public data renderer is explicitly scoped to migrated routes');
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
 check(html.includes('data-api-region="home-top-ad"') && html.includes('data-api-region="home-middle-ad"'), 'home ad placements have static page regions');
 check(html.includes('data-api-region="jobs-pagination"'), 'latest-jobs pagination has its own static data region');
@@ -143,6 +143,11 @@ check(runtime.includes("Public.pdfResourceCard(item)"), 'PDF listing renders thr
 check(runtime.includes("Public.latestJobCard(item)"), 'latest-jobs listing renders through the reusable job card template');
 check(runtime.includes("Public.blogPostCard(item)"), 'blog listing renders through the reusable blog card template');
 check(runtime.includes("setMarkup('jobs-pagination'"), 'latest-jobs pagination mounts into the dedicated region');
+check(runtime.includes('const showCountryEntry=()=>'), 'login and signup use a dedicated static country-entry shell');
+check(runtime.includes("filter(item=>item&&item.active!==false&&String(item.name||'').trim())"), 'country-entry cards use active country settings');
+check(html.includes('id="mcq-country-entry-card-template"'), 'country-entry cards have a reusable hard-coded HTML template');
+check(html.includes('data-auth-error'), 'static authentication forms provide inline error targets');
+check(html.includes('name="confirm"') && html.includes('name="terms" required'), 'static signup form confirms passwords and requires terms acceptance');
 check(runtime.includes("search:'mcqs',mcq:'mcqs',practice:'mcqs'"), 'search and individual MCQ routes map into the static MCQ shell');
 check(html.includes('data-api-region="home-important-count"'), 'the hard-coded home includes an MCQ count region');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
