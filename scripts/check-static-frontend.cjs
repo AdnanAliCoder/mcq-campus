@@ -119,6 +119,8 @@ check(cssBracesBalanced(css), 'style.css has balanced CSS blocks');
 check(/@media\s*\(max-width:\s*600px\)/i.test(css), 'stylesheet includes responsive mobile viewport rules');
 check(/@media\s*\(max-width:\s*360px\)/i.test(css), 'stylesheet includes narrow-screen responsive rules');
 check(/prefers-reduced-motion\s*:\s*reduce/i.test(css), 'stylesheet respects reduced-motion preferences');
+check(css.includes('.learner-overview-view') && css.includes('.learner-subpage'), 'template-based learner dashboard has responsive layout styling');
+check(css.includes('.learner-profile-page [data-profile-avatar]'), 'static profile template has avatar sizing rules');
 
 check(nginx.includes('location = /assets/style.css'), 'Nginx maps the stylesheet URL to frontend/style.css');
 check(nginx.includes('alias /home/ubuntu/mcq-campus/frontend/style.css;'), 'Nginx stylesheet alias is correct');
