@@ -2762,7 +2762,14 @@ mountDataDrivenPage(base,id){
   const eyebrowNode=fragment.querySelector('[data-context-eyebrow]'),titleNode=fragment.querySelector('[data-context-title]'),linksNode=fragment.querySelector('[data-context-links]');
   if(eyebrowNode)eyebrowNode.textContent=eyebrow;
   if(titleNode)titleNode.textContent=title;
-  if(linksNode)linksNode.replaceChildren(this.staticMarkupFragment(items.join('')));
+  if(linksNode){
+   const links=document.createDocumentFragment();
+   items.forEach(item=>{
+    if(item&&typeof item==='object'&&typeof item.nodeType==='number')links.append(item);
+    else if(item&&typeof item==='object'&&item.path)links.append(makeInternalLink(item.path,item.label,'chip'));
+   });
+   linksNode.replaceChildren(links);
+  }
   dest.replaceChildren(fragment);dest.hidden=false;return true;
  };
  const publicMcqServerPage=()=>{
@@ -2936,10 +2943,10 @@ mountDataDrivenPage(base,id){
   setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(isCategory?[[record.name]]:[...(category?[[category.name,'category/'+category.id]]:[]),[record.name]])]));
   if(isCategory){
    const subs=(data.subcategories||[]).filter(item=>item.active!==false&&Number(item.category_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
-   setCategoryContext('EXPLORE TOPICS',record.name+' Subcategories',subs.map(item=>UI.link('subcategory/'+item.id,UI.esc(item.name),'chip')));
+   setCategoryContext('EXPLORE TOPICS',record.name+' Subcategories',subs.map(item=>({path:'subcategory/'+item.id,label:String(item.name||'')})));
   }else{
    const children=(data.children||[]).filter(item=>item.active!==false&&Number(item.subcategory_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
-   setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>UI.link('topic/'+item.id,UI.esc(item.name),'chip')));
+   setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>({path:'topic/'+item.id,label:String(item.name||'')})));
   }
   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
   const list=region('mcq-list');
