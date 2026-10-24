@@ -29,6 +29,12 @@ if (script.includes('/assets/js/admin/')) {
   process.exit(1);
 }
 console.log('No requests to deleted split admin JavaScript assets.');
+const loaderDefinitions = (script.match(/MCQCampusLoadBundledModule\s*=/g) || []).length;
+if (loaderDefinitions !== 1) {
+  console.error('Expected one bundled-module loader definition; found', loaderDefinitions);
+  process.exit(1);
+}
+console.log('Exactly one bundled-module loader is defined.');
 const syntax = spawnSync(process.execPath, ['--check', scriptPath], { encoding: 'utf8' });
 if (syntax.status !== 0) {
   console.error('Syntax check failed: frontend/script.js');
