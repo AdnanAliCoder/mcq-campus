@@ -2465,8 +2465,26 @@ staticMarkupFragment(markup){
  holder.innerHTML=String(markup??'');
  return holder.content;
 },
+staticTemplateFragment(id,slots={}){
+ const template=document.getElementById(id);
+ if(!template)return null;
+ const fragment=template.content.cloneNode(true);
+ const walker=document.createTreeWalker(fragment,NodeFilter.SHOW_COMMENT);
+ const comments=[];
+ while(walker.nextNode())comments.push(walker.currentNode);
+ for(const comment of comments){
+  const match=String(comment.nodeValue||'').trim().match(/^SLOT:([A-Z0-9_]+)$/);
+  if(!match)continue;
+  const key=match[1];
+  if(!Object.prototype.hasOwnProperty.call(slots,key)){comment.remove();continue;}
+  const value=slots[key];
+  if(value&&typeof value==='object'&&typeof value.nodeType==='number')comment.replaceWith(value);
+  else comment.replaceWith(document.createTextNode(String(value??'')));
+ }
+ return fragment;
+},
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','jobs-exams','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'];
  const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','test','pdf','latest-job','post'];
  if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id))return false;
  const parent=document.getElementById('static-page-shells');
@@ -2502,7 +2520,7 @@ mountDataDrivenPage(base,id){
   return true;
  };
  if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
- const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:base==='test'?'tests':base==='latest-job'?'latest-jobs':base==='pdf'?'pdfs':base;
+ const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job','jobs-exams'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
  const shell=source.cloneNode(true);
@@ -2517,6 +2535,50 @@ mountDataDrivenPage(base,id){
  const setText=(name,value)=>{
   const dest=region(name);if(!dest)return false;
   dest.textContent=String(value??'');dest.hidden=false;return true;
+ };
+ const setBreadcrumbs=items=>{
+  const dest=region('breadcrumbs');if(!dest)return false;
+  const nav=document.createElement('nav');nav.className='breadcrumbs';nav.setAttribute('aria-label','Breadcrumb');
+  (items||[]).forEach((item,index)=>{
+   if(index){const separator=document.createElement('span');separator.setAttribute('aria-hidden','true');separator.textContent='›';nav.append(separator);}
+   const label=String(item?.[0]??'');
+   if(item&&item[1]){const anchor=document.createElement('a');anchor.href=UI.href(item[1]);anchor.textContent=label;nav.append(anchor);}
+   else{const current=document.createElement('span');current.setAttribute('aria-current','page');current.textContent=label;nav.append(current);}
+  });
+  dest.replaceChildren(nav);dest.hidden=false;return true;
+ };
+ const pageHeading=(title,description)=>{
+  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=String(title||'');
+  if(summary&&description!==undefined)summary.textContent=String(description||'');
+ };
+ const appendManagedText=(container,value)=>{
+  if(!container)return;
+  const lines=String(value||'').replace(/\\r/g,'').split('\\n');
+  let paragraph=[],list=null;
+  const flushParagraph=()=>{
+   if(!paragraph.length)return;
+   const node=document.createElement('p'),text=paragraph.join(' ').trim();
+   text.split(/(\\*\\*[^*]+\\*\\*)/g).forEach(piece=>{
+    if(piece.startsWith('**')&&piece.endsWith('**')&&piece.length>4){const strong=document.createElement('strong');strong.textContent=piece.slice(2,-2);node.append(strong);}
+    else node.append(document.createTextNode(piece));
+   });
+   if(text)container.append(node);paragraph=[];
+  };
+  const flushList=()=>{if(list&&list.children.length)container.append(list);list=null;};
+  for(const line of lines){
+   const clean=line.trim();
+   if(!clean){flushParagraph();flushList();continue;}
+   const heading=clean.match(/^(#{1,3})\\s+(.+)$/);
+   if(heading){flushParagraph();flushList();const node=document.createElement(heading[1].length===1?'h2':heading[1].length===2?'h3':'h4');node.textContent=heading[2];container.append(node);continue;}
+   const bullet=clean.match(/^[-*]\\s+(.+)$/);
+   if(bullet){flushParagraph();if(!list)list=document.createElement('ul');const item=document.createElement('li');item.textContent=bullet[1];list.append(item);continue;}
+   flushList();paragraph.push(clean);
+  }
+  flushParagraph();flushList();
+ };
+ const makeInternalLink=(path,label,className)=>{
+  const anchor=document.createElement('a');anchor.href=UI.href(path);anchor.textContent=String(label||'');anchor.className=className||'link';return anchor;
  };
  const copy=(key,title,description)=>{
   const row=(MCQ.db.pageSeo||{})['static:'+key]||{};
@@ -2843,8 +2905,51 @@ mountDataDrivenPage(base,id){
   setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
   if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'papers'));
  }else if(base==='test'){
-  // Keep the existing test interactions, but mount the test view inside the static Tests shell.
-  return this.mountStaticPage(base,Public.test(id));
+  const plan=Public.automaticTestPlan(),rows=Array.isArray(plan.rows)?plan.rows:[],kind='auto',key='auto:'+plan.period+':'+rows.map(item=>item.id).join(','),result=App.testResult?.key===key?App.testResult:null;
+  pageHeading('Automatic 10-MCQ Test',rows.length?'Answer the questions and submit to see your result.':'No approved MCQs are available for this test yet.');
+  setBreadcrumbs([['Tests','tests'],['Automatic 10-MCQ Test']]);
+  const dest=region('route-detail');if(!dest)return false;dest.classList.add('public-main','public-main-full');dest.replaceChildren();
+  if(result){
+   const percentage=result.total?Math.round(result.correct/result.total*100):0,stats=document.createElement('div');stats.className='test-result-grid';
+   [['Total Questions',result.total],['Correct Answers',result.correct],['Wrong Answers',result.wrong],['Unanswered',result.unanswered],['Percentage',percentage+'%'],['Score',String(result.correct)+' / '+String(result.total)]].forEach(([label,value])=>{
+    const card=document.createElement('article');card.className='card stat-card';const name=document.createElement('span');name.className='stat-card-label';name.textContent=label;const number=document.createElement('strong');number.className='stat-card-value';number.textContent=String(value);card.append(name,number);stats.append(card);
+   });
+   dest.append(stats);
+   const actions=document.createElement('div');actions.className='actions test-result-actions';
+   const reviewing=App.route.params.review==='1',reviewLink=makeInternalLink('test/auto',reviewing?'Hide review':'Review Answers',reviewing?'btn':'btn primary');
+   reviewLink.href=UI.href('test/auto',reviewing?{}:{review:'1'});actions.append(reviewLink);
+   const retry=document.createElement('button');retry.type='button';retry.className='btn';retry.dataset.action='test-retry';retry.dataset.kind=kind;retry.textContent='Try again';actions.append(retry);dest.append(actions);
+   if(reviewing){
+    const review=document.createElement('section');review.className='test-review';
+    rows.forEach((question,index)=>{
+     const card=document.createElement('article');card.className='card';const eyebrow=document.createElement('p');eyebrow.className='eyebrow';eyebrow.textContent='MCQ '+(index+1);const title=document.createElement('h2');title.textContent=String(question.question||'');card.append(eyebrow,title);
+     const chosen=String(result.answers?.[question.id]||''),your=document.createElement('p');your.textContent='Your answer: '+(chosen||'Unanswered');card.append(your);
+     const correct=document.createElement('p');correct.textContent='Correct answer: '+String(question.correct_answer||'');card.append(correct);
+     if(question.description){const explanation=document.createElement('div');explanation.className='explanation';const p=document.createElement('p');p.textContent=String(question.description);explanation.append(p);card.append(explanation);}
+     review.append(card);
+    });
+    dest.append(review);
+   }
+  }else if(rows.length){
+   const questionNodes=document.createDocumentFragment();
+   rows.forEach((question,index)=>{
+    const options=document.createDocumentFragment();
+    [1,2,3,4].forEach(number=>{
+     const label=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='test_q_'+question.id;input.value=String(question['option'+number]||'');label.append(input);
+     const letter=document.createElement('span');letter.className='letter';letter.textContent='ABCD'[number-1];label.append(letter);
+     const optionText=document.createElement('span');optionText.className='option-text';optionText.textContent=String(question['option'+number]||'');label.append(optionText);
+     const indicator=document.createElement('span');indicator.className='option-indicator';indicator.setAttribute('aria-hidden','true');label.append(indicator);options.append(label);
+    });
+    const questionFragment=this.staticTemplateFragment('mcq-test-question-template',{TEST_QUESTION_NUMBER:String(index+1),TEST_QUESTION_TEXT:String(question.question||''),TEST_QUESTION_OPTIONS:options});
+    if(questionFragment)questionNodes.append(questionFragment);
+   });
+   const formFragment=this.staticTemplateFragment('mcq-test-form-template',{TEST_QUESTIONS:questionNodes});
+   const form=formFragment?.querySelector('form[data-form="test-submit"]');
+   if(form){form.dataset.testKey=key;form.dataset.testKind=kind;form.dataset.startedAt=String(Date.now());dest.append(form);}
+  }else{
+   const empty=document.createElement('div');empty.className='empty';const heading=document.createElement('h3');heading.textContent='No MCQs available';const description=document.createElement('p');description.textContent='Approved MCQs will be used to build an automatic test.';empty.append(heading,description,makeInternalLink('tests','Back to tests','btn'));dest.append(empty);
+  }
+  dest.hidden=false;
  }else if(base==='tests'){
   const plan=Public.automaticTestPlan(),next=new Date(plan.next);
   const title=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
@@ -2864,16 +2969,16 @@ mountDataDrivenPage(base,id){
  }else if(base==='pdf'){
   const resource=(data.pdfs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||row.name||''))===String(id));
   if(!resource||resource.active===false)return false;
-  const safeLink=url=>/^https?:\/\//i.test(String(url||''))||/^data:application\/pdf;base64,/i.test(String(url||'')),safeImage=url=>/^https?:\/\//i.test(String(url||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(url||''));
-  const baseTitle=resource.title||resource.name||'Exam Preparation PDF',title=resource.seo_title||baseTitle+' PDF',description=resource.seo_description||resource.description||'Download this exam preparation PDF and continue with related past papers and MCQs.',href=String(resource.download_url||'').trim(),filename=MCQ.slug(title)+'.pdf';
-  const download=safeLink(href)?'<a class="btn primary" href="'+UI.esc(href)+'" data-auth-action="download-pdf" data-auth-download-name="'+UI.esc(filename)+'" '+(/^data:/i.test(href)?'download="'+UI.esc(filename)+'"':'target="_blank" rel="noopener"')+'>Download PDF</a>':'<span class="btn disabled" aria-disabled="true">Download unavailable</span>';
-  const body=UI.templateMarkup('mcq-pdf-detail-template',{PDF_DETAIL_COVER:resource.cover&&safeImage(resource.cover)?'<img src="'+UI.esc(resource.cover)+'" alt="'+UI.esc(title)+'">':'',PDF_DETAIL_TITLE:UI.esc(title),PDF_DETAIL_DESCRIPTION:UI.esc(description),PDF_DETAIL_DOWNLOAD:download})||'';
-  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=title;
-  if(summary)summary.textContent=description;
-  setMarkup('breadcrumbs',UI.crumbs([['PDFs','pdfs'],[baseTitle]]));
-  setMarkup('route-detail',body);
- }else if(base==='pdfs'){
+  const safeLink=url=>/^https?:\\/\\//i.test(String(url||''))||/^data:application\\/pdf;base64,/i.test(String(url||'')),safeImage=url=>/^https?:\\/\\//i.test(String(url||''))||/^data:image\\/(png|jpeg|jpg|webp);base64,/i.test(String(url||''));
+  const baseTitle=String(resource.title||resource.name||'Exam Preparation PDF'),title=String(resource.seo_title||baseTitle+' PDF'),description=String(resource.seo_description||resource.description||'Download this exam preparation PDF and continue with related past papers and MCQs.'),href=String(resource.download_url||'').trim(),filename=MCQ.slug(title)+'.pdf';
+  pageHeading(title,description);setBreadcrumbs([['PDFs','pdfs'],[baseTitle]]);
+  let cover=document.createDocumentFragment();if(resource.cover&&safeImage(resource.cover)){const image=document.createElement('img');image.src=String(resource.cover);image.alt=title;image.loading='lazy';image.decoding='async';cover.append(image);}
+  let download;
+  if(safeLink(href)){download=document.createElement('a');download.className='btn primary';download.href=href;download.dataset.authAction='download-pdf';download.dataset.authDownloadName=filename;download.textContent='Download PDF';if(/^data:/i.test(href))download.download=filename;else{download.target='_blank';download.rel='noopener';}}
+  else{download=document.createElement('span');download.className='btn disabled';download.setAttribute('aria-disabled','true');download.textContent='Download unavailable';}
+  const body=this.staticTemplateFragment('mcq-pdf-detail-template',{PDF_DETAIL_COVER:cover,PDF_DETAIL_TITLE:title,PDF_DETAIL_DESCRIPTION:description,PDF_DETAIL_DOWNLOAD:download});
+  const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
+ }}else if(base==='pdfs'){
   const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
   const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
   const page=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Math.max(1,Number(pdfPage.page)||1):App.page(total,pageSize);
@@ -2890,14 +2995,16 @@ mountDataDrivenPage(base,id){
  }else if(base==='latest-job'){
   const job=(data.latestJobs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
   if(!job||job.published===false)return false;
-  const org=MCQ.get('papers',job.paper_id),title=job.seo_title||((org?.name?org.name+' ':'')+(job.title||'Job opportunity')).trim(),description=job.seo_description||job.description||'Latest job details, application deadline and related past-paper preparation links.',safe=url=>/^https?:\/\//i.test(String(url||'')),apply=safe(job.apply_url)?'<a class="btn primary" href="'+UI.esc(job.apply_url)+'" target="_blank" rel="noopener" data-auth-action="apply-job">Apply / View Official Details</a>':'',prep=/^(https?:\/\/|\/(?!\/))/i.test(String(job.prep_url||''))?'<a class="btn" href="'+UI.esc(job.prep_url)+'" target="_blank" rel="noopener">Past Papers</a>':(org?UI.link(window.SEO?SEO.cleanPath('paper',org.id):'paper/'+org.id,'Past Papers','btn'):'');
-  const body=UI.templateMarkup('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:org?UI.entityIcon(org,'briefcase'):UI.icon('briefcase'),JOB_DETAIL_ORGANIZATION:UI.esc(org?.name||'Organization'),JOB_DETAIL_TITLE:UI.esc(title),JOB_DETAIL_DESCRIPTION:UI.esc(description),JOB_DETAIL_LAST_DATE:UI.esc(UI.date(job.last_date)),JOB_DETAIL_ACTIONS:apply+prep})||'';
-  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=title;
-  if(summary)summary.textContent=description;
-  setMarkup('breadcrumbs',UI.crumbs([['Latest Jobs','latest-jobs'],[job.title||'Job']]));
-  setMarkup('route-detail',body);
- }else if(base==='latest-jobs'){
+  const organization=MCQ.get('papers',job.paper_id),title=String(job.seo_title||((organization?.name?organization.name+' ':'')+(job.title||'Job opportunity')).trim()),description=String(job.seo_description||job.description||'Latest job details, application deadline and related past-paper preparation links.'),applyUrl=String(job.apply_url||'').trim(),prepUrl=String(job.prep_url||'').trim();
+  pageHeading(title,description);setBreadcrumbs([['Latest Jobs','latest-jobs'],[job.title||'Job']]);
+  const actions=document.createDocumentFragment();
+  if(/^https?:\\/\\//i.test(applyUrl)){const apply=document.createElement('a');apply.className='btn primary';apply.href=applyUrl;apply.target='_blank';apply.rel='noopener';apply.dataset.authAction='apply-job';apply.textContent='Apply / View Official Details';actions.append(apply);}
+  if(/^(https?:\\/\\/|\\/(?!\\/))/i.test(prepUrl)){const papers=document.createElement('a');papers.className='btn';papers.href=prepUrl;papers.textContent='Past Papers';if(/^https?:/i.test(prepUrl)){papers.target='_blank';papers.rel='noopener';}actions.append(papers);}
+  else if(organization)actions.append(makeInternalLink('paper/'+organization.id,'Past Papers','btn'));
+  const logo=organization?this.staticMarkupFragment(UI.entityIcon(organization,'briefcase')):this.staticMarkupFragment(UI.icon('briefcase'));
+  const body=this.staticTemplateFragment('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:logo,JOB_DETAIL_ORGANIZATION:String(organization?.name||'Organization'),JOB_DETAIL_TITLE:title,JOB_DETAIL_DESCRIPTION:description,JOB_DETAIL_LAST_DATE:String(UI.date(job.last_date)||''),JOB_DETAIL_ACTIONS:actions});
+  const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
+ }}else if(base==='latest-jobs'){
   const pageSize=10,today=new Date().toISOString().slice(0,10);
   const rows=(data.latestJobs||[]).filter(x=>x&&x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))||Number(b.id)-Number(a.id));
   const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
@@ -2961,19 +3068,23 @@ mountDataDrivenPage(base,id){
  }else if(base==='post'){
   const post=(data.posts||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
   if(!post||post.published===false)return false;
-  const title=post.seo_title||post.title||'MCQCampus Update',description=post.seo_description||post.excerpt||'MCQCampus article and preparation guide.';
-  const seenLinks=new Set(),links=(post.links||[]).filter(item=>item.label!=='__blog_url').filter(item=>/^(https?:\/\/|#\/)/i.test(String(item.url||''))).filter(item=>{const key=String(item.url||'').trim().replace(/\/+$/,'').toLowerCase();if(!key||seenLinks.has(key))return false;seenLinks.add(key);return true;});
-  const image=post.featured_image?'<div class="article-hero-image"><img src="'+UI.esc(post.featured_image)+'" alt="" loading="lazy" decoding="async"></div>':'';
-  const lead=post.excerpt?'<p class="post-lead">'+UI.esc(post.excerpt)+'</p>':'';
-  const paragraphs=String(post.body||'').split(/\n\n+/).filter(Boolean).map(text=>'<p>'+UI.esc(text)+'</p>').join('');
-  const linksHtml=links.length?'<div class="post-links"><h3>Useful links</h3><div class="post-links-list">'+links.map((item,index)=>'<a class="btn post-link-row" href="'+UI.esc(item.url)+'" '+(/^https?:/i.test(item.url)?'target="_blank" rel="noopener"':'')+'><span class="post-link-index">'+(index+1)+'</span><span>'+UI.esc(item.label||item.url)+'</span>'+UI.icon('arrow')+'</a>').join('')+'</div></div>':'';
-  const body=UI.templateMarkup('mcq-blog-article-template',{BLOG_ARTICLE_TITLE:UI.esc(title),BLOG_ARTICLE_IMAGE:image,BLOG_ARTICLE_LEAD:lead,BLOG_ARTICLE_BODY:paragraphs,BLOG_ARTICLE_ADS:UI.adSlot('article_ad'),BLOG_ARTICLE_LINKS:linksHtml,BLOG_ARTICLE_CTA:UI.link('mcqs','Practice MCQs '+UI.icon('arrow'),'btn primary')+' '+UI.link('important','Important MCQs','btn')})||'';
-  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=title;
-  if(summary)summary.textContent=description;
-  setMarkup('breadcrumbs',UI.crumbs([['Blog','posts'],[post.title||title]]));
-  setMarkup('route-detail',body);
- }else if(base==='posts'){
+  const title=String(post.seo_title||post.title||'MCQCampus Update'),description=String(post.seo_description||post.excerpt||'MCQCampus article and preparation guide.');
+  pageHeading(title,description);setBreadcrumbs([['Blog','posts'],[post.title||title]]);
+  const body=this.staticTemplateFragment('mcq-blog-detail-template',{});
+  if(!body)return false;
+  const cover=body.querySelector('[data-post-cover]'),excerpt=body.querySelector('[data-post-excerpt]'),articleBody=body.querySelector('[data-post-body]'),linkSection=body.querySelector('[data-post-links]'),linkList=body.querySelector('[data-post-link-list]'),cta=body.querySelector('[data-post-practice-cta]');
+  const imageUrl=String(post.featured_image||'').trim();
+  if(cover&&imageUrl&&(/^https?:\\/\\//i.test(imageUrl)||/^\\/(?!\\/)/.test(imageUrl))){const image=document.createElement('img');image.src=imageUrl;image.alt='';image.loading='lazy';image.decoding='async';cover.append(image);cover.hidden=false;}
+  if(excerpt&&String(post.excerpt||'').trim()){excerpt.textContent=String(post.excerpt).trim();excerpt.hidden=false;}
+  if(articleBody){
+   String(post.body||'').split(/\\n\\s*\\n/).map(value=>value.trim()).filter(Boolean).forEach(value=>{const paragraph=document.createElement('p');paragraph.textContent=value;articleBody.append(paragraph);});
+   articleBody.append(this.staticMarkupFragment(UI.adSlot('article_ad')));
+  }
+  const seenLinks=new Set(),links=(post.links||[]).filter(item=>item&&item.label!=='__blog_url').filter(item=>/^(https?:\\/\\/|#\\/)/i.test(String(item.url||''))).filter(item=>{const key=String(item.url||'').trim().replace(/\\/+$/,'').toLowerCase();if(!key||seenLinks.has(key))return false;seenLinks.add(key);return true;});
+  if(linkSection&&linkList&&links.length){links.forEach((item,index)=>{const anchor=document.createElement('a');anchor.className='btn post-link-row';anchor.href=String(item.url);if(/^https?:/i.test(String(item.url))){anchor.target='_blank';anchor.rel='noopener';}const number=document.createElement('span');number.className='post-link-index';number.textContent=String(index+1);const label=document.createElement('span');label.textContent=String(item.label||item.url);anchor.append(number,label);linkList.append(anchor);});linkSection.hidden=false;}
+  if(cta){cta.append(makeInternalLink('mcqs','Practice MCQs','btn primary'));cta.append(makeInternalLink('important','Important MCQs','btn'));}
+  const destination=region('route-detail');if(destination){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
+ }}else if(base==='posts'){
   const pageSize=10,params=App.route.params||{},category=String(params.category||'');
   const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
   const categories=[...new Set(all.map(item=>item.category).filter(Boolean))];
@@ -2989,6 +3100,47 @@ mountDataDrivenPage(base,id){
   const filterBar=PublicLayout.selectionBar([{label:'All',path:'posts',params:{},active:!category},...categories.map(value=>({label:value,path:'posts',params:{category:value},active:category===value}))],'Update categories');
   setMarkup('blog-filters',filterBar);
   setMarkup('blog-pagination',UI.pager(total,page,pageSize,params,'posts'));
+ }else if(['about','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)){
+  const legalPages=data.content?.legalPages||{},page=legalPages[base]||{},footer=data.settings?.footer||{};
+  if((base==='faq'&&footer.showFaq!==true)||(base==='cookies'&&footer.showCookiePolicy!==true)||(base==='advertising'&&footer.showAdvertisingPolicy!==true)||(page.published===false&&!['about','privacy','terms','disclaimer'].includes(base)))return false;
+  const titles={about:'About MCQCampus',faq:'Frequently Asked Questions',privacy:'Privacy Policy',terms:'Terms & Conditions',disclaimer:'Disclaimer',cookies:'Cookie Policy',advertising:'Advertising Policy'};
+  const title=String(page.title||titles[base]||'Information'),description=String(page.metaDescription||page.seoDescription||'MCQCampus information and policy page.');
+  pageHeading(title,description);setBreadcrumbs([[title]]);
+  const destination=region('about-content');if(!destination)return false;destination.replaceChildren();
+  if(base==='faq'){
+   const faq=this.staticTemplateFragment('mcq-faq-content-template');if(faq)destination.append(faq);
+  }else{
+   const article=this.staticTemplateFragment('mcq-legal-content-template',{}),body=article?.querySelector('[data-legal-body]'),updated=article?.querySelector('[data-policy-updated]');
+   if(updated&&page.lastUpdated){updated.textContent='Last Updated: '+String(page.lastUpdated);updated.hidden=false;}
+   appendManagedText(body,page.content||(base==='about'?data.content?.about:'')||'');
+   if(article)destination.append(article);
+  }
+  if(!destination.childNodes.length){const paragraph=document.createElement('p');paragraph.textContent='Information will be published here.';destination.append(paragraph);}
+  destination.hidden=false;
+ }else if(base==='contact'){
+  pageHeading('Contact MCQCampus','Contact MCQCampus for support, corrections, technical issues, PDF questions, or advertising inquiries.');
+  setBreadcrumbs([['Contact']]);
+  const destination=region('contact-form');if(!destination)return false;
+  const form=destination.querySelector('form[data-form="contact"]');if(!form)return false;
+  const contactSettings=data.settings?.contact||{},contactPage=(data.content?.legalPages||{}).contact||{};
+  if(contactPage.content||data.content?.contact){const article=document.createElement('article');article.className='article legal-article';appendManagedText(article,contactPage.content||data.content.contact);if(article.childNodes.length)destination.insertBefore(article,form);}
+  const details=document.createElement('div');details.className='contact-details card';
+  if(contactSettings.supportEmail){const paragraph=document.createElement('p'),strong=document.createElement('strong'),anchor=document.createElement('a');strong.textContent='Support: ';anchor.className='link';anchor.href='mailto:'+String(contactSettings.supportEmail);anchor.textContent=String(contactSettings.supportEmail);paragraph.append(strong,anchor);details.append(paragraph);}
+  if(contactSettings.advertisingContact){const paragraph=document.createElement('p'),strong=document.createElement('strong');strong.textContent='Advertising: ';paragraph.append(strong,document.createTextNode(String(contactSettings.advertisingContact)));details.append(paragraph);}
+  if(details.childNodes.length)destination.insertBefore(details,form);
+  const params=App.route.params||{},selected=String(params.subject||''),subject=form.querySelector('select[name="subject"]');
+  if(subject&&Array.from(subject.options).some(option=>option.value===selected))subject.value=selected;
+  const context=form.querySelector('[data-contact-context]');
+  if(context){[['mcq_id',String(params.mcq||'').replace(/[^0-9]/g,'')],['page_url',String(params.url||'').slice(0,500)]].forEach(([name,value])=>{if(!value)return;const label=document.createElement('label');label.textContent=name==='mcq_id'?'MCQ ID':'Page URL';const input=document.createElement('input');input.name=name;input.value=value;input.readOnly=true;label.append(input);context.append(label);});}
+  destination.hidden=false;
+ }else if(base==='sitemap'){
+  if(data.settings?.footer?.showSitemap===false)return false;
+  setBreadcrumbs([['Sitemap']]);pageHeading('Sitemap','Browse public study sections, organizations, past papers and preparation resources.');
+  const destination=region('sitemap-content');if(!destination)return false;
+  const groups=[['Main Pages',[['Home','home'],['MCQs','mcqs'],['Important MCQs','important'],['Categories','categories'],['Organizations / Boards','papers'],['Past Papers','papers'],['Tests','tests'],['PDFs','pdfs'],['Jobs & Exams','latest-jobs'],['Blog & Updates','posts']]]];
+  const grid=document.createElement('div');grid.className='sitemap-grid';
+  groups.forEach(([name,entries])=>{const card=document.createElement('section');card.className='card';const heading=document.createElement('h2');heading.textContent=name;card.append(heading);entries.forEach(([label,path])=>card.append(makeInternalLink(path,label,'discovery-link')));grid.append(card);});
+  destination.replaceChildren(grid);destination.hidden=false;
  } shell.querySelectorAll('[data-static-loading]').forEach(node=>node.remove());
  shell.querySelectorAll('[data-api-region]').forEach(area=>{
   const hasContent=Array.from(area.childNodes).some(node=>node.nodeType===1||String(node.textContent||'').trim());
