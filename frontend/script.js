@@ -2418,11 +2418,11 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
   .catch(error=>{this.adminBundlePromise=null;throw error});
  return this.adminBundlePromise;
 },
-staticPageMarkup(shell,page){
+staticPageNode(shell,page){
  if(page==='country-entry'){
   const countryMain=shell.querySelector('main');
   if(countryMain){countryMain.id='main';countryMain.tabIndex=-1;}
-  return shell.outerHTML;
+  return shell;
  }
  shell.querySelectorAll('main').forEach(node=>{
   const wrapper=document.createElement('div');
@@ -2433,7 +2433,32 @@ staticPageMarkup(shell,page){
   while(node.firstChild)wrapper.appendChild(node.firstChild);
   node.replaceWith(wrapper);
  });
- return window.UI?.layout?.(shell.outerHTML,page)||('<main id="main" tabindex="-1">'+shell.outerHTML+'</main>');
+ const layoutTemplate=document.getElementById('mcq-layout-template');
+ if(!layoutTemplate)return shell;
+ const fragment=layoutTemplate.content.cloneNode(true);
+ const slotMarkup={
+  LAYOUT_HEADER:()=>window.UI?.header?.(page)||'',
+  LAYOUT_HEADER_AD:()=>window.UI?.adSlot?.('header_ad')||'',
+  LAYOUT_FOOTER_AD:()=>window.UI?.adSlot?.('footer_ad')||'',
+  LAYOUT_FOOTER:()=>window.UI?.footer?.()||''
+ };
+ const walker=document.createTreeWalker(fragment,128);
+ const comments=[];
+ while(walker.nextNode())comments.push(walker.currentNode);
+ for(const comment of comments){
+  const match=String(comment.nodeValue||'').trim().match(/^SLOT:(LAYOUT_[A-Z_]+)$/);
+  if(!match)continue;
+  const slot=match[1];
+  if(slot==='LAYOUT_BODY'){
+   comment.replaceWith(shell);
+   continue;
+  }
+  if(!Object.prototype.hasOwnProperty.call(slotMarkup,slot))continue;
+  const holder=document.createElement('template');
+  holder.innerHTML=String(slotMarkup[slot]());
+  comment.replaceWith(holder.content.cloneNode(true));
+ }
+ return fragment;
 },
 showStaticShell(){
  const root=document.getElementById('app');
@@ -2465,7 +2490,7 @@ showStaticShell(){
  this.route={path:location.pathname.replace(/^\/+|\/+$/g,'')||'home',params:Object.fromEntries(new URLSearchParams(location.search))};
  const shell=source.cloneNode(true);
  shell.dataset.staticFallback='true';
- root.innerHTML=this.staticPageMarkup(shell,page);
+ root.replaceChildren(this.staticPageNode(shell,page));
  root.setAttribute('aria-busy','true');
  document.body.dataset.staticFallback=page;
  return true;
@@ -2600,7 +2625,7 @@ mountStaticPage(base,renderedHtml){
  shell.querySelectorAll('[data-api-region]').forEach(region=>{if(!region.children.length)region.hidden=true});
  const root=document.getElementById('app');
  if(!root)return false;
- root.innerHTML=this.staticPageMarkup(shell,page);
+ root.replaceChildren(this.staticPageNode(shell,page));
  document.body.dataset.staticFallback=page;
  return true;
 },
