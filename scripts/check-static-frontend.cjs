@@ -120,7 +120,7 @@ check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; 
 check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
 const runtime = read('frontend/script.js');
 check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
-check(runtime.includes('staticPageMarkup(shell,page){'), 'a single shared layout wraps static page shells');
+check(runtime.includes('staticPageNode(shell,page){'), 'static page shells are mounted as DOM nodes');
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
 check(runtime.includes("if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';"), 'login and signup fall back to country selection when no country is selected');
 check(html.includes('class="country-entry-grid"') && html.includes('class="country-entry-card"'), 'country selection fallback uses responsive static card markup');
@@ -137,7 +137,11 @@ check(runtime.includes("search:'mcqs',mcq:'mcqs',practice:'mcqs'"), 'search and 
 check(html.includes('data-api-region="home-important-count"'), 'the hard-coded home includes an MCQ count region');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
 check(runtime.includes('form[data-form="mcq-filter"]'), 'the static MCQ search form has an interaction handler');
-check(runtime.includes('window.UI?.layout?.(shell.outerHTML,page)'), 'static fallback includes the shared header/footer through one layout template');
+check(runtime.includes("document.getElementById('mcq-layout-template')"), 'static fallback uses the shared HTML layout template');
+check(runtime.includes('layoutTemplate.content.cloneNode(true)'), 'layout is cloned from the HTML template rather than rebuilt as a page string');
+check(runtime.includes("root.replaceChildren(this.staticPageNode(shell,page))"), 'static and API-backed pages mount through DOM replacement');
+check(runtime.includes("comment.replaceWith(shell)"), 'the hard-coded page shell is inserted into the layout body slot');
+check(!runtime.includes('root.innerHTML=this.staticPageMarkup(shell,page)'), 'legacy whole-page string mounting is removed');
 check(runtime.includes("window.MCQCampusBackendReady===false"), 'static fallback remains visible when API bootstrap fails');
 check(runtime.includes("else window.App?.showStaticShell?.()"), 'static shells are shown before the initial API bootstrap');
 
