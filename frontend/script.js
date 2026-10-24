@@ -2799,7 +2799,7 @@ mountDataDrivenPage(base,id){
     const cards=document.createDocumentFragment();
     shown.forEach(item=>cards.append(questionCardFragment(item,false)));
     list.replaceChildren(cards);
-   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs in this topic yet':'No MCQs are linked to this topic yet.','Choose another topic or browse the parent category.',subcategory?UI.link('subcategory/'+subcategory.id,'Browse '+subcategory.name,'btn primary'):UI.link('categories','Browse categories','btn primary')));
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs in this topic yet':'No MCQs are linked to this topic yet.','Choose another topic or browse the parent category.',subcategory?UI.link('subcategory/'+subcategory.id,'Browse '+subcategory.name,'btn primary'):UI.link('categories','Browse categories','btn primary'))));
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,'topic/'+id));
@@ -2832,7 +2832,7 @@ mountDataDrivenPage(base,id){
     const cards=document.createDocumentFragment();
     shown.forEach(item=>cards.append(questionCardFragment(item,false)));
     list.replaceChildren(cards);
-   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this category yet.','Choose another category or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary')));
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this category yet.','Choose another category or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,base+'/'+id));
