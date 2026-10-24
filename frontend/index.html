@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261024-single-script-v19">
+  <meta name="mcq-asset-version" content="20261024-single-script-v20">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="home">
@@ -102,6 +102,7 @@
   <template id="mcq-breadcrumbs-template"><nav class="breadcrumbs" aria-label="Breadcrumb"><!-- SLOT:BREADCRUMB_ITEMS --></nav></template>
   <template id="mcq-stat-card-content-template"><div class="stat-card-head"><span class="stat-card-label"><!-- SLOT:STAT_TITLE --></span><span class="stat-card-icon tone-__SLOT_STAT_TONE__"><!-- SLOT:STAT_ICON --></span></div><strong class="stat-card-value"><!-- SLOT:STAT_VALUE --></strong><!-- SLOT:STAT_SUBTITLE --><!-- SLOT:STAT_SKELETON --></template>
   <template id="mcq-showcase-card-template"><div class="entity-card-media"><span class="entity-card-image"><!-- SLOT:SHOWCASE_ICON --></span></div><div class="entity-card-body"><span class="entity-card-badge"><!-- SLOT:SHOWCASE_BADGE --></span><h3><!-- SLOT:SHOWCASE_TITLE --></h3><p><!-- SLOT:SHOWCASE_SUBTITLE --></p><div class="entity-card-meta"><span><!-- SLOT:SHOWCASE_META_ICON --> <!-- SLOT:SHOWCASE_META --></span></div></div><span class="entity-card-arrow" aria-hidden="true"><!-- SLOT:SHOWCASE_ARROW --></span></template>
+  <template id="mcq-question-option-template"><button type="button" class="btn option __SLOT_OPTION_STATE__" data-action="choose" data-id="__SLOT_OPTION_QUESTION_ID__" data-option="__SLOT_OPTION_NUMBER__" aria-pressed="__SLOT_OPTION_PRESSED__" __SLOT_OPTION_DISABLED__><span class="letter"><!-- SLOT:OPTION_LETTER --></span><span class="option-text"><!-- SLOT:OPTION_TEXT --></span><span class="option-indicator" aria-hidden="true"></span></button></template>
   <template id="mcq-question-card-template"><article class="card mcq-card mcq-reference-card __SLOT_COMPACT_CLASS__" data-question="__SLOT_QUESTION_ID__"><div class="mcq-top"><div class="mcq-question-label"><!-- SLOT:QUESTION_TAGS --></div><div class="mcq-top-actions"><!-- SLOT:QUESTION_BOOKMARK --><!-- SLOT:QUESTION_NEXT_LINK --></div></div><div class="mcq-question-panel"><h2><!-- SLOT:QUESTION_LINK --></h2></div><div class="options mcq-reference-options" role="group" aria-label="Answer options"><!-- SLOT:QUESTION_OPTIONS --></div><!-- SLOT:QUESTION_EXPLANATION --><div class="actions mcq-reference-actions"><!-- SLOT:QUESTION_PRE_ANSWER_HINT --><span class="spacer"></span><!-- SLOT:QUESTION_SHARE_BUTTON --><!-- SLOT:QUESTION_COPY_BUTTON --><!-- SLOT:QUESTION_REPORT_BUTTON --></div></article></template>
   <template id="mcq-public-page-sidebar-template"><div class="container page public-page __SLOT_PUBLIC_CLASS__"><!-- SLOT:PUBLIC_BREADCRUMBS --><!-- SLOT:PUBLIC_HEADING --><!-- SLOT:PUBLIC_PRE --><div class="public-sidebar-mobile-bar"><!-- SLOT:PUBLIC_TOGGLE --></div><div class="public-layout"><main class="public-main"><!-- SLOT:PUBLIC_MAIN --></main><aside class="public-sidebar" id="__SLOT_PUBLIC_SIDEBAR_ID__" aria-label="Contextual sidebar"><div class="public-sidebar-head"><strong><!-- SLOT:PUBLIC_SIDEBAR_LABEL --></strong><!-- SLOT:PUBLIC_CLOSE_BUTTON --></div><div class="public-sidebar-inner"><!-- SLOT:PUBLIC_SIDEBAR --></div></aside></div><button class="public-sidebar-backdrop" type="button" data-action="public-sidebar-close" aria-label="Close sidebar"></button></div></template>
   <template id="mcq-public-page-full-template"><div class="container page public-page __SLOT_PUBLIC_CLASS__"><!-- SLOT:PUBLIC_BREADCRUMBS --><!-- SLOT:PUBLIC_HEADING --><!-- SLOT:PUBLIC_PRE --><main class="public-main public-main-full"><!-- SLOT:PUBLIC_MAIN --></main></div></template>
@@ -130,7 +131,7 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/script.js?v=20261024-single-script-v19"></script>
+  <script defer src="/assets/script.js?v=20261024-single-script-v20"></script>
 
   <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
   <template id="mcq-country-landing-template"><div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1><!-- SLOT:COUNTRY_TITLE --></h1><p class="muted"><!-- SLOT:COUNTRY_DESCRIPTION --></p><div class="country-choice-grid"><!-- SLOT:COUNTRY_CARDS --></div><p class="small muted country-landing-back"><!-- SLOT:COUNTRY_BACK_LINK --></p></section></div></template>
