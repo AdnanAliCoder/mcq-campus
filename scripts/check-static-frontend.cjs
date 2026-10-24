@@ -137,7 +137,9 @@ check(!html.includes('<!-- SLOT:HEADER_NAV -->'), 'navigation links are not gene
 check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]'), 'active static navigation state is styled in CSS');
 check(css.includes('.country-entry-grid') && css.includes('.country-entry-card'), 'country selection fallback uses existing responsive CSS');
 check(html.includes('Choose your country and create an account') && html.includes('Choose your country and sign in'), 'static auth forms provide a path between signup and sign-in');
-check(runtime.includes("if(!page||['admin','super-admin'].includes(page))return false;"), 'admin and super-admin routes stay on their protected workspace renderer');
+check(runtime.includes("else if(page==='admin'||page==='super-admin'){"), 'admin and super-admin shells use the centralized static wrapper');
+check(runtime.includes("populated=fill(regionName,'.admin-shell',parsed.body,'inner')||populated;"), 'protected admin workspace content mounts into its static shell');
+check(runtime.includes("if(!['admin','super-admin'].includes(MCQ.role()))"), 'admin routes retain the existing role guard');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes("const discovery=window.SEO?.discoveryPage?.(location.pathname)"), 'SEO discovery pages are detected before static-shell mounting');
 check(runtime.includes("if(discovery?.landing?.type==='paper'&&discovery.landing.id)base='paper'"), 'organization SEO landing pages mount into the Past Papers shell');
@@ -147,7 +149,16 @@ check(runtime.includes("['forgot','reset-code','reset-password','verify'].includ
 check(runtime.includes("const renderedAuth=Auth.view(base)"), 'account forms preserve existing reset and verification handlers');
 check(html.includes('data-static-page="forgot"') && html.includes('data-static-page="reset-code"') && html.includes('data-static-page="reset-password"') && html.includes('data-static-page="verify"'), 'recovery and verification pages have hard-coded HTML shells');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
-check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post']"), 'core public data renderer is explicitly scoped to migrated routes');
+const requiredDataDrivenRoutes = [
+  'home', 'mcqs', 'important', 'categories', 'papers', 'pdfs', 'latest-jobs',
+  'jobs-exams', 'posts', 'tests', 'test', 'login', 'register', 'forgot',
+  'reset-code', 'reset-password', 'verify', 'mcq', 'practice', 'category',
+  'subcategory', 'topic', 'paper', 'year', 'search', 'pdf', 'latest-job',
+  'post', 'about', 'contact', 'faq', 'privacy', 'terms', 'disclaimer',
+  'cookies', 'advertising', 'sitemap',
+];
+const supportedRoutesMatch = runtime.match(/const supported=\[([^\]]+)\];/);
+check(Boolean(supportedRoutesMatch) && requiredDataDrivenRoutes.every(route => supportedRoutesMatch[1].includes("'" + route + "'")), 'core public data renderer explicitly supports expected public, auth and legal routes');
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
 check(html.includes('data-api-region="home-top-ad"') && html.includes('data-api-region="home-middle-ad"'), 'home ad placements have static page regions');
 check(html.includes('data-api-region="jobs-pagination"'), 'latest-jobs pagination has its own static data region');
