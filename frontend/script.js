@@ -2472,16 +2472,35 @@ mountDataDrivenPage(base,id){
  const root=document.getElementById('app');
  if(!parent||!root)return false;
  const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim();
- if(['login','register'].includes(base)&&!requestedCountry){
+ const showCountryEntry=()=>{
   const countrySource=parent.querySelector('[data-static-page="country-entry"]');
   if(!countrySource)return false;
   const countryShell=countrySource.cloneNode(true);
+  const choices=countryShell.querySelector('.country-entry-grid');
+  const template=document.getElementById('mcq-country-entry-card-template');
+  const countries=(MCQ.db?.countries||[]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  if(choices&&template){
+   choices.replaceChildren();
+   for(const item of countries){
+    const name=String(item.name).trim(),card=template.content.cloneNode(true);
+    const flag=card.querySelector('[data-country-flag]'),heading=card.querySelector('[data-country-name]'),description=card.querySelector('[data-country-description]'),login=card.querySelector('[data-country-login]'),register=card.querySelector('[data-country-register]');
+    if(flag)flag.textContent=UI.countryFlag(name);
+    if(heading)heading.textContent=name;
+    if(description)description.textContent=name.toLowerCase()==='pakistan'?'PPSC, FPSC, SPSC, NTS and more':name.toLowerCase()==='india'?'Competitive exams and practice':name.toLowerCase()==='usa'?'Exam practice and learning resources':'Competitive exams and practice resources';
+    const query='?'+new URLSearchParams({country:name}).toString();
+    if(login)login.href='/login'+query;
+    if(register)register.href='/register'+query;
+    choices.append(card);
+   }
+   if(!countries.length)choices.textContent='No active countries are configured yet.';
+  }
   root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
   root.removeAttribute('aria-busy');
   document.body.dataset.pageTemplate='country-entry';
   document.body.dataset.staticFallback='country-entry';
   return true;
- }
+ };
+ if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
  const shellKey=base==='papers'?'past-papers':base==='important'?'mcqs':base==='posts'?'blog':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
@@ -2658,16 +2677,7 @@ mountDataDrivenPage(base,id){
  }else if(base==='login'||base==='register'){
   const countries=(data.countries||[{name:'Pakistan',active:true},{name:'India',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
   const selected=(countries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name;
-  if(!selected){
-   const countrySource=parent.querySelector('[data-static-page="country-entry"]');
-   if(!countrySource)return false;
-   const countryShell=countrySource.cloneNode(true);
-   root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
-   root.removeAttribute('aria-busy');
-   document.body.dataset.pageTemplate='country-entry';
-   document.body.dataset.staticFallback='country-entry';
-   return true;
-  }
+  if(!selected)return showCountryEntry();
   const form=shell.querySelector('form[data-form="auth-'+base+'"]');
   if(!form)return false;
   const heading=form.closest('.auth-form')?.querySelector('h1');
