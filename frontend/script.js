@@ -2466,7 +2466,7 @@ staticMarkupFragment(markup){
  return holder.content;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post'];
  const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','pdf','latest-job','post'];
  if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id))return false;
  const parent=document.getElementById('static-page-shells');
@@ -2502,7 +2502,7 @@ mountDataDrivenPage(base,id){
   return true;
  };
  if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
- const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':base==='latest-job'?'latest-jobs':base==='pdf'?'pdfs':base;
+ const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:base==='latest-job'?'latest-jobs':base==='pdf'?'pdfs':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
  const shell=source.cloneNode(true);
@@ -2935,6 +2935,26 @@ mountDataDrivenPage(base,id){
    }
   }
   form.querySelectorAll('[data-auth-error]').forEach(box=>{box.textContent='';});
+ }else if(['forgot','reset-code','reset-password','verify'].includes(base)){
+  // The outer page is a hard-coded index.html shell. Reuse the existing form
+  // templates and Auth handlers so reset codes and verification timers keep working.
+  const renderedAuth=Auth.view(base);
+  const parsedAuth=new DOMParser().parseFromString(String(renderedAuth||''),'text/html');
+  const sourceForm=parsedAuth.querySelector('.auth-form');
+  const destination=region('auth-form');
+  if(!sourceForm||!destination)return false;
+  const sourceTitle=sourceForm.querySelector('h1');
+  const pageTitle=sourceTitle?.textContent?.trim()||({forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',verify:'Email verification'}[base]);
+  const pageHeading=shell.querySelector('.auth-form > h1');
+  if(pageHeading)pageHeading.textContent=pageTitle;
+  const storyHeading=shell.querySelector('.auth-story h2');
+  const storyCopy=shell.querySelector('.auth-story p:not(.eyebrow)');
+  const storyTitles={forgot:'Reset your password','reset-code':'Verify reset code','reset-password':'Choose a new password',verify:'Verify your email'};
+  const storyCopies={forgot:'Enter your account email to receive a secure reset code.','reset-code':'Confirm your email with the 6-digit code.','reset-password':'Set a new password for your MCQCampus account.',verify:'Finish creating your account using the email code.'};
+  if(storyHeading)storyHeading.textContent=storyTitles[base];
+  if(storyCopy)storyCopy.textContent=storyCopies[base];
+  destination.replaceChildren(...Array.from(sourceForm.childNodes).filter(node=>!(node.nodeType===1&&node.tagName==='H1')).map(node=>node.cloneNode(true)));
+  destination.hidden=false;
  }else if(base==='post'){
   const post=(data.posts||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
   if(!post||post.published===false)return false;
@@ -2992,8 +3012,8 @@ showStaticShell(){
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   blog:'blog',blogs:'blog',posts:'blog',post:'blog',
   'latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs',
-  login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login',
-  'reset-password':'login',verify:'login',
+  login:'login',register:'register',forgot:'forgot',reset:'reset-code','reset-code':'reset-code',
+  'reset-password':'reset-password',verify:'verify',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',
   cookies:'about',advertising:'about',contact:'contact'
  };
