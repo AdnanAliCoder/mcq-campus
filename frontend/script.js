@@ -1,7 +1,8 @@
 /* MCQCampus unified first-party script. Modules retained in dependency order; Django remains the data/auth API. */
 
 /* SOURCE: frontend/js/admin-loader.js */
-(function(g){const allowed=new Set(["importer.js","enhancements.js","admin.js"]),loaded=new Set(),pending=new Map();g.MCQCampusLoadBundledModule=n=>{if(!allowed.has(n))return Promise.reject(Error("Unknown module: "+n));if(loaded.has(n))return Promise.resolve();if(pending.has(n))return pending.get(n);const p=new Promise((ok,no)=>{const s=document.createElement("script");s.src="/assets/js/admin/"+n+"?v=20261021-static-multipage-v1";s.async=true;s.onload=()=>{loaded.add(n);ok()};s.onerror=()=>no(Error("Unable to load admin module: "+n));document.head.appendChild(s)}).finally(()=>pending.delete(n));pending.set(n,p);return p}})(window);
+/* Admin modules are bundled into this one file. Never request deleted split-module assets. */
+(function(g){const allowed=new Set(["importer.js","enhancements.js","admin.js"]);g.MCQCampusLoadBundledModule=async n=>{if(!allowed.has(n))throw Error("Unknown bundled module: "+n);return true}})(window);
 
 
 /* SOURCE: frontend/js/integrations.js */
