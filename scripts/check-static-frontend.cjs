@@ -50,15 +50,17 @@ for (const id of requiredTemplates) {
   check(html.includes('id="' + id + '"'), 'reusable HTML template exists: ' + id);
 }
 
-const pageShells = [...html.matchAll(/<section\b(?=[^>]*data-static-page="([^"]+)")[^>]*>([\s\S]*?)<\/section>/g)];
-const shellNames = pageShells.map(match => match[1]);
+const shellMarkers = [...html.matchAll(/data-static-page="([^"]+)"/g)];
+const pageShells = shellMarkers.map((match, index) => ({
+  name: match[1],
+  markup: html.slice(match.index, shellMarkers[index + 1]?.index ?? html.length),
+}));
+const shellNames = pageShells.map(match => match.name);
 check(shellNames.length === expectedPages.length, 'each expected route has exactly one static page shell');
 check(new Set(shellNames).size === shellNames.length, 'static page shell identifiers are unique');
-for (const match of pageShells) {
-  const page = match[1];
-  const markup = match[2];
-  check(/<main\b/.test(markup), 'static page has a semantic main region: ' + page);
-  check(/<h1\b/.test(markup), 'static page has a hard-coded primary heading: ' + page);
+for (const shell of pageShells) {
+  check(/<main\b/.test(shell.markup), 'static page has a semantic main region: ' + shell.name);
+  check(/<h1\b/.test(shell.markup), 'static page has a hard-coded primary heading: ' + shell.name);
 }
 const requiredRegionsByPage = {
   home: ['home-mcqs', 'home-categories'],
