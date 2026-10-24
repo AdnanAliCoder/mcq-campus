@@ -189,13 +189,13 @@ check(html.includes('id="mcq-learner-side-template"'), 'learner navigation struc
 const dashboardRenderStart = runtime.indexOf('mountDataDrivenPage(base,id){');
 const dashboardRenderEnd = runtime.indexOf('showStaticShell(){', dashboardRenderStart);
 const dashboardRenderer = runtime.slice(dashboardRenderStart, dashboardRenderEnd);
-const dashboardRouteStart = dashboardRenderer.indexOf("else if(base==='dashboard'||base==='profile'){");
-const dashboardRouteEnd = dashboardRenderer.indexOf("}else if(base==='sitemap'){", dashboardRouteStart);
+const dashboardRouteStart = dashboardRenderer.indexOf("if(base==='dashboard'||base==='profile'){");
+const dashboardRouteEnd = dashboardRenderer.indexOf("}else if(base==='search'){", dashboardRouteStart);
 const dashboardRoute = dashboardRenderer.slice(dashboardRouteStart, dashboardRouteEnd);
-check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-dashboard-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-dashboard-section-template'"), 'dashboard views render from static templates without the legacy dashboard string renderer');
-check(dashboardRoute.includes("this.staticTemplateFragment('mcq-stat-card-content-template'") && dashboardRoute.includes("mcq-dashboard-progress-row-template"), 'dashboard metrics and category progress are populated as DOM nodes');
-check(dashboardRoute.includes("mcq-dashboard-activity-row-template") && dashboardRoute.includes("categoryStats.slice(0,6)"), 'dashboard activity and subject progress use DOM-driven regions');
-
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-dashboard-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-overview-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-subpage-template'"), 'learner dashboard views render from reusable static templates');
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-stat-card-content-template'") && dashboardRoute.includes("data-dashboard-category-progress"), 'dashboard metrics and category progress are populated as DOM nodes');
+check(dashboardRoute.includes("data-dashboard-recent-activities") && dashboardRoute.includes("view==='practice'") && dashboardRoute.includes("view==='history'"), 'dashboard practice subpages and activity use DOM-driven regions');
+check(!dashboardRoute.includes("Public.dashboard(") && !dashboardRoute.includes("Public.mini("), 'dashboard route does not rely on legacy string-based view rendering');
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
 check(runtime.includes("base='not-found';html=Public.notFound()"), 'unknown routes are normalized to the static 404 shell');
 check(html.includes('data-static-page="not-found"') && html.includes('data-api-region="not-found-links"'), '404 structure and suggested links live in index.html');
