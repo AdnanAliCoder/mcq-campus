@@ -2975,8 +2975,10 @@ mountDataDrivenPage(base,id){
   const list=region('past-paper-list');
   if(list){
    list.classList.add('grid','paper-grid','public-main','public-main-full');
-   list.replaceChildren(this.staticMarkupFragment(shown.length?shown.map((item,index)=>UI.card('years',item,(page-1)*pageSize+index)).join(''):UI.empty('No past papers available for this organization yet.','Choose another organization or return to the organization list.',UI.link('papers','Browse organizations / boards','btn primary'))));
-   list.hidden=false;
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach((item,index)=>cards.append(entityCardFragment('years',item,(page-1)*pageSize+index)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No past papers available for this organization yet.','Choose another organization or return to the organization list.',UI.link('papers','Browse organizations / boards','btn primary'))));
+   list.replaceChildren(cards);list.hidden=false;
   }
   setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'paper/'+id));
  }else if(base==='home'){
