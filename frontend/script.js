@@ -2777,7 +2777,7 @@ mountDataDrivenPage(base,id){
   return page.server===true&&page.scope==='public'&&page.routeKey===location.pathname+location.search?page:null;
  };
  if(base==='dashboard'||base==='profile'){
-  const view=base==='profile'?'settings':String(id||'overview'),allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads','settings'];
+  const requestedView=String(id||'overview'),view=base==='profile'||requestedView==='profile'?'settings':requestedView,allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads','settings'];
   if(!allowedDashboardViews.includes(view))return false;
   const session=data.session||{};
   const attempts=(data.attempts||[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
