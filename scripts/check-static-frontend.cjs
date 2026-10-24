@@ -13,13 +13,14 @@ const nginx = read('deploy/nginx/mcqcampus-frontend-locations.conf');
 const expectedPages = [
   'home', 'mcqs', 'categories', 'past-papers', 'tests', 'pdfs', 'blog',
   'latest-jobs', 'login', 'register', 'country-entry', 'dashboard', 'admin', 'super-admin',
-  'about', 'contact',
+  'about', 'contact', 'sitemap',
 ];
 const requiredTemplates = [
   'mcq-layout-template', 'mcq-header-template', 'mcq-footer-template',
   'mcq-home-template', 'mcq-auth-layout-template',
   'mcq-learner-dashboard-template', 'mcq-admin-layout-template',
   'mcq-question-card-template', 'mcq-country-landing-template',
+  'mcq-country-entry-card-template', 'mcq-category-context-template', 'mcq-paper-context-template',
 ];
 
 let failed = false;
@@ -76,6 +77,7 @@ const requiredRegionsByPage = {
   'super-admin': ['super-admin-workspace'],
   about: ['about-content'],
   contact: ['contact-form'],
+  sitemap: ['sitemap-content'],
 };
 for (const [page, regions] of Object.entries(requiredRegionsByPage)) {
   const shell = pageShells.find(match => match.name === page)?.markup || '';
