@@ -3004,7 +3004,7 @@ mountDataDrivenPage(base,id){
   const logo=organization?this.staticMarkupFragment(UI.entityIcon(organization,'briefcase')):this.staticMarkupFragment(UI.icon('briefcase'));
   const body=this.staticTemplateFragment('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:logo,JOB_DETAIL_ORGANIZATION:String(organization?.name||'Organization'),JOB_DETAIL_TITLE:title,JOB_DETAIL_DESCRIPTION:description,JOB_DETAIL_LAST_DATE:String(UI.date(job.last_date)||''),JOB_DETAIL_ACTIONS:actions});
   const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
- }}else if(base==='latest-jobs'||base==='jobs-exams'){
+ }else if(base==='latest-jobs'||base==='jobs-exams'){
   const pageSize=10,today=new Date().toISOString().slice(0,10);
   const rows=(data.latestJobs||[]).filter(x=>x&&x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))||Number(b.id)-Number(a.id));
   const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
@@ -3084,7 +3084,7 @@ mountDataDrivenPage(base,id){
   if(linkSection&&linkList&&links.length){links.forEach((item,index)=>{const anchor=document.createElement('a');anchor.className='btn post-link-row';anchor.href=String(item.url);if(/^https?:/i.test(String(item.url))){anchor.target='_blank';anchor.rel='noopener';}const number=document.createElement('span');number.className='post-link-index';number.textContent=String(index+1);const label=document.createElement('span');label.textContent=String(item.label||item.url);anchor.append(number,label);linkList.append(anchor);});linkSection.hidden=false;}
   if(cta){cta.append(makeInternalLink('mcqs','Practice MCQs','btn primary'));cta.append(makeInternalLink('important','Important MCQs','btn'));}
   const destination=region('route-detail');if(destination){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
- }}else if(base==='posts'){
+ }else if(base==='posts'){
   const pageSize=10,params=App.route.params||{},category=String(params.category||'');
   const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
   const categories=[...new Set(all.map(item=>item.category).filter(Boolean))];
