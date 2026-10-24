@@ -139,7 +139,8 @@ check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section
 check(css.includes('.country-entry-grid') && css.includes('.country-entry-card'), 'country selection fallback uses existing responsive CSS');
 check(html.includes('Choose your country and create an account') && html.includes('Choose your country and sign in'), 'static auth forms provide a path between signup and sign-in');
 check(runtime.includes("else if(page==='admin'||page==='super-admin'){"), 'admin and super-admin shells use the centralized static wrapper');
-check(runtime.includes("populated=fill(regionName,'.admin-shell',parsed.body,'inner')||populated;"), 'protected admin workspace content mounts into its static shell');
+check(html.includes('id="mcq-admin-layout-template"') && html.includes('class="dash-layout"'), 'admin workspace layout structure is hard-coded in index.html');
+check(runtime.includes("populated=fill(regionName,'.dash-layout',parsed.body,'outer')||populated;"), 'protected admin workspace layout mounts into its static shell');
 check(runtime.includes("if(!['admin','super-admin'].includes(MCQ.role()))"), 'admin routes retain the existing role guard');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes("const discovery=window.SEO?.discoveryPage?.(location.pathname)"), 'SEO discovery pages are detected before static-shell mounting');
