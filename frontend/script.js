@@ -2520,7 +2520,7 @@ mountDataDrivenPage(base,id){
   return true;
  };
  if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
- const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job','jobs-exams'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':base;
+ const shellKey=['papers','paper','jobs-exams'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
  const shell=source.cloneNode(true);
@@ -2881,7 +2881,7 @@ mountDataDrivenPage(base,id){
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,App.route.path));
- }else if(base==='categories'||base==='papers'){
+ }else if(base==='categories'||base==='papers'||base==='jobs-exams'){
   const collection=base==='categories'?'categories':'papers',country=fixedCountry();
   const entityPage=data.entityPage||{},entityServer=entityPage.server===true&&entityPage.routeKey===location.pathname+location.search&&entityPage.type===collection?entityPage:null;
   let rows=(data[collection]||[]).filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy));
@@ -2903,7 +2903,7 @@ mountDataDrivenPage(base,id){
   }
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
   setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
-  if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'papers'));
+  if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,base==='jobs-exams'?'jobs-exams':'papers'));
  }else if(base==='test'){
   const plan=Public.automaticTestPlan(),rows=Array.isArray(plan.rows)?plan.rows:[],kind='auto',key='auto:'+plan.period+':'+rows.map(item=>item.id).join(','),result=App.testResult?.key===key?App.testResult:null;
   pageHeading('Automatic 10-MCQ Test',rows.length?'Answer the questions and submit to see your result.':'No approved MCQs are available for this test yet.');
