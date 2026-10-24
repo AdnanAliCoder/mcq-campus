@@ -2642,7 +2642,7 @@ mountDataDrivenPage(base,id){
    list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No active job announcements right now','Expired jobs stay available to administrators but are hidden from this Latest Jobs list.')));
    list.hidden=false;
   }
-  setMarkup('route-detail',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
+  setMarkup('jobs-pagination',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
  }else if(base==='posts'){
   const pageSize=10,params=App.route.params||{},category=String(params.category||'');
   const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
