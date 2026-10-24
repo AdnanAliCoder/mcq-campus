@@ -2802,23 +2802,42 @@ mountDataDrivenPage(base,id){
   const list=region('mcq-list');
   if(list){
    list.classList.add('search-results-list','public-main','public-main-full');
-   let cards='';
-   if(filtered.length){
-    cards=filtered.slice((page-1)*pageSize,page*pageSize).map((item,index)=>{
-     const serial=(page-1)*pageSize+index+1;
-     if(item.type==='mcq')return Public.questionCard(item.record,serial,true);
-     if(item.type==='paper'&&item.record)return UI.card('papers',item.record,index);
-     if(item.type==='year'&&item.record)return UI.card('years',item.record,index);
-     if(item.type==='category'&&item.record)return UI.card('categories',item.record,index);
-     if(item.type==='pdf'&&item.record)return Public.pdfResourceCard(item.record);
-     if(item.type==='post'&&item.record)return Public.blogPostCard(item.record);
-     if(item.type==='latestjob'&&item.record)return Public.latestJobCard(item.record);
-     return UI.link(item.path,'<span class="badge">'+UI.esc(item.label)+'</span><h2>'+UI.esc(item.title)+'</h2><p>'+UI.esc(item.summary||'')+'</p><div class="card-foot"><span>Open '+UI.esc(item.label.toLowerCase())+'</span>'+UI.icon('arrow')+'</div>','card search-result-card clickable');
-    }).join('');
+   const content=document.createDocumentFragment();
+   const emptyState=(title,description,action=null)=>{
+    const fragment=this.staticTemplateFragment('mcq-empty-template',{
+     EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:title,EMPTY_DESCRIPTION:description,
+     EMPTY_ACTION:action||document.createDocumentFragment()
+    });
+    return fragment||document.createDocumentFragment();
+   };
+   if(!query){
+    content.append(emptyState('Search MCQ Campus','Use the search bar in the header to find MCQs, organizations, past papers, categories, PDFs, latest jobs and blog posts.'));
+   }else if(!filtered.length){
+    content.append(emptyState('No matching results','Try a shorter or different search phrase.',makeInternalLink('search','Clear search','btn primary')));
+   }else{
+    const count=document.createElement('p');count.className='small muted result-count';
+    count.textContent=filtered.length+' matching result'+(filtered.length===1?'':'s');content.append(count);
+    filtered.slice((page-1)*pageSize,page*pageSize).forEach((item,index)=>{
+     if(item.type==='mcq'&&item.record){content.append(questionCardFragment(item.record,true));return;}
+     if(item.type==='paper'&&item.record){content.append(entityCardFragment('papers',item.record,index));return;}
+     if(item.type==='year'&&item.record){content.append(entityCardFragment('years',item.record,index));return;}
+     if(item.type==='category'&&item.record){content.append(entityCardFragment('categories',item.record,index));return;}
+     if(item.type==='pdf'&&item.record){content.append(pdfCardFragment(item.record));return;}
+     if(item.type==='post'&&item.record){content.append(blogPostCardFragment(item.record));return;}
+     if(item.type==='latestjob'&&item.record){content.append(latestJobCardFragment(item.record));return;}
+     const result=makeInternalLink(item.path,'','card search-result-card clickable');
+     const badgeNode=document.createElement('span');badgeNode.className='badge';badgeNode.textContent=String(item.label||'Result');
+     const titleNode=document.createElement('h2');titleNode.textContent=String(item.title||'');
+     const summaryNode=document.createElement('p');summaryNode.textContent=String(item.summary||'');
+     const footer=document.createElement('div');footer.className='card-foot';
+     const openLabel=document.createElement('span');openLabel.textContent='Open '+String(item.label||'result').toLowerCase();
+     footer.append(openLabel,this.staticMarkupFragment(UI.icon('arrow')));
+     result.append(badgeNode,titleNode,summaryNode,footer);content.append(result);
+    });
    }
-   const content=!query?UI.empty('Search MCQ Campus','Use the search bar in the header to find MCQs, organizations, past papers, categories, PDFs, latest jobs and blog posts.'):filtered.length?'<p class="small muted result-count">'+filtered.length+' matching result'+(filtered.length===1?'':'s')+'</p>'+cards:UI.empty('No matching results','Try a shorter or different search phrase.',UI.link('search','Clear search','btn primary'));
-   list.replaceChildren(this.staticMarkupFragment(content));list.hidden=false;
+   list.replaceChildren(content);list.hidden=false;
   }
+
   const summary=query?filtered.length.toLocaleString('en-GB')+' matching result'+(filtered.length===1?'':'s'):'Search across MCQCampus';
   setText('mcq-summary',summary);
   setMarkup('mcq-pagination',UI.pager(filtered.length,page,pageSize,params,'search'));
