@@ -19,7 +19,7 @@ const requiredTemplates = [
   'mcq-layout-template', 'mcq-header-template', 'mcq-footer-template',
   'mcq-home-template', 'mcq-auth-layout-template',
   'mcq-learner-dashboard-template', 'mcq-admin-layout-template',
-  'mcq-question-card-template', 'mcq-country-landing-template',
+  'mcq-question-card-template', 'mcq-question-option-template', 'mcq-country-landing-template',
   'mcq-country-entry-card-template', 'mcq-category-context-template', 'mcq-paper-context-template',
   'mcq-blog-detail-template', 'mcq-legal-content-template', 'mcq-faq-content-template',
 ];
@@ -195,6 +195,8 @@ check(html.includes('id="mcq-faq-content-template"'), 'FAQ details are hard-code
 check(runtime.includes('staticTemplateFragment(id,slots={})'), 'dynamic page content clones and fills central DOM templates');
 check(runtime.includes("this.staticTemplateFragment('mcq-pdf-detail-template'"), 'PDF detail content mounts from a cloned HTML template');
 check(runtime.includes('const questionCardFragment=(question,compact=false,contextYearId=null)=>'), 'MCQ cards are populated from the central HTML template with DOM nodes');
+check(html.includes('id="mcq-question-option-template"'), 'MCQ option-button structure is hard-coded in index.html');
+check(runtime.includes("templateMarkup('mcq-question-option-template'"), 'the legacy MCQ fallback also uses the static option template');
 check(runtime.includes("list.replaceChildren(questionCardFragment(question,false))"), 'individual MCQ and practice details use DOM-based question cards');
 check(runtime.includes("setQuestionCards('home-mcqs',rows"), 'home MCQs are populated with DOM-based question cards');
 check(runtime.includes('cards.append(questionCardFragment(item,false,Number(id)))'), 'past-paper year MCQ collections use DOM-based question cards');
