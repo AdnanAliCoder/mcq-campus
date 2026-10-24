@@ -2978,7 +2978,7 @@ mountDataDrivenPage(base,id){
   else{download=document.createElement('span');download.className='btn disabled';download.setAttribute('aria-disabled','true');download.textContent='Download unavailable';}
   const body=this.staticTemplateFragment('mcq-pdf-detail-template',{PDF_DETAIL_COVER:cover,PDF_DETAIL_TITLE:title,PDF_DETAIL_DESCRIPTION:description,PDF_DETAIL_DOWNLOAD:download});
   const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
- }}else if(base==='pdfs'){
+ }else if(base==='pdfs'){
   const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
   const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
   const page=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Math.max(1,Number(pdfPage.page)||1):App.page(total,pageSize);
