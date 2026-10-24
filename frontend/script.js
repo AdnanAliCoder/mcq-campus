@@ -2590,7 +2590,7 @@ mountDataDrivenPage(base,id){
   if(heading)heading.textContent=pageCopy.title;
   if(description)description.textContent=pageCopy.description;
   setMarkup('breadcrumbs',UI.crumbs([['Past Papers','papers'],[paper.name,'paper/'+paper.id],[year.name]]));
-  setMarkup('year-actions',UI.btn(UI.icon('bookmark')+' '+(MCQ.db.savedPapers.includes(Number(id))?'Remove saved paper':'Save paper'),'save-paper','','data-id="'+Number(id)+'"'));
+  setMarkup('year-actions',UI.btn(UI.icon('bookmark')+' '+((MCQ.db.savedPapers||[]).includes(Number(id))?'Remove saved paper':'Save paper'),'save-paper','','data-id="'+Number(id)+'"'));
   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
   const list=region('mcq-list');
   if(list){
