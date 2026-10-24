@@ -144,7 +144,7 @@ check(runtime.includes("['forgot','reset-code','reset-password','verify'].includ
 check(runtime.includes("const renderedAuth=Auth.view(base)"), 'account forms preserve existing reset and verification handlers');
 check(html.includes('data-static-page="forgot"') && html.includes('data-static-page="reset-code"') && html.includes('data-static-page="reset-password"') && html.includes('data-static-page="verify"'), 'recovery and verification pages have hard-coded HTML shells');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
-check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post']"), 'core public data renderer is explicitly scoped to migrated routes');
+check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post']"), 'core public data renderer is explicitly scoped to migrated routes');
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
 check(html.includes('data-api-region="home-top-ad"') && html.includes('data-api-region="home-middle-ad"'), 'home ad placements have static page regions');
 check(html.includes('data-api-region="jobs-pagination"'), 'latest-jobs pagination has its own static data region');
