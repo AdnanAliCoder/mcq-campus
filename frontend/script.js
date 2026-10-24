@@ -2466,8 +2466,8 @@ staticMarkupFragment(markup){
  return holder.content;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search'];
- const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post'];
+ const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','pdf','latest-job','post'];
  if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id))return false;
  const parent=document.getElementById('static-page-shells');
  const root=document.getElementById('app');
@@ -2502,7 +2502,7 @@ mountDataDrivenPage(base,id){
   return true;
  };
  if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
- const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','topic','search'].includes(base)?'mcqs':['category','subcategory'].includes(base)?'categories':base==='posts'?'blog':base;
+ const shellKey=['papers','paper'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':base==='latest-job'?'latest-jobs':base==='pdf'?'pdfs':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
  const shell=source.cloneNode(true);
@@ -2858,6 +2858,18 @@ mountDataDrivenPage(base,id){
    list.replaceChildren(this.staticMarkupFragment(content||UI.empty('No tests are available','Approved MCQs will be used to build automatic tests.')));
    list.hidden=false;
   }
+ }else if(base==='pdf'){
+  const resource=(data.pdfs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||row.name||''))===String(id));
+  if(!resource||resource.active===false)return false;
+  const safeLink=url=>/^https?:\/\//i.test(String(url||''))||/^data:application\/pdf;base64,/i.test(String(url||'')),safeImage=url=>/^https?:\/\//i.test(String(url||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(url||''));
+  const baseTitle=resource.title||resource.name||'Exam Preparation PDF',title=resource.seo_title||baseTitle+' PDF',description=resource.seo_description||resource.description||'Download this exam preparation PDF and continue with related past papers and MCQs.',href=String(resource.download_url||'').trim(),filename=MCQ.slug(title)+'.pdf';
+  const download=safeLink(href)?'<a class="btn primary" href="'+UI.esc(href)+'" data-auth-action="download-pdf" data-auth-download-name="'+UI.esc(filename)+'" '+(/^data:/i.test(href)?'download="'+UI.esc(filename)+'"':'target="_blank" rel="noopener"')+'>Download PDF</a>':'<span class="btn disabled" aria-disabled="true">Download unavailable</span>';
+  const body=UI.templateMarkup('mcq-pdf-detail-template',{PDF_DETAIL_COVER:resource.cover&&safeImage(resource.cover)?'<img src="'+UI.esc(resource.cover)+'" alt="'+UI.esc(title)+'">':'',PDF_DETAIL_TITLE:UI.esc(title),PDF_DETAIL_DESCRIPTION:UI.esc(description),PDF_DETAIL_DOWNLOAD:download})||'';
+  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=title;
+  if(summary)summary.textContent=description;
+  setMarkup('breadcrumbs',UI.crumbs([['PDFs','pdfs'],[baseTitle]]));
+  setMarkup('route-detail',body);
  }else if(base==='pdfs'){
   const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
   const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
@@ -2872,6 +2884,16 @@ mountDataDrivenPage(base,id){
   }
   setText('pdf-summary',total.toLocaleString('en-GB')+' PDF resources · 12 per page');
   setMarkup('pdf-pagination',UI.pager(total,page,pageSize,App.route.params,'pdfs'));
+ }else if(base==='latest-job'){
+  const job=(data.latestJobs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
+  if(!job||job.published===false)return false;
+  const org=MCQ.get('papers',job.paper_id),title=job.seo_title||((org?.name?org.name+' ':'')+(job.title||'Job opportunity')).trim(),description=job.seo_description||job.description||'Latest job details, application deadline and related past-paper preparation links.',safe=url=>/^https?:\/\//i.test(String(url||'')),apply=safe(job.apply_url)?'<a class="btn primary" href="'+UI.esc(job.apply_url)+'" target="_blank" rel="noopener" data-auth-action="apply-job">Apply / View Official Details</a>':'',prep=/^(https?:\/\/|\/(?!\/))/i.test(String(job.prep_url||''))?'<a class="btn" href="'+UI.esc(job.prep_url)+'" target="_blank" rel="noopener">Past Papers</a>':(org?UI.link(window.SEO?SEO.cleanPath('paper',org.id):'paper/'+org.id,'Past Papers','btn'):'');
+  const body=UI.templateMarkup('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:org?UI.entityIcon(org,'briefcase'):UI.icon('briefcase'),JOB_DETAIL_ORGANIZATION:UI.esc(org?.name||'Organization'),JOB_DETAIL_TITLE:UI.esc(title),JOB_DETAIL_DESCRIPTION:UI.esc(description),JOB_DETAIL_LAST_DATE:UI.esc(UI.date(job.last_date)),JOB_DETAIL_ACTIONS:apply+prep})||'';
+  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=title;
+  if(summary)summary.textContent=description;
+  setMarkup('breadcrumbs',UI.crumbs([['Latest Jobs','latest-jobs'],[job.title||'Job']]));
+  setMarkup('route-detail',body);
  }else if(base==='latest-jobs'){
   const pageSize=10,today=new Date().toISOString().slice(0,10);
   const rows=(data.latestJobs||[]).filter(x=>x&&x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))||Number(b.id)-Number(a.id));
@@ -2913,6 +2935,21 @@ mountDataDrivenPage(base,id){
    }
   }
   form.querySelectorAll('[data-auth-error]').forEach(box=>{box.textContent='';});
+ }else if(base==='post'){
+  const post=(data.posts||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
+  if(!post||post.published===false)return false;
+  const title=post.seo_title||post.title||'MCQCampus Update',description=post.seo_description||post.excerpt||'MCQCampus article and preparation guide.';
+  const seenLinks=new Set(),links=(post.links||[]).filter(item=>item.label!=='__blog_url').filter(item=>/^(https?:\/\/|#\/)/i.test(String(item.url||''))).filter(item=>{const key=String(item.url||'').trim().replace(/\/+$/,'').toLowerCase();if(!key||seenLinks.has(key))return false;seenLinks.add(key);return true;});
+  const image=post.featured_image?'<div class="article-hero-image"><img src="'+UI.esc(post.featured_image)+'" alt="" loading="lazy" decoding="async"></div>':'';
+  const lead=post.excerpt?'<p class="post-lead">'+UI.esc(post.excerpt)+'</p>':'';
+  const paragraphs=String(post.body||'').split(/\n\n+/).filter(Boolean).map(text=>'<p>'+UI.esc(text)+'</p>').join('');
+  const linksHtml=links.length?'<div class="post-links"><h3>Useful links</h3><div class="post-links-list">'+links.map((item,index)=>'<a class="btn post-link-row" href="'+UI.esc(item.url)+'" '+(/^https?:/i.test(item.url)?'target="_blank" rel="noopener"':'')+'><span class="post-link-index">'+(index+1)+'</span><span>'+UI.esc(item.label||item.url)+'</span>'+UI.icon('arrow')+'</a>').join('')+'</div></div>':'';
+  const body=UI.templateMarkup('mcq-blog-article-template',{BLOG_ARTICLE_TITLE:UI.esc(title),BLOG_ARTICLE_IMAGE:image,BLOG_ARTICLE_LEAD:lead,BLOG_ARTICLE_BODY:paragraphs,BLOG_ARTICLE_ADS:UI.adSlot('article_ad'),BLOG_ARTICLE_LINKS:linksHtml,BLOG_ARTICLE_CTA:UI.link('mcqs','Practice MCQs '+UI.icon('arrow'),'btn primary')+' '+UI.link('important','Important MCQs','btn')})||'';
+  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=title;
+  if(summary)summary.textContent=description;
+  setMarkup('breadcrumbs',UI.crumbs([['Blog','posts'],[post.title||title]]));
+  setMarkup('route-detail',body);
  }else if(base==='posts'){
   const pageSize=10,params=App.route.params||{},category=String(params.category||'');
   const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
