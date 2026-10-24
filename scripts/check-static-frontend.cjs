@@ -20,7 +20,8 @@ const requiredTemplates = [
   'mcq-home-template', 'mcq-auth-layout-template',
   'mcq-learner-dashboard-template', 'mcq-admin-layout-template',
   'mcq-question-card-template', 'mcq-country-landing-template',
-  'mcq-country-entry-card-template', 'mcq-category-context-template', 'mcq-paper-context-template', 'mcq-blog-article-template',
+  'mcq-country-entry-card-template', 'mcq-category-context-template', 'mcq-paper-context-template',
+  'mcq-blog-detail-template', 'mcq-legal-content-template', 'mcq-faq-content-template',
 ];
 
 let failed = false;
@@ -166,7 +167,7 @@ check(runtime.includes("Public.pdfResourceCard(item)"), 'PDF listing renders thr
 check(runtime.includes("Public.latestJobCard(item)"), 'latest-jobs listing renders through the reusable job card template');
 check(runtime.includes("Public.blogPostCard(item)"), 'blog listing renders through the reusable blog card template');
 check(runtime.includes('Public.automaticTestPlan()'), 'automatic test listing populates the static tests shell');
-check(runtime.includes("else if(base==='test')") && runtime.includes('return this.mountStaticPage(base,Public.test(id))'), 'individual online tests reuse the hard-coded Tests shell');
+check(runtime.includes("else if(base==='test')") && runtime.includes("this.staticTemplateFragment('mcq-test-form-template'"), 'individual online tests populate the hard-coded Tests shell directly');
 check(runtime.includes("if(base==='mcq'||base==='practice')"), 'individual MCQ and practice routes mount question cards into the static shell');
 check(runtime.includes("else if(base==='category'||base==='subcategory')"), 'category and subcategory pages use static regions for links and MCQs');
 check(runtime.includes("else if(base==='paper')"), 'organization detail pages render past papers inside the static shell');
@@ -179,7 +180,19 @@ check(runtime.includes("Public.pdfResourceCard(item.record)"), 'search can rende
 check(runtime.includes("}else if(base==='pdf')"), 'PDF detail pages mount into the static PDF shell');
 check(runtime.includes("}else if(base==='latest-job')"), 'individual job details mount into the static Jobs shell');
 check(runtime.includes("}else if(base==='post')"), 'blog articles mount into the static Blog shell');
-check(html.includes('id="mcq-blog-article-template"'), 'blog detail has a hard-coded article template');
+check(html.includes('id="mcq-blog-detail-template"'), 'blog detail has a hard-coded article template');
+check(html.includes('id="mcq-legal-content-template"'), 'legal pages have a reusable static HTML template');
+check(html.includes('id="mcq-faq-content-template"'), 'FAQ details are hard-coded in the central HTML document');
+check(runtime.includes('staticTemplateFragment(id,slots={})'), 'dynamic page content clones and fills central DOM templates');
+check(runtime.includes("this.staticTemplateFragment('mcq-pdf-detail-template'"), 'PDF detail content mounts from a cloned HTML template');
+check(runtime.includes("this.staticTemplateFragment('mcq-latest-job-detail-template'"), 'job detail content mounts from a cloned HTML template');
+check(runtime.includes("this.staticTemplateFragment('mcq-blog-detail-template'"), 'blog articles mount from a cloned HTML template');
+check(runtime.includes("this.staticTemplateFragment('mcq-legal-content-template'"), 'legal page content mounts from a cloned HTML template');
+check(runtime.includes('const setBreadcrumbs=items=>'), 'breadcrumbs are composed from DOM nodes rather than generated HTML');
+check(runtime.includes('const appendManagedText=(container,value)=>'), 'managed legal copy is inserted as safe DOM text nodes');
+check(runtime.includes("}else if(base==='contact'){"), 'contact form is populated inside its static page shell');
+check(runtime.includes("}else if(base==='sitemap'){"), 'sitemap links are created as DOM nodes');
+check(runtime.includes("}else if(base==='latest-jobs'||base==='jobs-exams'){"), 'Jobs & Exams alias shares the migrated jobs listing shell');
 check(html.includes('data-api-region="search-filters"') && html.includes('data-form="search"'), 'the static MCQ page provides an operational search form and filter region');
 check(html.includes('id="mcq-paper-context-template"'), 'organization detail has a reusable static context template');
 check(html.includes('data-api-region="mcq-related-list"') && html.includes('data-api-region="year-actions"'), 'MCQ detail and past-paper actions have static API regions');
