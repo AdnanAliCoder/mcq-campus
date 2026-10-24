@@ -2777,7 +2777,8 @@ mountDataDrivenPage(base,id){
   return page.server===true&&page.scope==='public'&&page.routeKey===location.pathname+location.search?page:null;
  };
  if(base==='dashboard'||base==='profile'){
-  if(base!=='dashboard'||(id&&id!=='overview'))return false;
+  const view=String(id||'overview'),allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads'];
+  if(base!=='dashboard'||view==='settings'||!allowedDashboardViews.includes(view))return false;
   const session=data.session||{};
   const attempts=(data.attempts||[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
   const correct=attempts.filter(item=>item.correct).length,wrong=attempts.length-correct,accuracy=attempts.length?Math.round(correct/attempts.length*100):0;
@@ -2802,14 +2803,14 @@ mountDataDrivenPage(base,id){
   ];
   if(nav){
    navItems.forEach(([key,label,iconName])=>{
-    const anchor=makeInternalLink('dashboard/'+key,'',key==='overview'?'active':'');
+    const anchor=makeInternalLink('dashboard/'+key,'',key===view?'active':'');
     anchor.append(this.staticMarkupFragment(UI.icon(iconName)));
     const textNode=document.createElement('span');textNode.textContent=label;anchor.append(textNode);
     if(key==='overview')anchor.setAttribute('aria-current','page');
     nav.append(anchor);
    });
   }
-  const body=this.staticTemplateFragment('mcq-learner-overview-template',{});
+  const body=view==='overview'?this.staticTemplateFragment('mcq-learner-overview-template',{}):this.staticTemplateFragment('mcq-learner-subpage-template',{});
   if(!body||!side)return false;
   const metrics=body.querySelector('[data-dashboard-metrics]');
   const metricItems=[
