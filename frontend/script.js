@@ -2875,8 +2875,14 @@ mountDataDrivenPage(base,id){
    const related=Public.relatedMcqs(question);
    const relatedList=region('mcq-related-list');
    if(relatedList){
-    const content=related.length?related.map((item,i)=>Public.mini(item,i)).join(''):UI.empty('No close matches yet','Explore the broader category for more practice.',category?UI.link('category/'+category.id,'Browse category','btn'):UI.link('mcqs','Browse MCQs','btn'));
-    relatedList.replaceChildren(this.staticMarkupFragment(content));
+    const content=document.createDocumentFragment();
+    if(related.length)related.forEach(item=>content.append(questionCardFragment(item,true)));
+    else{
+     const action=category?makeInternalLink('category/'+category.id,'Browse category','btn'):makeInternalLink('mcqs','Browse MCQs','btn');
+     const empty=this.staticTemplateFragment('mcq-empty-template',{EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:'No close matches yet',EMPTY_DESCRIPTION:'Explore the broader category for more practice.',EMPTY_ACTION:action});
+     if(empty)content.append(empty);
+    }
+    relatedList.replaceChildren(content);
    }
    const relatedRegion=region('mcq-related');if(relatedRegion)relatedRegion.hidden=false;
   }
