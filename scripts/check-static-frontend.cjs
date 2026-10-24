@@ -172,9 +172,9 @@ check(Boolean(supportedRoutesMatch) && requiredDataDrivenRoutes.every(route => s
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
 check(html.includes('data-api-region="home-top-ad"') && html.includes('data-api-region="home-middle-ad"'), 'home ad placements have static page regions');
 check(html.includes('data-api-region="jobs-pagination"'), 'latest-jobs pagination has its own static data region');
-check(runtime.includes("Public.pdfResourceCard(item)"), 'PDF listing renders through the reusable PDF card template');
-check(runtime.includes("Public.latestJobCard(item)"), 'latest-jobs listing renders through the reusable job card template');
-check(runtime.includes("Public.blogPostCard(item)"), 'blog listing renders through the reusable blog card template');
+check(runtime.includes("pdfCardFragment(item)"), 'PDF listing renders through the reusable PDF card template');
+check(runtime.includes("latestJobCardFragment(item)"), 'latest-jobs listing renders through the reusable job card template');
+check(runtime.includes("blogPostCardFragment(item)"), 'blog listing renders through the reusable blog card template');
 check(runtime.includes('Public.automaticTestPlan()'), 'automatic test listing populates the static tests shell');
 check(runtime.includes("else if(base==='test')") && runtime.includes("this.staticTemplateFragment('mcq-test-form-template'"), 'individual online tests populate the hard-coded Tests shell directly');
 check(runtime.includes("if(base==='mcq'||base==='practice')"), 'individual MCQ and practice routes mount question cards into the static shell');
@@ -195,7 +195,7 @@ check(searchRoute.includes('questionCardFragment(item.record,true)') && !searchR
 check(["entityCardFragment('papers'", "entityCardFragment('years'", "entityCardFragment('categories'"].every(fragment => searchRoute.includes(fragment)), 'search organization, past-paper and category results use DOM templates');
 check(['pdfCardFragment(item.record)', 'blogPostCardFragment(item.record)', 'latestJobCardFragment(item.record)'].every(fragment => searchRoute.includes(fragment)), 'search PDF, blog and latest-job results use DOM templates');
 check(!searchRoute.includes('this.staticMarkupFragment(content)'), 'search result list is mounted from DOM fragments rather than assembled as a page HTML string');
-check(runtime.includes("Public.pdfResourceCard(item.record)"), 'search can render PDF results through the shared card template');
+check(searchRoute.includes("pdfCardFragment(item.record)"), 'search PDF results use the shared DOM card template');
 check(runtime.includes("}else if(base==='pdf')"), 'PDF detail pages mount into the static PDF shell');
 check(runtime.includes("}else if(base==='latest-job')"), 'individual job details mount into the static Jobs shell');
 check(runtime.includes("}else if(base==='post')"), 'blog articles mount into the static Blog shell');
