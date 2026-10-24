@@ -3175,7 +3175,7 @@ showStaticShell(){
  let page=map[first];
  const requestedCountry=new URLSearchParams(location.search).get('country');
  if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';
- if(!page||['admin','super-admin'].includes(page))return false;
+ if(!page)return false;
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+page+'"]');
  if(!source)return false;
@@ -3196,7 +3196,7 @@ mountStaticPage(base,renderedHtml){
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   posts:'blog',post:'blog','latest-jobs':'latest-jobs','latest-job':'latest-jobs',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',
-  contact:'contact',dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap'
+  contact:'contact',dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap',admin:'admin','super-admin':'super-admin'
  };
  const page=map[base];
  if(!page)return false;
@@ -3316,6 +3316,14 @@ mountStaticPage(base,renderedHtml){
   const dashboardRegion=target('learner-dashboard');dashboardRegion?.classList.remove('container','page');
  }else if(page==='sitemap'){
   populated=fillAny('sitemap-content',['.sitemap-grid','.empty'],content)||populated;
+ }else if(page==='admin'||page==='super-admin'){
+  shell.querySelector('.page-heading')?.remove();
+  shell.querySelector('nav[aria-label="Admin sections"],nav[aria-label="Super Admin sections"]')?.remove();
+  if(main)main.classList.remove('container','page','public-page');
+  const regionName=page==='admin'?'admin-workspace':'super-admin-workspace';
+  populated=fill(regionName,'.admin-shell',sourceMain,'inner')||populated;
+  const workspace=target(regionName);
+  workspace?.classList.remove('container','page','public-main','public-main-full');
  }
  if(!populated)return false;
  shell.querySelectorAll('[data-static-loading]').forEach(node=>node.remove());
