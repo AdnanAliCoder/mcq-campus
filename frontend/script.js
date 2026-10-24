@@ -1939,7 +1939,7 @@ window.Auth=(()=>{
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
- return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
+ return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,syncVerificationTimer,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
 })();
 
 
@@ -3046,24 +3046,14 @@ mountDataDrivenPage(base,id){
   }
   form.querySelectorAll('[data-auth-error]').forEach(box=>{box.textContent='';});
  }else if(['forgot','reset-code','reset-password','verify'].includes(base)){
-  // The outer page is a hard-coded index.html shell. Reuse the existing form
-  // templates and Auth handlers so reset codes and verification timers keep working.
-  const renderedAuth=Auth.view(base);
-  const parsedAuth=new DOMParser().parseFromString(String(renderedAuth||''),'text/html');
-  const sourceForm=parsedAuth.querySelector('.auth-form');
+  // Forms and page structure live in index.html; this branch only binds the
+  // account email from the reset/verification URL to the static form controls.
   const destination=region('auth-form');
-  if(!sourceForm||!destination)return false;
-  const sourceTitle=sourceForm.querySelector('h1');
-  const pageTitle=sourceTitle?.textContent?.trim()||({forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',verify:'Email verification'}[base]);
-  const pageHeading=shell.querySelector('.auth-form > h1');
-  if(pageHeading)pageHeading.textContent=pageTitle;
-  const storyHeading=shell.querySelector('.auth-story h2');
-  const storyCopy=shell.querySelector('.auth-story p:not(.eyebrow)');
-  const storyTitles={forgot:'Reset your password','reset-code':'Verify reset code','reset-password':'Choose a new password',verify:'Verify your email'};
-  const storyCopies={forgot:'Enter your account email to receive a secure reset code.','reset-code':'Confirm your email with the 6-digit code.','reset-password':'Set a new password for your MCQCampus account.',verify:'Finish creating your account using the email code.'};
-  if(storyHeading)storyHeading.textContent=storyTitles[base];
-  if(storyCopy)storyCopy.textContent=storyCopies[base];
-  destination.replaceChildren(...Array.from(sourceForm.childNodes).filter(node=>!(node.nodeType===1&&node.tagName==='H1')).map(node=>node.cloneNode(true)));
+  const form=destination?.querySelector('form[data-form="auth-'+base+'"]');
+  if(!destination||!form)return false;
+  const params=App.route.params||{},emailParam=String(params.email||new URLSearchParams(location.search).get('email')||'');
+  const emailInput=form.querySelector('[name="email"]');
+  if(emailInput&&emailParam)emailInput.value=emailParam;
   destination.hidden=false;
  }else if(base==='post'){
   const post=(data.posts||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
@@ -3147,6 +3137,7 @@ mountDataDrivenPage(base,id){
   if(!hasContent)area.hidden=true;
  });
  root.replaceChildren(this.staticPageNode(shell,shellKey));
+ if(base==='verify')Auth.syncVerificationTimer?.(String((App.route.params||{}).email||new URLSearchParams(location.search).get('email')||''));
  root.removeAttribute('aria-busy');
  document.body.dataset.pageTemplate=shellKey==='past-papers'?'papers':shellKey;
  document.body.dataset.staticFallback=shellKey;
