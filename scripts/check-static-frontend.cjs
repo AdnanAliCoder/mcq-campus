@@ -207,6 +207,12 @@ check(runtime.includes("this.staticTemplateFragment('mcq-pdf-detail-template'"),
 check(runtime.includes('const questionCardFragment=(question,compact=false,contextYearId=null)=>'), 'MCQ cards are populated from the central HTML template with DOM nodes');
 check(html.includes('id="mcq-question-option-template"'), 'MCQ option-button structure is hard-coded in index.html');
 check(runtime.includes("templateMarkup('mcq-question-option-template'"), 'the legacy MCQ fallback also uses the static option template');
+check(runtime.includes("cards.append(entityCardFragment(collection,item,(page-1)*pageSize+index))"), 'organization and category listings mount reusable entity-card DOM fragments');
+check(runtime.includes("cards.append(pdfCardFragment(item))"), 'PDF listings mount reusable PDF card DOM fragments');
+check(runtime.includes("cards.append(latestJobCardFragment(item))"), 'latest-job listings mount reusable job-card DOM fragments');
+check(runtime.includes("cards.append(blogPostCardFragment(item))"), 'blog listings mount reusable blog-card DOM fragments');
+check(runtime.includes("content.append(entityCardFragment('papers',item.record,index))"), 'search results use reusable organization-card DOM fragments');
+check(runtime.includes("content.append(pdfCardFragment(item.record))"), 'search results use reusable PDF-card DOM fragments');
 check(runtime.includes("list.replaceChildren(questionCardFragment(question,false))"), 'individual MCQ and practice details use DOM-based question cards');
 check(runtime.includes("setQuestionCards('home-mcqs',rows"), 'home MCQs are populated with DOM-based question cards');
 check(runtime.includes('cards.append(questionCardFragment(item,false,Number(id)))'), 'past-paper year MCQ collections use DOM-based question cards');
