@@ -152,6 +152,7 @@ check(runtime.includes("Public.pdfResourceCard(item)"), 'PDF listing renders thr
 check(runtime.includes("Public.latestJobCard(item)"), 'latest-jobs listing renders through the reusable job card template');
 check(runtime.includes("Public.blogPostCard(item)"), 'blog listing renders through the reusable blog card template');
 check(runtime.includes('Public.automaticTestPlan()'), 'automatic test listing populates the static tests shell');
+check(runtime.includes("else if(base==='test')") && runtime.includes('return this.mountStaticPage(base,Public.test(id))'), 'individual online tests reuse the hard-coded Tests shell');
 check(runtime.includes("if(base==='mcq'||base==='practice')"), 'individual MCQ and practice routes mount question cards into the static shell');
 check(runtime.includes("else if(base==='category'||base==='subcategory')"), 'category and subcategory pages use static regions for links and MCQs');
 check(runtime.includes("else if(base==='paper')"), 'organization detail pages render past papers inside the static shell');
