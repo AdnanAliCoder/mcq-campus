@@ -135,7 +135,7 @@ check(runtime.includes("if(!page||['dashboard','admin','super-admin'].includes(p
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
-check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register']"), 'core public data renderer is explicitly scoped to migrated routes');
+check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year']"), 'core public data renderer is explicitly scoped to migrated routes');
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
 check(html.includes('data-api-region="home-top-ad"') && html.includes('data-api-region="home-middle-ad"'), 'home ad placements have static page regions');
 check(html.includes('data-api-region="jobs-pagination"'), 'latest-jobs pagination has its own static data region');
@@ -143,6 +143,12 @@ check(runtime.includes("Public.pdfResourceCard(item)"), 'PDF listing renders thr
 check(runtime.includes("Public.latestJobCard(item)"), 'latest-jobs listing renders through the reusable job card template');
 check(runtime.includes("Public.blogPostCard(item)"), 'blog listing renders through the reusable blog card template');
 check(runtime.includes('Public.automaticTestPlan()'), 'automatic test listing populates the static tests shell');
+check(runtime.includes("if(base==='mcq'||base==='practice')"), 'individual MCQ and practice routes mount question cards into the static shell');
+check(runtime.includes("else if(base==='category'||base==='subcategory')"), 'category and subcategory pages use static regions for links and MCQs');
+check(runtime.includes("else if(base==='paper')"), 'organization detail pages render past papers inside the static shell');
+check(runtime.includes("else if(base==='year')"), 'past-paper year pages render linked MCQs inside the static MCQ shell');
+check(html.includes('id="mcq-paper-context-template"'), 'organization detail has a reusable static context template');
+check(html.includes('data-api-region="mcq-related-list"') && html.includes('data-api-region="year-actions"'), 'MCQ detail and past-paper actions have static API regions');
 check(runtime.includes("AUTO_TEST_START_LINK:UI.link('test/auto'"), 'automatic test start action is preserved in static rendering');
 check(runtime.includes("setMarkup('jobs-pagination'"), 'latest-jobs pagination mounts into the dedicated region');
 check(runtime.includes('const showCountryEntry=()=>'), 'login and signup use a dedicated static country-entry shell');
