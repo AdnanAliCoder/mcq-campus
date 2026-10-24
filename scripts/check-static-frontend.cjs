@@ -186,6 +186,7 @@ check(runtime.includes("dashboard:'dashboard',profile:'dashboard',sitemap:'sitem
 check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')"), 'learner dashboard content mounts into the hard-coded dashboard shell');
 check(html.includes('id="mcq-learner-overview-template"'), 'learner dashboard overview layout is hard-coded in index.html');
 check(html.includes('id="mcq-learner-side-template"'), 'learner navigation structure is hard-coded in index.html');
+check(html.includes('id="mcq-learner-settings-template"'), 'profile/settings form fields are hard-coded in index.html');
 const dashboardRenderStart = runtime.indexOf('mountDataDrivenPage(base,id){');
 const dashboardRenderEnd = runtime.indexOf('showStaticShell(){', dashboardRenderStart);
 const dashboardRenderer = runtime.slice(dashboardRenderStart, dashboardRenderEnd);
@@ -194,6 +195,8 @@ const dashboardRouteEnd = dashboardRenderer.indexOf("}else if(base==='search'){"
 const dashboardRoute = dashboardRenderer.slice(dashboardRouteStart, dashboardRouteEnd);
 check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-dashboard-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-overview-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-subpage-template'"), 'learner dashboard views render from reusable static templates');
 check(dashboardRoute.includes("this.staticTemplateFragment('mcq-stat-card-content-template'") && dashboardRoute.includes("data-dashboard-category-progress"), 'dashboard metrics and category progress are populated as DOM nodes');
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-settings-template'") && dashboardRoute.includes("}else if(view==='settings'){"), 'profile settings form is populated from the static template');
+check(dashboardRoute.includes("form.elements.namedItem(key)") && dashboardRoute.includes("input[name=" + '"interests"' + "]"), 'profile form inputs and interest checkboxes are populated from session data');
 check(dashboardRoute.includes("data-dashboard-recent-activities") && dashboardRoute.includes("view==='practice'") && dashboardRoute.includes("view==='history'"), 'dashboard practice subpages and activity use DOM-driven regions');
 check(!dashboardRoute.includes("Public.dashboard(") && !dashboardRoute.includes("Public.mini("), 'dashboard route does not rely on legacy string-based view rendering');
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
