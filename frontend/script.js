@@ -2637,7 +2637,7 @@ mountDataDrivenPage(base,id){
   if(description)description.textContent=pageCopy.description;
   const list=region('jobs-list');
   if(list){
-   list.classList.add('public-main','public-main-full');
+   list.classList.add('latest-jobs-list','public-main','public-main-full');
    const cards=shown.map(item=>Public.latestJobCard(item)).join('');
    list.replaceChildren(this.staticMarkupFragment(cards||UI.empty('No active job announcements right now','Expired jobs stay available to administrators but are hidden from this Latest Jobs list.')));
    list.hidden=false;
