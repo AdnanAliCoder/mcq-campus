@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261024-single-script-v22">
+  <meta name="mcq-asset-version" content="20261024-single-script-v23">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="home">
@@ -143,7 +143,7 @@
       <section class="card"><div class="section-head"><div><p class="eyebrow">PREFERENCES</p><h2>Learning preferences</h2></div></div>
         <div class="form-grid profile-preferences-grid"><div class="field"><label for="profile-daily-goal">Daily MCQ Goal *</label><select id="profile-daily-goal" name="daily_goal" required><option value="10">10 MCQs</option><option value="25">25 MCQs</option><option value="50">50 MCQs</option><option value="100">100 MCQs</option></select></div></div>
       </section>
-      <p class="auth-error" role="alert" data-command-error hidden></p><div class="profile-save-row"><button class="btn primary" type="submit">Save profile</button></div>
+      <p class="auth-error" role="alert" data-command-error></p><div class="profile-save-row"><button class="btn primary" type="submit">Save profile</button></div>
     </form>
     <section class="card profile-security-card"><div class="section-head"><div><p class="eyebrow">ACCOUNT &amp; SECURITY</p><h2>Password &amp; security</h2></div></div><p class="small muted">For your security, password changes require your current password and a 6-digit email verification code.</p><button class="btn primary" type="button" data-password-change-open>Change password</button></section>
     <section class="card danger-zone"><div><p class="eyebrow">DANGER ZONE</p><h2>Delete account</h2><p class="small muted">Account deletion requests should be handled through support so server data is not removed accidentally.</p><a class="btn danger" href="/contact">Contact support</a></div></section>
@@ -165,7 +165,7 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/script.js?v=20261024-single-script-v22"></script>
+  <script defer src="/assets/script.js?v=20261024-single-script-v23"></script>
 
   <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
   <template id="mcq-country-landing-template"><div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1><!-- SLOT:COUNTRY_TITLE --></h1><p class="muted"><!-- SLOT:COUNTRY_DESCRIPTION --></p><div class="country-choice-grid"><!-- SLOT:COUNTRY_CARDS --></div><p class="small muted country-landing-back"><!-- SLOT:COUNTRY_BACK_LINK --></p></section></div></template>
