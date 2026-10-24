@@ -2466,13 +2466,25 @@ staticMarkupFragment(markup){
  return holder.content;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','login','register'];
  if(!supported.includes(base)||id)return false;
- const shellKey=base==='papers'?'past-papers':base==='important'?'mcqs':base==='posts'?'blog':base;
  const parent=document.getElementById('static-page-shells');
- const source=parent?.querySelector('[data-static-page="'+shellKey+'"]');
  const root=document.getElementById('app');
- if(!source||!root)return false;
+ if(!parent||!root)return false;
+ const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim();
+ if(['login','register'].includes(base)&&!requestedCountry){
+  const countrySource=parent.querySelector('[data-static-page="country-entry"]');
+  if(!countrySource)return false;
+  const countryShell=countrySource.cloneNode(true);
+  root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
+  root.removeAttribute('aria-busy');
+  document.body.dataset.pageTemplate='country-entry';
+  document.body.dataset.staticFallback='country-entry';
+  return true;
+ }
+ const shellKey=base==='papers'?'past-papers':base==='important'?'mcqs':base==='posts'?'blog':base;
+ const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
+ if(!source)return false;
  const shell=source.cloneNode(true);
  shell.dataset.staticFallback='true';
  const region=name=>shell.querySelector('[data-api-region="'+name+'"]');
@@ -2643,6 +2655,40 @@ mountDataDrivenPage(base,id){
    list.hidden=false;
   }
   setMarkup('jobs-pagination',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
+ }else if(base==='login'||base==='register'){
+  const countries=(data.countries||[{name:'Pakistan',active:true},{name:'India',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  const selected=(countries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name;
+  if(!selected){
+   const countrySource=parent.querySelector('[data-static-page="country-entry"]');
+   if(!countrySource)return false;
+   const countryShell=countrySource.cloneNode(true);
+   root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
+   root.removeAttribute('aria-busy');
+   document.body.dataset.pageTemplate='country-entry';
+   document.body.dataset.staticFallback='country-entry';
+   return true;
+  }
+  const form=shell.querySelector('form[data-form="auth-'+base+'"]');
+  if(!form)return false;
+  const heading=form.closest('.auth-form')?.querySelector('h1');
+  if(heading)heading.textContent=base==='login'?'Sign in':'Create account';
+  const mainHeading=shell.querySelector('.auth-story h2');
+  if(mainHeading)mainHeading.textContent=base==='login'?'Welcome back':'Start learning';
+  const story=shell.querySelector('.auth-story p:not(.eyebrow)');
+  if(story)story.textContent=base==='login'?'Continue your learning journey.':'Create your MCQCampus account.';
+  if(base==='register'){
+   const countrySelect=form.querySelector('select[name="country"]');
+   if(countrySelect){
+    countrySelect.replaceChildren();
+    const placeholder=document.createElement('option');
+    placeholder.value='';placeholder.textContent='Choose country';countrySelect.append(placeholder);
+    for(const item of countries){
+     const option=document.createElement('option');option.value=String(item.name).trim();option.textContent=String(item.name).trim();countrySelect.append(option);
+    }
+    countrySelect.value=selected;
+   }
+  }
+  form.querySelectorAll('[data-auth-error]').forEach(box=>{box.textContent='';});
  }else if(base==='posts'){
   const pageSize=10,params=App.route.params||{},category=String(params.category||'');
   const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
