@@ -2800,7 +2800,7 @@ mountDataDrivenPage(base,id){
   const heading=shell.querySelector('.page-heading h1'),headingDesc=shell.querySelector('.page-heading p');
   if(heading)heading.textContent=view==='important'?'Important MCQs':'Practice MCQs';
   if(headingDesc)headingDesc.textContent='Browse approved practice MCQs with correct answers and explanations.';
-  const search=shell.querySelector('form[data-form="mcq-filter"] input[name="q"]');
+  const search=shell.querySelector('form[data-form="search"] input[name="q"]');
   if(search)search.value=String(params.q||'');
   setText('mcq-summary',total.toLocaleString('en-GB')+' total '+(view==='important'?'important MCQs':'MCQs')+' · only 10 load per page');
   const list=region('mcq-list');
@@ -2963,7 +2963,7 @@ showStaticShell(){
  let page=map[first];
  const requestedCountry=new URLSearchParams(location.search).get('country');
  if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';
- if(!page||['dashboard','admin','super-admin'].includes(page))return false;
+ if(!page||['admin','super-admin'].includes(page))return false;
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+page+'"]');
  if(!source)return false;
@@ -3101,6 +3101,7 @@ mountStaticPage(base,renderedHtml){
   populated=fillAny('route-detail',['.contact-details','.empty'],content)||populated;
  }else if(page==='dashboard'){
   populated=fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')||populated;
+  const dashboardRegion=target('learner-dashboard');dashboardRegion?.classList.remove('container','page');
  }else if(page==='sitemap'){
   populated=fillAny('sitemap-content',['.sitemap-grid','.empty'],content)||populated;
  }
