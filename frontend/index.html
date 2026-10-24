@@ -118,6 +118,36 @@
   <template id="mcq-learner-side-template"><aside class="learner-side card" id="learner-sidebar"><div class="learner-side-head"><strong>My Learning</strong><span class="small muted">Personal preparation center</span></div><nav data-dashboard-nav aria-label="My learning navigation"></nav></aside></template>
   <template id="mcq-learner-overview-template"><div class="learner-overview-view"><div class="learner-metrics" data-dashboard-metrics></div><section class="card learner-continue"><div><p class="eyebrow">CONTINUE PREPARATION</p><h2 data-dashboard-continue-title></h2><p class="small muted" data-dashboard-continue-description></p></div><div data-dashboard-continue-action></div></section><div class="learner-quick-actions" data-dashboard-quick-actions></div><div class="learner-home-grid"><section class="card"><div class="section-head"><div><p class="eyebrow">WEEKLY / OVERALL PROGRESS</p><h2>Category progress</h2></div><a href="/dashboard/performance" class="link">Full performance</a></div><div data-dashboard-category-progress></div></section><section class="card"><div class="section-head"><div><p class="eyebrow">WEAK AREAS</p><h2>Needs more practice</h2></div></div><div data-dashboard-weak-areas></div></section><section class="card"><div class="section-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h2>Latest practice</h2></div><a href="/dashboard/history" class="link">View history</a></div><div data-dashboard-recent-activities></div></section></div></div></template>
   <template id="mcq-learner-subpage-template"><div class="learner-subpage"><header class="learner-subpage-heading"><p class="eyebrow" data-dashboard-view-eyebrow>MY LEARNING</p><h2 data-dashboard-view-title></h2><p class="small muted" data-dashboard-view-description></p></header><div class="learner-quick-actions" data-dashboard-quick-actions></div><div class="learner-subpage-content" data-dashboard-view-content></div></div></template>
+  <template id="mcq-learner-settings-template"><div class="learner-profile-page">
+    <section class="card profile-header-card"><div class="profile-photo-row"><div data-profile-avatar><span class="profile-photo profile-photo-fallback">U</span></div><div class="profile-header-copy"><p class="eyebrow">LEARNER PROFILE</p><h2 data-profile-name-heading>Learner</h2><p data-profile-email-heading></p><label class="btn sm" for="profile-image">Change photo</label><input class="visually-hidden" id="profile-image" type="file" accept="image/png,image/jpeg,image/webp"></div></div></section>
+    <div class="profile-learning-snapshot" data-profile-learning-snapshot></div>
+    <form data-form="profile" class="profile-sections">
+      <section class="card"><div class="section-head"><div><p class="eyebrow">PERSONAL INFORMATION</p><h2>About your preparation</h2></div></div>
+        <div class="form-grid">
+          <div class="field"><label for="profile-name">Full name *</label><input id="profile-name" name="name" type="text" required autocomplete="name" value=""></div>
+          <div class="field"><label for="profile-email">Email *</label><input id="profile-email" name="email" type="email" required autocomplete="email" value=""></div>
+          <div class="field"><label for="profile-country">Country *</label><select id="profile-country" name="country" required><option value="Pakistan">Pakistan</option><option value="India">India</option><option value="Other">Other</option></select></div>
+          <div class="field"><label for="profile-exam-goal">Preferred Exam / Preparation Goal *</label><select id="profile-exam-goal" name="exam_goal" required><option value="PPSC">PPSC</option><option value="FPSC">FPSC</option><option value="NTS">NTS</option><option value="CSS">CSS</option><option value="PMS">PMS</option><option value="Other">Other</option></select></div>
+        </div>
+        <div class="field full"><span>Preparation Interests</span><div class="profile-interest-grid">
+          <label class="interest-choice"><input type="checkbox" name="interests" value="Pakistan Affairs"><span>Pakistan Affairs</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="Current Affairs"><span>Current Affairs</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="General Knowledge"><span>General Knowledge</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="Computer Science"><span>Computer Science</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="English"><span>English</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="Mathematics"><span>Mathematics</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="Everyday Science"><span>Everyday Science</span></label>
+          <label class="interest-choice"><input type="checkbox" name="interests" value="Islamic Studies"><span>Islamic Studies</span></label>
+        </div></div>
+      </section>
+      <section class="card"><div class="section-head"><div><p class="eyebrow">PREFERENCES</p><h2>Learning preferences</h2></div></div>
+        <div class="form-grid profile-preferences-grid"><div class="field"><label for="profile-daily-goal">Daily MCQ Goal *</label><select id="profile-daily-goal" name="daily_goal" required><option value="10">10 MCQs</option><option value="25">25 MCQs</option><option value="50">50 MCQs</option><option value="100">100 MCQs</option></select></div></div>
+      </section>
+      <p class="auth-error" role="alert" data-command-error hidden></p><div class="profile-save-row"><button class="btn primary" type="submit">Save profile</button></div>
+    </form>
+    <section class="card profile-security-card"><div class="section-head"><div><p class="eyebrow">ACCOUNT &amp; SECURITY</p><h2>Password &amp; security</h2></div></div><p class="small muted">For your security, password changes require your current password and a 6-digit email verification code.</p><button class="btn primary" type="button" data-password-change-open>Change password</button></section>
+    <section class="card danger-zone"><div><p class="eyebrow">DANGER ZONE</p><h2>Delete account</h2><p class="small muted">Account deletion requests should be handled through support so server data is not removed accidentally.</p><a class="btn danger" href="/contact">Contact support</a></div></section>
+  </div></template>
   <template id="mcq-admin-layout-template"><div class="dash-layout"><aside class="sidebar" id="admin-sidebar"><!-- SLOT:ADMIN_BRAND --><div class="nav-label"><!-- SLOT:ADMIN_ROLE_LABEL --></div><!-- SLOT:ADMIN_OVERVIEW_LINK --><div class="nav-label">Question library</div><!-- SLOT:ADMIN_LIBRARY --><!-- SLOT:ADMIN_MANAGEMENT --></aside><div class="dash-main"><header class="dash-top"><!-- SLOT:ADMIN_MENU_BUTTON --><span class="small muted">Workspace / <strong><!-- SLOT:ADMIN_TITLE --></strong></span><span class="spacer"></span><!-- SLOT:ADMIN_COUNTRY_SWITCHER --><span class="badge">Database connected</span><!-- SLOT:ADMIN_USER_MENU --></header><main class="dash-content" id="main" tabindex="-1"><!-- SLOT:ADMIN_BODY --></main></div></div></template>
 
   <!-- Shared interaction elements used by the JavaScript application. -->
