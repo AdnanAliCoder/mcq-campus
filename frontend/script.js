@@ -2740,7 +2740,7 @@ mountDataDrivenPage(base,id){
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
-   list.replaceChildren(this.staticMarkupFragment(Public.questionCard(question,index+1,false)));
+   list.replaceChildren(questionCardFragment(question,false));
    list.hidden=false;
   }
   if(base==='practice'){
@@ -2773,8 +2773,12 @@ mountDataDrivenPage(base,id){
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
-   const content=shown.length?shown.map((item,i)=>Public.questionCard(item,(page-1)*pageSize+i+1,false,Number(id))).join(''):UI.empty(server?'No MCQs found for this past paper.':'No MCQs are linked to this past paper yet.','Browse the other past papers or continue with important MCQs.',UI.link('important','Important MCQs','btn primary'));
-   list.replaceChildren(this.staticMarkupFragment(content));list.hidden=false;
+   if(shown.length){
+    const cards=document.createDocumentFragment();
+    shown.forEach(item=>cards.append(questionCardFragment(item,false,Number(id))));
+    list.replaceChildren(cards);
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this past paper.':'No MCQs are linked to this past paper yet.','Browse the other past papers or continue with important MCQs.',UI.link('important','Important MCQs','btn primary'))));
+   list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,'year/'+id));
  }else if(base==='topic'){
@@ -2791,7 +2795,11 @@ mountDataDrivenPage(base,id){
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
-   list.replaceChildren(this.staticMarkupFragment(shown.length?shown.map((item,i)=>Public.questionCard(item,(page-1)*pageSize+i+1)).join(''):UI.empty(server?'No MCQs in this topic yet':'No MCQs are linked to this topic yet.','Choose another topic or browse the parent category.',subcategory?UI.link('subcategory/'+subcategory.id,'Browse '+subcategory.name,'btn primary'):UI.link('categories','Browse categories','btn primary'))));
+   if(shown.length){
+    const cards=document.createDocumentFragment();
+    shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+    list.replaceChildren(cards);
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs in this topic yet':'No MCQs are linked to this topic yet.','Choose another topic or browse the parent category.',subcategory?UI.link('subcategory/'+subcategory.id,'Browse '+subcategory.name,'btn primary'):UI.link('categories','Browse categories','btn primary')));
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,'topic/'+id));
@@ -2820,7 +2828,11 @@ mountDataDrivenPage(base,id){
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
-   list.replaceChildren(this.staticMarkupFragment(shown.length?shown.map((item,i)=>Public.questionCard(item,(page-1)*pageSize+i+1)).join(''):UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this category yet.','Choose another category or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
+   if(shown.length){
+    const cards=document.createDocumentFragment();
+    shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+    list.replaceChildren(cards);
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this category yet.','Choose another category or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary')));
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,base+'/'+id));
@@ -2878,7 +2890,7 @@ mountDataDrivenPage(base,id){
    statsRegion.hidden=false;
   }
   setText('home-important-count',importantTotal.toLocaleString('en-GB')+' total important MCQs · only 10 load per page');
-  setMarkup('home-mcqs',rows.length?rows.map((q,i)=>Public.questionCard(q,i+1,true)).join(''):UI.empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.'));
+  setQuestionCards('home-mcqs',rows,{compact:true,emptyMarkup:UI.empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.')});
   setMarkup('home-pagination',UI.pager(importantTotal,server?Math.max(1,Number(server.page)||1):1,pageSize,App.route.params,'home'));
   const categoryRegion=region('home-categories');
   if(categoryRegion){
@@ -2931,16 +2943,15 @@ mountDataDrivenPage(base,id){
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
-   const parts=[];
-   parts.push(UI.adSlot('mcq_top_ad'));
+   list.replaceChildren();
+   list.append(this.staticMarkupFragment(UI.adSlot('mcq_top_ad')));
    if(shown.length){
-    shown.forEach((q,i)=>{
-     parts.push(Public.questionCard(q,(page-1)*pageSize+i+1,false,base==='year'?Number(id)||null:null));
-     if(i===4)parts.push(UI.adSlot('mcq_inline_ad'));
+    shown.forEach((question,index)=>{
+     list.append(questionCardFragment(question,false,base==='year'?Number(id)||null:null));
+     if(index===4)list.append(this.staticMarkupFragment(UI.adSlot('mcq_inline_ad')));
     });
-   }else parts.push(UI.empty(server?'No MCQs found for this selection.':'No matching MCQs are available yet.','Choose another option or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary')));
-   parts.push(UI.adSlot('mcq_bottom_ad'));
-   list.replaceChildren(this.staticMarkupFragment(parts.join('')));
+   }else list.append(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No matching MCQs are available yet.','Choose another option or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
+   list.append(this.staticMarkupFragment(UI.adSlot('mcq_bottom_ad')));
    list.hidden=false;
   }
   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,App.route.path));
