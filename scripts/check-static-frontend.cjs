@@ -184,6 +184,15 @@ check(runtime.includes("else if(base==='paper')"), 'organization detail pages re
 check(runtime.includes("else if(base==='year')"), 'past-paper year pages render linked MCQs inside the static MCQ shell');
 check(runtime.includes("dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap"), 'learner dashboard and sitemap have explicit static-shell routes');
 check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')"), 'learner dashboard content mounts into the hard-coded dashboard shell');
+check(html.includes('id="mcq-learner-overview-template"'), 'learner dashboard overview layout is hard-coded in index.html');
+check(html.includes('id="mcq-learner-side-template"'), 'learner navigation structure is hard-coded in index.html');
+const dashboardRouteStart = dataRenderer.indexOf("if(base==='dashboard'||base==='profile'){");
+const dashboardRouteEnd = dataRenderer.indexOf("}else if(base==='search'){", dashboardRouteStart);
+const dashboardRoute = dataRenderer.slice(dashboardRouteStart, dashboardRouteEnd);
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-dashboard-template'") && dashboardRoute.includes("this.staticTemplateFragment('mcq-learner-overview-template'"), 'dashboard overview renders from static templates without the legacy dashboard string renderer');
+check(dashboardRoute.includes("this.staticTemplateFragment('mcq-stat-card-content-template'") && dashboardRoute.includes("data-dashboard-category-progress"), 'dashboard metrics and category progress are populated as DOM nodes');
+check(dashboardRoute.includes("data-dashboard-recent-activities") && dashboardRoute.includes("categoryStats.slice(0,6)"), 'dashboard activity and subject progress use DOM-driven regions');
+
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
 check(runtime.includes("base='not-found';html=Public.notFound()"), 'unknown routes are normalized to the static 404 shell');
 check(html.includes('data-static-page="not-found"') && html.includes('data-api-region="not-found-links"'), '404 structure and suggested links live in index.html');
