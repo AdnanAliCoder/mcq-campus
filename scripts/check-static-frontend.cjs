@@ -185,6 +185,16 @@ check(runtime.includes("dashboard:'dashboard',profile:'dashboard',sitemap:'sitem
 check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')"), 'learner dashboard content mounts into the hard-coded dashboard shell');
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
 check(runtime.includes("if(base==='search')"), 'search results use the data-driven MCQ shell renderer');
+const dataRendererStart = runtime.indexOf('mountDataDrivenPage(base,id){');
+const dataRendererEnd = runtime.indexOf('showStaticShell(){', dataRendererStart);
+const dataRenderer = runtime.slice(dataRendererStart, dataRendererEnd);
+const searchRouteStart = dataRenderer.indexOf("if(base==='search'){");
+const searchRouteEnd = dataRenderer.indexOf("}else if(base==='mcq'||base==='practice')", searchRouteStart);
+const searchRoute = dataRenderer.slice(searchRouteStart, searchRouteEnd);
+check(searchRoute.includes('questionCardFragment(item.record,true)') && !searchRoute.includes('Public.questionCard(item.record'), 'search MCQ results use DOM-based question-card templates');
+check(["entityCardFragment('papers'", "entityCardFragment('years'", "entityCardFragment('categories'"].every(fragment => searchRoute.includes(fragment)), 'search organization, past-paper and category results use DOM templates');
+check(['pdfCardFragment(item.record)', 'blogPostCardFragment(item.record)', 'latestJobCardFragment(item.record)'].every(fragment => searchRoute.includes(fragment)), 'search PDF, blog and latest-job results use DOM templates');
+check(!searchRoute.includes('this.staticMarkupFragment(content)'), 'search result list is mounted from DOM fragments rather than assembled as a page HTML string');
 check(runtime.includes("Public.pdfResourceCard(item.record)"), 'search can render PDF results through the shared card template');
 check(runtime.includes("}else if(base==='pdf')"), 'PDF detail pages mount into the static PDF shell');
 check(runtime.includes("}else if(base==='latest-job')"), 'individual job details mount into the static Jobs shell');
