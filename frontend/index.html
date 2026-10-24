@@ -157,5 +157,41 @@
   <template id="mcq-blog-detail-template"><article class="article public-article blog-detail-article"><p class="eyebrow">BLOG</p><div class="article-hero-image" data-post-cover hidden></div><p class="post-lead" data-post-excerpt hidden></p><div class="article-body" data-post-body></div><section class="post-links" data-post-links hidden><h2>Useful links</h2><div class="post-links-list" data-post-link-list></div></section><div class="post-practice-cta" data-post-practice-cta></div></article></template>
   <template id="mcq-legal-content-template"><article class="article legal-article public-article"><p class="policy-updated" data-policy-updated hidden></p><div data-legal-body></div></article></template>
   <template id="mcq-faq-content-template"><div class="faq-list"><details open><summary>What is MCQCampus?</summary><p>MCQCampus is an educational preparation platform where learners can practise MCQs, review past papers, take tests and explore exam-related resources.</p></details><details><summary>Do I need an account?</summary><p>Some public content is available without an account. Downloads and personalized learning features may require sign-in.</p></details><details><summary>Can MCQ answers contain mistakes?</summary><p>Errors can occur. Use the question report control or Contact Us page to submit a correction.</p></details><details><summary>Are jobs and exam dates official?</summary><p>Always verify eligibility, dates and application instructions with the relevant official authority.</p></details><details><summary>Does MCQCampus guarantee exam or job results?</summary><p>No. The platform provides preparation resources but does not guarantee exam success, selection or employment.</p></details></div></template>
+  <template id="mcq-learner-sidebar-template">
+    <aside class="learner-side card" id="learner-sidebar">
+      <div class="learner-side-head"><strong>My Learning</strong><span class="small muted">Personal preparation center</span></div>
+      <nav aria-label="My Learning" data-learner-navigation></nav>
+    </aside>
+  </template>
+  <template id="mcq-dashboard-section-template">
+    <section class="card">
+      <div class="section-head">
+        <div><p class="eyebrow" data-section-eyebrow></p><h2 data-section-title></h2></div>
+        <a class="link" data-section-link hidden></a>
+      </div>
+      <div data-section-content></div>
+    </section>
+  </template>
+  <template id="mcq-dashboard-progress-row-template">
+    <div class="bar-row">
+      <div class="row"><span data-progress-label></span><span data-progress-summary></span></div>
+      <div class="progress-track"><span data-progress-bar></span></div>
+    </div>
+  </template>
+  <template id="mcq-dashboard-activity-row-template">
+    <div class="learner-activity-row">
+      <span class="status-dot" data-activity-status></span>
+      <div><strong data-activity-question></strong><span data-activity-meta></span></div>
+    </div>
+  </template>
+  <template id="mcq-dashboard-weak-row-template">
+    <div class="weak-row"><span data-weak-name></span><strong data-weak-accuracy></strong></div>
+  </template>
+  <template id="mcq-dashboard-continue-template">
+    <section class="card learner-continue">
+      <div><p class="eyebrow">CONTINUE PREPARATION</p><h2 data-continue-title></h2><p class="small muted" data-continue-description></p></div>
+      <a class="btn primary" data-continue-link></a>
+    </section>
+  </template>
 </body>
 </html>
