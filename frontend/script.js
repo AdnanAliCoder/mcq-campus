@@ -2812,6 +2812,7 @@ mountDataDrivenPage(base,id){
   }
   const body=view==='overview'?this.staticTemplateFragment('mcq-learner-overview-template',{}):this.staticTemplateFragment('mcq-learner-subpage-template',{});
   if(!body||!side)return false;
+  if(view==='overview'){
   const metrics=body.querySelector('[data-dashboard-metrics]');
   const metricItems=[
    {title:'MCQs Attempted',value:attempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'},
@@ -2893,6 +2894,128 @@ mountDataDrivenPage(base,id){
      content.append(title,meta);row.append(dot,content);recent.append(row);
     });
    }else recent.append(emptyFragment('No recent activity','Your preparation history will appear here.'));
+  }
+  }else{
+   const eyebrow=body.querySelector('[data-dashboard-view-eyebrow]'),titleNode=body.querySelector('[data-dashboard-view-title]'),description=body.querySelector('[data-dashboard-view-description]');
+   const viewMeta={
+    practice:['PRACTICE','Practice MCQs','Choose where to continue your preparation.'],
+    important:['PRIORITY REVIEW','Important MCQs','High-priority questions selected by the content team.'],
+    mistakes:['REVIEW','My Mistakes','Questions you answered incorrectly. Retry them until they become strengths.'],
+    saved:['BOOKMARKS','Saved MCQs','Your bookmarked revision list.'],
+    papers:['PAST PAPERS','Saved Papers','Saved papers and paper-based preparation.'],
+    tests:['TEST HISTORY','My Tests / Results','Your test activity and latest result summary.'],
+    performance:['ANALYTICS','My Performance','Learner-specific analytics from your actual attempts.'],
+    history:['ACTIVITY','Practice History','Your latest MCQ attempts, newest first.'],
+    notifications:['UPDATES','Notifications','Updates relevant to your account and preparation.'],
+    downloads:['RESOURCES','My Downloads','Resources your account is authorized to download.']
+   }[view]||['MY LEARNING','My Learning','Track your preparation and progress.'];
+   if(eyebrow)eyebrow.textContent=viewMeta[0];
+   if(titleNode)titleNode.textContent=viewMeta[1];
+   if(description)description.textContent=viewMeta[2];
+   const content=body.querySelector('[data-dashboard-view-content]'),quickActions=body.querySelector('[data-dashboard-quick-actions]');
+   const emptyFragment=(title,description,action=null)=>{
+    const fragment=this.staticTemplateFragment('mcq-empty-template',{
+     EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:title,EMPTY_DESCRIPTION:description,
+     EMPTY_ACTION:action||document.createDocumentFragment()
+    });
+    return fragment||document.createDocumentFragment();
+   };
+   const renderQuestionList=(rows,emptyTitle,emptyDescription,actionPath='mcqs',actionLabel='Practice MCQs',sectionTitle='')=>{
+    if(!content)return;
+    const section=document.createElement('section');section.className='card learner-question-list';
+    if(sectionTitle){const heading=document.createElement('h3');heading.textContent=sectionTitle;section.append(heading);}
+    if(rows.length){
+     const list=document.createElement('div');list.className='learner-dashboard-question-list';
+     rows.forEach(question=>list.append(questionCardFragment(question,true)));
+     section.append(list);
+    }else section.append(emptyFragment(emptyTitle,emptyDescription,makeInternalLink(actionPath,actionLabel,'btn primary')));
+    content.append(section);
+   };
+   const makeMetric=(container,item)=>{
+    const subtitle=document.createElement('span');subtitle.className='stat-card-subtitle';subtitle.textContent=item.subtitle||'';
+    const template=this.staticTemplateFragment('mcq-stat-card-content-template',{
+     STAT_TITLE:String(item.title),STAT_ICON:this.staticMarkupFragment(UI.icon(item.icon||'book')),
+     STAT_VALUE:String(item.value),STAT_SUBTITLE:subtitle,STAT_SKELETON:document.createDocumentFragment()
+    });
+    const link=makeInternalLink(item.path||'dashboard/performance','',('card stat-card tone-'+(item.tone||'primary')+' stat-card-link clickable'));
+    const tone=template?.querySelector('.stat-card-icon');
+    if(tone){tone.classList.remove('tone-__SLOT_STAT_TONE__');tone.classList.add('tone-'+(item.tone||'primary'));}
+    if(template)link.append(template);
+    container?.append(link);
+   };
+   const publicMcqs=MCQ.publicMcqs(),attemptedIds=new Set(attempts.map(item=>Number(item.id)));
+   if(view==='practice'){
+    if(quickActions){quickActions.append(makeInternalLink('mcqs','Practice MCQs','btn primary'),makeInternalLink('dashboard/mistakes','Review mistakes','btn'));}
+    renderQuestionList(publicMcqs.filter(question=>!attemptedIds.has(Number(question.id))).slice(0,20),'You have explored every available MCQ','Revisit your mistakes or try random practice.','mcqs','Browse MCQs','Unattempted MCQs');
+   }else if(view==='important'){
+    renderQuestionList(publicMcqs.filter(question=>MCQ.isImportant(question)).slice(0,30),'No important MCQs available','Check again when important questions are published.','mcqs','Practice MCQs');
+   }else if(view==='mistakes'){
+    renderQuestionList(mistakes,'No mistakes to review','Incorrect answers will appear here automatically.','mcqs','Practice MCQs');
+   }else if(view==='saved'){
+    renderQuestionList(savedMcqs,'No saved MCQs yet','Bookmark questions while practising to keep them here.','mcqs','Browse MCQs');
+   }else if(view==='papers'){
+    const rows=(data.savedPapers||[]).map(value=>MCQ.get('papers',value)||MCQ.get('years',value)).filter(Boolean);
+    if(content){
+     if(rows.length){const grid=document.createElement('div');grid.className='grid paper-grid';rows.forEach(item=>grid.append(entityCardFragment(MCQ.get('papers',item.id)?'papers':'years',item)));content.append(grid);}
+     else content.append(emptyFragment('No saved papers yet','Browse past papers and save the ones you want to revisit.',makeInternalLink('papers','Explore papers','btn primary')));
+    }
+   }else if(view==='tests'){
+    const count=Number(session.testsTaken||0),last=session.lastTestSummary;
+    if(count){
+     const grid=document.createElement('div');grid.className='learner-metrics profile-test-metrics';
+     makeMetric(grid,{title:'Tests Taken',value:count,icon:'check',tone:'primary',subtitle:'Completed tests',path:'tests'});
+     makeMetric(grid,{title:'Latest Score',value:last?String(last.correct)+' / '+String(last.total):'—',icon:'chart',tone:'success',subtitle:last?Math.round(last.correct/Math.max(1,last.total)*100)+'% accuracy':'Take a test to see results',path:'tests'});
+     content?.append(grid);
+    }else content?.append(emptyFragment('No tests taken yet','Complete a test and your results will appear here.',makeInternalLink('tests','Browse Tests','btn primary')));
+   }else if(view==='performance'){
+    if(content){
+     const grid=document.createElement('div');grid.className='learner-metrics';
+     makeMetric(grid,{title:'Questions Attempted',value:attempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'});
+     makeMetric(grid,{title:'Accuracy',value:accuracy+'%',icon:'chart',tone:'success',subtitle:'Overall accuracy',path:'dashboard/performance'});
+     makeMetric(grid,{title:'Tests Taken',value:Number(session.testsTaken||0),icon:'check',tone:'primary',subtitle:'Completed tests',path:'dashboard/tests'});
+     content.append(grid);
+     const card=document.createElement('section');card.className='card';
+     const heading=document.createElement('h3');heading.textContent='Category performance';card.append(heading);
+     if(categoryStats.length){
+      const wrap=document.createElement('div');wrap.className='table-wrap';const table=document.createElement('table'),thead=document.createElement('thead'),headRow=document.createElement('tr');
+      ['Category','Attempted','Correct','Wrong','Accuracy'].forEach(label=>{const th=document.createElement('th');th.scope='col';th.textContent=label;headRow.append(th);});
+      thead.append(headRow);const tbody=document.createElement('tbody');
+      categoryStats.forEach(item=>{const row=document.createElement('tr');[item.category.name,item.total,item.correct,item.wrong,item.accuracy+'%'].forEach(value=>{const cell=document.createElement('td');cell.textContent=String(value??'');row.append(cell);});tbody.append(row);});
+      table.append(thead,tbody);wrap.append(table);card.append(wrap);
+     }else card.append(emptyFragment('No performance data yet','Answer MCQs to build your performance report.'));
+     content.append(card);
+    }
+   }else if(view==='history'){
+    if(content){
+     if(attempts.length){
+      const card=document.createElement('section');card.className='card table-wrap';
+      const table=document.createElement('table'),thead=document.createElement('thead'),headRow=document.createElement('tr');
+      ['Date','Question','Category','Result','Action'].forEach(label=>{const th=document.createElement('th');th.scope='col';th.textContent=label;headRow.append(th);});
+      thead.append(headRow);const tbody=document.createElement('tbody');
+      attempts.slice(0,100).forEach(item=>{
+       const question=MCQ.get('mcqs',item.id),category=MCQ.get('categories',question?.category_id),row=document.createElement('tr');
+       const date=document.createElement('td');date.textContent=String(UI.date(item.at)||'');
+       const title=document.createElement('td');title.textContent=String(question?.question||'Question');
+       const categoryCell=document.createElement('td');categoryCell.textContent=String(category?.name||'—');
+       const result=document.createElement('td'),badge=document.createElement('span');badge.className='badge '+(item.correct?'approved':'rejected');badge.textContent=item.correct?'Correct':'Wrong';result.append(badge);
+       const action=document.createElement('td');if(question)action.append(makeInternalLink('practice/'+question.id,'Retry','link'));
+       row.append(date,title,categoryCell,result,action);tbody.append(row);
+      });
+      table.append(thead,tbody);card.append(table);content.append(card);
+     }else content.append(emptyFragment('No practice history yet','Your preparation history will appear here.'));
+    }
+   }else if(view==='notifications'){
+    content?.append(emptyFragment('No notifications','The current backend has no learner-notification model yet, so this page intentionally does not show fake alerts.'));
+   }else if(view==='downloads'){
+    const rows=(data.pdfs||[]).filter(item=>MCQ.ids(item.authorized_user_ids).includes(Number(session.id)));
+    if(content){
+     if(rows.length){
+      const grid=document.createElement('div');grid.className='grid pdf-grid';
+      rows.forEach(item=>{const card=document.createElement('article');card.className='card';const heading=document.createElement('h3');heading.textContent=String(item.title||item.name||'PDF resource');const description=document.createElement('p');description.className='small muted';description.textContent='Authorized resource';card.append(heading,description);grid.append(card);});
+      content.append(grid);
+     }else content.append(emptyFragment('No downloads available yet.','Purchased or assigned PDFs will appear here when the backend grants access.'));
+    }
+   }
   }
   const avatar=(()=>{
    const value=String(session.avatar||'').trim();
