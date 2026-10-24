@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261024-single-script-v8">
+  <meta name="mcq-asset-version" content="20261024-single-script-v9">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="home">
@@ -70,7 +70,7 @@
       </section>
       <div data-api-region="home-middle-ad" hidden></div>
     </main></section>
-    <section data-static-page="mcqs"><main class="container page"><div data-api-region="breadcrumbs" hidden></div><header class="page-heading"><h1>MCQs</h1><p>Practice questions with answers and explanations.</p></header><form data-form="mcq-filter"><label>Search questions <input name="q" type="search"></label><button type="submit">Search</button></form><div data-api-region="mcq-summary" hidden></div><div data-api-region="year-actions" hidden></div><div data-api-region="mcq-list"><p class="muted" data-static-loading>Loading MCQs…</p></div><div data-api-region="mcq-detail-actions" hidden></div><section class="card related-box" data-api-region="mcq-related" hidden><div class="section-head"><div><p class="eyebrow">KEEP PRACTISING</p><h2>Related MCQs</h2></div></div><div data-api-region="mcq-related-list"></div></section><div data-api-region="mcq-pagination"><span class="muted" data-static-loading>Loading page controls…</span></div></main></section>
+    <section data-static-page="mcqs"><main class="container page"><div data-api-region="breadcrumbs" hidden></div><header class="page-heading"><h1>MCQs</h1><p>Practice questions with answers and explanations.</p></header><form data-form="search"><label for="mcq-page-search">Search questions <input id="mcq-page-search" name="q" type="search"></label><button class="btn" type="submit">Search</button></form><div data-api-region="search-filters" hidden></div><div data-api-region="mcq-summary" hidden></div><div data-api-region="year-actions" hidden></div><div data-api-region="mcq-list"><p class="muted" data-static-loading>Loading MCQs…</p></div><div data-api-region="mcq-detail-actions" hidden></div><section class="card related-box" data-api-region="mcq-related" hidden><div class="section-head"><div><p class="eyebrow">KEEP PRACTISING</p><h2>Related MCQs</h2></div></div><div data-api-region="mcq-related-list"></div></section><div data-api-region="mcq-pagination"><span class="muted" data-static-loading>Loading page controls…</span></div></main></section>
     <section data-static-page="categories"><main class="container page"><div data-api-region="breadcrumbs" hidden></div><header class="page-heading"><h1>MCQ Categories</h1><p>Browse questions by subject.</p></header><div data-api-region="category-context" hidden></div><div data-api-region="category-list"><p class="muted" data-static-loading>Loading categories…</p></div><div data-api-region="mcq-summary" hidden></div><div data-api-region="mcq-list" hidden></div><div data-api-region="mcq-pagination" hidden></div></main></section>
     <section data-static-page="past-papers"><main class="container page"><div data-api-region="breadcrumbs" hidden></div><header class="page-heading"><h1>Past Papers</h1><p>Browse organizations, boards, agencies and exam years.</p></header><div data-api-region="paper-context" hidden></div><div data-api-region="past-paper-summary" hidden></div><div data-api-region="organization-list"><p class="muted" data-static-loading>Loading organizations…</p></div><div data-api-region="past-paper-list"><p class="muted" data-static-loading>Loading past papers…</p></div><div data-api-region="past-paper-pagination" hidden></div><div data-api-region="route-detail" hidden></div></main></section>
     <section data-static-page="tests"><main class="container page"><div data-api-region="breadcrumbs" hidden></div><header class="page-heading"><h1>Online Tests</h1><p>Practice and review your answers.</p></header><div data-api-region="test-list"><p class="muted" data-static-loading>Loading tests…</p></div><div data-api-region="route-detail" hidden></div></main></section>
@@ -124,7 +124,7 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/script.js?v=20261024-single-script-v8"></script>
+  <script defer src="/assets/script.js?v=20261024-single-script-v9"></script>
 
   <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
   <template id="mcq-country-landing-template"><div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1><!-- SLOT:COUNTRY_TITLE --></h1><p class="muted"><!-- SLOT:COUNTRY_DESCRIPTION --></p><div class="country-choice-grid"><!-- SLOT:COUNTRY_CARDS --></div><p class="small muted country-landing-back"><!-- SLOT:COUNTRY_BACK_LINK --></p></section></div></template>
