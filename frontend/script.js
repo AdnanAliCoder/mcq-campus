@@ -2984,7 +2984,7 @@ mountStaticPage(base,renderedHtml){
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   posts:'blog',post:'blog','latest-jobs':'latest-jobs','latest-job':'latest-jobs',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',
-  contact:'contact'
+  contact:'contact',dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap'
  };
  const page=map[base];
  if(!page)return false;
@@ -3099,6 +3099,10 @@ mountStaticPage(base,renderedHtml){
  }else if(page==='contact'){
   populated=fillAny('contact-form',['form[data-form="contact"]'],sourceMain)||populated;
   populated=fillAny('route-detail',['.contact-details','.empty'],content)||populated;
+ }else if(page==='dashboard'){
+  populated=fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')||populated;
+ }else if(page==='sitemap'){
+  populated=fillAny('sitemap-content',['.sitemap-grid','.empty'],content)||populated;
  }
  if(!populated)return false;
  shell.querySelectorAll('[data-static-loading]').forEach(node=>node.remove());
