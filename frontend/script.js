@@ -3189,10 +3189,13 @@ showStaticShell(){
 },
 
 mountStaticPage(base,renderedHtml){
+ const discovery=window.SEO?.discoveryPage?.(location.pathname);
+ if(discovery?.landing?.type==='paper'&&discovery.landing.id)base='paper';
+ else if(discovery?.landing?.type==='job'&&discovery.landing.id)base='job';
  const map={
   home:'home',mcqs:'mcqs',important:'mcqs',topic:'mcqs',search:'mcqs',mcq:'mcqs',practice:'mcqs',
   categories:'categories',category:'categories',subcategory:'categories',
-  papers:'past-papers',paper:'past-papers',year:'past-papers',
+  papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   posts:'blog',post:'blog','latest-jobs':'latest-jobs','latest-job':'latest-jobs',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',
