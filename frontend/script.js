@@ -2777,8 +2777,8 @@ mountDataDrivenPage(base,id){
   return page.server===true&&page.scope==='public'&&page.routeKey===location.pathname+location.search?page:null;
  };
  if(base==='dashboard'||base==='profile'){
-  const view=String(id||'overview'),allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads'];
-  if(base!=='dashboard'||view==='settings'||!allowedDashboardViews.includes(view))return false;
+  const view=base==='profile'?'settings':String(id||'overview'),allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads','settings'];
+  if(!allowedDashboardViews.includes(view))return false;
   const session=data.session||{};
   const attempts=(data.attempts||[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
   const correct=attempts.filter(item=>item.correct).length,wrong=attempts.length-correct,accuracy=attempts.length?Math.round(correct/attempts.length*100):0;
@@ -2810,7 +2810,7 @@ mountDataDrivenPage(base,id){
     nav.append(anchor);
    });
   }
-  const body=view==='overview'?this.staticTemplateFragment('mcq-learner-overview-template',{}):this.staticTemplateFragment('mcq-learner-subpage-template',{});
+  const body=view==='settings'?this.staticTemplateFragment('mcq-learner-settings-template',{}):view==='overview'?this.staticTemplateFragment('mcq-learner-overview-template',{}):this.staticTemplateFragment('mcq-learner-subpage-template',{});
   if(!body||!side)return false;
   if(view==='overview'){
   const metrics=body.querySelector('[data-dashboard-metrics]');
@@ -2895,6 +2895,48 @@ mountDataDrivenPage(base,id){
     });
    }else recent.append(emptyFragment('No recent activity','Your preparation history will appear here.'));
   }
+  }else if(view==='settings'){
+   const settingsSession=session,form=body.querySelector('form[data-form="profile"]'),snapshot=body.querySelector('[data-profile-learning-snapshot]');
+   const name=String(settingsSession.name||'Learner'),email=String(settingsSession.email||'');
+   const heading=body.querySelector('[data-profile-name-heading]'),emailHeading=body.querySelector('[data-profile-email-heading]'),avatarRegion=body.querySelector('[data-profile-avatar]');
+   if(heading)heading.textContent=name;if(emailHeading)emailHeading.textContent=email;
+   const profileAvatar=(()=>{
+    const value=String(settingsSession.avatar||'').trim();
+    if(value&&(value.startsWith('/')&&!value.startsWith('//')||/^https?:\/\//i.test(value)||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(value))){
+     const image=document.createElement('img');image.className='profile-photo';image.src=value;image.alt='Current profile photo';return image;
+    }
+    const initials=name.split(/\s+/).map(part=>part[0]).filter(Boolean).slice(0,2).join('');
+    const span=document.createElement('span');span.className='profile-photo profile-photo-fallback';span.textContent=initials||'U';return span;
+   })();
+   if(avatarRegion)avatarRegion.replaceChildren(profileAvatar);
+   if(form){
+    const fields={name,email,country:String(settingsSession.country||'Pakistan'),exam_goal:String(settingsSession.exam_goal||'PPSC'),daily_goal:String(settingsSession.daily_goal||25)};
+    Object.entries(fields).forEach(([key,value])=>{const control=form.elements.namedItem(key);if(control)control.value=value;});
+    const interests=new Set(Array.isArray(settingsSession.interests)?settingsSession.interests:[]);
+    form.querySelectorAll('input[name="interests"]').forEach(input=>{input.checked=interests.has(input.value);});
+   }
+   const profileAttempts=attempts.filter(item=>!item.by_id||Number(item.by_id)===Number(settingsSession.id));
+   const profileCorrect=profileAttempts.filter(item=>item.correct).length,profileAccuracy=profileAttempts.length?Math.round(profileCorrect/profileAttempts.length*100):0;
+   const profileDates=[...new Set(profileAttempts.map(item=>String(item.at||'').slice(0,10)).filter(Boolean))].sort().reverse();
+   let streak=0;
+   if(profileDates.length){
+    let cursor=new Date();cursor.setHours(0,0,0,0);
+    const latest=new Date(profileDates[0]+'T00:00:00'),gap=Math.round((cursor-latest)/86400000);
+    if(gap<=1){cursor=latest;for(const date of profileDates){const day=new Date(date+'T00:00:00');if(Math.round((cursor-day)/86400000)===0){streak++;cursor=new Date(cursor.getTime()-86400000);}else break;}}
+   }
+   const profileStats=[
+    {title:'Questions Attempted',value:profileAttempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'},
+    {title:'Accuracy',value:profileAccuracy+'%',icon:'chart',tone:'success',subtitle:'Overall accuracy',path:'dashboard/performance'},
+    {title:'Tests Taken',value:Number(settingsSession.testsTaken||0),icon:'check',tone:'primary',subtitle:'Completed tests',path:'dashboard/tests'},
+    {title:'Current Streak',value:'🔥 '+streak,icon:'history',tone:'warning',subtitle:'Day streak',path:'dashboard/history'}
+   ];
+   if(snapshot)profileStats.forEach(item=>{
+    const subtitle=document.createElement('span');subtitle.className='stat-card-subtitle';subtitle.textContent=item.subtitle;
+    const fragment=this.staticTemplateFragment('mcq-stat-card-content-template',{STAT_TITLE:item.title,STAT_ICON:this.staticMarkupFragment(UI.icon(item.icon)),STAT_VALUE:String(item.value),STAT_SUBTITLE:subtitle,STAT_SKELETON:document.createDocumentFragment()});
+    const anchor=makeInternalLink(item.path,'','card stat-card tone-'+item.tone+' stat-card-link clickable');
+    const iconNode=fragment?.querySelector('.stat-card-icon');if(iconNode){iconNode.classList.remove('tone-__SLOT_STAT_TONE__');iconNode.classList.add('tone-'+item.tone);}
+    if(fragment)anchor.append(fragment);snapshot.append(anchor);
+   });
   }else{
    const eyebrow=body.querySelector('[data-dashboard-view-eyebrow]'),titleNode=body.querySelector('[data-dashboard-view-title]'),description=body.querySelector('[data-dashboard-view-description]');
    const viewMeta={
