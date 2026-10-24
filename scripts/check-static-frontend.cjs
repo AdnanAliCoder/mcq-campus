@@ -50,7 +50,7 @@ for (const id of requiredTemplates) {
   check(html.includes('id="' + id + '"'), 'reusable HTML template exists: ' + id);
 }
 
-const shellMarkers = [...html.matchAll(/<section\\s+data-static-page="([^"]+)"/g)];
+const shellMarkers = [...html.matchAll(/<section\s+data-static-page="([^"]+)"/g)];
 const pageShells = shellMarkers.map((match, index) => ({
   name: match[1],
   markup: html.slice(match.index, shellMarkers[index + 1]?.index ?? html.length),
