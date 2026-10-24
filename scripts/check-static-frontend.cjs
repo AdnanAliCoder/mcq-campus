@@ -20,7 +20,7 @@ const requiredTemplates = [
   'mcq-home-template', 'mcq-auth-layout-template',
   'mcq-learner-dashboard-template', 'mcq-admin-layout-template',
   'mcq-question-card-template', 'mcq-country-landing-template',
-  'mcq-country-entry-card-template', 'mcq-category-context-template', 'mcq-paper-context-template',
+  'mcq-country-entry-card-template', 'mcq-category-context-template', 'mcq-paper-context-template', 'mcq-blog-article-template',
 ];
 
 let failed = false;
@@ -137,7 +137,7 @@ check(runtime.includes("if(!page||['admin','super-admin'].includes(page))return 
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
-check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search']"), 'core public data renderer is explicitly scoped to migrated routes');
+check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post']"), 'core public data renderer is explicitly scoped to migrated routes');
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
 check(html.includes('data-api-region="home-top-ad"') && html.includes('data-api-region="home-middle-ad"'), 'home ad placements have static page regions');
 check(html.includes('data-api-region="jobs-pagination"'), 'latest-jobs pagination has its own static data region');
@@ -154,6 +154,10 @@ check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sour
 check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
 check(runtime.includes("if(base==='search')"), 'search results use the data-driven MCQ shell renderer');
 check(runtime.includes("Public.pdfResourceCard(item.record)"), 'search can render PDF results through the shared card template');
+check(runtime.includes("}else if(base==='pdf')"), 'PDF detail pages mount into the static PDF shell');
+check(runtime.includes("}else if(base==='latest-job')"), 'individual job details mount into the static Jobs shell');
+check(runtime.includes("}else if(base==='post')"), 'blog articles mount into the static Blog shell');
+check(html.includes('id="mcq-blog-article-template"'), 'blog detail has a hard-coded article template');
 check(html.includes('data-api-region="search-filters"') && html.includes('data-form="search"'), 'the static MCQ page provides an operational search form and filter region');
 check(html.includes('id="mcq-paper-context-template"'), 'organization detail has a reusable static context template');
 check(html.includes('data-api-region="mcq-related-list"') && html.includes('data-api-region="year-actions"'), 'MCQ detail and past-paper actions have static API regions');
