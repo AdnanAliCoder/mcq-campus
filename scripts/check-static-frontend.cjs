@@ -13,7 +13,7 @@ const nginx = read('deploy/nginx/mcqcampus-frontend-locations.conf');
 const expectedPages = [
   'home', 'mcqs', 'categories', 'past-papers', 'tests', 'pdfs', 'blog',
   'latest-jobs', 'login', 'register', 'country-entry', 'dashboard', 'admin', 'super-admin',
-  'about', 'contact', 'sitemap',
+  'about', 'contact', 'sitemap', 'forgot', 'reset-code', 'reset-password', 'verify',
 ];
 const requiredTemplates = [
   'mcq-layout-template', 'mcq-header-template', 'mcq-footer-template',
@@ -78,6 +78,10 @@ const requiredRegionsByPage = {
   about: ['about-content'],
   contact: ['contact-form'],
   sitemap: ['sitemap-content'],
+  forgot: ['auth-form'],
+  'reset-code': ['auth-form'],
+  'reset-password': ['auth-form'],
+  verify: ['auth-form'],
 };
 for (const [page, regions] of Object.entries(requiredRegionsByPage)) {
   const shell = pageShells.find(match => match.name === page)?.markup || '';
@@ -136,6 +140,9 @@ check(html.includes('Choose your country and create an account') && html.include
 check(runtime.includes("if(!page||['admin','super-admin'].includes(page))return false;"), 'admin and super-admin routes stay on their protected workspace renderer');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
+check(runtime.includes("['forgot','reset-code','reset-password','verify'].includes(base)"), 'secondary account flows are rendered in static shells');
+check(runtime.includes("const renderedAuth=Auth.view(base)"), 'account forms preserve existing reset and verification handlers');
+check(html.includes('data-static-page="forgot"') && html.includes('data-static-page="reset-code"') && html.includes('data-static-page="reset-password"') && html.includes('data-static-page="verify"'), 'recovery and verification pages have hard-coded HTML shells');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
 check(runtime.includes("const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','posts','tests','login','register','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post']"), 'core public data renderer is explicitly scoped to migrated routes');
 check(html.includes('id="mcq-home-category-item-template"'), 'home category cards have a hard-coded HTML template');
