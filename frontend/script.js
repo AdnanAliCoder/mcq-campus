@@ -1,7 +1,8 @@
 /* MCQCampus unified first-party script. Modules retained in dependency order; Django remains the data/auth API. */
 
 /* SOURCE: frontend/js/admin-loader.js */
-(function(g){const allowed=new Set(["importer.js","enhancements.js","admin.js"]),loaded=new Set(),pending=new Map();g.MCQCampusLoadBundledModule=n=>{if(!allowed.has(n))return Promise.reject(Error("Unknown module: "+n));if(loaded.has(n))return Promise.resolve();if(pending.has(n))return pending.get(n);const p=new Promise((ok,no)=>{const s=document.createElement("script");s.src="/assets/js/admin/"+n+"?v=20261021-static-multipage-v1";s.async=true;s.onload=()=>{loaded.add(n);ok()};s.onerror=()=>no(Error("Unable to load admin module: "+n));document.head.appendChild(s)}).finally(()=>pending.delete(n));pending.set(n,p);return p}})(window);
+/* Admin modules are bundled into this one file. Never request deleted split-module assets. */
+(function(g){const allowed=new Set(["importer.js","enhancements.js","admin.js"]);g.MCQCampusLoadBundledModule=async n=>{if(!allowed.has(n))throw Error("Unknown bundled module: "+n);return true}})(window);
 
 
 /* SOURCE: frontend/js/integrations.js */
@@ -550,7 +551,15 @@ window.Public=(()=>{
   const options=[1,2,3,4].map((n,i)=>{
    const text=q['option'+n];
    const state=answer?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';
-   return btn('<span class="letter">'+'ABCD'[i]+'</span><span class="option-text">'+e(text)+'</span><span class="option-indicator" aria-hidden="true"></span>','choose','option '+state,'data-id="'+q.id+'" data-option="'+n+'" aria-pressed="'+(text===chosen)+'" '+(answer?'disabled':''));
+   return templateMarkup('mcq-question-option-template',{
+    OPTION_STATE:state,
+    OPTION_QUESTION_ID:String(q.id),
+    OPTION_NUMBER:String(n),
+    OPTION_PRESSED:String(text===chosen),
+    OPTION_DISABLED:answer?'disabled':'',
+    OPTION_LETTER:'ABCD'[i],
+    OPTION_TEXT:e(text)
+   });
   }).join('');
   const explanation=answer?'<div class="explanation mcq-verified-answer" role="status"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>'+e(q.correct_answer)+'</b></strong></div><p>'+e(q.description||'No explanation has been added yet.')+'</p>'+relationships(q,contextYearId)+'</div>':'';
   const hint=!answer?'<span class="small muted">Select an option to check your answer instantly.</span>':'';
@@ -910,7 +919,7 @@ window.Public=(()=>{
   if(MCQ.db.settings?.footer?.showSitemap===false)return notFound();const groups=[['Main Pages',[['Home','home'],['Past Papers','papers'],['Organizations / Boards','papers'],['MCQs','mcqs'],['Categories','categories'],['PDFs','pdfs'],['Latest Jobs','latest-jobs'],['Blog','posts']]]];const main=`<div class="sitemap-grid">${groups.map(([g,items])=>`<div class="card"><h2>${g}</h2>${items.map(([l,p])=>link(p,l,'discovery-link')).join('')}</div>`).join('')}</div>`;return PublicLayout.page({trail:[['Sitemap']],title:'Sitemap',desc:'Browse public study sections, organization pages, past papers and preparation resources.',main,sidebar:PublicLayout.smart('papers'),sidebarLabel:'Related / Browse'});
  }
  function notFound(){return UI.layout(`<div class="container page"><div class="error-page"><p class="eyebrow">404 · PAGE NOT FOUND</p><h1>We could not find that page.</h1><p>The link may be old, incomplete, or no longer available.</p><div class="actions">${link('home','Home','btn primary')}${link('search','Search','btn')}${link('categories','Categories','btn')}${link('papers','Past papers','btn')}</div></div></div>`)}
- return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,jobsExams,pdfs,pdf,latestJobs,latestJob,dashboard,info,profileForm,sitemap,notFound};
+ return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,automaticTestPlan,jobsExams,pdfs,pdf,pdfResourceCard,latestJobs,latestJob,latestJobCard,blogPostCard,dashboard,info,profileForm,sitemap,notFound};
 })();
 
 
@@ -1938,7 +1947,7 @@ window.Auth=(()=>{
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
- return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
+ return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,syncVerificationTimer,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
 })();
 
 
@@ -2417,11 +2426,11 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
   .catch(error=>{this.adminBundlePromise=null;throw error});
  return this.adminBundlePromise;
 },
-staticPageMarkup(shell,page){
+staticPageNode(shell,page){
  if(page==='country-entry'){
   const countryMain=shell.querySelector('main');
   if(countryMain){countryMain.id='main';countryMain.tabIndex=-1;}
-  return shell.outerHTML;
+  return shell;
  }
  shell.querySelectorAll('main').forEach(node=>{
   const wrapper=document.createElement('div');
@@ -2432,7 +2441,1243 @@ staticPageMarkup(shell,page){
   while(node.firstChild)wrapper.appendChild(node.firstChild);
   node.replaceWith(wrapper);
  });
- return window.UI?.layout?.(shell.outerHTML,page)||('<main id="main" tabindex="-1">'+shell.outerHTML+'</main>');
+ const layoutTemplate=document.getElementById('mcq-layout-template');
+ if(!layoutTemplate)return shell;
+ const fragment=layoutTemplate.content.cloneNode(true);
+ const slotMarkup={
+  LAYOUT_HEADER:()=>window.UI?.header?.(page)||'',
+  LAYOUT_HEADER_AD:()=>window.UI?.adSlot?.('header_ad')||'',
+  LAYOUT_FOOTER_AD:()=>window.UI?.adSlot?.('footer_ad')||'',
+  LAYOUT_FOOTER:()=>window.UI?.footer?.()||''
+ };
+ const walker=document.createTreeWalker(fragment,128);
+ const comments=[];
+ while(walker.nextNode())comments.push(walker.currentNode);
+ for(const comment of comments){
+  const match=String(comment.nodeValue||'').trim().match(/^SLOT:(LAYOUT_[A-Z_]+)$/);
+  if(!match)continue;
+  const slot=match[1];
+  if(slot==='LAYOUT_BODY'){
+   comment.replaceWith(shell);
+   continue;
+  }
+  if(!Object.prototype.hasOwnProperty.call(slotMarkup,slot))continue;
+  const holder=document.createElement('template');
+  holder.innerHTML=String(slotMarkup[slot]());
+  comment.replaceWith(holder.content.cloneNode(true));
+ }
+ return fragment;
+},
+staticMarkupFragment(markup){
+ const holder=document.createElement('template');
+ holder.innerHTML=String(markup??'');
+ return holder.content;
+},
+staticTemplateFragment(id,slots={}){
+ const template=document.getElementById(id);
+ if(!template)return null;
+ const fragment=template.content.cloneNode(true);
+ const walker=document.createTreeWalker(fragment,NodeFilter.SHOW_COMMENT);
+ const comments=[];
+ while(walker.nextNode())comments.push(walker.currentNode);
+ for(const comment of comments){
+  const match=String(comment.nodeValue||'').trim().match(/^SLOT:([A-Z0-9_]+)$/);
+  if(!match)continue;
+  const key=match[1];
+  if(!Object.prototype.hasOwnProperty.call(slots,key)){comment.remove();continue;}
+  const value=slots[key];
+  if(value&&typeof value==='object'&&typeof value.nodeType==='number')comment.replaceWith(value);
+  else comment.replaceWith(document.createTextNode(String(value??'')));
+ }
+ return fragment;
+},
+mountDataDrivenPage(base,id){
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','jobs-exams','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap','dashboard','profile'];
+ const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','test','pdf','latest-job','post'];
+ if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id&&!['dashboard','profile'].includes(base)))return false;
+ const parent=document.getElementById('static-page-shells');
+ const root=document.getElementById('app');
+ if(!parent||!root)return false;
+ const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim();
+ const showCountryEntry=()=>{
+  const countrySource=parent.querySelector('[data-static-page="country-entry"]');
+  if(!countrySource)return false;
+  const countryShell=countrySource.cloneNode(true);
+  const choices=countryShell.querySelector('.country-entry-grid');
+  const template=document.getElementById('mcq-country-entry-card-template');
+  const countries=(MCQ.db?.countries||[]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  if(choices&&template){
+   choices.replaceChildren();
+   for(const item of countries){
+    const name=String(item.name).trim(),card=template.content.cloneNode(true);
+    const flag=card.querySelector('[data-country-flag]'),heading=card.querySelector('[data-country-name]'),description=card.querySelector('[data-country-description]'),login=card.querySelector('[data-country-login]'),register=card.querySelector('[data-country-register]');
+    if(flag)flag.textContent=UI.countryFlag(name);
+    if(heading)heading.textContent=name;
+    if(description)description.textContent=name.toLowerCase()==='pakistan'?'PPSC, FPSC, SPSC, NTS and more':name.toLowerCase()==='india'?'Competitive exams and practice':name.toLowerCase()==='usa'?'Exam practice and learning resources':'Competitive exams and practice resources';
+    const query='?'+new URLSearchParams({country:name}).toString();
+    if(login)login.href='/login'+query;
+    if(register)register.href='/register'+query;
+    choices.append(card);
+   }
+   if(!countries.length)choices.textContent='No active countries are configured yet.';
+  }
+  root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
+  root.removeAttribute('aria-busy');
+  document.body.dataset.pageTemplate='country-entry';
+  document.body.dataset.staticFallback='country-entry';
+  return true;
+ };
+ if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
+ const shellKey=['papers','paper','jobs-exams'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':['dashboard','profile'].includes(base)?'dashboard':base;
+ const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
+ if(!source)return false;
+ const shell=source.cloneNode(true);
+ shell.dataset.staticFallback='true';
+ const region=name=>shell.querySelector('[data-api-region="'+name+'"]');
+ const setMarkup=(name,markup)=>{
+  const dest=region(name);if(!dest)return false;
+  dest.replaceChildren(this.staticMarkupFragment(markup));
+  dest.hidden=false;
+  return true;
+ };
+ const setText=(name,value)=>{
+  const dest=region(name);if(!dest)return false;
+  dest.textContent=String(value??'');dest.hidden=false;return true;
+ };
+ const setBreadcrumbs=items=>{
+  const dest=region('breadcrumbs');if(!dest)return false;
+  const nav=document.createElement('nav');nav.className='breadcrumbs';nav.setAttribute('aria-label','Breadcrumb');
+  (items||[]).forEach((item,index)=>{
+   if(index){const separator=document.createElement('span');separator.setAttribute('aria-hidden','true');separator.textContent='›';nav.append(separator);}
+   const label=String(item?.[0]??'');
+   if(item&&item[1]){const anchor=document.createElement('a');anchor.href=UI.href(item[1]);anchor.textContent=label;nav.append(anchor);}
+   else{const current=document.createElement('span');current.setAttribute('aria-current','page');current.textContent=label;nav.append(current);}
+  });
+  dest.replaceChildren(nav);dest.hidden=false;return true;
+ };
+ const pageHeading=(title,description)=>{
+  const heading=shell.querySelector('.page-heading h1'),summary=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=String(title||'');
+  if(summary&&description!==undefined)summary.textContent=String(description||'');
+ };
+ const appendManagedText=(container,value)=>{
+  if(!container)return;
+  const lines=String(value||'').replace(/\r/g,'').split('\n');
+  let paragraph=[],list=null;
+  const flushParagraph=()=>{
+   if(!paragraph.length)return;
+   const node=document.createElement('p'),text=paragraph.join(' ').trim();
+   text.split(/(\*\*[^*]+\*\*)/g).forEach(piece=>{
+    if(piece.startsWith('**')&&piece.endsWith('**')&&piece.length>4){const strong=document.createElement('strong');strong.textContent=piece.slice(2,-2);node.append(strong);}
+    else node.append(document.createTextNode(piece));
+   });
+   if(text)container.append(node);paragraph=[];
+  };
+  const flushList=()=>{if(list&&list.children.length)container.append(list);list=null;};
+  for(const line of lines){
+   const clean=line.trim();
+   if(!clean){flushParagraph();flushList();continue;}
+   const heading=clean.match(/^(#{1,3})\s+(.+)$/);
+   if(heading){flushParagraph();flushList();const node=document.createElement(heading[1].length===1?'h2':heading[1].length===2?'h3':'h4');node.textContent=heading[2];container.append(node);continue;}
+   const bullet=clean.match(/^[-*]\s+(.+)$/);
+   if(bullet){flushParagraph();if(!list)list=document.createElement('ul');const item=document.createElement('li');item.textContent=bullet[1];list.append(item);continue;}
+   flushList();paragraph.push(clean);
+  }
+  flushParagraph();flushList();
+ };
+ const makeInternalLink=(path,label,className)=>{
+  const anchor=document.createElement('a');anchor.href=UI.href(path);anchor.textContent=String(label||'');anchor.className=className||'link';return anchor;
+ };
+ let cachedPublicQuestions=null;
+ const getPublicQuestions=()=>cachedPublicQuestions||(cachedPublicQuestions=MCQ.publicMcqs());
+ const questionCardFragment=(question,compact=false,contextYearId=null)=>{
+  const questionId=Number(question?.id)||0,chosen=App.choices[questionId],answer=App.answers[questionId];
+  const iconButton=(name,label,action)=>{
+   const button=document.createElement('button');button.type='button';button.className='btn ghost';button.dataset.action=action;button.dataset.id=String(questionId);button.setAttribute('aria-label',label);
+   button.append(this.staticMarkupFragment(UI.icon(name)));return button;
+  };
+  const tags=document.createDocumentFragment(),tagWrap=document.createElement('div');tagWrap.className='mcq-question-tags';
+  if(MCQ.isImportant(question)){const important=document.createElement('span');important.className='badge mcq-important-badge';important.textContent='Important';tagWrap.append(important);}
+  const paperId=MCQ.ids(question.paper_id)[0],paper=paperId?MCQ.get('papers',paperId):null,country=String(question.country||paper?.country||data.settings?.country||'Pakistan').trim()||'Pakistan';
+  if(String(question.bps||'').trim()){const bps=document.createElement('span');bps.className='badge';bps.textContent=String(question.bps).trim();tagWrap.append(bps);}
+  const countryBadge=document.createElement('span');countryBadge.className='badge mcq-country-badge';countryBadge.textContent=country;tagWrap.append(countryBadge);tags.append(tagWrap);
+  const bookmarkIds=Array.isArray(data.bookmarks)?data.bookmarks:[];
+  const bookmarked=bookmarkIds.some(value=>Number(value)===questionId);
+  const bookmark=iconButton('bookmark',bookmarked?'Remove bookmark':'Bookmark question','bookmark');bookmark.setAttribute('aria-pressed',String(bookmarked));
+  const rows=getPublicQuestions(),globalIndex=rows.findIndex(item=>Number(item.id)===questionId),next=globalIndex>=0&&globalIndex<rows.length-1?rows[globalIndex+1]:rows[0];
+  let nextLink=document.createDocumentFragment();
+  if(compact&&next&&Number(next.id)!==questionId){const link=makeInternalLink('practice/'+next.id,'','btn ghost quick-next');link.setAttribute('aria-label','Next practice question');link.append(this.staticMarkupFragment(UI.icon('arrow')));nextLink.append(link);}
+  const options=document.createDocumentFragment();
+  [1,2,3,4].forEach((number,index)=>{
+   const value=String(question['option'+number]||''),state=answer?(value===question.correct_answer?'correct':value===chosen?'wrong':''):value===chosen?'selected':'';
+   const button=document.createElement('button');button.type='button';button.className='btn option'+(state?' '+state:'');button.dataset.action='choose';button.dataset.id=String(questionId);button.dataset.option=String(number);button.setAttribute('aria-pressed',String(value===chosen));button.disabled=Boolean(answer);
+   const letter=document.createElement('span');letter.className='letter';letter.textContent='ABCD'[index];button.append(letter);
+   const text=document.createElement('span');text.className='option-text';text.textContent=value;button.append(text);
+   const indicator=document.createElement('span');indicator.className='option-indicator';indicator.setAttribute('aria-hidden','true');button.append(indicator);options.append(button);
+  });
+  let explanation=document.createDocumentFragment(),hint=document.createDocumentFragment();
+  if(answer){
+   const box=document.createElement('div');box.className='explanation mcq-verified-answer';box.setAttribute('role','status');
+   const head=document.createElement('div');head.className='verified-answer-head';
+   const mark=document.createElement('span');mark.className='verified-check';mark.setAttribute('aria-hidden','true');mark.textContent='✓';head.append(mark);
+   const statement=document.createElement('strong');statement.append(document.createTextNode('Correct Answer: '));const correct=document.createElement('b');correct.textContent=String(question.correct_answer||'');statement.append(correct);head.append(statement);box.append(head);
+   const details=document.createElement('p');details.textContent=String(question.description||'No explanation has been added yet.');box.append(details);
+   let years=MCQ.ids(question.job_years_ids).map(yearId=>MCQ.get('years',yearId)).filter(Boolean);
+   if(contextYearId)years=years.filter(item=>Number(item.id)===Number(contextYearId));
+   if(years.length){
+    const group=document.createElement('div');group.className='mcq-answer-years';group.setAttribute('aria-label','Years');const label=document.createElement('span');label.className='mcq-years-label';label.textContent='Years';const chips=document.createElement('div');chips.className='chips';
+    years.forEach(year=>chips.append(makeInternalLink('year/'+year.id,String(year.name||''),'chip mcq-year-chip')));
+    group.append(label,chips);box.append(group);
+   }
+   explanation.append(box);
+  }else{
+   const prompt=document.createElement('span');prompt.className='small muted';prompt.textContent='Select an option to check your answer instantly.';hint.append(prompt);
+  }
+  const share=iconButton('share','Share question','share'),copy=iconButton('copy','Copy question link','copy'),report=iconButton('flag','Report question','report');
+  const fragment=this.staticTemplateFragment('mcq-question-card-template',{
+   QUESTION_TAGS:tags,QUESTION_BOOKMARK:bookmark,QUESTION_NEXT_LINK:nextLink,
+   QUESTION_LINK:makeInternalLink('mcq/'+questionId,String(question.question||''),'mcq-question-link'),
+   QUESTION_OPTIONS:options,QUESTION_EXPLANATION:explanation,QUESTION_PRE_ANSWER_HINT:hint,
+   QUESTION_SHARE_BUTTON:share,QUESTION_COPY_BUTTON:copy,QUESTION_REPORT_BUTTON:report
+  });
+  const article=fragment?.querySelector('.mcq-card');
+  if(article){article.dataset.question=String(questionId);article.classList.remove('__SLOT_COMPACT_CLASS__');if(compact)article.classList.add('mcq-card-compact');return fragment;}
+  return this.staticMarkupFragment(Public.questionCard(question,1,compact,contextYearId));
+ };
+ const setQuestionCards=(name,questions,{compact=false,contextYearId=null,emptyMarkup=''}={})=>{
+  const destination=region(name);if(!destination)return false;
+  const fragment=document.createDocumentFragment();
+  if(questions.length)questions.forEach(question=>fragment.append(questionCardFragment(question,compact,contextYearId)));
+  else if(emptyMarkup)fragment.append(this.staticMarkupFragment(emptyMarkup));
+  destination.replaceChildren(fragment);destination.hidden=false;return true;
+ };
+ const entityCardFragment=(type,item,index=0)=>{
+  const parentJob=type==='years'&&item.job_id?MCQ.get('jobs',item.job_id):null;
+  const parentPaper=type==='years'?(MCQ.get('papers',item.paper_id)||(parentJob?MCQ.get('papers',parentJob.paper_id):null)):null;
+  const questions=getPublicQuestions();
+  let count=null;
+  if(type==='categories'){
+   count=Number.isFinite(Number(item.mcq_count))?Number(item.mcq_count):questions.filter(question=>Number(question.category_id)===Number(item.id)).length;
+  }else if(type==='years'){
+   count=Number.isFinite(Number(item.mcq_count))?Number(item.mcq_count):questions.filter(question=>MCQ.ids(question.job_years_ids).includes(Number(item.id))).length;
+  }else{
+   count=(data.years||[]).filter(year=>year.active!==false&&(Number(year.paper_id)||Number(MCQ.get('jobs',year.job_id)?.paper_id)||0)===Number(item.id)).length;
+  }
+  const config=type==='categories'
+   ?{badge:String(item.country||'Category'),subtitle:'Practice approved MCQs in this category.',meta:count+' MCQs',fallback:'grid'}
+   :type==='years'
+    ?{badge:String(parentPaper?.name||'Past Paper'),subtitle:'Open this past paper to practise linked MCQs.',meta:count+' MCQs',fallback:'paper'}
+    :{badge:String(item.country||data.settings?.country||'Pakistan'),subtitle:'Past papers for this Organization / Board.',meta:count+' past paper'+(count===1?'':'s'),fallback:'paper'};
+  let path=type==='categories'?'category/'+item.id:type==='years'?(window.SEO?.cleanPath?SEO.cleanPath('year',item.id):(parentPaper?'paper/'+parentPaper.id+'/year/'+item.id:'year/'+item.id)):'paper/'+item.id;
+  if(type==='papers'&&window.SEO?.cleanPath)path=SEO.cleanPath('paper',item.id);
+  const anchor=makeInternalLink(path,'','card clickable entity-showcase-card');
+  const card=this.staticTemplateFragment('mcq-showcase-card-template',{
+   SHOWCASE_ICON:this.staticMarkupFragment(UI.entityIcon(item,config.fallback)),
+   SHOWCASE_BADGE:config.badge,SHOWCASE_TITLE:String(item.name||''),
+   SHOWCASE_SUBTITLE:config.subtitle,SHOWCASE_META_ICON:this.staticMarkupFragment(UI.icon('briefcase')),
+   SHOWCASE_META:config.meta,SHOWCASE_ARROW:this.staticMarkupFragment(UI.icon('arrow'))
+  });
+  if(card)anchor.append(card);
+  return anchor;
+ };
+ const pdfCardFragment=item=>{
+  const url=String(item.download_url||'').trim(),coverUrl=String(item.cover||'').trim(),title=String(item.title||item.name||'PDF resource'),slug=String(item.slug||MCQ.slug(title)),path=window.SEO?.cleanPath?SEO.cleanPath('pdf',item.id):'pdf/'+slug;
+  const pdfUrl=url.toLowerCase().startsWith('https://')||url.toLowerCase().startsWith('http://')||url.toLowerCase().startsWith('data:application/pdf;base64,');
+  const imageUrl=coverUrl.toLowerCase().startsWith('https://')||coverUrl.toLowerCase().startsWith('http://')||coverUrl.toLowerCase().startsWith('data:image/');
+  let cover=document.createDocumentFragment();
+  if(imageUrl){const image=document.createElement('img');image.src=coverUrl;image.alt=title;image.loading='lazy';image.decoding='async';cover.append(image);}
+  const titleLink=makeInternalLink(path,title);
+  let description=document.createDocumentFragment();
+  if(item.description){const paragraph=document.createElement('p');paragraph.textContent=String(item.description);description.append(paragraph);}
+  const openLink=makeInternalLink(path,'Open PDF details');
+  let download;
+  if(pdfUrl){download=document.createElement('a');download.className='btn primary';download.href=url;download.dataset.authAction='download-pdf';download.dataset.authDownloadName=MCQ.slug(title||'mcq-campus')+'.pdf';download.textContent='Download PDF';
+   if(url.toLowerCase().startsWith('data:'))download.download=MCQ.slug(title||'mcq-campus')+'.pdf';else{download.target='_blank';download.rel='noopener';}
+  }else{download=document.createElement('span');download.className='btn disabled';download.setAttribute('aria-disabled','true');download.textContent='Download unavailable';}
+  return this.staticTemplateFragment('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:titleLink,PDF_DESCRIPTION:description,PDF_OPEN_LINK:openLink,PDF_DOWNLOAD:download})||document.createDocumentFragment();
+ };
+ const latestJobCardFragment=job=>{
+  const organization=MCQ.get('papers',job.paper_id),title=String(job.title||'Job opportunity'),path=window.SEO?.cleanPath?SEO.cleanPath('latest-job',job.id):'latest-job/'+String(job.slug||MCQ.slug(title)),applyUrl=String(job.apply_url||'').trim(),prepUrl=String(job.prep_url||'').trim();
+  const logo=this.staticMarkupFragment(organization?UI.entityIcon(organization,'briefcase'):UI.icon('briefcase'));
+  const titleLink=makeInternalLink(path,title),detailsLink=makeInternalLink(path,'View job details');
+  let description=document.createDocumentFragment();
+  if(job.description){const paragraph=document.createElement('p');paragraph.textContent=String(job.description);description.append(paragraph);}
+  const actions=document.createElement('div');actions.className='latest-job-action';const actionList=document.createElement('div');actionList.className='actions';
+  if(applyUrl.toLowerCase().startsWith('https://')||applyUrl.toLowerCase().startsWith('http://')){
+   const apply=document.createElement('a');apply.className='btn sm';apply.href=applyUrl;apply.target='_blank';apply.rel='noopener';apply.dataset.authAction='apply-job';apply.textContent='Apply';actionList.append(apply);
+  }
+  if(prepUrl.toLowerCase().startsWith('https://')||prepUrl.toLowerCase().startsWith('http://')||(prepUrl.startsWith('/')&&!prepUrl.startsWith('//'))){
+   const papers=document.createElement('a');papers.className='btn sm';papers.href=prepUrl;papers.textContent='Past Papers';
+   if(prepUrl.toLowerCase().startsWith('http://')||prepUrl.toLowerCase().startsWith('https://')){papers.target='_blank';papers.rel='noopener';}
+   actionList.append(papers);
+  }else if(organization)actionList.append(makeInternalLink('paper/'+organization.id,'Past Papers','btn sm'));
+  if(actionList.childNodes.length)actions.append(actionList);
+  return this.staticTemplateFragment('mcq-latest-job-card-template',{
+   JOB_LOGO:logo,JOB_ORGANIZATION:String(organization?.name||'Organization'),JOB_TITLE_LINK:titleLink,
+   JOB_DESCRIPTION:description,JOB_LAST_DATE:String(UI.date(job.last_date)||''),JOB_DETAILS_LINK:detailsLink,JOB_ACTIONS:actions
+  })||document.createDocumentFragment();
+ };
+ const blogPostCardFragment=post=>{
+  const safeUrl=value=>{const text=String(value||'').trim().toLowerCase();return text.startsWith('https://')||text.startsWith('http://')||text.startsWith('#/');};
+  const source=(post.links||[]).find(item=>item&&item.label==='__blog_url'&&safeUrl(item.url));
+  const href=source?String(source.url):UI.href('post/'+post.id),external=source&&(href.toLowerCase().startsWith('http://')||href.toLowerCase().startsWith('https://'));
+  const fragment=this.staticTemplateFragment('mcq-blog-post-card-template',{});
+  if(!fragment)return document.createDocumentFragment();
+  const anchor=fragment.querySelector('a.content-showcase-card');
+  if(anchor){anchor.href=href;anchor.removeAttribute('__SLOT_BLOG_TARGET__');if(external){anchor.target='_blank';anchor.rel='noopener';}}
+  const category=fragment.querySelector('.content-pill'),title=fragment.querySelector('h3'),date=fragment.querySelector('.content-date span'),excerptPlaceholder=fragment.querySelector('h3')?.nextElementSibling,media=fragment.querySelector('.content-showcase-media');
+  if(category)category.textContent=String(post.category||'UPDATE');
+  if(title)title.textContent=String(post.title||'Update');
+  if(date)date.textContent=String(UI.date(post.updated_at||post.created_at)||'');
+  if(excerptPlaceholder&&excerptPlaceholder.tagName==='P')excerptPlaceholder.remove();
+  if(post.excerpt&&title){const paragraph=document.createElement('p');paragraph.textContent=String(post.excerpt);title.after(paragraph);}
+  if(media){
+   media.replaceChildren();
+   const imageUrl=String(post.featured_image||'').trim();
+   if(imageUrl&&(imageUrl.toLowerCase().startsWith('https://')||imageUrl.toLowerCase().startsWith('http://')||(imageUrl.startsWith('/')&&!imageUrl.startsWith('//')))){
+    const image=document.createElement('img');image.src=imageUrl;image.alt='';image.loading='lazy';image.decoding='async';media.append(image);
+   }else{const fallback=document.createElement('span');fallback.className='content-fallback content-fallback-blue';fallback.append(this.staticMarkupFragment(UI.icon('edit')));media.append(fallback);}
+  }
+  const arrow=fragment.querySelector('.content-cta');if(arrow)arrow.append(this.staticMarkupFragment(UI.icon('arrow')));
+  return fragment;
+ };
+ const copy=(key,title,description)=>{
+  const row=(MCQ.db.pageSeo||{})['static:'+key]||{};
+  return {title:String(row.title||title),description:String(row.description||description)};
+ };
+ const fixedCountry=()=>{
+  const user=window.Auth?.user||MCQ.db.session||{};
+  if(String(user.activeRole||'')==='super-admin'&&(user.roles||[]).includes('super-admin'))return String(MCQ.db.activeCountry||'').trim();
+  return String(user.country||MCQ.db.settings?.country||'Pakistan').trim();
+ };
+ const data=MCQ.db||{};
+ const entityCopy=(kind,key,title,description)=>{
+  const row=(data.pageSeo||{})[kind+':'+String(key)]||{};
+  return {title:String(row.title||title),description:String(row.description||description)};
+ };
+ const setCategoryContext=(eyebrow,title,items,regionName='category-context')=>{
+  const dest=region(regionName),template=document.getElementById('mcq-category-context-template');
+  if(!dest||!template||!items.length){if(dest)dest.hidden=true;return false;}
+  const fragment=template.content.cloneNode(true);
+  const eyebrowNode=fragment.querySelector('[data-context-eyebrow]'),titleNode=fragment.querySelector('[data-context-title]'),linksNode=fragment.querySelector('[data-context-links]');
+  if(eyebrowNode)eyebrowNode.textContent=eyebrow;
+  if(titleNode)titleNode.textContent=title;
+  if(linksNode){
+   const links=document.createDocumentFragment();
+   items.forEach(item=>{
+    if(item&&typeof item==='object'&&typeof item.nodeType==='number')links.append(item);
+    else if(item&&typeof item==='object'&&item.path)links.append(makeInternalLink(item.path,item.label,'chip'));
+   });
+   linksNode.replaceChildren(links);
+  }
+  dest.replaceChildren(fragment);dest.hidden=false;return true;
+ };
+ const publicMcqServerPage=()=>{
+  const page=data.mcqPage||{};
+  return page.server===true&&page.scope==='public'&&page.routeKey===location.pathname+location.search?page:null;
+ };
+ if(base==='dashboard'||base==='profile'){
+  const requestedView=String(id||'overview'),view=base==='profile'||requestedView==='profile'?'settings':requestedView,allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads','settings'];
+  if(!allowedDashboardViews.includes(view))return false;
+  const session=data.session||{};
+  const attempts=(data.attempts||[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  const correct=attempts.filter(item=>item.correct).length,wrong=attempts.length-correct,accuracy=attempts.length?Math.round(correct/attempts.length*100):0;
+  const savedMcqs=(data.bookmarks||[]).map(value=>MCQ.get('mcqs',value)).filter(Boolean);
+  const savedPapers=(data.savedPapers||[]).length;
+  const mistakes=[];
+  attempts.forEach(item=>{if(item.correct||mistakes.some(question=>Number(question.id)===Number(item.id)))return;const question=MCQ.get('mcqs',item.id);if(question)mistakes.push(question);});
+  const categoryStats=(data.categories||[]).filter(category=>category.active!==false&&!category.legacy).map(category=>{
+   const categoryAttempts=attempts.filter(item=>Number(MCQ.get('mcqs',item.id)?.category_id)===Number(category.id));
+   const total=categoryAttempts.length,ok=categoryAttempts.filter(item=>item.correct).length;
+   return {category,total,correct:ok,wrong:total-ok,accuracy:total?Math.round(ok/total*100):0};
+  }).filter(item=>item.total);
+  const weak=categoryStats.filter(item=>item.total>=3).sort((a,b)=>a.accuracy-b.accuracy||b.total-a.total).slice(0,4);
+  const recentAttempt=attempts[0],recentQuestion=recentAttempt&&MCQ.get('mcqs',recentAttempt.id);
+  const side=this.staticTemplateFragment('mcq-learner-side-template',{});
+  const nav=side?.querySelector('[data-dashboard-nav]');
+  const navItems=[
+   ['overview','Dashboard','grid'],['practice','Practice MCQs','book'],['important','Important MCQs','flag'],['mistakes','My Mistakes','flag'],
+   ['saved','Bookmarks / Saved MCQs','bookmark'],['papers','Past Papers','paper'],['tests','My Tests / Results','check'],
+   ['performance','My Performance','chart'],['history','Practice History','history'],['notifications','Notifications','bell'],
+   ['downloads','My Downloads','download'],['settings','Settings','settings']
+  ];
+  if(nav){
+   navItems.forEach(([key,label,iconName])=>{
+    const anchor=makeInternalLink('dashboard/'+key,'',key===view?'active':'');
+    anchor.append(this.staticMarkupFragment(UI.icon(iconName)));
+    const textNode=document.createElement('span');textNode.textContent=label;anchor.append(textNode);
+    if(key==='overview')anchor.setAttribute('aria-current','page');
+    nav.append(anchor);
+   });
+  }
+  const body=view==='settings'?this.staticTemplateFragment('mcq-learner-settings-template',{}):view==='overview'?this.staticTemplateFragment('mcq-learner-overview-template',{}):this.staticTemplateFragment('mcq-learner-subpage-template',{});
+  if(!body||!side)return false;
+  if(view==='overview'){
+  const metrics=body.querySelector('[data-dashboard-metrics]');
+  const metricItems=[
+   {title:'MCQs Attempted',value:attempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'},
+   {title:'Correct',value:correct,icon:'check',tone:'success',subtitle:'Correct answers',path:'dashboard/performance'},
+   {title:'Wrong',value:wrong,icon:'flag',tone:'danger',subtitle:'Needs review',path:'dashboard/mistakes'},
+   {title:'Accuracy',value:accuracy+'%',icon:'chart',tone:'primary',subtitle:'Overall accuracy',path:'dashboard/performance'},
+   {title:'Saved MCQs',value:savedMcqs.length,icon:'bookmark',tone:'neutral',subtitle:'Bookmarked questions',path:'dashboard/saved'},
+   {title:'Saved Papers',value:savedPapers,icon:'paper',tone:'warning',subtitle:'Saved for later',path:'dashboard/papers'}
+  ];
+  if(metrics){
+   metricItems.forEach(item=>{
+    const subtitle=document.createElement('span');subtitle.className='stat-card-subtitle';subtitle.textContent=item.subtitle;
+    const content=this.staticTemplateFragment('mcq-stat-card-content-template',{
+     STAT_TITLE:item.title,STAT_ICON:this.staticMarkupFragment(UI.icon(item.icon)),STAT_VALUE:String(item.value),
+     STAT_SUBTITLE:subtitle,STAT_SKELETON:document.createDocumentFragment()
+    });
+    const anchor=makeInternalLink(item.path,'','card stat-card tone-'+item.tone+' stat-card-link clickable');
+    const tone=content?.querySelector('.stat-card-icon');
+    if(tone){tone.classList.remove('tone-__SLOT_STAT_TONE__');tone.classList.add('tone-'+item.tone);}
+    if(content)anchor.append(content);
+    metrics.append(anchor);
+   });
+  }
+  const continueTitle=body.querySelector('[data-dashboard-continue-title]');
+  const continueDescription=body.querySelector('[data-dashboard-continue-description]');
+  const continueAction=body.querySelector('[data-dashboard-continue-action]');
+  if(continueTitle)continueTitle.textContent=recentQuestion?String(recentQuestion.question||''):'Start your first preparation session.';
+  if(continueDescription)continueDescription.textContent=recentQuestion?'Return to your most recently attempted question and keep practising.':'Choose any category or past paper to begin tracking your progress.';
+  if(continueAction){
+   const action=makeInternalLink(recentQuestion?'practice/'+recentQuestion.id:'mcqs',recentQuestion?'Continue Preparation':'Start practising','btn primary');
+   action.append(this.staticMarkupFragment(UI.icon('arrow')));continueAction.append(action);
+  }
+  const quick=body.querySelector('[data-dashboard-quick-actions]');
+  if(quick){
+   quick.append(makeInternalLink('mcqs','Practice MCQs','btn primary'));
+   quick.append(makeInternalLink('papers','Attempt Past Paper','btn'));
+   quick.append(makeInternalLink('dashboard/mistakes','Review Mistakes','btn'));
+  }
+  const emptyFragment=(title,description,action=null)=>{
+   const fragment=this.staticTemplateFragment('mcq-empty-template',{
+    EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:title,EMPTY_DESCRIPTION:description,
+    EMPTY_ACTION:action||document.createDocumentFragment()
+   });
+   return fragment||document.createDocumentFragment();
+  };
+  const progress=body.querySelector('[data-dashboard-category-progress]');
+  if(progress){
+   const rows=categoryStats.slice(0,6);
+   if(rows.length){
+    rows.forEach(item=>{
+     const row=document.createElement('div');row.className='bar-row';
+     const top=document.createElement('div');top.className='row';
+     const label=document.createElement('span');label.textContent=String(item.category.name||'');
+     const number=document.createElement('span');number.textContent=item.correct+' / '+item.total+' · '+item.accuracy+'%';top.append(label,number);
+     const track=document.createElement('div');track.className='progress-track';
+     const fill=document.createElement('span');fill.style.width=String(Math.max(0,Math.min(100,item.accuracy)))+'%';track.append(fill);
+     row.append(top,track);progress.append(row);
+    });
+   }else progress.append(emptyFragment('No activity yet','Your subject progress appears after you answer MCQs.'));
+  }
+  const weakRegion=body.querySelector('[data-dashboard-weak-areas]');
+  if(weakRegion){
+   if(weak.length){
+    weak.forEach(item=>{const row=document.createElement('div');row.className='weak-row';const label=document.createElement('span');label.textContent=String(item.category.name||'');const value=document.createElement('strong');value.textContent=item.accuracy+'%';row.append(label,value);weakRegion.append(row);});
+    weakRegion.append(makeInternalLink('dashboard/mistakes','Practice weak areas','btn sm'));
+   }else weakRegion.append(emptyFragment('No weak areas yet','Answer at least 3 questions in a category before it is evaluated.'));
+  }
+  const recent=body.querySelector('[data-dashboard-recent-activities]');
+  if(recent){
+   const activityRows=attempts.slice(0,5);
+   if(activityRows.length){
+    activityRows.forEach(item=>{
+     const question=MCQ.get('mcqs',item.id),category=MCQ.get('categories',question?.category_id);
+     const row=document.createElement('div');row.className='learner-activity-row';
+     const dot=document.createElement('span');dot.className='status-dot '+(item.correct?'ok':'bad');
+     const content=document.createElement('div'),title=document.createElement('strong'),meta=document.createElement('span');
+     title.textContent=String(question?.question||'MCQ attempt');
+     meta.textContent=String(category?.name||'Practice')+' · '+(item.correct?'Correct':'Incorrect')+' · '+String(UI.date(item.at)||'');
+     content.append(title,meta);row.append(dot,content);recent.append(row);
+    });
+   }else recent.append(emptyFragment('No recent activity','Your preparation history will appear here.'));
+  }
+  }else if(view==='settings'){
+   const settingsSession=session,form=body.querySelector('form[data-form="profile"]'),snapshot=body.querySelector('[data-profile-learning-snapshot]');
+   const name=String(settingsSession.name||'Learner'),email=String(settingsSession.email||'');
+   const heading=body.querySelector('[data-profile-name-heading]'),emailHeading=body.querySelector('[data-profile-email-heading]'),avatarRegion=body.querySelector('[data-profile-avatar]');
+   if(heading)heading.textContent=name;if(emailHeading)emailHeading.textContent=email;
+   const profileAvatar=(()=>{
+    const value=String(settingsSession.avatar||'').trim();
+    if(value&&(value.startsWith('/')&&!value.startsWith('//')||/^https?:\/\//i.test(value)||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(value))){
+     const image=document.createElement('img');image.className='profile-photo';image.src=value;image.alt='Current profile photo';return image;
+    }
+    const initials=name.split(/\s+/).map(part=>part[0]).filter(Boolean).slice(0,2).join('');
+    const span=document.createElement('span');span.className='profile-photo profile-photo-fallback';span.textContent=initials||'U';return span;
+   })();
+   if(avatarRegion)avatarRegion.replaceChildren(profileAvatar);
+   if(form){
+    const fields={name,email,country:String(settingsSession.country||'Pakistan'),exam_goal:String(settingsSession.exam_goal||'PPSC'),daily_goal:String(settingsSession.daily_goal||25)};
+    Object.entries(fields).forEach(([key,value])=>{const control=form.elements.namedItem(key);if(control)control.value=value;});
+    const interests=new Set(Array.isArray(settingsSession.interests)?settingsSession.interests:[]);
+    form.querySelectorAll('input[name="interests"]').forEach(input=>{input.checked=interests.has(input.value);});
+   }
+   const profileAttempts=attempts.filter(item=>!item.by_id||Number(item.by_id)===Number(settingsSession.id));
+   const profileCorrect=profileAttempts.filter(item=>item.correct).length,profileAccuracy=profileAttempts.length?Math.round(profileCorrect/profileAttempts.length*100):0;
+   const profileDates=[...new Set(profileAttempts.map(item=>String(item.at||'').slice(0,10)).filter(Boolean))].sort().reverse();
+   let streak=0;
+   if(profileDates.length){
+    let cursor=new Date();cursor.setHours(0,0,0,0);
+    const latest=new Date(profileDates[0]+'T00:00:00'),gap=Math.round((cursor-latest)/86400000);
+    if(gap<=1){cursor=latest;for(const date of profileDates){const day=new Date(date+'T00:00:00');if(Math.round((cursor-day)/86400000)===0){streak++;cursor=new Date(cursor.getTime()-86400000);}else break;}}
+   }
+   const profileStats=[
+    {title:'Questions Attempted',value:profileAttempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'},
+    {title:'Accuracy',value:profileAccuracy+'%',icon:'chart',tone:'success',subtitle:'Overall accuracy',path:'dashboard/performance'},
+    {title:'Tests Taken',value:Number(settingsSession.testsTaken||0),icon:'check',tone:'primary',subtitle:'Completed tests',path:'dashboard/tests'},
+    {title:'Current Streak',value:'🔥 '+streak,icon:'history',tone:'warning',subtitle:'Day streak',path:'dashboard/history'}
+   ];
+   if(snapshot)profileStats.forEach(item=>{
+    const subtitle=document.createElement('span');subtitle.className='stat-card-subtitle';subtitle.textContent=item.subtitle;
+    const fragment=this.staticTemplateFragment('mcq-stat-card-content-template',{STAT_TITLE:item.title,STAT_ICON:this.staticMarkupFragment(UI.icon(item.icon)),STAT_VALUE:String(item.value),STAT_SUBTITLE:subtitle,STAT_SKELETON:document.createDocumentFragment()});
+    const anchor=makeInternalLink(item.path,'','card stat-card tone-'+item.tone+' stat-card-link clickable');
+    const iconNode=fragment?.querySelector('.stat-card-icon');if(iconNode){iconNode.classList.remove('tone-__SLOT_STAT_TONE__');iconNode.classList.add('tone-'+item.tone);}
+    if(fragment)anchor.append(fragment);snapshot.append(anchor);
+   });
+  }else{
+   const eyebrow=body.querySelector('[data-dashboard-view-eyebrow]'),titleNode=body.querySelector('[data-dashboard-view-title]'),description=body.querySelector('[data-dashboard-view-description]');
+   const viewMeta={
+    practice:['PRACTICE','Practice MCQs','Choose where to continue your preparation.'],
+    important:['PRIORITY REVIEW','Important MCQs','High-priority questions selected by the content team.'],
+    mistakes:['REVIEW','My Mistakes','Questions you answered incorrectly. Retry them until they become strengths.'],
+    saved:['BOOKMARKS','Saved MCQs','Your bookmarked revision list.'],
+    papers:['PAST PAPERS','Saved Papers','Saved papers and paper-based preparation.'],
+    tests:['TEST HISTORY','My Tests / Results','Your test activity and latest result summary.'],
+    performance:['ANALYTICS','My Performance','Learner-specific analytics from your actual attempts.'],
+    history:['ACTIVITY','Practice History','Your latest MCQ attempts, newest first.'],
+    notifications:['UPDATES','Notifications','Updates relevant to your account and preparation.'],
+    downloads:['RESOURCES','My Downloads','Resources your account is authorized to download.']
+   }[view]||['MY LEARNING','My Learning','Track your preparation and progress.'];
+   if(eyebrow)eyebrow.textContent=viewMeta[0];
+   if(titleNode)titleNode.textContent=viewMeta[1];
+   if(description)description.textContent=viewMeta[2];
+   const content=body.querySelector('[data-dashboard-view-content]'),quickActions=body.querySelector('[data-dashboard-quick-actions]');
+   const emptyFragment=(title,description,action=null)=>{
+    const fragment=this.staticTemplateFragment('mcq-empty-template',{
+     EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:title,EMPTY_DESCRIPTION:description,
+     EMPTY_ACTION:action||document.createDocumentFragment()
+    });
+    return fragment||document.createDocumentFragment();
+   };
+   const renderQuestionList=(rows,emptyTitle,emptyDescription,actionPath='mcqs',actionLabel='Practice MCQs',sectionTitle='')=>{
+    if(!content)return;
+    const section=document.createElement('section');section.className='card learner-question-list';
+    if(sectionTitle){const heading=document.createElement('h3');heading.textContent=sectionTitle;section.append(heading);}
+    if(rows.length){
+     const list=document.createElement('div');list.className='learner-dashboard-question-list';
+     rows.forEach(question=>list.append(questionCardFragment(question,true)));
+     section.append(list);
+    }else section.append(emptyFragment(emptyTitle,emptyDescription,makeInternalLink(actionPath,actionLabel,'btn primary')));
+    content.append(section);
+   };
+   const makeMetric=(container,item)=>{
+    const subtitle=document.createElement('span');subtitle.className='stat-card-subtitle';subtitle.textContent=item.subtitle||'';
+    const template=this.staticTemplateFragment('mcq-stat-card-content-template',{
+     STAT_TITLE:String(item.title),STAT_ICON:this.staticMarkupFragment(UI.icon(item.icon||'book')),
+     STAT_VALUE:String(item.value),STAT_SUBTITLE:subtitle,STAT_SKELETON:document.createDocumentFragment()
+    });
+    const link=makeInternalLink(item.path||'dashboard/performance','',('card stat-card tone-'+(item.tone||'primary')+' stat-card-link clickable'));
+    const tone=template?.querySelector('.stat-card-icon');
+    if(tone){tone.classList.remove('tone-__SLOT_STAT_TONE__');tone.classList.add('tone-'+(item.tone||'primary'));}
+    if(template)link.append(template);
+    container?.append(link);
+   };
+   const publicMcqs=MCQ.publicMcqs(),attemptedIds=new Set(attempts.map(item=>Number(item.id)));
+   if(view==='practice'){
+    if(quickActions){quickActions.append(makeInternalLink('mcqs','Practice MCQs','btn primary'),makeInternalLink('dashboard/mistakes','Review mistakes','btn'));}
+    renderQuestionList(publicMcqs.filter(question=>!attemptedIds.has(Number(question.id))).slice(0,20),'You have explored every available MCQ','Revisit your mistakes or try random practice.','mcqs','Browse MCQs','Unattempted MCQs');
+   }else if(view==='important'){
+    renderQuestionList(publicMcqs.filter(question=>MCQ.isImportant(question)).slice(0,30),'No important MCQs available','Check again when important questions are published.','mcqs','Practice MCQs');
+   }else if(view==='mistakes'){
+    renderQuestionList(mistakes,'No mistakes to review','Incorrect answers will appear here automatically.','mcqs','Practice MCQs');
+   }else if(view==='saved'){
+    renderQuestionList(savedMcqs,'No saved MCQs yet','Bookmark questions while practising to keep them here.','mcqs','Browse MCQs');
+   }else if(view==='papers'){
+    const rows=(data.savedPapers||[]).map(value=>MCQ.get('papers',value)||MCQ.get('years',value)).filter(Boolean);
+    if(content){
+     if(rows.length){const grid=document.createElement('div');grid.className='grid paper-grid';rows.forEach(item=>grid.append(entityCardFragment(MCQ.get('papers',item.id)?'papers':'years',item)));content.append(grid);}
+     else content.append(emptyFragment('No saved papers yet','Browse past papers and save the ones you want to revisit.',makeInternalLink('papers','Explore papers','btn primary')));
+    }
+   }else if(view==='tests'){
+    const count=Number(session.testsTaken||0),last=session.lastTestSummary;
+    if(count){
+     const grid=document.createElement('div');grid.className='learner-metrics profile-test-metrics';
+     makeMetric(grid,{title:'Tests Taken',value:count,icon:'check',tone:'primary',subtitle:'Completed tests',path:'tests'});
+     makeMetric(grid,{title:'Latest Score',value:last?String(last.correct)+' / '+String(last.total):'—',icon:'chart',tone:'success',subtitle:last?Math.round(last.correct/Math.max(1,last.total)*100)+'% accuracy':'Take a test to see results',path:'tests'});
+     content?.append(grid);
+    }else content?.append(emptyFragment('No tests taken yet','Complete a test and your results will appear here.',makeInternalLink('tests','Browse Tests','btn primary')));
+   }else if(view==='performance'){
+    if(content){
+     const grid=document.createElement('div');grid.className='learner-metrics';
+     makeMetric(grid,{title:'Questions Attempted',value:attempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'});
+     makeMetric(grid,{title:'Accuracy',value:accuracy+'%',icon:'chart',tone:'success',subtitle:'Overall accuracy',path:'dashboard/performance'});
+     makeMetric(grid,{title:'Tests Taken',value:Number(session.testsTaken||0),icon:'check',tone:'primary',subtitle:'Completed tests',path:'dashboard/tests'});
+     content.append(grid);
+     const card=document.createElement('section');card.className='card';
+     const heading=document.createElement('h3');heading.textContent='Category performance';card.append(heading);
+     if(categoryStats.length){
+      const wrap=document.createElement('div');wrap.className='table-wrap';const table=document.createElement('table'),thead=document.createElement('thead'),headRow=document.createElement('tr');
+      ['Category','Attempted','Correct','Wrong','Accuracy'].forEach(label=>{const th=document.createElement('th');th.scope='col';th.textContent=label;headRow.append(th);});
+      thead.append(headRow);const tbody=document.createElement('tbody');
+      categoryStats.forEach(item=>{const row=document.createElement('tr');[item.category.name,item.total,item.correct,item.wrong,item.accuracy+'%'].forEach(value=>{const cell=document.createElement('td');cell.textContent=String(value??'');row.append(cell);});tbody.append(row);});
+      table.append(thead,tbody);wrap.append(table);card.append(wrap);
+     }else card.append(emptyFragment('No performance data yet','Answer MCQs to build your performance report.'));
+     content.append(card);
+    }
+   }else if(view==='history'){
+    if(content){
+     if(attempts.length){
+      const card=document.createElement('section');card.className='card table-wrap';
+      const table=document.createElement('table'),thead=document.createElement('thead'),headRow=document.createElement('tr');
+      ['Date','Question','Category','Result','Action'].forEach(label=>{const th=document.createElement('th');th.scope='col';th.textContent=label;headRow.append(th);});
+      thead.append(headRow);const tbody=document.createElement('tbody');
+      attempts.slice(0,100).forEach(item=>{
+       const question=MCQ.get('mcqs',item.id),category=MCQ.get('categories',question?.category_id),row=document.createElement('tr');
+       const date=document.createElement('td');date.textContent=String(UI.date(item.at)||'');
+       const title=document.createElement('td');title.textContent=String(question?.question||'Question');
+       const categoryCell=document.createElement('td');categoryCell.textContent=String(category?.name||'—');
+       const result=document.createElement('td'),badge=document.createElement('span');badge.className='badge '+(item.correct?'approved':'rejected');badge.textContent=item.correct?'Correct':'Wrong';result.append(badge);
+       const action=document.createElement('td');if(question)action.append(makeInternalLink('practice/'+question.id,'Retry','link'));
+       row.append(date,title,categoryCell,result,action);tbody.append(row);
+      });
+      table.append(thead,tbody);card.append(table);content.append(card);
+     }else content.append(emptyFragment('No practice history yet','Your preparation history will appear here.'));
+    }
+   }else if(view==='notifications'){
+    content?.append(emptyFragment('No notifications','The current backend has no learner-notification model yet, so this page intentionally does not show fake alerts.'));
+   }else if(view==='downloads'){
+    const rows=(data.pdfs||[]).filter(item=>MCQ.ids(item.authorized_user_ids).includes(Number(session.id)));
+    if(content){
+     if(rows.length){
+      const grid=document.createElement('div');grid.className='grid pdf-grid';
+      rows.forEach(item=>{const card=document.createElement('article');card.className='card';const heading=document.createElement('h3');heading.textContent=String(item.title||item.name||'PDF resource');const description=document.createElement('p');description.className='small muted';description.textContent='Authorized resource';card.append(heading,description);grid.append(card);});
+      content.append(grid);
+     }else content.append(emptyFragment('No downloads available yet.','Purchased or assigned PDFs will appear here when the backend grants access.'));
+    }
+   }
+  }
+  const avatar=(()=>{
+   const value=String(session.avatar||'').trim();
+   if(value&&(value.startsWith('/')&&!value.startsWith('//')||/^https?:\/\//i.test(value)||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(value))){
+    const image=document.createElement('img');image.className='profile-photo';image.src=value;image.alt='';return image;
+   }
+   const initials=String(session.name||'Learner').split(/\s+/).map(part=>part[0]).filter(Boolean).slice(0,2).join('');
+   const span=document.createElement('span');span.className='avatar';span.textContent=initials||'L';return span;
+  })();
+  const layout=this.staticTemplateFragment('mcq-learner-dashboard-template',{
+   LEARNER_MENU_ICON:this.staticMarkupFragment(UI.icon('menu')),LEARNER_SIDE:side,LEARNER_AVATAR:avatar,
+   LEARNER_NAME:String(session.name||'learner'),LEARNER_BODY:body
+  });
+  const layoutRoot=layout?.querySelector('.learner-dashboard-shell');
+  if(!layout||!layoutRoot)return false;
+  layoutRoot.classList.remove('container','page');
+  const destination=region('learner-dashboard');
+  if(!destination)return false;
+  destination.replaceChildren(layout);destination.hidden=false;
+  shell.querySelector('.page-heading')?.remove();
+  }else if(base==='search'){
+  const params=App.route.params||{},query=String(params.q||'').trim(),wanted=String(params.type||'all'),normalized=MCQ.norm(query),results=[];
+  const add=(type,label,path,title,summary,textValue,record)=>{
+   if(query&&MCQ.norm(textValue||title).includes(normalized))results.push({type,label,path,title,summary,record});
+  };
+  if(query){
+   MCQ.publicMcqs().forEach(item=>add('mcq','MCQ','mcq/'+item.id,item.question,MCQ.get('categories',item.category_id)?.name||'Practice question',item.question+' '+[1,2,3,4].map(n=>item['option'+n]).join(' ')+' '+(item.description||''),item));
+   (data.categories||[]).filter(item=>item.active!==false&&!item.legacy).forEach(item=>add('category','Category','category/'+item.id,item.name,'Browse category',item.name,item));
+   (data.papers||[]).filter(item=>item.active!==false).forEach(item=>add('paper','Past Paper / Exam','paper/'+item.id,item.name,item.country||'Past paper organization',item.name+' '+(item.country||''),item));
+   (data.years||[]).filter(item=>item.active!==false).forEach(item=>{
+    const paper=MCQ.get('papers',item.paper_id)||MCQ.get('papers',MCQ.get('jobs',item.job_id)?.paper_id);
+    add('year','Past Paper',window.SEO?SEO.cleanPath('year',item.id):'year/'+item.id,((paper?.name||'')+' · '+item.name).trim(),paper?.name||'Past Paper',item.name+' '+(paper?.name||''),item);
+   });
+   (data.pdfs||[]).filter(item=>item.active!==false).forEach(item=>add('pdf','PDF',window.SEO?SEO.cleanPath('pdf',item.id):'pdfs',item.title||item.name||'PDF resource',item.description||'PDF resource',(item.title||item.name||'')+' '+(item.description||''),item));
+   (data.posts||[]).filter(item=>item.published!==false).forEach(item=>add('post','Blog','post/'+item.id,item.title,item.excerpt||'MCQ Campus update',(item.title||'')+' '+(item.excerpt||'')+' '+(item.body||'')+' '+(item.category||''),item));
+   (data.latestJobs||[]).filter(item=>item.published!==false).forEach(item=>{
+    const organization=MCQ.get('papers',item.paper_id);
+    add('latestjob','Latest Job',window.SEO?SEO.cleanPath('latest-job',item.id):'latest-jobs',item.title||'Job opportunity',(organization?.name||'')+' · Last date '+(item.last_date||''),(item.title||'')+' '+(organization?.name||'')+' '+(item.last_date||''),item);
+   });
+  }
+  const types=[...new Set(results.map(item=>item.type))],filtered=wanted==='all'?results:results.filter(item=>item.type===wanted),pageSize=12,page=App.page(filtered.length,pageSize);
+  const labels={mcq:'MCQs',category:'Categories',paper:'Organizations / Boards',year:'Past Papers',job:'Organizations / Boards',pdf:'PDFs',post:'Blog',latestjob:'Latest Jobs'};
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=query?'Search results for “'+query+'”':'Search MCQ Campus';
+  if(description)description.textContent='Search public preparation content across MCQs, organizations, past papers, categories, PDFs, latest jobs and blog posts.';
+  setMarkup('breadcrumbs',UI.crumbs([['Search']]));
+  const searchInput=shell.querySelector('form[data-form="search"] input[name="q"]');
+  if(searchInput)searchInput.value=query;
+  const filterItems=[{label:'All',path:'search',params:{q:query},active:wanted==='all'},...types.map(type=>({label:labels[type]||type,path:'search',params:{q:query,type},active:wanted===type}))];
+  setMarkup('search-filters',query&&types.length?PublicLayout.selectionBar(filterItems,'Search result types','search-type-selection'):'');
+  const list=region('mcq-list');
+  if(list){
+   list.classList.add('search-results-list','public-main','public-main-full');
+   const content=document.createDocumentFragment();
+   const emptyState=(title,description,action=null)=>{
+    const fragment=this.staticTemplateFragment('mcq-empty-template',{
+     EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:title,EMPTY_DESCRIPTION:description,
+     EMPTY_ACTION:action||document.createDocumentFragment()
+    });
+    return fragment||document.createDocumentFragment();
+   };
+   if(!query){
+    content.append(emptyState('Search MCQ Campus','Use the search bar in the header to find MCQs, organizations, past papers, categories, PDFs, latest jobs and blog posts.'));
+   }else if(!filtered.length){
+    content.append(emptyState('No matching results','Try a shorter or different search phrase.',makeInternalLink('search','Clear search','btn primary')));
+   }else{
+    const count=document.createElement('p');count.className='small muted result-count';
+    count.textContent=filtered.length+' matching result'+(filtered.length===1?'':'s');content.append(count);
+    filtered.slice((page-1)*pageSize,page*pageSize).forEach((item,index)=>{
+     if(item.type==='mcq'&&item.record){content.append(questionCardFragment(item.record,true));return;}
+     if(item.type==='paper'&&item.record){content.append(entityCardFragment('papers',item.record,index));return;}
+     if(item.type==='year'&&item.record){content.append(entityCardFragment('years',item.record,index));return;}
+     if(item.type==='category'&&item.record){content.append(entityCardFragment('categories',item.record,index));return;}
+     if(item.type==='pdf'&&item.record){content.append(pdfCardFragment(item.record));return;}
+     if(item.type==='post'&&item.record){content.append(blogPostCardFragment(item.record));return;}
+     if(item.type==='latestjob'&&item.record){content.append(latestJobCardFragment(item.record));return;}
+     const result=makeInternalLink(item.path,'','card search-result-card clickable');
+     const badgeNode=document.createElement('span');badgeNode.className='badge';badgeNode.textContent=String(item.label||'Result');
+     const titleNode=document.createElement('h2');titleNode.textContent=String(item.title||'');
+     const summaryNode=document.createElement('p');summaryNode.textContent=String(item.summary||'');
+     const footer=document.createElement('div');footer.className='card-foot';
+     const openLabel=document.createElement('span');openLabel.textContent='Open '+String(item.label||'result').toLowerCase();
+     footer.append(openLabel,this.staticMarkupFragment(UI.icon('arrow')));
+     result.append(badgeNode,titleNode,summaryNode,footer);content.append(result);
+    });
+   }
+   list.replaceChildren(content);list.hidden=false;
+  }
+
+  const summary=query?filtered.length.toLocaleString('en-GB')+' matching result'+(filtered.length===1?'':'s'):'Search across MCQCampus';
+  setText('mcq-summary',summary);
+  setMarkup('mcq-pagination',UI.pager(filtered.length,page,pageSize,params,'search'));
+ }else if(base==='mcq'||base==='practice'){
+  const question=MCQ.publicMcqs().find(item=>Number(item.id)===Number(id));
+  if(!question)return false;
+  if(base==='practice')MCQ.recent(id);
+  const rows=MCQ.publicMcqs(),index=rows.findIndex(item=>Number(item.id)===Number(question.id));
+  const category=MCQ.get('categories',question.category_id);
+  const fallbackTitle=base==='practice'?'Practice MCQ':(category?.name||'MCQ')+' Question';
+  const fallbackDescription=base==='practice'?(category?.name?category.name+' · ':'')+'Focus on the answer and explanation, then continue your practice.':question.description||'Practice this question, check the answer, and review its explanation.';
+  const pageCopy=entityCopy('mcq',question.id,fallbackTitle,fallbackDescription);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  setMarkup('breadcrumbs',UI.crumbs([['MCQs','mcqs'],[base==='practice'?'Practice Question '+id:question.question]]));
+  const list=region('mcq-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   list.replaceChildren(questionCardFragment(question,false));
+   list.hidden=false;
+  }
+  if(base==='practice'){
+   const previous=index>0?UI.link('practice/'+rows[index-1].id,'← Previous','btn'):'';
+   const next=index<rows.length-1?UI.link('practice/'+rows[index+1].id,'Next question '+UI.icon('arrow'),'btn primary'):UI.link('dashboard','View progress','btn primary');
+   setMarkup('mcq-detail-actions','<div class="actions practice-nav">'+previous+'<span class="spacer"></span><span class="spacer"></span>'+next+'</div>');
+  }else{
+   const related=Public.relatedMcqs(question);
+   const relatedList=region('mcq-related-list');
+   if(relatedList){
+    const content=document.createDocumentFragment();
+    if(related.length)related.forEach(item=>content.append(questionCardFragment(item,true)));
+    else{
+     const action=category?makeInternalLink('category/'+category.id,'Browse category','btn'):makeInternalLink('mcqs','Browse MCQs','btn');
+     const empty=this.staticTemplateFragment('mcq-empty-template',{EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:'No close matches yet',EMPTY_DESCRIPTION:'Explore the broader category for more practice.',EMPTY_ACTION:action});
+     if(empty)content.append(empty);
+    }
+    relatedList.replaceChildren(content);
+   }
+   const relatedRegion=region('mcq-related');if(relatedRegion)relatedRegion.hidden=false;
+  }
+ }else if(base==='year'){
+  const year=MCQ.get('years',id);
+  const paper=year&&(MCQ.get('papers',year.paper_id)||MCQ.get('papers',MCQ.get('jobs',year.job_id)?.paper_id));
+  if(!year||!paper)return false;
+  const server=publicMcqServerPage(),rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(item=>MCQ.ids(item.job_years_ids).includes(Number(id)));
+  const pageSize=10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const fallbackTitle=paper.name+' '+year.name,fallbackDescription='Practice '+paper.name+' '+year.name+' MCQs with correct answers and explanations.';
+  const pageCopy=entityCopy('year',year.id,fallbackTitle,fallbackDescription);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  setMarkup('breadcrumbs',UI.crumbs([['Past Papers','papers'],[paper.name,'paper/'+paper.id],[year.name]]));
+  setMarkup('year-actions',UI.btn(UI.icon('bookmark')+' '+((MCQ.db.savedPapers||[]).includes(Number(id))?'Remove saved paper':'Save paper'),'save-paper','','data-id="'+Number(id)+'"'));
+  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+  const list=region('mcq-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   if(shown.length){
+    const cards=document.createDocumentFragment();
+    shown.forEach(item=>cards.append(questionCardFragment(item,false,Number(id))));
+    list.replaceChildren(cards);
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this past paper.':'No MCQs are linked to this past paper yet.','Browse the other past papers or continue with important MCQs.',UI.link('important','Important MCQs','btn primary'))));
+   list.hidden=false;
+  }
+  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,'year/'+id));
+ }else if(base==='topic'){
+  const topic=MCQ.get('children',id);
+  if(!topic)return false;
+  const subcategory=MCQ.get('subcategories',topic.subcategory_id),category=subcategory&&MCQ.get('categories',subcategory.category_id);
+  const server=publicMcqServerPage(),all=MCQ.publicMcqs(),rows=server?all:all.filter(item=>MCQ.ids(item.child_subcategory_ids).includes(Number(id)));
+  const pageSize=10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=topic.name+' MCQs';
+  if(description)description.textContent='Practice '+topic.name+' MCQs with correct answers and explanations.';
+  setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(category?[[category.name,'category/'+category.id]]:[]),...(subcategory?[[subcategory.name,'subcategory/'+subcategory.id]]:[]),[topic.name]]));
+  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+  const list=region('mcq-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   if(shown.length){
+    const cards=document.createDocumentFragment();
+    shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+    list.replaceChildren(cards);
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs in this topic yet':'No MCQs are linked to this topic yet.','Choose another topic or browse the parent category.',subcategory?UI.link('subcategory/'+subcategory.id,'Browse '+subcategory.name,'btn primary'):UI.link('categories','Browse categories','btn primary'))));
+   list.hidden=false;
+  }
+  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,'topic/'+id));
+ }else if(base==='category'||base==='subcategory'){
+  const isCategory=base==='category',record=MCQ.get(isCategory?'categories':'subcategories',id);
+  if(!record)return false;
+  const category=isCategory?record:MCQ.get('categories',record.category_id);
+  const server=publicMcqServerPage(),all=MCQ.publicMcqs();
+  const rows=server?all:all.filter(item=>isCategory?Number(item.category_id)===Number(id):MCQ.ids(item.subcategory_ids).includes(Number(id)));
+  const pageSize=10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const fallbackTitle=isCategory?record.name+' MCQs':record.name;
+  const fallbackDescription=isCategory?'Practice '+record.name+' MCQs with correct answers and explanations, and explore related subcategories.':'Practice approved '+record.name+' MCQs with answers and explanations.';
+  const pageCopy=isCategory?entityCopy('category',record.id,fallbackTitle,fallbackDescription):{title:fallbackTitle,description:fallbackDescription};
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(isCategory?[[record.name]]:[...(category?[[category.name,'category/'+category.id]]:[]),[record.name]])]));
+  if(isCategory){
+   const subs=(data.subcategories||[]).filter(item=>item.active!==false&&Number(item.category_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+   setCategoryContext('EXPLORE TOPICS',record.name+' Subcategories',subs.map(item=>({path:'subcategory/'+item.id,label:String(item.name||'')})));
+  }else{
+   const children=(data.children||[]).filter(item=>item.active!==false&&Number(item.subcategory_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+   setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>({path:'topic/'+item.id,label:String(item.name||'')})));
+  }
+  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+  const list=region('mcq-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   if(shown.length){
+    const cards=document.createDocumentFragment();
+    shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+    list.replaceChildren(cards);
+   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this category yet.','Choose another category or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
+   list.hidden=false;
+  }
+  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,base+'/'+id));
+ }else if(base==='paper'){
+  const paper=MCQ.get('papers',id);
+  if(!paper)return false;
+  const all=(data.years||[]).filter(item=>item.active!==false&&(Number(item.paper_id)||Number(MCQ.get('jobs',item.job_id)?.paper_id)||0)===Number(paper.id));
+  const rows=MCQ.sortPinned('years',all),pageSize=12,total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const titleText=String(paper.name||'').replace(/[\[\]()]+/g,' ').replace(/\s+/g,' ').trim();
+  const fallbackDescription='Browse '+titleText+' past papers and select an exam year to practise linked MCQs with correct answers and explanations.';
+  const pageCopy=entityCopy('paper',paper.id,titleText+' Past Papers',fallbackDescription);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  setMarkup('breadcrumbs',UI.crumbs([['Past Papers','papers'],[titleText]]));
+  const contextRegion=region('paper-context'),contextTemplate=document.getElementById('mcq-paper-context-template');
+  if(contextRegion&&contextTemplate){
+   const fragment=contextTemplate.content.cloneNode(true),contextTitle=fragment.querySelector('[data-paper-context-title]');
+   if(contextTitle)contextTitle.textContent=titleText+' Past Papers';
+   contextRegion.replaceChildren(fragment);contextRegion.hidden=false;
+  }
+  setText('past-paper-summary',total.toLocaleString('en-GB')+' past-paper records · 12 per page');
+  const list=region('past-paper-list');
+  if(list){
+   list.classList.add('grid','paper-grid','public-main','public-main-full');
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach((item,index)=>cards.append(entityCardFragment('years',item,(page-1)*pageSize+index)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No past papers available for this organization yet.','Choose another organization or return to the organization list.',UI.link('papers','Browse organizations / boards','btn primary'))));
+   list.replaceChildren(cards);list.hidden=false;
+  }
+  setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'paper/'+id));
+ }else if(base==='home'){
+  const site=data.siteCounts||{},country=fixedCountry(),pageSize=10;
+  const serverPage=data.mcqPage||{},server=serverPage.server===true&&serverPage.scope==='public'&&serverPage.routeKey===location.pathname+location.search?serverPage:null;
+  const rows=server?MCQ.publicMcqs():[];
+  const importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0);
+  const categories=MCQ.sortPinned('categories',(data.categories||[]).filter(c=>c.active!==false&&!c.legacy)).slice(0,7);
+  const organizations=(data.papers||[]).filter(x=>x.active!==false&&(!country||(x.country||data.settings?.country||'Pakistan')===country));
+  const organizationIds=new Set(organizations.map(x=>Number(x.id)));
+  const pastPapers=(data.years||[]).filter(x=>x.active!==false&&organizationIds.has(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0));
+  const activeCategories=(data.categories||[]).filter(c=>c.active!==false&&!c.legacy&&(!country||(c.country||'Both')==='Both'||(c.country||data.settings?.country||'Pakistan')===country));
+  const stats=[
+   {title:'MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
+   {title:'Organizations / Boards / Agencies',value:organizations.length,iconName:'landmark',tone:'neutral',subtitle:'Exam organizations, boards and agencies',path:'papers'},
+   {title:'Past Papers',value:pastPapers.length,iconName:'paper',tone:'neutral',subtitle:'Past-paper records',path:'papers'},
+   {title:'Categories',value:activeCategories.length,iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
+  ];
+  const pageCopy=copy('home','Practice smarter. Prepare with purpose.','Start with important MCQs, then explore past papers, categories and exam-focused preparation.');
+  const title=shell.querySelector('[data-static-home-title]');
+  const description=shell.querySelector('[data-static-home-description]');
+  if(title)title.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  const statsRegion=region('home-stats');
+  if(statsRegion){
+   statsRegion.replaceChildren();
+   for(const item of stats){
+    const tone=['primary','success','info','warning','danger','neutral'].includes(item.tone)?item.tone:'primary';
+    const loading=Boolean(item.loading),cls='card stat-card tone-'+tone+(item.path?' stat-card-link clickable':'')+(loading?' is-loading':'')+(item.className?' '+item.className:'');
+    const card=item.path?makeInternalLink(item.path,'',cls):document.createElement('div');
+    if(!item.path)card.className=cls;
+    if(loading)card.setAttribute('aria-busy','true');
+    const subtitle=document.createDocumentFragment();
+    if(item.subtitle){const text=document.createElement('span');text.className='stat-card-subtitle';text.textContent=String(item.subtitle);subtitle.append(text);}
+    const skeleton=document.createDocumentFragment();
+    if(loading){const span=document.createElement('span');span.className='stat-card-skeleton';span.setAttribute('aria-hidden','true');skeleton.append(span);}
+    const fragment=this.staticTemplateFragment('mcq-stat-card-content-template',{
+     STAT_TITLE:String(item.title||'Statistic'),
+     STAT_ICON:this.staticMarkupFragment(UI.icon(item.iconName||'book')),
+     STAT_VALUE:loading?'':(typeof item.value==='number'?item.value.toLocaleString('en-GB'):String(item.value??'—')),
+     STAT_SUBTITLE:subtitle,STAT_SKELETON:skeleton
+    });
+    const iconNode=fragment?.querySelector('.stat-card-icon');
+    if(iconNode){iconNode.classList.remove('tone-__SLOT_STAT_TONE__');iconNode.classList.add('tone-'+tone);}
+    if(fragment)card.append(fragment);
+    statsRegion.append(card);
+   }
+   statsRegion.hidden=false;
+  }
+  setText('home-important-count',importantTotal.toLocaleString('en-GB')+' total important MCQs · only 10 load per page');
+  setQuestionCards('home-mcqs',rows,{compact:true,emptyMarkup:UI.empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.')});
+  setMarkup('home-pagination',UI.pager(importantTotal,server?Math.max(1,Number(server.page)||1):1,pageSize,App.route.params,'home'));
+  const categoryRegion=region('home-categories');
+  if(categoryRegion){
+   categoryRegion.replaceChildren();
+   const template=document.getElementById('mcq-home-category-item-template');
+   if(template){
+    const counts=site.categoryMcqs||{};
+    for(const category of categories){
+     const item=template.content.cloneNode(true),anchor=item.querySelector('a'),iconSlot=item.querySelector('[data-home-category-icon]'),arrowSlot=item.querySelector('[data-home-category-arrow]'),name=item.querySelector('[data-home-category-name]'),count=item.querySelector('[data-home-category-count]');
+     if(anchor)anchor.href=UI.href('category/'+category.id);
+     if(iconSlot)iconSlot.append(this.staticMarkupFragment(UI.entityIcon(category,'grid')));
+     if(arrowSlot)arrowSlot.append(this.staticMarkupFragment(UI.icon('arrow')));
+     if(name)name.textContent=String(category.name||'');
+     if(count)count.textContent=Number(counts[String(category.id)]||0).toLocaleString('en-GB')+' MCQs';
+     categoryRegion.append(item);
+    }
+   }
+   categoryRegion.hidden=false;
+  }
+  setMarkup('home-top-ad',UI.adSlot('home_top_ad'));
+  setMarkup('home-middle-ad',UI.adSlot('home_middle_ad'));
+ }else if(base==='mcqs'||base==='important'){
+  const serverPage=data.mcqPage||{},server=serverPage.server===true&&serverPage.scope==='public'&&serverPage.routeKey===location.pathname+location.search?serverPage:null;
+  const params=App.route.params||{},fixed=fixedCountry(),filters=fixed?{page:params.page,country:fixed}:params;
+  let rows=MCQ.publicMcqs();
+  const view=base==='important'?'important':String(filters.view||'all');
+  if(!server){
+   if(view==='important')rows=rows.filter(q=>MCQ.isImportant(q));
+   if(view==='repeated')rows=rows.filter(q=>MCQ.ids(q.job_years_ids).length>=2);
+   if(view==='latest')rows=[...rows].sort((a,b)=>String(b.created_at||b.updated_at||'').localeCompare(String(a.created_at||a.updated_at||''))||Number(b.id)-Number(a.id));
+   if(filters.category)rows=rows.filter(q=>+q.category_id===+filters.category);
+   if(filters.paper)rows=rows.filter(q=>MCQ.ids(q.paper_id).includes(+filters.paper));
+   if(filters.job)rows=rows.filter(q=>MCQ.ids(q.job_ids).includes(+filters.job));
+   if(filters.year)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+filters.year));
+   if(filters.country){
+    rows=rows.filter(q=>{
+     const paperIds=MCQ.ids(q.paper_id);
+     const paperCountries=paperIds.map(key=>MCQ.get('papers',key)?.country).filter(Boolean);
+     return String(q.country||paperCountries[0]||data.settings?.country||'Pakistan')===String(filters.country);
+    });
+   }
+  }else rows=MCQ.publicMcqs();
+  const total=server?Number(server.total||0):rows.length,pageSize=10,page=server?Math.max(1,Number(server.page||filters.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const heading=shell.querySelector('.page-heading h1'),headingDesc=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=view==='important'?'Important MCQs':'Practice MCQs';
+  if(headingDesc)headingDesc.textContent='Browse approved practice MCQs with correct answers and explanations.';
+  const search=shell.querySelector('form[data-form="search"] input[name="q"]');
+  if(search)search.value=String(params.q||'');
+  setText('mcq-summary',total.toLocaleString('en-GB')+' total '+(view==='important'?'important MCQs':'MCQs')+' · only 10 load per page');
+  const list=region('mcq-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   list.replaceChildren();
+   list.append(this.staticMarkupFragment(UI.adSlot('mcq_top_ad')));
+   if(shown.length){
+    shown.forEach((question,index)=>{
+     list.append(questionCardFragment(question,false,base==='year'?Number(id)||null:null));
+     if(index===4)list.append(this.staticMarkupFragment(UI.adSlot('mcq_inline_ad')));
+    });
+   }else list.append(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No matching MCQs are available yet.','Choose another option or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
+   list.append(this.staticMarkupFragment(UI.adSlot('mcq_bottom_ad')));
+   list.hidden=false;
+  }
+  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,App.route.path));
+ }else if(base==='categories'||base==='papers'||base==='jobs-exams'){
+  const collection=base==='categories'?'categories':'papers',country=fixedCountry();
+  const entityPage=data.entityPage||{},entityServer=entityPage.server===true&&entityPage.routeKey===location.pathname+location.search&&entityPage.type===collection?entityPage:null;
+  let rows=(data[collection]||[]).filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy));
+  if(collection==='papers'&&country)rows=rows.filter(x=>(x.country||data.settings?.country||'Pakistan')===country);
+  if(collection==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||data.settings?.country||'Pakistan')===country);
+  rows=MCQ.sortPinned(collection,rows);
+  const pageSize=12,total=entityServer?Number(entityPage.total||0):rows.length,page=entityServer?Math.max(1,Number(entityPage.page)||1):App.page(total,pageSize),shown=entityServer?(Array.isArray(entityPage.items)?entityPage.items:[]):rows.slice((page-1)*pageSize,page*pageSize);
+  const pageCopy=collection==='categories'?copy('categories','All categories','Choose a category to open its MCQ collection.'):copy('past-papers','Organizations / Boards','Browse organizations and boards, then choose a Past Paper.');
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  const listName=collection==='categories'?'category-list':'organization-list',list=region(listName);
+  if(list){
+   list.classList.add('grid','public-main','public-main-full');
+   if(collection==='papers')list.classList.add('paper-grid');
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach((item,index)=>cards.append(entityCardFragment(collection,item,(page-1)*pageSize+index)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No records available here','Try another section or return to the previous page.',UI.link(collection==='papers'?'papers':'categories',collection==='papers'?'Browse organizations / boards':'Browse categories','btn primary'))));
+   list.replaceChildren(cards);
+   list.hidden=false;
+  }
+  const summaryName=collection==='categories'?'category-context':'past-paper-summary';
+  setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
+  if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,base==='jobs-exams'?'jobs-exams':'papers'));
+ }else if(base==='test'){
+  const plan=Public.automaticTestPlan(),rows=Array.isArray(plan.rows)?plan.rows:[],kind='auto',key='auto:'+plan.period+':'+rows.map(item=>item.id).join(','),result=App.testResult?.key===key?App.testResult:null;
+  pageHeading('Automatic 10-MCQ Test',rows.length?'Answer the questions and submit to see your result.':'No approved MCQs are available for this test yet.');
+  setBreadcrumbs([['Tests','tests'],['Automatic 10-MCQ Test']]);
+  const dest=region('route-detail');if(!dest)return false;dest.classList.add('public-main','public-main-full');dest.replaceChildren();
+  if(result){
+   const percentage=result.total?Math.round(result.correct/result.total*100):0,stats=document.createElement('div');stats.className='test-result-grid';
+   [['Total Questions',result.total],['Correct Answers',result.correct],['Wrong Answers',result.wrong],['Unanswered',result.unanswered],['Percentage',percentage+'%'],['Score',String(result.correct)+' / '+String(result.total)]].forEach(([label,value])=>{
+    const card=document.createElement('article');card.className='card stat-card';const name=document.createElement('span');name.className='stat-card-label';name.textContent=label;const number=document.createElement('strong');number.className='stat-card-value';number.textContent=String(value);card.append(name,number);stats.append(card);
+   });
+   dest.append(stats);
+   const actions=document.createElement('div');actions.className='actions test-result-actions';
+   const reviewing=App.route.params.review==='1',reviewLink=makeInternalLink('test/auto',reviewing?'Hide review':'Review Answers',reviewing?'btn':'btn primary');
+   reviewLink.href=UI.href('test/auto',reviewing?{}:{review:'1'});actions.append(reviewLink);
+   const retry=document.createElement('button');retry.type='button';retry.className='btn';retry.dataset.action='test-retry';retry.dataset.kind=kind;retry.textContent='Try again';actions.append(retry);dest.append(actions);
+   if(reviewing){
+    const review=document.createElement('section');review.className='test-review';
+    rows.forEach((question,index)=>{
+     const card=document.createElement('article');card.className='card';const eyebrow=document.createElement('p');eyebrow.className='eyebrow';eyebrow.textContent='MCQ '+(index+1);const title=document.createElement('h2');title.textContent=String(question.question||'');card.append(eyebrow,title);
+     const chosen=String(result.answers?.[question.id]||''),your=document.createElement('p');your.textContent='Your answer: '+(chosen||'Unanswered');card.append(your);
+     const correct=document.createElement('p');correct.textContent='Correct answer: '+String(question.correct_answer||'');card.append(correct);
+     if(question.description){const explanation=document.createElement('div');explanation.className='explanation';const p=document.createElement('p');p.textContent=String(question.description);explanation.append(p);card.append(explanation);}
+     review.append(card);
+    });
+    dest.append(review);
+   }
+  }else if(rows.length){
+   const questionNodes=document.createDocumentFragment();
+   rows.forEach((question,index)=>{
+    const options=document.createDocumentFragment();
+    [1,2,3,4].forEach(number=>{
+     const label=document.createElement('label'),input=document.createElement('input');input.type='radio';input.name='test_q_'+question.id;input.value=String(question['option'+number]||'');label.append(input);
+     const letter=document.createElement('span');letter.className='letter';letter.textContent='ABCD'[number-1];label.append(letter);
+     const optionText=document.createElement('span');optionText.className='option-text';optionText.textContent=String(question['option'+number]||'');label.append(optionText);
+     const indicator=document.createElement('span');indicator.className='option-indicator';indicator.setAttribute('aria-hidden','true');label.append(indicator);options.append(label);
+    });
+    const questionFragment=this.staticTemplateFragment('mcq-test-question-template',{TEST_QUESTION_NUMBER:String(index+1),TEST_QUESTION_TEXT:String(question.question||''),TEST_QUESTION_OPTIONS:options});
+    if(questionFragment)questionNodes.append(questionFragment);
+   });
+   const formFragment=this.staticTemplateFragment('mcq-test-form-template',{TEST_QUESTIONS:questionNodes});
+   const form=formFragment?.querySelector('form[data-form="test-submit"]');
+   if(form){form.dataset.testKey=key;form.dataset.testKind=kind;form.dataset.startedAt=String(Date.now());dest.append(form);}
+  }else{
+   const empty=document.createElement('div');empty.className='empty';const heading=document.createElement('h3');heading.textContent='No MCQs available';const description=document.createElement('p');description.textContent='Approved MCQs will be used to build an automatic test.';empty.append(heading,description,makeInternalLink('tests','Back to tests','btn'));dest.append(empty);
+  }
+  dest.hidden=false;
+ }else if(base==='tests'){
+  const plan=Public.automaticTestPlan(),next=new Date(plan.next);
+  const title=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(title)title.textContent='Automatic Tests';
+  if(description)description.textContent='A hands-off test system that continuously rotates 10-question sets from your approved MCQ library.';
+  const list=region('test-list');
+  if(list){
+   list.classList.add('public-main','public-main-full');
+   const content=UI.templateMarkup('mcq-tests-automatic-hero-template',{
+    AUTO_TEST_DAYS:String(plan.days),AUTO_TEST_SOURCE:UI.esc(plan.source?.name||'Mixed MCQs'),
+    AUTO_TEST_QUESTION_COUNT:String(plan.rows.length),AUTO_TEST_NEXT_DATE:UI.esc(next.toISOString().slice(0,10)),
+    AUTO_TEST_START_LINK:UI.link('test/auto','Start Automatic Test','btn primary')
+   })||'';
+   list.replaceChildren(this.staticMarkupFragment(content||UI.empty('No tests are available','Approved MCQs will be used to build automatic tests.')));
+   list.hidden=false;
+  }
+ }else if(base==='pdf'){
+  const resource=(data.pdfs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||row.name||''))===String(id));
+  if(!resource||resource.active===false)return false;
+  const safeLink=url=>/^https?:\/\//i.test(String(url||''))||/^data:application\/pdf;base64,/i.test(String(url||'')),safeImage=url=>/^https?:\/\//i.test(String(url||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(url||''));
+  const baseTitle=String(resource.title||resource.name||'Exam Preparation PDF'),title=String(resource.seo_title||baseTitle+' PDF'),description=String(resource.seo_description||resource.description||'Download this exam preparation PDF and continue with related past papers and MCQs.'),href=String(resource.download_url||'').trim(),filename=MCQ.slug(title)+'.pdf';
+  pageHeading(title,description);setBreadcrumbs([['PDFs','pdfs'],[baseTitle]]);
+  let cover=document.createDocumentFragment();if(resource.cover&&safeImage(resource.cover)){const image=document.createElement('img');image.src=String(resource.cover);image.alt=title;image.loading='lazy';image.decoding='async';cover.append(image);}
+  let download;
+  if(safeLink(href)){download=document.createElement('a');download.className='btn primary';download.href=href;download.dataset.authAction='download-pdf';download.dataset.authDownloadName=filename;download.textContent='Download PDF';if(/^data:/i.test(href))download.download=filename;else{download.target='_blank';download.rel='noopener';}}
+  else{download=document.createElement('span');download.className='btn disabled';download.setAttribute('aria-disabled','true');download.textContent='Download unavailable';}
+  const body=this.staticTemplateFragment('mcq-pdf-detail-template',{PDF_DETAIL_COVER:cover,PDF_DETAIL_TITLE:title,PDF_DETAIL_DESCRIPTION:description,PDF_DETAIL_DOWNLOAD:download});
+  const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
+ }else if(base==='pdfs'){
+  const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
+  const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
+  const page=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Math.max(1,Number(pdfPage.page)||1):App.page(total,pageSize);
+  const shown=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search&&Array.isArray(pdfPage.items)?pdfPage.items:rows.slice((page-1)*pageSize,page*pageSize);
+  const list=region('pdf-list');
+  if(list){
+   list.classList.add('pdf-resource-grid','public-main','public-main-full');
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach(item=>cards.append(pdfCardFragment(item)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No PDFs available yet','Published PDF resources will appear here with a direct Download button.')));
+   list.replaceChildren(cards);
+   list.hidden=false;
+  }
+  setText('pdf-summary',total.toLocaleString('en-GB')+' PDF resources · 12 per page');
+  setMarkup('pdf-pagination',UI.pager(total,page,pageSize,App.route.params,'pdfs'));
+ }else if(base==='latest-job'){
+  const job=(data.latestJobs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
+  if(!job||job.published===false)return false;
+  const organization=MCQ.get('papers',job.paper_id),title=String(job.seo_title||((organization?.name?organization.name+' ':'')+(job.title||'Job opportunity')).trim()),description=String(job.seo_description||job.description||'Latest job details, application deadline and related past-paper preparation links.'),applyUrl=String(job.apply_url||'').trim(),prepUrl=String(job.prep_url||'').trim();
+  pageHeading(title,description);setBreadcrumbs([['Latest Jobs','latest-jobs'],[job.title||'Job']]);
+  const actions=document.createDocumentFragment();
+  if(/^https?:\/\//i.test(applyUrl)){const apply=document.createElement('a');apply.className='btn primary';apply.href=applyUrl;apply.target='_blank';apply.rel='noopener';apply.dataset.authAction='apply-job';apply.textContent='Apply / View Official Details';actions.append(apply);}
+  if(/^(https?:\/\/|\/(?!\/))/i.test(prepUrl)){const papers=document.createElement('a');papers.className='btn';papers.href=prepUrl;papers.textContent='Past Papers';if(/^https?:/i.test(prepUrl)){papers.target='_blank';papers.rel='noopener';}actions.append(papers);}
+  else if(organization)actions.append(makeInternalLink('paper/'+organization.id,'Past Papers','btn'));
+  const logo=organization?this.staticMarkupFragment(UI.entityIcon(organization,'briefcase')):this.staticMarkupFragment(UI.icon('briefcase'));
+  const body=this.staticTemplateFragment('mcq-latest-job-detail-template',{JOB_DETAIL_LOGO:logo,JOB_DETAIL_ORGANIZATION:String(organization?.name||'Organization'),JOB_DETAIL_TITLE:title,JOB_DETAIL_DESCRIPTION:description,JOB_DETAIL_LAST_DATE:String(UI.date(job.last_date)||''),JOB_DETAIL_ACTIONS:actions});
+  const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
+ }else if(base==='latest-jobs'){
+  const pageSize=10,today=new Date().toISOString().slice(0,10);
+  const rows=(data.latestJobs||[]).filter(x=>x&&x.published!==false&&String(x.last_date||'')>=today).sort((a,b)=>String(a.last_date||'').localeCompare(String(b.last_date||''))||Number(b.id)-Number(a.id));
+  const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  const pageCopy=copy('latest-jobs','Latest Jobs','Current job opportunities with organization, job title, individual detail pages and last date to apply.');
+  if(heading)heading.textContent=pageCopy.title;
+  if(description)description.textContent=pageCopy.description;
+  const list=region('jobs-list');
+  if(list){
+   list.classList.add('latest-jobs-list','public-main','public-main-full');
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach(item=>cards.append(latestJobCardFragment(item)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No active job announcements right now','Expired jobs stay available to administrators but are hidden from this Latest Jobs list.')));
+   list.replaceChildren(cards);
+   list.hidden=false;
+  }
+  setMarkup('jobs-pagination',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
+ }else if(base==='login'||base==='register'){
+  const countries=(data.countries||[{name:'Pakistan',active:true},{name:'India',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
+  const selected=(countries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name;
+  if(!selected)return showCountryEntry();
+  const form=shell.querySelector('form[data-form="auth-'+base+'"]');
+  if(!form)return false;
+  const heading=form.closest('.auth-form')?.querySelector('h1');
+  if(heading)heading.textContent=base==='login'?'Sign in':'Create account';
+  const mainHeading=shell.querySelector('.auth-story h2');
+  if(mainHeading)mainHeading.textContent=base==='login'?'Welcome back':'Start learning';
+  const story=shell.querySelector('.auth-story p:not(.eyebrow)');
+  if(story)story.textContent=base==='login'?'Continue your learning journey.':'Create your MCQCampus account.';
+  if(base==='register'){
+   const countrySelect=form.querySelector('select[name="country"]');
+   if(countrySelect){
+    countrySelect.replaceChildren();
+    const placeholder=document.createElement('option');
+    placeholder.value='';placeholder.textContent='Choose country';countrySelect.append(placeholder);
+    for(const item of countries){
+     const option=document.createElement('option');option.value=String(item.name).trim();option.textContent=String(item.name).trim();countrySelect.append(option);
+    }
+    countrySelect.value=selected;
+   }
+  }
+  form.querySelectorAll('[data-auth-error]').forEach(box=>{box.textContent='';});
+ }else if(['forgot','reset-code','reset-password','verify'].includes(base)){
+  // Forms and page structure live in index.html; this branch only binds the
+  // account email from the reset/verification URL to the static form controls.
+  const destination=region('auth-form');
+  const form=destination?.querySelector('form[data-form="auth-'+base+'"]');
+  if(!destination||!form)return false;
+  const params=App.route.params||{},emailParam=String(params.email||new URLSearchParams(location.search).get('email')||'');
+  const emailInput=form.querySelector('[name="email"]');
+  if(emailInput&&emailParam)emailInput.value=emailParam;
+  destination.hidden=false;
+ }else if(base==='post'){
+  const post=(data.posts||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
+  if(!post||post.published===false)return false;
+  const title=String(post.seo_title||post.title||'MCQCampus Update'),description=String(post.seo_description||post.excerpt||'MCQCampus article and preparation guide.');
+  pageHeading(title,description);setBreadcrumbs([['Blog','posts'],[post.title||title]]);
+  const body=this.staticTemplateFragment('mcq-blog-detail-template',{});
+  if(!body)return false;
+  const cover=body.querySelector('[data-post-cover]'),excerpt=body.querySelector('[data-post-excerpt]'),articleBody=body.querySelector('[data-post-body]'),linkSection=body.querySelector('[data-post-links]'),linkList=body.querySelector('[data-post-link-list]'),cta=body.querySelector('[data-post-practice-cta]');
+  const imageUrl=String(post.featured_image||'').trim();
+  if(cover&&imageUrl&&(/^https?:\/\//i.test(imageUrl)||/^\/(?!\/)/.test(imageUrl))){const image=document.createElement('img');image.src=imageUrl;image.alt='';image.loading='lazy';image.decoding='async';cover.append(image);cover.hidden=false;}
+  if(excerpt&&String(post.excerpt||'').trim()){excerpt.textContent=String(post.excerpt).trim();excerpt.hidden=false;}
+  if(articleBody){
+   String(post.body||'').split(/\n\s*\n/).map(value=>value.trim()).filter(Boolean).forEach(value=>{const paragraph=document.createElement('p');paragraph.textContent=value;articleBody.append(paragraph);});
+   articleBody.append(this.staticMarkupFragment(UI.adSlot('article_ad')));
+  }
+  const seenLinks=new Set(),links=(post.links||[]).filter(item=>item&&item.label!=='__blog_url').filter(item=>/^(https?:\/\/|#\/)/i.test(String(item.url||''))).filter(item=>{const key=String(item.url||'').trim().replace(/\/+$/,'').toLowerCase();if(!key||seenLinks.has(key))return false;seenLinks.add(key);return true;});
+  if(linkSection&&linkList&&links.length){links.forEach((item,index)=>{const anchor=document.createElement('a');anchor.className='btn post-link-row';anchor.href=String(item.url);if(/^https?:/i.test(String(item.url))){anchor.target='_blank';anchor.rel='noopener';}const number=document.createElement('span');number.className='post-link-index';number.textContent=String(index+1);const label=document.createElement('span');label.textContent=String(item.label||item.url);anchor.append(number,label);linkList.append(anchor);});linkSection.hidden=false;}
+  if(cta){cta.append(makeInternalLink('mcqs','Practice MCQs','btn primary'));cta.append(makeInternalLink('important','Important MCQs','btn'));}
+  const destination=region('route-detail');if(destination){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
+ }else if(base==='posts'){
+  const pageSize=10,params=App.route.params||{},category=String(params.category||'');
+  const all=(data.posts||[]).filter(item=>item&&item.published!==false).sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
+  const categories=[...new Set(all.map(item=>item.category).filter(Boolean))];
+  const rows=category?all.filter(item=>item.category===category):all;
+  const total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const list=region('blog-list');
+  if(list){
+   list.classList.add('content-showcase-grid','public-main','public-main-full');
+   const cards=document.createDocumentFragment();
+   if(shown.length)shown.forEach(item=>cards.append(blogPostCardFragment(item)));
+   else cards.append(this.staticMarkupFragment(UI.empty('No updates have been published yet','Exam news, preparation guidance and announcements will appear here.')));
+   list.replaceChildren(cards);
+   list.hidden=false;
+  }
+  const filterBar=PublicLayout.selectionBar([{label:'All',path:'posts',params:{},active:!category},...categories.map(value=>({label:value,path:'posts',params:{category:value},active:category===value}))],'Update categories');
+  setMarkup('blog-filters',filterBar);
+  setMarkup('blog-pagination',UI.pager(total,page,pageSize,params,'posts'));
+ }else if(['about','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)){
+  const legalPages=data.content?.legalPages||{},page=legalPages[base]||{},footer=data.settings?.footer||{};
+  if((base==='faq'&&footer.showFaq!==true)||(base==='cookies'&&footer.showCookiePolicy!==true)||(base==='advertising'&&footer.showAdvertisingPolicy!==true)||(page.published===false&&!['about','privacy','terms','disclaimer'].includes(base)))return false;
+  const titles={about:'About MCQCampus',faq:'Frequently Asked Questions',privacy:'Privacy Policy',terms:'Terms & Conditions',disclaimer:'Disclaimer',cookies:'Cookie Policy',advertising:'Advertising Policy'};
+  const title=String(page.title||titles[base]||'Information'),description=String(page.metaDescription||page.seoDescription||'MCQCampus information and policy page.');
+  pageHeading(title,description);setBreadcrumbs([[title]]);
+  const destination=region('about-content');if(!destination)return false;destination.replaceChildren();
+  if(base==='faq'){
+   const faq=this.staticTemplateFragment('mcq-faq-content-template');if(faq)destination.append(faq);
+  }else{
+   const article=this.staticTemplateFragment('mcq-legal-content-template',{}),body=article?.querySelector('[data-legal-body]'),updated=article?.querySelector('[data-policy-updated]');
+   if(updated&&page.lastUpdated){updated.textContent='Last Updated: '+String(page.lastUpdated);updated.hidden=false;}
+   appendManagedText(body,page.content||(base==='about'?data.content?.about:'')||'');
+   if(article)destination.append(article);
+  }
+  if(!destination.childNodes.length){const paragraph=document.createElement('p');paragraph.textContent='Information will be published here.';destination.append(paragraph);}
+  destination.hidden=false;
+ }else if(base==='contact'){
+  pageHeading('Contact MCQCampus','Contact MCQCampus for support, corrections, technical issues, PDF questions, or advertising inquiries.');
+  setBreadcrumbs([['Contact']]);
+  const destination=region('contact-form');if(!destination)return false;
+  const form=destination.querySelector('form[data-form="contact"]');if(!form)return false;
+  const contactSettings=data.settings?.contact||{},contactPage=(data.content?.legalPages||{}).contact||{};
+  if(contactPage.content||data.content?.contact){const article=document.createElement('article');article.className='article legal-article';appendManagedText(article,contactPage.content||data.content.contact);if(article.childNodes.length)destination.insertBefore(article,form);}
+  const details=document.createElement('div');details.className='contact-details card';
+  if(contactSettings.supportEmail){const paragraph=document.createElement('p'),strong=document.createElement('strong'),anchor=document.createElement('a');strong.textContent='Support: ';anchor.className='link';anchor.href='mailto:'+String(contactSettings.supportEmail);anchor.textContent=String(contactSettings.supportEmail);paragraph.append(strong,anchor);details.append(paragraph);}
+  if(contactSettings.advertisingContact){const paragraph=document.createElement('p'),strong=document.createElement('strong');strong.textContent='Advertising: ';paragraph.append(strong,document.createTextNode(String(contactSettings.advertisingContact)));details.append(paragraph);}
+  if(details.childNodes.length)destination.insertBefore(details,form);
+  const params=App.route.params||{},selected=String(params.subject||''),subject=form.querySelector('select[name="subject"]');
+  if(subject&&Array.from(subject.options).some(option=>option.value===selected))subject.value=selected;
+  const context=form.querySelector('[data-contact-context]');
+  if(context){[['mcq_id',String(params.mcq||'').replace(/[^0-9]/g,'')],['page_url',String(params.url||'').slice(0,500)]].forEach(([name,value])=>{if(!value)return;const label=document.createElement('label');label.textContent=name==='mcq_id'?'MCQ ID':'Page URL';const input=document.createElement('input');input.name=name;input.value=value;input.readOnly=true;label.append(input);context.append(label);});}
+  destination.hidden=false;
+ }else if(base==='sitemap'){
+  if(data.settings?.footer?.showSitemap===false)return false;
+  const discovery=window.SEO?.discoveryPage?.(location.pathname);setBreadcrumbs((discovery?.breadcrumbs||[]).slice(1).map(([label,href],index,all)=>index===all.length-1?[label]:[label,href]));pageHeading(discovery?.heading||'Sitemap',discovery?.intro||'Browse public study sections, organizations, past papers and preparation resources.');
+  const destination=region('sitemap-content');if(!destination)return false;
+  const groups=Array.isArray(discovery?.groups)&&discovery.groups.length?discovery.groups:[['Main Pages',[['Home','home'],['MCQs','mcqs'],['Important MCQs','important'],['Categories','categories'],['Organizations / Boards','papers'],['Past Papers','papers'],['Tests','tests'],['PDFs','pdfs'],['Jobs & Exams','latest-jobs'],['Blog & Updates','posts']]]];
+  const grid=document.createElement('div');grid.className='sitemap-grid';
+  groups.forEach(([name,entries])=>{const card=document.createElement('section');card.className='card';const heading=document.createElement('h2');heading.textContent=String(name||'');card.append(heading);(entries||[]).forEach(([label,path])=>card.append(makeInternalLink(String(path||''),String(label||''),'discovery-link')));grid.append(card);});
+  destination.replaceChildren(grid);destination.hidden=false;
+ } shell.querySelectorAll('[data-static-loading]').forEach(node=>node.remove());
+ shell.querySelectorAll('[data-api-region]').forEach(area=>{
+  const hasContent=Array.from(area.childNodes).some(node=>node.nodeType===1||String(node.textContent||'').trim());
+  if(!hasContent)area.hidden=true;
+ });
+ root.replaceChildren(this.staticPageNode(shell,shellKey));
+ if(base==='verify')Auth.syncVerificationTimer?.(String((App.route.params||{}).email||new URLSearchParams(location.search).get('email')||''));
+ root.removeAttribute('aria-busy');
+ document.body.dataset.pageTemplate=shellKey==='past-papers'?'papers':shellKey;
+ document.body.dataset.staticFallback=shellKey;
+ return true;
 },
 showStaticShell(){
  const root=document.getElementById('app');
@@ -2449,36 +3694,39 @@ showStaticShell(){
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   blog:'blog',blogs:'blog',posts:'blog',post:'blog',
   'latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs',
-  login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login',
-  'reset-password':'login',verify:'login',
+  login:'login',register:'register',forgot:'forgot',reset:'reset-code','reset-code':'reset-code',
+  'reset-password':'reset-password',verify:'verify',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',
   cookies:'about',advertising:'about',contact:'contact'
  };
  let page=map[first];
  const requestedCountry=new URLSearchParams(location.search).get('country');
  if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';
- if(!page||['dashboard','admin','super-admin'].includes(page))return false;
+ if(!page)return false;
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+page+'"]');
  if(!source)return false;
  this.route={path:location.pathname.replace(/^\/+|\/+$/g,'')||'home',params:Object.fromEntries(new URLSearchParams(location.search))};
  const shell=source.cloneNode(true);
  shell.dataset.staticFallback='true';
- root.innerHTML=this.staticPageMarkup(shell,page);
+ root.replaceChildren(this.staticPageNode(shell,page));
  root.setAttribute('aria-busy','true');
  document.body.dataset.staticFallback=page;
  return true;
 },
 
 mountStaticPage(base,renderedHtml){
+ const discovery=window.SEO?.discoveryPage?.(location.pathname);
+ if(discovery?.landing?.type==='paper'&&discovery.landing.id)base='paper';
+ else if(discovery?.landing?.type==='job'&&discovery.landing.id)base='job';
  const map={
   home:'home',mcqs:'mcqs',important:'mcqs',topic:'mcqs',search:'mcqs',mcq:'mcqs',practice:'mcqs',
   categories:'categories',category:'categories',subcategory:'categories',
-  papers:'past-papers',paper:'past-papers',year:'past-papers',
+  papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',
   tests:'tests',test:'tests',pdfs:'pdfs',pdf:'pdfs',
   posts:'blog',post:'blog','latest-jobs':'latest-jobs','latest-job':'latest-jobs',
   about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',
-  contact:'contact'
+  contact:'contact',dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap',admin:'admin','super-admin':'super-admin','not-found':'not-found'
  };
  const page=map[base];
  if(!page)return false;
@@ -2593,13 +3841,33 @@ mountStaticPage(base,renderedHtml){
  }else if(page==='contact'){
   populated=fillAny('contact-form',['form[data-form="contact"]'],sourceMain)||populated;
   populated=fillAny('route-detail',['.contact-details','.empty'],content)||populated;
+ }else if(page==='dashboard'){
+  populated=fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')||populated;
+  const dashboardRegion=target('learner-dashboard');dashboardRegion?.classList.remove('container','page');
+ }else if(page==='sitemap'){
+  populated=fillAny('sitemap-content',['.sitemap-grid','.empty'],content)||populated;
+ }else if(page==='not-found'){
+  const destination=target('not-found-links');
+  if(destination){
+   destination.replaceChildren();
+   destination.append(makeInternalLink('home','Home','btn primary'),makeInternalLink('search','Search','btn'),makeInternalLink('categories','Categories','btn'),makeInternalLink('papers','Past papers','btn'));
+   destination.hidden=false;populated=true;
+  }
+ }else if(page==='admin'||page==='super-admin'){
+  shell.querySelector('.page-heading')?.remove();
+  shell.querySelector('nav[aria-label="Admin sections"],nav[aria-label="Super Admin sections"]')?.remove();
+  if(main)main.classList.remove('container','page','public-page');
+  const regionName=page==='admin'?'admin-workspace':'super-admin-workspace';
+  populated=fill(regionName,'.dash-layout',parsed.body,'outer')||populated;
+  const workspace=target(regionName);
+  workspace?.classList.remove('container','page','public-main','public-main-full');
  }
  if(!populated)return false;
  shell.querySelectorAll('[data-static-loading]').forEach(node=>node.remove());
  shell.querySelectorAll('[data-api-region]').forEach(region=>{if(!region.children.length)region.hidden=true});
  const root=document.getElementById('app');
  if(!root)return false;
- root.innerHTML=this.staticPageMarkup(shell,page);
+ root.replaceChildren(this.staticPageNode(shell,page));
  document.body.dataset.staticFallback=page;
  return true;
 },
@@ -2659,7 +3927,7 @@ render(){if(!Auth.guard())return;
   });
   return;
  }
- if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}let html;try{if(window.SEO?.discoveryPage(path))html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else html=Public.notFound();const mountedStatic=this.mountStaticPage(base,html);if(!mountedStatic)document.getElementById('app').innerHTML=html;try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
+ if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}const discovery=window.SEO?.discoveryPage?.(path);if(discovery?.landing?.type==='paper'&&discovery.landing.id){base='paper';id=String(discovery.landing.id);}let html;try{if(this.mountDataDrivenPage(base,id))html=null;else if(discovery)html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else{base='not-found';html=Public.notFound();}if(html!==null){const mountedStatic=this.mountStaticPage(base,html);if(!mountedStatic)document.getElementById('app').replaceChildren(this.staticMarkupFragment(html));}try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
 
 App.fitBracketBreaks=function(root=document){
  const scope=root===document?document.getElementById('app'):root;if(!scope)return;
@@ -3354,4 +4622,3 @@ window.Admin=(()=>{
 window.MCQCampusPageScriptsLoaded=window.MCQCampusPageScriptsLoaded||new Set();
 for(const name of ["about","admin","blog","categories","contact","dashboard","home","latest-jobs","login","mcqs","past-papers","pdfs","register","super-admin","tests"])window.MCQCampusPageScriptsLoaded.add(name);
 window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPageHooks?.[String(name||"")]};
-window.MCQCampusLoadBundledModule=async function(name){if(["admin.js","importer.js","enhancements.js"].includes(String(name||"")))return true;throw Error("Unknown bundled module")};

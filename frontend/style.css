@@ -3469,3 +3469,22 @@ body[data-page-template="contact"] #main-nav .nav-more>summary{
  .nav a{font-size:.8rem}
  .nav-more>summary{font-size:.8rem}
 }
+
+/* Static DOM-rendered learner dashboard refinements */
+.learner-overview-view,.learner-subpage{display:grid;gap:16px;min-width:0}
+.learner-subpage-heading{margin:0}
+.learner-subpage-heading h2{margin:2px 0 6px}
+.learner-subpage-content{min-width:0}
+.learner-dashboard-question-list{display:grid;gap:12px}
+.learner-dashboard-question-list>.mcq-card{margin:0}
+.learner-overview-view [data-dashboard-category-progress],
+.learner-overview-view [data-dashboard-weak-areas],
+.learner-overview-view [data-dashboard-recent-activities]{min-width:0}
+.learner-profile-page [data-profile-avatar]{flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.learner-profile-page [data-profile-avatar] .profile-photo{width:76px;height:76px;object-fit:cover;border-radius:50%}
+.learner-profile-page .profile-learning-snapshot .stat-card-link{min-width:0;text-decoration:none}
+@media(max-width:650px){
+ .learner-subpage-heading h2{font-size:1.25rem}
+ .learner-dashboard-question-list{gap:10px}
+ .learner-profile-page [data-profile-avatar] .profile-photo{width:64px;height:64px}
+}
