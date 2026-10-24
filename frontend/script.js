@@ -3018,7 +3018,27 @@ mountDataDrivenPage(base,id){
   const statsRegion=region('home-stats');
   if(statsRegion){
    statsRegion.replaceChildren();
-   for(const item of stats)statsRegion.append(this.staticMarkupFragment(UI.statCard(item)));
+   for(const item of stats){
+    const tone=['primary','success','info','warning','danger','neutral'].includes(item.tone)?item.tone:'primary';
+    const loading=Boolean(item.loading),cls='card stat-card tone-'+tone+(item.path?' stat-card-link clickable':'')+(loading?' is-loading':'')+(item.className?' '+item.className:'');
+    const card=item.path?makeInternalLink(item.path,'',cls):document.createElement('div');
+    if(!item.path)card.className=cls;
+    if(loading)card.setAttribute('aria-busy','true');
+    const subtitle=document.createDocumentFragment();
+    if(item.subtitle){const text=document.createElement('span');text.className='stat-card-subtitle';text.textContent=String(item.subtitle);subtitle.append(text);}
+    const skeleton=document.createDocumentFragment();
+    if(loading){const span=document.createElement('span');span.className='stat-card-skeleton';span.setAttribute('aria-hidden','true');skeleton.append(span);}
+    const fragment=this.staticTemplateFragment('mcq-stat-card-content-template',{
+     STAT_TITLE:String(item.title||'Statistic'),
+     STAT_ICON:this.staticMarkupFragment(UI.icon(item.iconName||'book')),
+     STAT_VALUE:loading?'':(typeof item.value==='number'?item.value.toLocaleString('en-GB'):String(item.value??'—')),
+     STAT_SUBTITLE:subtitle,STAT_SKELETON:skeleton
+    });
+    const iconNode=fragment?.querySelector('.stat-card-icon');
+    if(iconNode){iconNode.classList.remove('tone-__SLOT_STAT_TONE__');iconNode.classList.add('tone-'+tone);}
+    if(fragment)card.append(fragment);
+    statsRegion.append(card);
+   }
    statsRegion.hidden=false;
   }
   setText('home-important-count',importantTotal.toLocaleString('en-GB')+' total important MCQs · only 10 load per page');
