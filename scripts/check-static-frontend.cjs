@@ -115,6 +115,9 @@ function cssBracesBalanced(source) {
   return !comment && !quote && depth === 0;
 }
 check(cssBracesBalanced(css), 'style.css has balanced CSS blocks');
+check(/@media\s*\(max-width:\s*600px\)/i.test(css), 'stylesheet includes responsive mobile viewport rules');
+check(/@media\s*\(max-width:\s*360px\)/i.test(css), 'stylesheet includes narrow-screen responsive rules');
+check(/prefers-reduced-motion\s*:\s*reduce/i.test(css), 'stylesheet respects reduced-motion preferences');
 
 check(nginx.includes('location = /assets/style.css'), 'Nginx maps the stylesheet URL to frontend/style.css');
 check(nginx.includes('alias /home/ubuntu/mcq-campus/frontend/style.css;'), 'Nginx stylesheet alias is correct');
@@ -144,6 +147,9 @@ check(runtime.includes("populated=fill(regionName,'.dash-layout',parsed.body,'ou
 check(runtime.includes("if(!['admin','super-admin'].includes(MCQ.role()))"), 'admin routes retain the existing role guard');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes("const discovery=window.SEO?.discoveryPage?.(location.pathname)"), 'SEO discovery pages are detected before static-shell mounting');
+check(runtime.includes("const discovery=window.SEO?.discoveryPage?.(path);if(discovery?.landing?.type==='paper'&&discovery.landing.id){base='paper';id=String(discovery.landing.id);}"), 'SEO organization landing pages prefer the data-driven static renderer');
+check(runtime.includes("else if(discovery)html=SEO.renderDiscovery(path);"), 'legacy SEO discovery markup remains only as a fallback');
+check(runtime.includes("const groups=Array.isArray(discovery?.groups)&&discovery.groups.length?discovery.groups:"), 'sitemap uses SEO discovery groups inside the hard-coded DOM shell');
 check(runtime.includes("if(discovery?.landing?.type==='paper'&&discovery.landing.id)base='paper'"), 'organization SEO landing pages mount into the Past Papers shell');
 check(runtime.includes("else if(discovery?.landing?.type==='job'&&discovery.landing.id)base='job'"), 'legacy SEO landing pages retain their Past Papers shell route');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
