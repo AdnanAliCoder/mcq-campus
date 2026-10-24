@@ -551,7 +551,15 @@ window.Public=(()=>{
   const options=[1,2,3,4].map((n,i)=>{
    const text=q['option'+n];
    const state=answer?(text===q.correct_answer?'correct':text===chosen?'wrong':''):text===chosen?'selected':'';
-   return btn('<span class="letter">'+'ABCD'[i]+'</span><span class="option-text">'+e(text)+'</span><span class="option-indicator" aria-hidden="true"></span>','choose','option '+state,'data-id="'+q.id+'" data-option="'+n+'" aria-pressed="'+(text===chosen)+'" '+(answer?'disabled':''));
+   return templateMarkup('mcq-question-option-template',{
+    OPTION_STATE:state,
+    OPTION_QUESTION_ID:String(q.id),
+    OPTION_NUMBER:String(n),
+    OPTION_PRESSED:String(text===chosen),
+    OPTION_DISABLED:answer?'disabled':'',
+    OPTION_LETTER:'ABCD'[i],
+    OPTION_TEXT:e(text)
+   });
   }).join('');
   const explanation=answer?'<div class="explanation mcq-verified-answer" role="status"><div class="verified-answer-head"><span class="verified-check" aria-hidden="true">✓</span><strong>Correct Answer: <b>'+e(q.correct_answer)+'</b></strong></div><p>'+e(q.description||'No explanation has been added yet.')+'</p>'+relationships(q,contextYearId)+'</div>':'';
   const hint=!answer?'<span class="small muted">Select an option to check your answer instantly.</span>':'';
