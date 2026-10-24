@@ -2492,9 +2492,9 @@ staticTemplateFragment(id,slots={}){
  return fragment;
 },
 mountDataDrivenPage(base,id){
- const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','jobs-exams','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'];
+ const supported=['home','mcqs','important','categories','papers','pdfs','latest-jobs','jobs-exams','posts','tests','test','login','register','forgot','reset-code','reset-password','verify','mcq','practice','category','subcategory','topic','paper','year','search','pdf','latest-job','post','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap','dashboard','profile'];
  const detailRoutes=['mcq','practice','category','subcategory','topic','paper','year','test','pdf','latest-job','post'];
- if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id))return false;
+ if(!supported.includes(base)||(detailRoutes.includes(base)?!id:!!id&&!['dashboard','profile'].includes(base)))return false;
  const parent=document.getElementById('static-page-shells');
  const root=document.getElementById('app');
  if(!parent||!root)return false;
@@ -2528,7 +2528,7 @@ mountDataDrivenPage(base,id){
   return true;
  };
  if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
- const shellKey=['papers','paper','jobs-exams'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':base;
+ const shellKey=['papers','paper','jobs-exams'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':['dashboard','profile'].includes(base)?'dashboard':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
  const shell=source.cloneNode(true);
@@ -2776,7 +2776,143 @@ mountDataDrivenPage(base,id){
   const page=data.mcqPage||{};
   return page.server===true&&page.scope==='public'&&page.routeKey===location.pathname+location.search?page:null;
  };
- if(base==='search'){
+ if(base==='dashboard'||base==='profile'){
+  if(base!=='dashboard'||(id&&id!=='overview'))return false;
+  const session=data.session||{};
+  const attempts=(data.attempts||[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  const correct=attempts.filter(item=>item.correct).length,wrong=attempts.length-correct,accuracy=attempts.length?Math.round(correct/attempts.length*100):0;
+  const savedMcqs=(data.bookmarks||[]).map(value=>MCQ.get('mcqs',value)).filter(Boolean);
+  const savedPapers=(data.savedPapers||[]).length;
+  const mistakes=[];
+  attempts.forEach(item=>{if(item.correct||mistakes.some(question=>Number(question.id)===Number(item.id)))return;const question=MCQ.get('mcqs',item.id);if(question)mistakes.push(question);});
+  const categoryStats=(data.categories||[]).filter(category=>category.active!==false&&!category.legacy).map(category=>{
+   const categoryAttempts=attempts.filter(item=>Number(MCQ.get('mcqs',item.id)?.category_id)===Number(category.id));
+   const total=categoryAttempts.length,ok=categoryAttempts.filter(item=>item.correct).length;
+   return {category,total,correct:ok,wrong:total-ok,accuracy:total?Math.round(ok/total*100):0};
+  }).filter(item=>item.total);
+  const weak=categoryStats.filter(item=>item.total>=3).sort((a,b)=>a.accuracy-b.accuracy||b.total-a.total).slice(0,4);
+  const recentAttempt=attempts[0],recentQuestion=recentAttempt&&MCQ.get('mcqs',recentAttempt.id);
+  const side=this.staticTemplateFragment('mcq-learner-side-template',{});
+  const nav=side?.querySelector('[data-dashboard-nav]');
+  const navItems=[
+   ['overview','Dashboard','grid'],['practice','Practice MCQs','book'],['important','Important MCQs','flag'],['mistakes','My Mistakes','flag'],
+   ['saved','Bookmarks / Saved MCQs','bookmark'],['papers','Past Papers','paper'],['tests','My Tests / Results','check'],
+   ['performance','My Performance','chart'],['history','Practice History','history'],['notifications','Notifications','bell'],
+   ['downloads','My Downloads','download'],['settings','Settings','settings']
+  ];
+  if(nav){
+   navItems.forEach(([key,label,iconName])=>{
+    const anchor=makeInternalLink('dashboard/'+key,'',key==='overview'?'active':'');
+    anchor.append(this.staticMarkupFragment(UI.icon(iconName)));
+    const textNode=document.createElement('span');textNode.textContent=label;anchor.append(textNode);
+    if(key==='overview')anchor.setAttribute('aria-current','page');
+    nav.append(anchor);
+   });
+  }
+  const body=this.staticTemplateFragment('mcq-learner-overview-template',{});
+  if(!body||!side)return false;
+  const metrics=body.querySelector('[data-dashboard-metrics]');
+  const metricItems=[
+   {title:'MCQs Attempted',value:attempts.length,icon:'book',tone:'info',subtitle:'Practice history',path:'dashboard/history'},
+   {title:'Correct',value:correct,icon:'check',tone:'success',subtitle:'Correct answers',path:'dashboard/performance'},
+   {title:'Wrong',value:wrong,icon:'flag',tone:'danger',subtitle:'Needs review',path:'dashboard/mistakes'},
+   {title:'Accuracy',value:accuracy+'%',icon:'chart',tone:'primary',subtitle:'Overall accuracy',path:'dashboard/performance'},
+   {title:'Saved MCQs',value:savedMcqs.length,icon:'bookmark',tone:'neutral',subtitle:'Bookmarked questions',path:'dashboard/saved'},
+   {title:'Saved Papers',value:savedPapers,icon:'paper',tone:'warning',subtitle:'Saved for later',path:'dashboard/papers'}
+  ];
+  if(metrics){
+   metricItems.forEach(item=>{
+    const subtitle=document.createElement('span');subtitle.className='stat-card-subtitle';subtitle.textContent=item.subtitle;
+    const content=this.staticTemplateFragment('mcq-stat-card-content-template',{
+     STAT_TITLE:item.title,STAT_ICON:this.staticMarkupFragment(UI.icon(item.icon)),STAT_VALUE:String(item.value),
+     STAT_SUBTITLE:subtitle,STAT_SKELETON:document.createDocumentFragment()
+    });
+    const anchor=makeInternalLink(item.path,'','card stat-card tone-'+item.tone+' stat-card-link clickable');
+    const tone=content?.querySelector('.stat-card-icon');
+    if(tone){tone.classList.remove('tone-__SLOT_STAT_TONE__');tone.classList.add('tone-'+item.tone);}
+    if(content)anchor.append(content);
+    metrics.append(anchor);
+   });
+  }
+  const continueTitle=body.querySelector('[data-dashboard-continue-title]');
+  const continueDescription=body.querySelector('[data-dashboard-continue-description]');
+  const continueAction=body.querySelector('[data-dashboard-continue-action]');
+  if(continueTitle)continueTitle.textContent=recentQuestion?String(recentQuestion.question||''):'Start your first preparation session.';
+  if(continueDescription)continueDescription.textContent=recentQuestion?'Return to your most recently attempted question and keep practising.':'Choose any category or past paper to begin tracking your progress.';
+  if(continueAction){
+   const action=makeInternalLink(recentQuestion?'practice/'+recentQuestion.id:'mcqs',recentQuestion?'Continue Preparation':'Start practising','btn primary');
+   action.append(this.staticMarkupFragment(UI.icon('arrow')));continueAction.append(action);
+  }
+  const quick=body.querySelector('[data-dashboard-quick-actions]');
+  if(quick){
+   quick.append(makeInternalLink('mcqs','Practice MCQs','btn primary'));
+   quick.append(makeInternalLink('papers','Attempt Past Paper','btn'));
+   quick.append(makeInternalLink('dashboard/mistakes','Review Mistakes','btn'));
+  }
+  const emptyFragment=(title,description,action=null)=>{
+   const fragment=this.staticTemplateFragment('mcq-empty-template',{
+    EMPTY_ICON:this.staticMarkupFragment(UI.icon('search')),EMPTY_TITLE:title,EMPTY_DESCRIPTION:description,
+    EMPTY_ACTION:action||document.createDocumentFragment()
+   });
+   return fragment||document.createDocumentFragment();
+  };
+  const progress=body.querySelector('[data-dashboard-category-progress]');
+  if(progress){
+   const rows=categoryStats.slice(0,6);
+   if(rows.length){
+    rows.forEach(item=>{
+     const row=document.createElement('div');row.className='bar-row';
+     const top=document.createElement('div');top.className='row';
+     const label=document.createElement('span');label.textContent=String(item.category.name||'');
+     const number=document.createElement('span');number.textContent=item.correct+' / '+item.total+' · '+item.accuracy+'%';top.append(label,number);
+     const track=document.createElement('div');track.className='progress-track';
+     const fill=document.createElement('span');fill.style.width=String(Math.max(0,Math.min(100,item.accuracy)))+'%';track.append(fill);
+     row.append(top,track);progress.append(row);
+    });
+   }else progress.append(emptyFragment('No activity yet','Your subject progress appears after you answer MCQs.'));
+  }
+  const weakRegion=body.querySelector('[data-dashboard-weak-areas]');
+  if(weakRegion){
+   if(weak.length){
+    weak.forEach(item=>{const row=document.createElement('div');row.className='weak-row';const label=document.createElement('span');label.textContent=String(item.category.name||'');const value=document.createElement('strong');value.textContent=item.accuracy+'%';row.append(label,value);weakRegion.append(row);});
+    weakRegion.append(makeInternalLink('dashboard/mistakes','Practice weak areas','btn sm'));
+   }else weakRegion.append(emptyFragment('No weak areas yet','Answer at least 3 questions in a category before it is evaluated.'));
+  }
+  const recent=body.querySelector('[data-dashboard-recent-activities]');
+  if(recent){
+   const activityRows=attempts.slice(0,5);
+   if(activityRows.length){
+    activityRows.forEach(item=>{
+     const question=MCQ.get('mcqs',item.id),category=MCQ.get('categories',question?.category_id);
+     const row=document.createElement('div');row.className='learner-activity-row';
+     const dot=document.createElement('span');dot.className='status-dot '+(item.correct?'ok':'bad');
+     const content=document.createElement('div'),title=document.createElement('strong'),meta=document.createElement('span');
+     title.textContent=String(question?.question||'MCQ attempt');
+     meta.textContent=String(category?.name||'Practice')+' · '+(item.correct?'Correct':'Incorrect')+' · '+String(UI.date(item.at)||'');
+     content.append(title,meta);row.append(dot,content);recent.append(row);
+    });
+   }else recent.append(emptyFragment('No recent activity','Your preparation history will appear here.'));
+  }
+  const avatar=(()=>{
+   const value=String(session.avatar||'').trim();
+   if(value&&(value.startsWith('/')&&!value.startsWith('//')||/^https?:\/\//i.test(value)||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(value))){
+    const image=document.createElement('img');image.className='profile-photo';image.src=value;image.alt='';return image;
+   }
+   const initials=String(session.name||'Learner').split(/\s+/).map(part=>part[0]).filter(Boolean).slice(0,2).join('');
+   const span=document.createElement('span');span.className='avatar';span.textContent=initials||'L';return span;
+  })();
+  const layout=this.staticTemplateFragment('mcq-learner-dashboard-template',{
+   LEARNER_MENU_ICON:this.staticMarkupFragment(UI.icon('menu')),LEARNER_SIDE:side,LEARNER_AVATAR:avatar,
+   LEARNER_NAME:String(session.name||'learner'),LEARNER_BODY:body
+  });
+  const layoutRoot=layout?.querySelector('.learner-dashboard-shell');
+  if(!layout||!layoutRoot)return false;
+  layoutRoot.classList.remove('container','page');
+  const destination=region('learner-dashboard');
+  if(!destination)return false;
+  destination.replaceChildren(layout);destination.hidden=false;
+  shell.querySelector('.page-heading')?.remove();
+  }else if(base==='search'){
   const params=App.route.params||{},query=String(params.q||'').trim(),wanted=String(params.type||'all'),normalized=MCQ.norm(query),results=[];
   const add=(type,label,path,title,summary,textValue,record)=>{
    if(query&&MCQ.norm(textValue||title).includes(normalized))results.push({type,label,path,title,summary,record});
