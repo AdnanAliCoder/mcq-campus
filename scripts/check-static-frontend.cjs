@@ -192,7 +192,8 @@ check(runtime.includes('const setBreadcrumbs=items=>'), 'breadcrumbs are compose
 check(runtime.includes('const appendManagedText=(container,value)=>'), 'managed legal copy is inserted as safe DOM text nodes');
 check(runtime.includes("}else if(base==='contact'){"), 'contact form is populated inside its static page shell');
 check(runtime.includes("}else if(base==='sitemap'){"), 'sitemap links are created as DOM nodes');
-check(runtime.includes("}else if(base==='latest-jobs'||base==='jobs-exams'){"), 'Jobs & Exams alias shares the migrated jobs listing shell');
+check(runtime.includes("}else if(base==='categories'||base==='papers'||base==='jobs-exams'){"), 'Jobs & Exams renders through the organization and past-paper directory');
+check(!runtime.includes("}else if(base==='latest-jobs'||base==='jobs-exams'){"), 'Jobs & Exams is not confused with latest-vacancy listings');
 check(html.includes('data-api-region="search-filters"') && html.includes('data-form="search"'), 'the static MCQ page provides an operational search form and filter region');
 check(html.includes('id="mcq-paper-context-template"'), 'organization detail has a reusable static context template');
 check(html.includes('data-api-region="mcq-related-list"') && html.includes('data-api-region="year-actions"'), 'MCQ detail and past-paper actions have static API regions');
