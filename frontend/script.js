@@ -3324,7 +3324,7 @@ mountStaticPage(base,renderedHtml){
   shell.querySelector('nav[aria-label="Admin sections"],nav[aria-label="Super Admin sections"]')?.remove();
   if(main)main.classList.remove('container','page','public-page');
   const regionName=page==='admin'?'admin-workspace':'super-admin-workspace';
-  populated=fill(regionName,'.admin-shell',parsed.body,'inner')||populated;
+  populated=fill(regionName,'.dash-layout',parsed.body,'outer')||populated;
   const workspace=target(regionName);
   workspace?.classList.remove('container','page','public-main','public-main-full');
  }
