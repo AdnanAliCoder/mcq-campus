@@ -215,6 +215,7 @@ check(runtime.includes("content.append(entityCardFragment('papers',item.record,i
 check(runtime.includes("content.append(pdfCardFragment(item.record))"), 'search results use reusable PDF-card DOM fragments');
 check(runtime.includes("list.replaceChildren(questionCardFragment(question,false))"), 'individual MCQ and practice details use DOM-based question cards');
 check(runtime.includes("setQuestionCards('home-mcqs',rows"), 'home MCQs are populated with DOM-based question cards');
+check(runtime.includes("mcq-stat-card-content-template',{") && runtime.includes('statsRegion.append(card)'), 'home statistics use the central HTML template and DOM nodes');
 check(runtime.includes('cards.append(questionCardFragment(item,false,Number(id)))'), 'past-paper year MCQ collections use DOM-based question cards');
 check(runtime.includes("list.append(questionCardFragment(question,false,base==='year'?Number(id)||null:null))"), 'general MCQ lists use DOM-based question cards and preserve ad placements');
 check(runtime.includes("this.staticTemplateFragment('mcq-latest-job-detail-template'"), 'job detail content mounts from a cloned HTML template');
