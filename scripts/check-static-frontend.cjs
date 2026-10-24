@@ -78,7 +78,7 @@ const requiredRegionsByPage = {
   contact: ['contact-form'],
 };
 for (const [page, regions] of Object.entries(requiredRegionsByPage)) {
-  const shell = pageShells.find(match => match[1] === page)?.[2] || '';
+  const shell = pageShells.find(match => match.name === page)?.markup || '';
   for (const region of regions) {
     check(shell.includes('data-api-region="' + region + '"'), 'static page has its API data region: ' + page + ' / ' + region);
   }
