@@ -3355,4 +3355,3 @@ window.Admin=(()=>{
 window.MCQCampusPageScriptsLoaded=window.MCQCampusPageScriptsLoaded||new Set();
 for(const name of ["about","admin","blog","categories","contact","dashboard","home","latest-jobs","login","mcqs","past-papers","pdfs","register","super-admin","tests"])window.MCQCampusPageScriptsLoaded.add(name);
 window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPageHooks?.[String(name||"")]};
-window.MCQCampusLoadBundledModule=async function(name){if(["admin.js","importer.js","enhancements.js"].includes(String(name||"")))return true;throw Error("Unknown bundled module")};
