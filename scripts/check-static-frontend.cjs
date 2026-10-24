@@ -131,7 +131,7 @@ check(!html.includes('<!-- SLOT:HEADER_NAV -->'), 'navigation links are not gene
 check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]'), 'active static navigation state is styled in CSS');
 check(css.includes('.country-entry-grid') && css.includes('.country-entry-card'), 'country selection fallback uses existing responsive CSS');
 check(html.includes('Choose your country and create an account') && html.includes('Choose your country and sign in'), 'static auth forms provide a path between signup and sign-in');
-check(runtime.includes("if(!page||['dashboard','admin','super-admin'].includes(page))return false;"), 'private dashboard and admin routes stay behind session-aware rendering');
+check(runtime.includes("if(!page||['admin','super-admin'].includes(page))return false;"), 'admin and super-admin routes stay on their protected workspace renderer');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
 check(runtime.includes('mountDataDrivenPage(base,id){'), 'core public pages have a data-driven static-shell renderer');
 check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
@@ -147,6 +147,9 @@ check(runtime.includes("if(base==='mcq'||base==='practice')"), 'individual MCQ a
 check(runtime.includes("else if(base==='category'||base==='subcategory')"), 'category and subcategory pages use static regions for links and MCQs');
 check(runtime.includes("else if(base==='paper')"), 'organization detail pages render past papers inside the static shell');
 check(runtime.includes("else if(base==='year')"), 'past-paper year pages render linked MCQs inside the static MCQ shell');
+check(runtime.includes("dashboard:'dashboard',profile:'dashboard',sitemap:'sitemap"), 'learner dashboard and sitemap have explicit static-shell routes');
+check(runtime.includes("fill('learner-dashboard','.learner-dashboard-shell',sourceMain,'inner')"), 'learner dashboard content mounts into the hard-coded dashboard shell');
+check(html.includes('data-static-page="sitemap"') && html.includes('data-api-region="sitemap-content"'), 'sitemap uses a hard-coded HTML page shell');
 check(runtime.includes("if(base==='search')"), 'search results use the data-driven MCQ shell renderer');
 check(runtime.includes("Public.pdfResourceCard(item.record)"), 'search can render PDF results through the shared card template');
 check(html.includes('data-api-region="search-filters"') && html.includes('data-form="search"'), 'the static MCQ page provides an operational search form and filter region');
@@ -162,7 +165,7 @@ check(html.includes('name="confirm"') && html.includes('name="terms" required'),
 check(runtime.includes("search:'mcqs',mcq:'mcqs',practice:'mcqs'"), 'search and individual MCQ routes map into the static MCQ shell');
 check(html.includes('data-api-region="home-important-count"'), 'the hard-coded home includes an MCQ count region');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
-check(runtime.includes('form[data-form="mcq-filter"]'), 'the static MCQ search form has an interaction handler');
+check(runtime.includes('form[data-form="search"] input[name="q"]'), 'static MCQ and search shells use the shared search interaction');
 check(runtime.includes("document.getElementById('mcq-layout-template')"), 'static fallback uses the shared HTML layout template');
 check(runtime.includes('layoutTemplate.content.cloneNode(true)'), 'layout is cloned from the HTML template rather than rebuilt as a page string');
 check(runtime.includes("root.replaceChildren(this.staticPageNode(shell,page))"), 'static and API-backed pages mount through DOM replacement');
