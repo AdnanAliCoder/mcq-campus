@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102823">
-  <meta name="mcq-asset-version" content="20261024-single-script-v6">
+  <meta name="mcq-asset-version" content="20261024-single-script-v7">
   <meta name="author" content="MCQCampus">
   <meta name="application-name" content="MCQCampus">
   <meta name="mcq-page-entry" content="home">
@@ -101,6 +101,7 @@
   <template id="mcq-public-page-sidebar-template"><div class="container page public-page __SLOT_PUBLIC_CLASS__"><!-- SLOT:PUBLIC_BREADCRUMBS --><!-- SLOT:PUBLIC_HEADING --><!-- SLOT:PUBLIC_PRE --><div class="public-sidebar-mobile-bar"><!-- SLOT:PUBLIC_TOGGLE --></div><div class="public-layout"><main class="public-main"><!-- SLOT:PUBLIC_MAIN --></main><aside class="public-sidebar" id="__SLOT_PUBLIC_SIDEBAR_ID__" aria-label="Contextual sidebar"><div class="public-sidebar-head"><strong><!-- SLOT:PUBLIC_SIDEBAR_LABEL --></strong><!-- SLOT:PUBLIC_CLOSE_BUTTON --></div><div class="public-sidebar-inner"><!-- SLOT:PUBLIC_SIDEBAR --></div></aside></div><button class="public-sidebar-backdrop" type="button" data-action="public-sidebar-close" aria-label="Close sidebar"></button></div></template>
   <template id="mcq-public-page-full-template"><div class="container page public-page __SLOT_PUBLIC_CLASS__"><!-- SLOT:PUBLIC_BREADCRUMBS --><!-- SLOT:PUBLIC_HEADING --><!-- SLOT:PUBLIC_PRE --><main class="public-main public-main-full"><!-- SLOT:PUBLIC_MAIN --></main></div></template>
   <template id="mcq-auth-layout-template"><div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1><!-- SLOT:AUTH_TITLE --></h1><!-- SLOT:AUTH_FORM --></div></div></div></template>
+  <template id="mcq-paper-context-template"><section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXAM PREPARATION</p><h2 data-paper-context-title></h2></div></div><p>Choose an exam year to practise linked MCQs, review answers and explanations, and continue with related preparation resources.</p><div class="chips"><a class="chip" href="/mcqs/important-mcqs">Important MCQs</a><a class="chip" href="/categories">Browse MCQ Categories</a><a class="chip" href="/past-papers/pdfs">Preparation PDFs</a></div></section></template>
   <template id="mcq-category-context-template"><section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow" data-context-eyebrow></p><h2 data-context-title></h2></div></div><div class="chips" data-context-links></div></section></template>
   <template id="mcq-country-entry-card-template"><article class="country-entry-card"><span class="country-entry-flag" data-country-flag aria-hidden="true"></span><h2 data-country-name></h2><p data-country-description></p><div class="country-entry-action"><a data-country-login>Sign in</a><span aria-hidden="true">·</span><a data-country-register>Create account</a></div></article></template>
   <template id="mcq-home-category-item-template"><div class="home-cat-group"><div class="home-cat-title"><a href="#"><span class="home-cat-icon" data-home-category-icon></span><span data-home-category-name></span><span class="home-cat-arrow" data-home-category-arrow aria-hidden="true"></span></a></div><div class="home-sub-list"><span class="home-sub-link" data-home-category-count></span></div></div></template>
@@ -123,7 +124,7 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/script.js?v=20261024-single-script-v6"></script>
+  <script defer src="/assets/script.js?v=20261024-single-script-v7"></script>
 
   <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
   <template id="mcq-country-landing-template"><div class="container page country-landing-page"><section class="country-landing-content"><p class="eyebrow">WELCOME TO MCQCAMPUS</p><h1><!-- SLOT:COUNTRY_TITLE --></h1><p class="muted"><!-- SLOT:COUNTRY_DESCRIPTION --></p><div class="country-choice-grid"><!-- SLOT:COUNTRY_CARDS --></div><p class="small muted country-landing-back"><!-- SLOT:COUNTRY_BACK_LINK --></p></section></div></template>
