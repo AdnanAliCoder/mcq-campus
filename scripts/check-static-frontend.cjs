@@ -158,7 +158,7 @@ check(!runtime.includes("const renderedAuth=Auth.view(base)"), 'recovery forms a
 check(runtime.includes('Auth.syncVerificationTimer?.(') && runtime.includes('syncVerificationTimer,ADMIN_PAGE_SIZES'), 'verification resend timer is bound to the static HTML form');
 check(html.includes('data-form="auth-forgot"') && html.includes('data-form="auth-reset-code"') && html.includes('data-form="auth-reset-password"') && html.includes('data-form="auth-verify"'), 'all recovery and verification form structures are hard-coded in index.html');
 check(html.includes('data-static-page="forgot"') && html.includes('data-static-page="reset-code"') && html.includes('data-static-page="reset-password"') && html.includes('data-static-page="verify"'), 'recovery and verification pages have hard-coded HTML shells');
-check(runtime.includes('else if(this.mountDataDrivenPage(base,id))html=null'), 'home, MCQs, categories and organizations bypass legacy whole-page renderers');
+check(runtime.includes('if(this.mountDataDrivenPage(base,id))html=null'), 'data-driven pages bypass legacy whole-page renderers before route fallback');
 const requiredDataDrivenRoutes = [
   'home', 'mcqs', 'important', 'categories', 'papers', 'pdfs', 'latest-jobs',
   'jobs-exams', 'posts', 'tests', 'test', 'login', 'register', 'forgot',
@@ -194,6 +194,11 @@ check(html.includes('id="mcq-legal-content-template"'), 'legal pages have a reus
 check(html.includes('id="mcq-faq-content-template"'), 'FAQ details are hard-coded in the central HTML document');
 check(runtime.includes('staticTemplateFragment(id,slots={})'), 'dynamic page content clones and fills central DOM templates');
 check(runtime.includes("this.staticTemplateFragment('mcq-pdf-detail-template'"), 'PDF detail content mounts from a cloned HTML template');
+check(runtime.includes('const questionCardFragment=(question,compact=false,contextYearId=null)=>'), 'MCQ cards are populated from the central HTML template with DOM nodes');
+check(runtime.includes("list.replaceChildren(questionCardFragment(question,false))"), 'individual MCQ and practice details use DOM-based question cards');
+check(runtime.includes("setQuestionCards('home-mcqs',rows"), 'home MCQs are populated with DOM-based question cards');
+check(runtime.includes('cards.append(questionCardFragment(item,false,Number(id)))'), 'past-paper year MCQ collections use DOM-based question cards');
+check(runtime.includes("list.append(questionCardFragment(question,false,base==='year'?Number(id)||null:null))"), 'general MCQ lists use DOM-based question cards and preserve ad placements');
 check(runtime.includes("this.staticTemplateFragment('mcq-latest-job-detail-template'"), 'job detail content mounts from a cloned HTML template');
 check(runtime.includes("this.staticTemplateFragment('mcq-blog-detail-template'"), 'blog articles mount from a cloned HTML template');
 check(runtime.includes("this.staticTemplateFragment('mcq-legal-content-template'"), 'legal page content mounts from a cloned HTML template');
