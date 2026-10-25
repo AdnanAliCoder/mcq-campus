@@ -36,6 +36,7 @@ function check(condition, message) {
 
 check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standards-mode doctype');
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
+check(html.includes('/assets/style.css?v=20261025-css-cache-fix-v25'), 'stylesheet URL is versioned to invalidate stale cached CSS');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
@@ -131,6 +132,7 @@ check(!nginx.includes('location ^~ /assets/css/'), 'obsolete split CSS asset rou
 check(!nginx.includes('location ^~ /assets/js/'), 'obsolete split JavaScript asset route is removed');
 check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; }'), 'missing favicon.ico routes to the existing SVG icon');
 check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
+check(nginx.includes('add_header Cache-Control "no-cache, no-store, must-revalidate" always;'), 'HTML responses revalidate after asset URL changes');
 const runtime = read('frontend/script.js');
 check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
 check(runtime.includes('staticPageNode(shell,page){'), 'static page shells are mounted as DOM nodes');
