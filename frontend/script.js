@@ -2531,7 +2531,13 @@ mountDataDrivenPage(base,id){
  const shellKey=['papers','paper','jobs-exams'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':['dashboard','profile'].includes(base)?'dashboard':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
- const shell=source.cloneNode(true);
+ // Hydrate the already visible startup shell instead of rebuilding the whole layout.
+ // Later route/state renders still get a fresh shell so stale route content cannot leak.
+ const reuseInitialShell=!root.dataset.mcqInitialShellHydrated
+  &&document.body.dataset.staticFallback===shellKey
+  ?root.querySelector('[data-static-page="'+shellKey+'"][data-static-fallback="true"]')
+  :null;
+ const shell=reuseInitialShell||source.cloneNode(true);
  shell.dataset.staticFallback='true';
  const region=name=>shell.querySelector('[data-api-region="'+name+'"]');
  const setMarkup=(name,markup)=>{
@@ -3672,7 +3678,11 @@ mountDataDrivenPage(base,id){
   const hasContent=Array.from(area.childNodes).some(node=>node.nodeType===1||String(node.textContent||'').trim());
   if(!hasContent)area.hidden=true;
  });
- root.replaceChildren(this.staticPageNode(shell,shellKey));
+ if(reuseInitialShell){
+  root.dataset.mcqInitialShellHydrated='true';
+ }else{
+  root.replaceChildren(this.staticPageNode(shell,shellKey));
+ }
  if(base==='verify')Auth.syncVerificationTimer?.(String((App.route.params||{}).email||new URLSearchParams(location.search).get('email')||''));
  root.removeAttribute('aria-busy');
  document.body.dataset.pageTemplate=shellKey==='past-papers'?'papers':shellKey;
