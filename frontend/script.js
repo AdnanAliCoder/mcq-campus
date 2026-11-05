@@ -1062,7 +1062,7 @@ window.SEO=(()=>{
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(base)){const x=MCQ.db.content?.legalPages?.[base];title=(x?.seoTitle||x?.title||base.replace(/-/g,' '))+suffix;description=(x?.metaDescription||description).slice(0,155)}
   if(base==='faq'){title='Frequently Asked Questions'+suffix;description='Answers to common questions about MCQCampus, exam preparation content, corrections and official-information verification.'}
   if(base==='sitemap'){title='Sitemap'+suffix;description='Browse the main MCQCampus preparation, account, support and legal pages.'}
-  if(['search','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin'].includes(base))robots='noindex,nofollow';
+  if(['search','country-entry','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'].includes(base)||(base==='test'&&String(id)==='auto'))robots='noindex,nofollow';
   const pageSeo=MCQ?.db?.pageSeo||{};
   const staticKey={home:'home',mcqs:'mcqs',papers:'past-papers',pdfs:'pdfs',categories:'categories','latest-jobs':'latest-jobs',posts:'blog'}[base];
   const entityKind={category:'category',paper:'paper',job:'job',year:'year',mcq:'mcq'}[base];

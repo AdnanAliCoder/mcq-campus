@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import include, path, re_path
 from core import views
 
 urlpatterns = [
@@ -15,4 +15,6 @@ urlpatterns = [
     path('sitemap-years.xml', views.legacy_sitemap_redirect),
     path('sitemap-mcqs.xml', views.legacy_sitemap_redirect),
     path('sitemap-resources.xml', views.legacy_sitemap_redirect),
+    # Public HTML routes use server-rendered metadata and real 404 handling.
+    re_path(r'^(?P<path>.*)$', views.frontend_page),
 ]

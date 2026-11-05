@@ -99,7 +99,8 @@ class LoginWallMiddleware:
     PRIVATE_PAGE_PREFIXES=('/dashboard','/admin','/super-admin','/profile')
     NOINDEX_PUBLIC_PATHS={
         '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies',
-        '/advertising','/sitemap','/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify',
+        '/advertising','/sitemap','/search','/country-entry','/test/auto',
+        '/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify',
     }
     DISCOVERY_FILES={'/sitemap.xml','/robots.txt','/llms.txt'}
 

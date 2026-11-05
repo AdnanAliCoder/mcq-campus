@@ -41,7 +41,8 @@ check(html.includes('src="/assets/script.js'), 'index.html loads the unified run
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
 check(!html.includes('<nav data-api-region="mcq-pagination"'), 'pagination regions avoid nested navigation elements');
-check(!html.includes('{{') && !html.includes('{%'), 'index.html contains no Django template tags');
+check(html.includes('{{ seo_title|default:') && html.includes('{{ seo_canonical }}'), 'index.html exposes server-rendered SEO title and canonical fields');
+check(html.includes('{% for seo_link in seo_links %}') && html.includes('{{ seo_link.1 }}'), 'initial HTML includes crawlable server-rendered internal links');
 check((html.match(/rel="stylesheet"/g) || []).length === 1, 'index.html references one stylesheet');
 check(fs.existsSync(path.join(frontend, 'style.css')), 'frontend/style.css exists');
 check(fs.existsSync(path.join(frontend, 'script.js')), 'frontend/script.js exists');
@@ -131,9 +132,13 @@ check(nginx.includes('location ^~ /api/'), 'API traffic is proxied separately to
 check(!nginx.includes('location ^~ /assets/css/'), 'obsolete split CSS asset route is removed');
 check(!nginx.includes('location ^~ /assets/js/'), 'obsolete split JavaScript asset route is removed');
 check(nginx.includes('location = /favicon.ico { return 301 /assets/favicon.svg; }'), 'missing favicon.ico routes to the existing SVG icon');
-check(nginx.includes('try_files $uri $uri.html /index.html;'), 'deep browser routes have an SPA fallback');
+check(nginx.includes('try_files $uri @mcqcampus_django;'), 'non-file browser routes are passed to Django instead of the generic SPA shell');
+check(nginx.includes('location @mcqcampus_django'), 'Nginx has a named Django frontend fallback for route-aware HTML responses');
+check(nginx.includes('location = / {') && nginx.includes('proxy_pass http://127.0.0.1:8000;'), 'homepage HTML is rendered by Django');
 check(nginx.includes('add_header Cache-Control "no-cache, no-store, must-revalidate" always;'), 'HTML responses revalidate after asset URL changes');
 const runtime = read('frontend/script.js');
+check(runtime.includes("'about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'].includes(base)"), 'client-side noindex policy aligns with server noindex pages');
+
 check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
 check(runtime.includes('staticPageNode(shell,page){'), 'static page shells are mounted as DOM nodes');
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
