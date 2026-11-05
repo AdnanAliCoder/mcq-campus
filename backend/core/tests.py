@@ -92,7 +92,6 @@ class IntegrationTests(TestCase):
         self.assertNotIn('/about',body)
         self.assertNotIn('/contact',body)
 
-    def test_category_subcategory_topic_pages_have_unique_server_seo(self):
     def test_indexed_public_pages_get_server_rendered_canonical_metadata(self):
         self.client.logout()
         response=self.client.get('/mcqs')
@@ -103,6 +102,7 @@ class IntegrationTests(TestCase):
         self.assertIn('rel="canonical" href="https://www.mcqcampus.com/mcqs"',body)
         self.assertIn('id="server-jsonld"',body)
 
+    def test_category_subcategory_topic_pages_have_unique_server_seo(self):
         self.client.force_login(self.owner)
         sub=Subcategory.objects.create(id=110,name='Operating Systems',category=self.category)
         child=ChildCategory.objects.create(id=120,name='Process Management',subcategory=sub)
