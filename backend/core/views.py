@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.http import JsonResponse, HttpResponse, FileResponse, Http404
+from django.shortcuts import render
 from django.middleware.csrf import get_token
 from django.utils import timezone
 from django.utils.html import escape
@@ -1416,8 +1417,14 @@ def _seo_dynamic_path_exists(path):
         ).select_related('paper','job__paper')
         return bool(_seo_row_for_token(years,parts[3]))
     if len(parts)==4 and parts[2]=='job':
-        return True  # Canonicalizes the old job URL to the organization landing.
-    if len(parts)==6 and parts[2]=='job' and parts[4]=='year':
+        jobs=Job.objects.filter(active=True,paper_id=paper.id).only('id','name')
+        return bool(_seo_row_for_token(jobs,parts[3]))
+    if len(parts)==6 and parts[2]=='job' and parts[4]=='year': 
+        jobs=Job.objects.filter(active=True,paper_id=paper.id).only('id','name')
+        job=_seo_row_for_token(jobs,parts[3])
+        if not job:
+            return False
+
         years=JobYear.objects.filter(active=True).filter(
             Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
         ).select_related('paper','job__paper')
@@ -1426,10 +1433,12 @@ def _seo_dynamic_path_exists(path):
 
 def _seo_known_spa_path(path,catalog=None):
     static={
-        '/','/mcqs','/important','/categories','/papers','/jobs-exams','/pdfs',
-        '/latest-jobs','/posts','/tests','/test/auto','/about','/contact','/faq','/privacy','/terms','/disclaimer',
-        '/cookies','/advertising','/sitemap','/search','/login','/register','/forgot','/reset',
-        '/verify','/dashboard','/admin','/super-admin'
+        '/','/mcqs','/important','/mcqs/important-mcqs','/categories',
+        '/papers','/past-papers','/jobs','/jobs-exams','/pdfs','/past-papers/pdfs',
+        '/latest-jobs','/posts','/blog','/tests','/test/auto','/about','/contact','/faq',
+        '/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap','/search',
+        '/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify',
+        '/country-entry','/dashboard','/admin','/super-admin'
     }
     private_prefixes=('/dashboard/','/admin/','/super-admin/')
     return path in static or any(path.startswith(prefix) for prefix in private_prefixes) or _seo_dynamic_path_exists(path) or bool(_seo_past_papers_record(path,catalog))
@@ -1477,6 +1486,19 @@ def legacy_sitemap_redirect(request):
     response['Cache-Control']='public, max-age=3600'
     return response
 
+def _seo_mcqs_for_json_ids(field_name,related_id,limit=80):
+    """Filter JSON-array relations portably on both PostgreSQL and SQLite."""
+    rows=MCQ.objects.filter(status='approved').only('question',field_name).order_by('-updated_at')
+    if connection.vendor=='postgresql':
+        return list(rows.filter(**{f'{field_name}__contains':[int(related_id)]})[:limit])
+    wanted=int(related_id)
+    return [
+        row for row in rows
+        if any(str(value).isdigit() and int(value)==wanted
+               for value in (getattr(row,field_name) or []))
+    ][:limit]
+
+
 def _seo_page_context(path, default_title, default_description,catalog=None):
     """Build crawler-visible metadata and internal links without requiring JavaScript."""
     title=default_title
@@ -1506,6 +1528,58 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         description='Practice approved MCQs with correct answers and explanations across categories, jobs and past papers.'
         heading='Practice MCQs with Answers & Explanations'
         links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:100]]
+    elif path in {'/important','/mcqs/important-mcqs'}:
+        title='Important MCQs for Competitive Exam Preparation'
+        description='Practise important multiple-choice questions with correct answers and explanations for competitive examinations.'
+        heading='Important MCQs'
+        links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:100]]
+    elif path=='/tests':
+        title='Online MCQ Tests & Exam Practice'
+        description='Take online multiple-choice tests, check your score and review answers with explanations.'
+        heading='Online MCQ Tests'
+        intro='Build exam confidence with timed MCQ practice and review your answers after each test.'
+        links=[('Practice MCQs','/mcqs'),('Browse Past Papers','/papers'),('Explore Categories','/categories')]
+    elif path=='/test/auto':
+        title='Automatic MCQ Practice Test'
+        description='Attempt the current automatic MCQ practice set and review your answers and explanations.'
+        heading='Automatic MCQ Practice Test'
+        intro='Start the current automatically selected MCQ practice set.'
+        links=[('Browse all MCQs','/mcqs'),('Past Papers','/papers')]
+    elif path=='/search':
+        title='Search MCQs & Exam Resources'
+        description='Search MCQ questions, categories, past papers and exam preparation resources on MCQCampus.'
+        heading='Search MCQCampus'
+        intro='Search the public MCQ and exam preparation library.'
+    elif path=='/country-entry':
+        title='Choose Your Country | MCQCampus'
+        description='Choose a country library before signing in or creating a learner account.'
+        heading='Choose your country'
+        intro='Select the country library that matches the exams you are preparing for.'
+        links=[('Pakistan MCQs and past papers','/mcqs'),('India MCQs and past papers','/mcqs')]
+    elif path in {'/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising'}:
+        labels={
+            '/about':('About MCQCampus','Learn about MCQCampus and its exam preparation resources.'),
+            '/contact':('Contact MCQCampus','Contact the MCQCampus team for support, corrections and enquiries.'),
+            '/faq':('Frequently Asked Questions','Find answers about MCQCampus, exam preparation content and account features.'),
+            '/privacy':('Privacy Policy','Read how MCQCampus handles account and website information.'),
+            '/terms':('Terms & Conditions','Review the terms for using MCQCampus.'),
+            '/disclaimer':('Disclaimer','Read important information about MCQCampus study and exam resources.'),
+            '/cookies':('Cookie Policy','Learn how cookies and similar technologies are used on MCQCampus.'),
+            '/advertising':('Advertising Policy','Read the MCQCampus advertising policy.')
+        }
+        heading,description=labels[path]
+        title=heading+' | MCQCampus'
+        intro=description
+    elif path in {'/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify'}:
+        labels={
+            '/login':'Sign in','/register':'Create an account','/forgot':'Forgot password',
+            '/reset':'Reset password','/reset-code':'Verify reset code',
+            '/reset-password':'Choose a new password','/verify':'Verify your email'
+        }
+        heading=labels[path]
+        title=heading+' | MCQCampus'
+        description='Access your MCQCampus learner account.'
+        intro=description
     elif path=='/categories':
         title='MCQ Categories'
         description='Browse MCQ categories and practice questions with answers and explanations for competitive exam preparation.'
@@ -1658,7 +1732,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                     (c.name,f'/topic/{_seo_slug(c.name)}')
                     for c in ChildCategory.objects.filter(active=True,subcategory_id=x.id).only('name').order_by('name')
                 ]
-                mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:80]]
+                mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in _seo_mcqs_for_json_ids('subcategory_ids',x.id,80)]
                 links=topic_links+mcq_links
                 break
     elif path.startswith('/topic/'):
@@ -1668,7 +1742,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 title=f'{x.name} MCQs with Answers'
                 description=f'Practice {x.name} multiple choice questions with correct answers and explanations.'
                 heading=f'{x.name} MCQs'
-                links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',child_subcategory_ids__contains=[x.id]).only('question').order_by('-updated_at')[:100]]
+                links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in _seo_mcqs_for_json_ids('child_subcategory_ids',x.id,100)]
                 break
     elif path.startswith('/paper/'):
         parts=[p for p in path.split('/') if p]
@@ -1681,11 +1755,27 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             heading=f'{short} Past Papers'
             intro=f'Choose an available past paper under {paper.name}, practise the linked MCQs, and review answers and explanations. You can return to the organization page to browse other past-paper records.'
             year_token=None
-            if len(parts)==4 and parts[2]=='year':
+            if len(parts)==4 and parts[2]=='job':
+                job=_seo_row_for_token(
+                    Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),
+                    parts[3]
+                )
+                if job:
+                    title=f'{short} {job.name} Past Papers & Solved MCQs'
+                    description=f'Browse {paper.name} {job.name} past papers and practise linked questions with correct answers and explanations.'
+                    heading=f'{short} {job.name} Past Papers'
+                    intro=f'Choose an available {job.name} past-paper year under {paper.name}, practise the linked MCQs, and review answers and explanations.'
+                    job_years=JobYear.objects.filter(active=True,job_id=job.id).only('name').order_by('-name')
+                    links=[(y.name,f'/paper/{_seo_slug(paper.name)}/job/{_seo_slug(job.name)}/year/{_seo_slug(y.name)}') for y in job_years]
+            elif len(parts)==4 and parts[2]=='year':
                 year_token=parts[3]
-            elif len(parts)>=6 and parts[2]=='job' and parts[4]=='year':
-                # Legacy route: keep it working, but resolve the paper directly under the board.
-                year_token=parts[5]
+            elif len(parts)==6 and parts[2]=='job' and parts[4]=='year':
+                job=_seo_row_for_token(
+                    Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),
+                    parts[3]
+                )
+                if job:
+                    year_token=parts[5]
             if year_token:
                 years=JobYear.objects.filter(active=True).filter(
                     Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
@@ -1910,6 +2000,112 @@ def _seo_discovery_sections(path,heading,description,catalog):
              f'Return to this Organization / Board to choose a different Past Paper, or continue into categories, PDFs and other study resources.'),
         ]
     return []
+
+
+
+def frontend_page(request,path=''):
+    """Serve the SPA shell with route-specific HTML metadata and a real 404 for unknown paths."""
+    requested_path=request.path or '/'
+    normalized='/' + str(path or '').strip('/')
+    if normalized=='/':
+        normalized='/'
+    if requested_path.rstrip('/')!=normalized and requested_path!='/':
+        location=normalized
+        query=request.META.get('QUERY_STRING','')
+        if query:
+            location+='?'+query
+        response=HttpResponse(status=301)
+        response['Location']=location
+        return response
+
+    # Translate current public routes to the legacy paths understood by SEO helpers.
+    seo_aliases={
+        '/past-papers':'/papers',
+        '/past-papers/pdfs':'/pdfs',
+        '/blog':'/posts',
+    }
+    seo_path=seo_aliases.get(normalized,normalized)
+    indexed=_seo_resolve_indexed_path(normalized)
+    catalog=None
+    if indexed:
+        seo_path=indexed['internal']
+        canonical_path=indexed['canonical']
+        if normalized!=canonical_path:
+            response=HttpResponse(status=301)
+            response['Location']=SEO_ORIGIN+canonical_path
+            return response
+    else:
+        if (
+            normalized in {'/','/papers','/past-papers','/sitemap','/jobs-exams'}
+            or normalized.endswith('-past-papers')
+            or normalized.startswith(('/paper/','/past-papers/'))
+        ):
+            catalog=_seo_past_papers_catalog()
+        known=_seo_known_spa_path(normalized,catalog)
+        legacy_target=_seo_legacy_target(normalized,catalog) if known else None
+        hierarchy_target=_seo_hierarchy_canonical_path(normalized,catalog) if known else None
+        canonical_path=legacy_target or hierarchy_target or {
+            '/papers':'/past-papers',
+            '/jobs':'/past-papers',
+            '/jobs-exams':'/past-papers',
+            '/pdfs':'/past-papers/pdfs',
+            '/posts':'/blog',
+        }.get(normalized,normalized)
+
+    known=True if indexed else _seo_known_spa_path(normalized,catalog)
+    status_code=200 if known else 404
+    if not known:
+        title='Page not found | MCQCampus'
+        description='The page you requested could not be found.'
+        heading='We could not find that page.'
+        intro='The link may be old, incomplete or no longer available. Use the links below to continue browsing MCQCampus.'
+        links=[('Home','/'),('Practice MCQs','/mcqs'),('Categories','/categories'),('Past Papers','/past-papers')]
+        canonical_url=''
+    else:
+        title,description,heading,intro,links=_seo_page_context(
+            seo_path,
+            'MCQCampus — Exam Preparation',
+            'Practise MCQs, explore past papers and prepare for competitive exams.',
+            catalog,
+        )
+        canonical_url=SEO_ORIGIN+canonical_path
+        if canonical_path=='/':
+            canonical_url=SEO_ORIGIN+'/'
+
+    private=any(
+        normalized==prefix.rstrip('/') or normalized.startswith(prefix)
+        for prefix in ('/dashboard/','/admin/','/super-admin/','/profile/')
+    )
+    noindex_paths={
+        '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising',
+        '/sitemap','/search','/country-entry','/login','/register','/forgot','/reset',
+        '/reset-code','/reset-password','/verify','/test/auto'
+    }
+    noindex=(not known) or private or normalized in noindex_paths
+    robots='noindex,nofollow' if noindex else 'index,follow'
+    jsonld=_seo_jsonld(title,description,canonical_url,seo_path,catalog,links) if known and not noindex else ''
+
+    page_template='home' if normalized=='/' else (
+        'past-papers' if normalized=='/past-papers' else
+        'pdfs' if normalized=='/past-papers/pdfs' else
+        'blog' if normalized=='/blog' else
+        (seo_path.strip('/').split('/')[0] or 'home')
+    )
+    response=render(request,'index.html',{
+        'seo_title':title,
+        'seo_description':description,
+        'seo_heading':heading,
+        'seo_intro':intro,
+        'seo_links':links[:120],
+        'seo_canonical':canonical_url,
+        'seo_robots':robots,
+        'seo_jsonld':jsonld,
+        'seo_page_template':page_template,
+    },status=status_code)
+    if noindex:
+        response['X-Robots-Tag']='noindex, nofollow'
+    return response
+
 
 def robots_txt(request):
     body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /super-admin/\nDisallow: /dashboard/\nDisallow: /profile/\nDisallow: /api/\nSitemap: '+SEO_ORIGIN+'/sitemap.xml\n'
