@@ -1425,9 +1425,7 @@ def _seo_dynamic_path_exists(path):
         if not job:
             return False
 
-        years=JobYear.objects.filter(active=True).filter(
-            Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
-        ).select_related('paper','job__paper')
+        years=JobYear.objects.filter(active=True,job_id=job.id).select_related('paper','job__paper')
         return bool(_seo_row_for_token(years,parts[5]))
     return False
 
@@ -1755,6 +1753,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             heading=f'{short} Past Papers'
             intro=f'Choose an available past paper under {paper.name}, practise the linked MCQs, and review answers and explanations. You can return to the organization page to browse other past-paper records.'
             year_token=None
+            job=None
             if len(parts)==4 and parts[2]=='job':
                 job=_seo_row_for_token(
                     Job.objects.filter(active=True,paper_id=paper.id).only('id','name'),
@@ -1777,9 +1776,12 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 if job:
                     year_token=parts[5]
             if year_token:
-                years=JobYear.objects.filter(active=True).filter(
-                    Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
-                ).select_related('paper','job__paper')
+                if len(parts)==6 and job:
+                    years=JobYear.objects.filter(active=True,job_id=job.id).select_related('paper','job__paper')
+                else:
+                    years=JobYear.objects.filter(active=True).filter(
+                        Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
+                    ).select_related('paper','job__paper')
                 year=_seo_row_for_token(years,year_token)
                 if year:
                     title=f'{short} {year.name} Solved MCQs'
@@ -2085,11 +2087,19 @@ def frontend_page(request,path=''):
     robots='noindex,nofollow' if noindex else 'index,follow'
     jsonld=_seo_jsonld(title,description,canonical_url,seo_path,catalog,links) if known and not noindex else ''
 
+    route_shells={
+        'category':'categories','subcategory':'categories','topic':'categories',
+        'paper':'past-papers','job':'past-papers','year':'past-papers',
+        'mcq':'mcqs','practice':'mcqs','important':'mcqs',
+        'pdf':'pdfs','latest-job':'latest-jobs','post':'blog',
+    }
+    first_segment=normalized.strip('/').split('/',1)[0]
     page_template='home' if normalized=='/' else (
-        'past-papers' if normalized=='/past-papers' else
-        'pdfs' if normalized=='/past-papers/pdfs' else
-        'blog' if normalized=='/blog' else
-        (seo_path.strip('/').split('/')[0] or 'home')
+        route_shells.get(first_segment) or
+        ('past-papers' if normalized=='/past-papers' else
+         'pdfs' if normalized=='/past-papers/pdfs' else
+         'blog' if normalized=='/blog' else
+         first_segment or 'home')
     )
     response=render(request,'index.html',{
         'seo_title':title,
