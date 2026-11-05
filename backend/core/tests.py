@@ -93,6 +93,16 @@ class IntegrationTests(TestCase):
         self.assertNotIn('/contact',body)
 
     def test_category_subcategory_topic_pages_have_unique_server_seo(self):
+    def test_indexed_public_pages_get_server_rendered_canonical_metadata(self):
+        self.client.logout()
+        response=self.client.get('/mcqs')
+        self.assertEqual(response.status_code,200)
+        body=response.content.decode()
+        self.assertIn('<title>Practice MCQs with Answers &amp; Explanations</title>',body)
+        self.assertIn('name="description"',body)
+        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/mcqs"',body)
+        self.assertIn('id="server-jsonld"',body)
+
         self.client.force_login(self.owner)
         sub=Subcategory.objects.create(id=110,name='Operating Systems',category=self.category)
         child=ChildCategory.objects.create(id=120,name='Process Management',subcategory=sub)
@@ -105,8 +115,10 @@ class IntegrationTests(TestCase):
         self.assertIn('Computing MCQs with Answers',category)
         self.assertIn('Operating Systems MCQs with Answers',subpage)
         self.assertIn('Process Management MCQs with Answers',topic)
-        self.assertIn('/subcategory/operating-systems',self.client.get('/sitemap-categories.xml').content.decode())
-        self.assertIn('/topic/process-management',self.client.get('/sitemap-categories.xml').content.decode())
+        sitemap=self.client.get('/sitemap.xml').content.decode()
+        self.assertIn('/categories/',sitemap)
+        self.assertNotIn('/subcategory/operating-systems',sitemap)
+        self.assertNotIn('/topic/process-management',sitemap)
 
     def test_paper_job_year_pages_have_distinct_search_titles_and_sitemaps(self):
         self.client.force_login(self.owner)
@@ -119,18 +131,19 @@ class IntegrationTests(TestCase):
         paper=self.client.get('/paper/ppsc').content.decode()
         jobpage=self.client.get('/paper/ppsc/job/assistant').content.decode()
         yearpage=self.client.get('/paper/ppsc/job/assistant/year/2026').content.decode()
-        self.assertIn('PPSC Past Papers, Jobs & Solved MCQs',paper)
-        self.assertIn('PPSC Assistant Past Papers & Solved MCQs',jobpage)
-        self.assertIn('PPSC Assistant 2026 Solved Past Paper',yearpage)
-        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/ppsc-past-papers"',paper)
-        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/ppsc-assistant-past-papers"',jobpage)
-        self.assertIn('/ppsc-past-papers',self.client.get('/sitemap-papers.xml').content.decode())
-        self.assertIn('/ppsc-assistant-past-papers',self.client.get('/sitemap-jobs.xml').content.decode())
-        self.assertIn('/paper/ppsc/job/assistant/year/2026',self.client.get('/sitemap-years.xml').content.decode())
+        self.assertIn('PPSC Past Papers &amp; Solved MCQs',paper)
+        self.assertIn('PPSC Assistant Past Papers &amp; Solved MCQs',jobpage)
+        self.assertIn('PPSC 2026 Solved MCQs',yearpage)
+        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/past-papers/',paper)
+        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/past-papers/',jobpage)
+        sitemap=self.client.get('/sitemap.xml').content.decode()
+        self.assertIn('/past-papers/',sitemap)
+        self.assertNotIn('/ppsc-assistant-past-papers',sitemap)
 
     def test_unknown_public_entity_routes_are_404_and_noindex(self):
         self.client.force_login(self.owner)
         for path in [
+            '/this-page-does-not-exist',
             '/category/not-a-real-category',
             '/paper/not-a-real-paper',
             '/paper/ppsc/job/not-a-real-job',
@@ -153,13 +166,16 @@ class IntegrationTests(TestCase):
         response=self.client.get('/')
         self.assertEqual(response.status_code,200)
         self.assertNotIn('X-Robots-Tag',response)
-        response=self.client.get('/login')
-        self.assertEqual(response.status_code,200)
         body=response.content.decode()
-        self.assertIn('styles.css?v=20261012-auth-role-fix-v2',body)
-        self.assertIn('assets/js/auth.js',body)
-        self.assertIn('assets/js/seo.js',body)
-        self.assertNotIn('assets/js/seed.js',body)
+        self.assertIn('<title>MCQCampus — Organizations, Past Papers &amp; MCQ Practice</title>',body)
+        self.assertIn('rel="canonical" href="https://www.mcqcampus.com/"',body)
+        self.assertIn('href="/assets/style.css?v=',body)
+        self.assertIn('src="/assets/script.js?v=',body)
+        self.assertIn('id="server-jsonld"',body)
+        login=self.client.get('/login')
+        self.assertEqual(login.status_code,200)
+        self.assertIn('name="robots" content="noindex,nofollow"',login.content.decode())
+        self.assertEqual(login['X-Robots-Tag'],'noindex, nofollow')
 
     def test_bootstrap_requires_authentication(self):
         self.client.logout()
@@ -175,16 +191,17 @@ class IntegrationTests(TestCase):
         self.assertNotIn('logs',data)
         self.assertNotIn('reports',data)
 
-    def test_login_wall_redirects_pages_and_blocks_private_apis(self):
+    def test_public_pages_and_apis_are_guest_accessible_while_private_apis_require_auth(self):
         self.client.logout()
         page=self.client.get('/')
         self.assertEqual(page.status_code,200)
         self.assertNotIn('X-Robots-Tag',page)
-        private_page=self.client.get('/mcqs')
-        self.assertEqual(private_page.status_code,302)
-        self.assertEqual(private_page['Location'],'/login')
+        public_page=self.client.get('/mcqs')
+        self.assertEqual(public_page.status_code,200)
+        self.assertIn('Practice MCQs with Answers',public_page.content.decode())
+        self.assertNotIn('X-Robots-Tag',public_page)
         self.assertEqual(self.client.get('/api/bootstrap').status_code,401)
-        self.assertEqual(self.client.get('/api/public/content').status_code,401)
+        self.assertEqual(self.client.get('/api/public/content').status_code,200)
         self.assertEqual(self.client.get('/api/admin/countries').status_code,401)
         startup=self.client.get('/api/startup')
         self.assertEqual(startup.status_code,200)
