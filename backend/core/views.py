@@ -1436,7 +1436,7 @@ def _seo_known_spa_path(path,catalog=None):
         '/latest-jobs','/posts','/blog','/tests','/test/auto','/about','/contact','/faq',
         '/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap','/search',
         '/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify',
-        '/country-entry','/dashboard','/admin','/super-admin'
+        '/dashboard','/admin','/super-admin'
     }
     private_prefixes=('/dashboard/','/admin/','/super-admin/')
     return path in static or any(path.startswith(prefix) for prefix in private_prefixes) or _seo_dynamic_path_exists(path) or bool(_seo_past_papers_record(path,catalog))
@@ -1548,12 +1548,6 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         description='Search MCQ questions, categories, past papers and exam preparation resources on MCQCampus.'
         heading='Search MCQCampus'
         intro='Search the public MCQ and exam preparation library.'
-    elif path=='/country-entry':
-        title='Choose Your Country | MCQCampus'
-        description='Choose a country library before signing in or creating a learner account.'
-        heading='Choose your country'
-        intro='Select the country library that matches the exams you are preparing for.'
-        links=[('Pakistan MCQs and past papers','/mcqs'),('India MCQs and past papers','/mcqs')]
     elif path in {'/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising'}:
         labels={
             '/about':('About MCQCampus','Learn about MCQCampus and its exam preparation resources.'),
@@ -2080,7 +2074,7 @@ def frontend_page(request,path=''):
     )
     noindex_paths={
         '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising',
-        '/sitemap','/search','/country-entry','/login','/register','/forgot','/reset',
+        '/sitemap','/search','/login','/register','/forgot','/reset',
         '/reset-code','/reset-password','/verify','/test/auto'
     }
     noindex=(not known) or private or normalized in noindex_paths

@@ -603,18 +603,6 @@ window.Public=(()=>{
   })||('<article class="card mcq-card mcq-reference-card '+(compact?'mcq-card-compact':'')+'" data-question="'+q.id+'"><div class="mcq-top"><div class="mcq-question-label">'+questionTags(q)+'</div><div class="mcq-top-actions">'+bookmark+nextLink+'</div></div><div class="mcq-question-panel"><h2>'+link('mcq/'+q.id,e(q.question),'mcq-question-link')+'</h2></div><div class="options mcq-reference-options" role="group" aria-label="Answer options">'+options+'</div>'+explanation+'<div class="actions mcq-reference-actions">'+hint+'<span class="spacer"></span>'+shareButton+copyButton+reportButton+'</div></article>');
  }
 
- function countryLanding(type='login'){
-  const countries=(MCQ.db.countries||[{name:'Pakistan',active:true},{name:'India',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
-  const title=type==='register'?'Choose your country to create an account':'Choose your country';
-  const description=type==='register'?'Select your country to continue creating your MCQCampus learner account.':'Select your country to continue to your MCQCampus account.';
-  const cards=countries.map(item=>{
-   const name=String(item.name||'').trim();
-   const label='<span class="country-choice-flag">'+UI.countryFlag(name)+'</span><span class="country-choice-copy"><strong>'+e(name)+'</strong><small>Continue '+(type==='register'?'to sign up':'to sign in')+'</small></span>'+icon('arrow');
-   return link(type,label,'card country-choice-card',{country:name});
-  }).join('');
-  const body=UI.templateMarkup('mcq-country-landing-template',{COUNTRY_TITLE:e(title),COUNTRY_DESCRIPTION:e(description),COUNTRY_CARDS:cards||empty('No countries available','Please try again later.'),COUNTRY_BACK_LINK:link('home','Return to home','link')})||'';
-  return UI.layout(body);
- }
  function mini(q,number=0){
   if(!q)return '';
   return questionCard(q,Math.max(1,Number(number)+1),true);
@@ -940,7 +928,7 @@ window.Public=(()=>{
   if(MCQ.db.settings?.footer?.showSitemap===false)return notFound();const groups=[['Main Pages',[['Home','home'],['Past Papers','papers'],['Organizations / Boards','papers'],['MCQs','mcqs'],['Categories','categories'],['PDFs','pdfs'],['Latest Jobs','latest-jobs'],['Blog','posts']]]];const main=`<div class="sitemap-grid">${groups.map(([g,items])=>`<div class="card"><h2>${g}</h2>${items.map(([l,p])=>link(p,l,'discovery-link')).join('')}</div>`).join('')}</div>`;return PublicLayout.page({trail:[['Sitemap']],title:'Sitemap',desc:'Browse public study sections, organization pages, past papers and preparation resources.',main,sidebar:PublicLayout.smart('papers'),sidebarLabel:'Related / Browse'});
  }
  function notFound(){return UI.layout(`<div class="container page"><div class="error-page"><p class="eyebrow">404 · PAGE NOT FOUND</p><h1>We could not find that page.</h1><p>The link may be old, incomplete, or no longer available.</p><div class="actions">${link('home','Home','btn primary')}${link('search','Search','btn')}${link('categories','Categories','btn')}${link('papers','Past papers','btn')}</div></div></div>`)}
- return {home,countryLanding,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,automaticTestPlan,jobsExams,pdfs,pdf,pdfResourceCard,latestJobs,latestJob,latestJobCard,blogPostCard,dashboard,info,profileForm,sitemap,notFound};
+ return {home,quickCard,browse,listing,practice,mcq,relatedMcqs,questionCard,mini,posts,tests,test,automaticTestPlan,jobsExams,pdfs,pdf,pdfResourceCard,latestJobs,latestJob,latestJobCard,blogPostCard,dashboard,info,profileForm,sitemap,notFound};
 })();
 
 
@@ -1083,7 +1071,7 @@ window.SEO=(()=>{
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(base)){const x=MCQ.db.content?.legalPages?.[base];title=(x?.seoTitle||x?.title||base.replace(/-/g,' '))+suffix;description=(x?.metaDescription||description).slice(0,155)}
   if(base==='faq'){title='Frequently Asked Questions'+suffix;description='Answers to common questions about MCQCampus, exam preparation content, corrections and official-information verification.'}
   if(base==='sitemap'){title='Sitemap'+suffix;description='Browse the main MCQCampus preparation, account, support and legal pages.'}
-  if(['search','country-entry','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'].includes(base)||(base==='test'&&String(id)==='auto'))robots='noindex,nofollow';
+  if(['search','login','register','forgot','reset','verify','dashboard','profile','admin','super-admin','about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'].includes(base)||(base==='test'&&String(id)==='auto'))robots='noindex,nofollow';
   const pageSeo=MCQ?.db?.pageSeo||{};
   const staticKey={home:'home',mcqs:'mcqs',papers:'past-papers',pdfs:'pdfs',categories:'categories','latest-jobs':'latest-jobs',posts:'blog'}[base];
   const entityKind={category:'category',paper:'paper',job:'job',year:'year',mcq:'mcq'}[base];
@@ -1509,10 +1497,6 @@ window.Auth=(()=>{
   document.getElementById('app').removeAttribute('aria-busy');
   const current=route(),b=base();
   document.body.classList.toggle('auth-screen',authRoutes.has(b));
-  const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim().toLowerCase();
-  const validCountry=(MCQ.db.countries||[]).some(item=>item&&item.active!==false&&String(item.name||'').trim().toLowerCase()===requestedCountry);
-  const countryChooser=!user&&['login','register'].includes(b)&&!validCountry;
-  document.body.classList.toggle('country-entry-screen',countryChooser);
   if(authRoutes.has(b)){
    if(user){history.replaceState(null,'',UI.href(landing()));return false;}
    return true;
@@ -1574,18 +1558,7 @@ window.Auth=(()=>{
   const params=new URLSearchParams(route().split('?')[1]||''),emailParam=params.get('email')||'';
   const activeCountries=(MCQ.db.countries||[{name:'Pakistan',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
   const requestedCountry=String(params.get('country')||'').trim();
-  const selectedCountry=(activeCountries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name||'';
-  if(['login','register'].includes(type)&&!selectedCountry){
-   document.body.classList.add('country-entry-screen');
-   const countryShell=document.querySelector('#static-page-shells [data-static-page="country-entry"]');
-   if(countryShell){
-    const fallback=countryShell.cloneNode(true),countryMain=fallback.querySelector('main');
-    if(countryMain){countryMain.id='main';countryMain.tabIndex=-1;}
-    return fallback.outerHTML;
-   }
-   return Public.countryLanding(type);
-  }
-  document.body.classList.remove('country-entry-screen');
+  const selectedCountry=(activeCountries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||activeCountries.find(item=>String(item.name).toLowerCase()==='pakistan')||activeCountries[0]||{name:'Pakistan'}).name;
   const defaultCountry=selectedCountry||(activeCountries.find(item=>String(item.name).toLowerCase()==='pakistan')||activeCountries[0]||{name:'Pakistan'}).name;
   const countryOptions=activeCountries.map(item=>'<option value="'+UI.esc(item.name)+'" '+(String(item.name).toLowerCase()===String(defaultCountry).toLowerCase()?'selected':'')+'>'+UI.esc(item.name)+'</option>').join('');
   const countryField='<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
@@ -1963,7 +1936,7 @@ window.Auth=(()=>{
   })();
   return majorTransition;
  }
- async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);document.body.classList.toggle('country-entry-screen',authFirst&&['login','register'].includes(initialBase)&&!new URLSearchParams(location.search).has('country'));if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else window.App?.showStaticShell?.();try{await check({loading:false});window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});if(!authRoutes.has(base()))await ensureRouteData(route(),{});}finally{ready=true;App.render();}}
+ async function start(){const app=document.getElementById('app'),initialBase=base(),authFirst=authRoutes.has(initialBase);document.body.classList.toggle('auth-screen',authFirst);if(authFirst){ready=true;if(app)app.innerHTML=view(initialBase);}else window.App?.showStaticShell?.();try{await check({loading:false});window.MCQCampusApplyOptionalIntegrations?.(MCQ.db.settings||{});if(!authRoutes.has(base()))await ensureRouteData(route(),{});}finally{ready=true;App.render();}}
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user)validateSession(false).then(()=>App.render());});
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
@@ -2448,11 +2421,6 @@ window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId
  return this.adminBundlePromise;
 },
 staticPageNode(shell,page){
- if(page==='country-entry'){
-  const countryMain=shell.querySelector('main');
-  if(countryMain){countryMain.id='main';countryMain.tabIndex=-1;}
-  return shell;
- }
  shell.querySelectorAll('main').forEach(node=>{
   const wrapper=document.createElement('div');
   Array.from(node.attributes).forEach(attribute=>{
@@ -2521,35 +2489,6 @@ mountDataDrivenPage(base,id){
  const root=document.getElementById('app');
  if(!parent||!root)return false;
  const requestedCountry=String(new URLSearchParams(location.search).get('country')||'').trim();
- const showCountryEntry=()=>{
-  const countrySource=parent.querySelector('[data-static-page="country-entry"]');
-  if(!countrySource)return false;
-  const countryShell=countrySource.cloneNode(true);
-  const choices=countryShell.querySelector('.country-entry-list');
-  const template=document.getElementById('mcq-country-entry-card-template');
-  const countries=(MCQ.db?.countries||[]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
-  if(choices&&template){
-   choices.replaceChildren();
-   for(const item of countries){
-    const name=String(item.name).trim(),card=template.content.cloneNode(true);
-    const flag=card.querySelector('[data-country-flag]'),heading=card.querySelector('[data-country-name]'),description=card.querySelector('[data-country-description]'),login=card.querySelector('[data-country-login]'),register=card.querySelector('[data-country-register]');
-    if(flag)flag.textContent=UI.countryFlag(name);
-    if(heading)heading.textContent=name;
-    if(description)description.textContent=name.toLowerCase()==='pakistan'?'PPSC, FPSC, SPSC, NTS and more':name.toLowerCase()==='india'?'Competitive exams and practice':name.toLowerCase()==='usa'?'Exam practice and learning resources':'Competitive exams and practice resources';
-    const query='?'+new URLSearchParams({country:name}).toString();
-    if(login)login.href='/login'+query;
-    if(register)register.href='/register'+query;
-    choices.append(card);
-   }
-   if(!countries.length){const empty=document.createElement('li');empty.className='country-entry-empty';empty.textContent='No active country libraries are available yet.';choices.append(empty);}
-  }
-  root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
-  root.removeAttribute('aria-busy');
-  document.body.dataset.pageTemplate='country-entry';
-  document.body.dataset.staticFallback='country-entry';
-  return true;
- };
- if(['login','register'].includes(base)&&!requestedCountry)return showCountryEntry();
  const shellKey=['papers','paper','jobs-exams'].includes(base)?'past-papers':['important','mcq','practice','year','search'].includes(base)?'mcqs':['category','subcategory','topic'].includes(base)?'categories':['posts','post'].includes(base)?'blog':['forgot','reset-code','reset-password','verify'].includes(base)?base:['test'].includes(base)?'tests':['latest-job'].includes(base)?'latest-jobs':['pdf'].includes(base)?'pdfs':['faq','privacy','terms','disclaimer','cookies','advertising'].includes(base)?'about':['dashboard','profile'].includes(base)?'dashboard':base;
  const source=parent.querySelector('[data-static-page="'+shellKey+'"]');
  if(!source)return false;
@@ -3613,8 +3552,7 @@ mountDataDrivenPage(base,id){
   setMarkup('jobs-pagination',UI.pager(total,page,pageSize,App.route.params,'latest-jobs'));
  }else if(base==='login'||base==='register'){
   const countries=(data.countries||[{name:'Pakistan',active:true},{name:'India',active:true}]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
-  const selected=(countries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||{}).name;
-  if(!selected)return showCountryEntry();
+  const selected=(countries.find(item=>String(item.name).toLowerCase()===requestedCountry.toLowerCase())||countries.find(item=>String(item.name).toLowerCase()==='pakistan')||countries[0]||{name:'Pakistan'}).name;
   const form=shell.querySelector('form[data-form="auth-'+base+'"]');
   if(!form)return false;
   const heading=form.closest('.auth-form')?.querySelector('h1');
@@ -3762,7 +3700,6 @@ showStaticShell(){
  };
  let page=map[first];
  const requestedCountry=new URLSearchParams(location.search).get('country');
- if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';
  if(!page)return false;
  const parent=document.getElementById('static-page-shells');
  const source=parent?.querySelector('[data-static-page="'+page+'"]');
