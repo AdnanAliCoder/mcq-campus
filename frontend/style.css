@@ -3581,3 +3581,89 @@ body.admin-sidebar-open{overflow:hidden}
 .learner-dashboard-shell .learner-side,
 .learner-dashboard-shell .learner-mobile-head{display:none!important}
 .learner-dashboard-shell .learner-content{width:100%;min-width:0}
+
+
+/* 100-question MCQ library cards */
+.mcq-track-grid{display:grid;gap:14px}
+.home-mcq-track-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.mcq-track-card{
+ display:flex;align-items:center;gap:14px;min-width:0;min-height:118px;
+ padding:19px 20px;border:1px solid var(--line);border-radius:16px;background:#fff;
+ color:var(--ink);text-decoration:none!important;box-shadow:0 8px 24px rgba(18,43,37,.045);
+ transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.mcq-track-card:hover,.mcq-track-card:focus-visible{
+ transform:translateY(-3px);border-color:#9acdb6;box-shadow:0 14px 30px rgba(18,43,37,.09);
+}
+.mcq-track-icon{
+ display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;
+ border-radius:14px;background:#e8f6ef;color:var(--green-dark);
+}
+.mcq-track-icon .icon{width:23px;height:23px}
+.mcq-track-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px}
+.mcq-track-copy strong{font-size:1rem;font-weight:800;color:var(--dark)}
+.mcq-track-copy small{font-size:.78rem;line-height:1.45;color:var(--muted)}
+.mcq-track-count{display:flex;flex-direction:column;align-items:flex-end;gap:2px;white-space:nowrap}
+.mcq-track-count strong{font-size:1.2rem;line-height:1.1;color:var(--green-dark);font-variant-numeric:tabular-nums}
+.mcq-track-count small{font-size:.68rem;color:var(--muted)}
+.mcq-track-total{display:inline-flex;align-items:center;gap:6px;color:var(--green-dark);font-size:.78rem;font-weight:800;white-space:nowrap}
+.mcq-track-total .icon{width:15px;height:15px}
+.mcq-track-card.important .mcq-track-icon{background:#fff5df;color:#8a5a07}
+.mcq-track-card.important .mcq-track-count strong{color:#8a5a07}
+.mcq-track-card.important .mcq-track-total{color:#8a5a07}
+
+.mcq-levels-shell{padding:6px 0 20px}
+.mcq-level-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.mcq-level-tabs a{
+ display:inline-flex;align-items:center;gap:10px;padding:10px 15px;border:1px solid var(--line);
+ border-radius:11px;background:#fff;color:var(--muted);font-size:.86rem;font-weight:750;text-decoration:none;
+}
+.mcq-level-tabs a span{padding:3px 7px;border-radius:999px;background:#f0f6f2;color:var(--green-dark);font-size:.7rem;font-variant-numeric:tabular-nums}
+.mcq-level-tabs a.active{border-color:var(--green-dark);background:var(--green-dark);color:#fff}
+.mcq-level-tabs a.active span{background:#ffffff24;color:#fff}
+.mcq-levels-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.mcq-levels-heading h2{margin:0 0 6px;font-size:1.3rem;color:var(--dark)}
+.mcq-levels-heading p:not(.eyebrow){max-width:650px;margin:0;color:var(--muted);font-size:.82rem;line-height:1.5}
+.mcq-level-total{flex:0 0 auto;padding:7px 11px;border:1px solid #cfe6d9;border-radius:999px;background:#f0faf5;color:var(--green-dark);font-size:.76rem;font-weight:800}
+.mcq-level-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:13px}
+.mcq-level-card{
+ position:relative;display:flex;min-width:0;min-height:136px;flex-direction:column;align-items:center;justify-content:center;
+ gap:5px;padding:17px 9px 13px;border:1px solid var(--line);border-radius:16px;background:#fff;
+ color:var(--ink);text-align:center;text-decoration:none!important;box-shadow:0 6px 18px rgba(18,43,37,.04);
+ transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.mcq-level-card:hover,.mcq-level-card:focus-visible{transform:translateY(-3px);border-color:#89c4a9;box-shadow:0 12px 24px rgba(8,126,101,.11)}
+.mcq-level-badge{position:absolute;top:9px;right:9px;display:grid;place-items:center;width:23px;height:23px;border:1px solid #d5e9de;border-radius:50%;background:#f1faf5;color:var(--green-dark)}
+.mcq-level-badge .icon{width:12px;height:12px}
+.mcq-level-number{font-size:1.65rem;font-weight:850;line-height:1;color:var(--green-dark);font-variant-numeric:tabular-nums}
+.mcq-level-label{font-size:.75rem;font-weight:800;color:var(--ink)}
+.mcq-level-count{font-size:.68rem;color:var(--muted)}
+.mcq-level-open{display:inline-flex;align-items:center;gap:5px;margin-top:5px;color:var(--green-dark);font-size:.68rem;font-weight:800}
+.mcq-level-open .icon{width:12px;height:12px}
+.mcq-card-navigation{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#f7fbf8;color:var(--muted);font-size:.78rem}
+.mcq-card-navigation .btn{display:inline-flex;align-items:center;gap:7px}
+.mcq-card-navigation .icon{width:15px;height:15px}
+.mcq-level-static-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.mcq-level-static-links .mcq-track-card{flex-direction:column;align-items:flex-start;justify-content:center}
+.mcq-level-static-links .mcq-track-card strong{font-size:1.02rem}
+.mcq-level-static-links .mcq-track-card span{font-size:.82rem;color:var(--muted)}
+@media(max-width:760px){
+ .home-mcq-track-grid{grid-template-columns:1fr}
+ .mcq-track-card{min-height:104px;padding:15px}
+ .mcq-track-count{display:none}
+ .mcq-levels-heading{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:480px){
+ .mcq-level-tabs{display:grid;grid-template-columns:1fr 1fr}
+ .mcq-level-tabs a{justify-content:center;gap:6px;padding:9px 8px;font-size:.75rem}
+ .mcq-level-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px}
+ .mcq-level-card{min-height:124px}
+ .mcq-level-static-links{grid-template-columns:1fr}
+ .mcq-track-card{gap:10px}
+ .mcq-track-icon{width:40px;height:40px;flex-basis:40px}
+ .mcq-track-copy small{font-size:.72rem}
+ .mcq-track-total{font-size:.68rem}
+}
+@media(prefers-reduced-motion:reduce){
+ .mcq-track-card,.mcq-level-card{transition:none}
+}
