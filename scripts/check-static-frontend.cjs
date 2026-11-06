@@ -155,7 +155,7 @@ const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\s\S
 check(!primaryNavigation.includes('data-nav-section="important"'), 'Important MCQs is no longer a standalone header navigation item');
 check(html.includes('class="mcq-track-grid home-mcq-track-grid"') && html.includes('href="/mcqs/important-mcqs"'), 'home page links to dedicated All MCQs and Important MCQs entry cards');
 check(runtime.includes('q.set(\'page_size\',String(hasCard?100:'), 'a selected MCQ card requests 100 questions from the public API');
-check(runtime.includes('mcq-level-grid') && runtime.includes('Card '+cardNumber), 'MCQ routes render 100-question card selection and individual card views');
+check(runtime.includes('mcq-level-grid') && runtime.includes("Card '+cardNumber"), 'MCQ routes render 100-question card selection and individual card views');
 check(css.includes('.mcq-level-grid{') && css.includes('.mcq-track-card{'), 'MCQ entry cards and level cards use the website stylesheet');
 
 check(['Home','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the six requested public tabs');
@@ -293,7 +293,7 @@ check(html.includes('id="mcq-country-entry-card-template"'), 'country-entry card
 check(html.includes('data-auth-error'), 'static authentication forms provide inline error targets');
 check(html.includes('name="confirm"') && html.includes('name="terms" required'), 'static signup form confirms passwords and requires terms acceptance');
 check(runtime.includes("search:'mcqs',mcq:'mcqs',practice:'mcqs'"), 'search and individual MCQ routes map into the static MCQ shell');
-check(html.includes('data-api-region="home-important-count"'), 'the hard-coded home includes an MCQ count region');
+check(html.includes('class="mcq-track-grid home-mcq-track-grid"') && html.includes('All MCQs') && html.includes('Important MCQs'), 'the hard-coded home includes separate All MCQs and Important MCQs entry cards');
 check(runtime.indexOf("const fill=(name,selector") < runtime.indexOf("fill('breadcrumbs','.breadcrumbs',sourceMain)"), 'static region helpers are initialized before use');
 check(runtime.includes('form[data-form="search"] input[name="q"]'), 'static MCQ and search shells use the shared search interaction');
 check(runtime.includes("document.getElementById('mcq-layout-template')"), 'static fallback uses the shared HTML layout template');
