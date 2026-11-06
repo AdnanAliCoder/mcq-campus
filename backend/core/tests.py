@@ -923,6 +923,19 @@ class IntegrationTests(TestCase):
         self.assertEqual(data['total'],MCQ.objects.filter(status='approved').count())
         self.assertTrue(all(row['status']=='approved' for row in data['items']))
 
+    def test_public_mcq_cards_can_load_one_hundred_questions_even_for_admin_users(self):
+        self.post_json('/api/auth/login',{'email':'owner@example.com','password':'OwnerPass123'})
+        more=[MCQ(id=3100+i,question=f'100-question card item {i}?',option1='A',option2='B',option3='C',option4='D',correct_answer='A',category=self.category,status='approved',created_by=self.admin,submitted_by=self.admin) for i in range(105)]
+        MCQ.objects.bulk_create(more)
+        first=self.client.get('/api/mcqs?public=1&page=1&page_size=100').json()
+        second=self.client.get('/api/mcqs?public=1&page=2&page_size=100').json()
+        self.assertEqual(first['pageSize'],100)
+        self.assertEqual(len(first['items']),100)
+        self.assertEqual(second['pageSize'],100)
+        self.assertEqual(len(second['items']),6)
+        self.assertEqual(first['total'],MCQ.objects.filter(status='approved').count())
+        self.assertTrue(all(row['status']=='approved' for row in first['items']+second['items']))
+
     def test_public_important_pages_use_two_distinct_job_ids(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         job1=Job.objects.create(id=710,name='Important Job One',paper=self.paper)
