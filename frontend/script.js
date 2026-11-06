@@ -627,7 +627,7 @@ window.Public=(()=>{
 
  function home(){
   const site=MCQ.db.siteCounts||{},approvedTotal=Number(site.approvedMcqs||0),importantTotal=Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
-  const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`;
+  const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('papers','Browse Past Papers','btn')}</div>`;
   const activeOrganizations=MCQ.db.papers.filter(x=>x.active!==false&&(!fixedPublicCountry()||(x.country||MCQ.db.settings.country||'Pakistan')===fixedPublicCountry())),organizationIds=new Set(activeOrganizations.map(x=>Number(x.id))),activePastPapers=MCQ.db.years.filter(x=>x.active!==false&&organizationIds.has(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)),activeCategories=MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy&&(!fixedPublicCountry()||(c.country||'Both')==='Both'||(c.country||MCQ.db.settings.country||'Pakistan')===fixedPublicCountry()));
   const homeStats=[
    {title:'MCQs',value:approvedTotal,iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
