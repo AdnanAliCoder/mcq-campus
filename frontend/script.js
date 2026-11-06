@@ -331,6 +331,8 @@ window.UI=(()=>{
  document.addEventListener('keydown',event=>{if(event.key==='Escape'){
   const adminSidebar=document.getElementById('admin-sidebar');
   if(adminSidebar?.classList.contains('open')){adminSidebar.classList.remove('open');document.body.classList.remove('admin-sidebar-open');document.querySelector('[data-action="sidebar"]')?.setAttribute('aria-expanded','false');}
+  const publicSidebar=document.getElementById('public-smart-sidebar');
+  if(publicSidebar?.classList.contains('open')){publicSidebar.classList.remove('open');document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');}
   const menu=document.activeElement?.closest('details.user-menu[open],details.dropdown[open],details[data-dropdown][open]');
   closeDropdowns();menu?.querySelector('summary')?.focus({preventScroll:true});
  }},true);
