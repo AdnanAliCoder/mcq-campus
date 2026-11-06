@@ -2525,7 +2525,7 @@ mountDataDrivenPage(base,id){
   const countrySource=parent.querySelector('[data-static-page="country-entry"]');
   if(!countrySource)return false;
   const countryShell=countrySource.cloneNode(true);
-  const choices=countryShell.querySelector('.country-entry-grid');
+  const choices=countryShell.querySelector('.country-entry-list');
   const template=document.getElementById('mcq-country-entry-card-template');
   const countries=(MCQ.db?.countries||[]).filter(item=>item&&item.active!==false&&String(item.name||'').trim());
   if(choices&&template){
@@ -2541,7 +2541,7 @@ mountDataDrivenPage(base,id){
     if(register)register.href='/register'+query;
     choices.append(card);
    }
-   if(!countries.length)choices.textContent='No active countries are configured yet.';
+   if(!countries.length){const empty=document.createElement('li');empty.className='country-entry-empty';empty.textContent='No active country libraries are available yet.';choices.append(empty);}
   }
   root.replaceChildren(this.staticPageNode(countryShell,'country-entry'));
   root.removeAttribute('aria-busy');
