@@ -146,7 +146,9 @@ check(runtime.includes("if((first==='login'||first==='register')&&!String(reques
 check(html.includes('class="country-entry-grid"') && html.includes('class="country-entry-card"'), 'country selection fallback uses responsive static card markup');
 check(html.includes('href="/login?country=USA"') && html.includes('href="/register?country=USA"'), 'country-selection fallback includes USA sign-in and signup routes');
 check(html.includes('data-nav-section="tests"') && html.includes('data-nav-section="latest-jobs"'), 'primary navigation contains hard-coded Tests and Jobs & Exams links');
-const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\\s\\S]*?)<\\/nav>/)?.[1] || '';\ncheck(['Home','Important MCQs','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the seven requested tabs');\ncheck(!primaryNavigation.includes('More') && !primaryNavigation.includes('Blog') && !primaryNavigation.includes('About MCQCampus') && !primaryNavigation.includes('Contact'), 'secondary content links are removed from the primary header');
+const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || '';
+check(['Home','Important MCQs','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the seven requested tabs');
+check(!primaryNavigation.includes('More') && !primaryNavigation.includes('Blog') && !primaryNavigation.includes('About MCQCampus') && !primaryNavigation.includes('Contact'), 'secondary content links are removed from the primary header');
 check(!html.includes('<!-- SLOT:HEADER_NAV -->'), 'navigation links are not generated into the HTML template by JavaScript');
 check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]'), 'active static navigation state is styled in CSS');
 check(css.includes('.country-entry-grid') && css.includes('.country-entry-card'), 'country selection fallback uses existing responsive CSS');
