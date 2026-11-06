@@ -2460,6 +2460,7 @@ staticPageNode(shell,page){
   while(node.firstChild)wrapper.appendChild(node.firstChild);
   node.replaceWith(wrapper);
  });
+ if(page==='admin'||page==='super-admin')return shell;
  const layoutTemplate=document.getElementById('mcq-layout-template');
  if(!layoutTemplate)return shell;
  const fragment=layoutTemplate.content.cloneNode(true);
@@ -2559,6 +2560,36 @@ mountDataDrivenPage(base,id){
  const shell=reuseInitialShell||source.cloneNode(true);
  shell.dataset.staticFallback='true';
  const region=name=>shell.querySelector('[data-api-region="'+name+'"]');
+ const contextSidebarKinds={
+  mcqs:'mcqs',important:'mcqs',categories:'category',papers:'papers','jobs-exams':'papers',
+  tests:'mcqs',pdfs:'pdfs','latest-jobs':'jobs'
+ };
+ const contextSidebarKind=contextSidebarKinds[base];
+ if(contextSidebarKind){
+  const pageMain=shell.querySelector('main.container.page');
+  if(pageMain&&!pageMain.dataset.contextSidebarMounted){
+   pageMain.dataset.contextSidebarMounted='true';
+   pageMain.classList.add('public-page');
+   const layout=document.createElement('div');layout.className='public-layout mcq-context-layout';
+   const primary=document.createElement('div');primary.className='public-main mcq-context-main';
+   const mobileBar=document.createElement('div');mobileBar.className='public-sidebar-mobile-bar';
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='btn ghost';toggle.dataset.action='public-sidebar-toggle';toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-controls','public-smart-sidebar');
+   toggle.append(this.staticMarkupFragment(UI.icon('menu')));toggle.append(document.createTextNode(' Related / Browse'));mobileBar.append(toggle);primary.append(mobileBar);
+   const preserved=new Set([...pageMain.children].filter(node=>node.matches('[data-api-region="breadcrumbs"],.page-heading')));
+   [...pageMain.children].forEach(node=>{if(!preserved.has(node))primary.append(node);});
+   const aside=document.createElement('aside');aside.className='public-sidebar';aside.id='public-smart-sidebar';aside.setAttribute('aria-label','Related preparation links');
+   const asideHead=document.createElement('div');asideHead.className='public-sidebar-head';
+   const asideTitle=document.createElement('strong');asideTitle.textContent='Related / Browse';
+   const close=document.createElement('button');close.type='button';close.className='btn ghost';close.dataset.action='public-sidebar-close';close.setAttribute('aria-label','Close sidebar');close.append(this.staticMarkupFragment(UI.icon('close')));
+   asideHead.append(asideTitle,close);
+   const asideInner=document.createElement('div');asideInner.className='public-sidebar-inner';
+   asideInner.append(this.staticMarkupFragment(PublicLayout.smart(contextSidebarKind)));
+   aside.append(asideHead,asideInner);
+   layout.append(primary,aside);
+   const backdrop=document.createElement('button');backdrop.type='button';backdrop.className='public-sidebar-backdrop';backdrop.dataset.action='public-sidebar-close';backdrop.setAttribute('aria-label','Close related links');backdrop.tabIndex=-1;
+   pageMain.append(layout,backdrop);
+  }
+ }
  const setMarkup=(name,markup)=>{
   const dest=region(name);if(!dest)return false;
   dest.replaceChildren(this.staticMarkupFragment(markup));
