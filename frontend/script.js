@@ -626,34 +626,33 @@ window.Public=(()=>{
  }
 
  function home(){
-  const server=activeServerMcqPage(),site=MCQ.db.siteCounts||{},pageSize=10,page=server?Math.max(1,Number(server.page)||1):1,rows=server?MCQ.publicMcqs():[],importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
+  const site=MCQ.db.siteCounts||{},approvedTotal=Number(site.approvedMcqs||0),importantTotal=Number(site.importantMcqs||0),cats=MCQ.sortPinned('categories',MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy)).slice(0,7),categoryCounts=site.categoryMcqs||{};
   const heroActions=`<div class="home-hero-actions">${link('mcqs','Practice All MCQs '+icon('arrow'),'btn primary')}${link('important','Important MCQs','btn')}${link('papers','Browse Past Papers','btn')}</div>`;
   const activeOrganizations=MCQ.db.papers.filter(x=>x.active!==false&&(!fixedPublicCountry()||(x.country||MCQ.db.settings.country||'Pakistan')===fixedPublicCountry())),organizationIds=new Set(activeOrganizations.map(x=>Number(x.id))),activePastPapers=MCQ.db.years.filter(x=>x.active!==false&&organizationIds.has(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)),activeCategories=MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy&&(!fixedPublicCountry()||(c.country||'Both')==='Both'||(c.country||MCQ.db.settings.country||'Pakistan')===fixedPublicCountry()));
   const homeStats=[
-   {title:'MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
+   {title:'MCQs',value:approvedTotal,iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
    {title:'Organizations / Boards / Agencies',value:activeOrganizations.length,iconName:'landmark',tone:'neutral',subtitle:'Exam organizations, boards and agencies',path:'papers'},
    {title:'Past Papers',value:activePastPapers.length,iconName:'paper',tone:'neutral',subtitle:'Past-paper records',path:'papers'},
    {title:'Categories',value:activeCategories.length,iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
-  const homeSeo=staticCopy('home','Practice smarter. Prepare with purpose.','Start with important MCQs, then explore past papers, categories and exam-focused preparation.');
-
-   const importantList=rows.length?rows.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1,true)).join(''):empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.');
-   const categoryList=cats.map(c=>'<div class="home-cat-group"><div class="home-cat-title">'+link('category/'+c.id,'<span class="home-cat-icon">'+UI.entityIcon(c,'grid')+'</span><span>'+e(c.name)+'</span>'+icon('arrow'))+'</div><div class="home-sub-list"><span class="home-sub-link">'+Number(categoryCounts[String(c.id)]||0).toLocaleString('en-GB')+' MCQs</span></div></div>').join('');
-   const body=UI.templateMarkup('mcq-home-template',{
-    HOME_TITLE:e(homeSeo.title),
-    HOME_DESCRIPTION:e(homeSeo.desc),
-    HOME_HERO_ACTIONS:heroActions,
-    HOME_STATS:homeStats.map(x=>UI.statCard(x)).join(''),
-    HOME_TOP_AD:UI.adSlot('home_top_ad'),
-    HOME_IMPORTANT_COUNT:importantTotal.toLocaleString('en-GB'),
-    HOME_IMPORTANT_LINK:link('mcqs','Browse all MCQs','link'),
-    HOME_MCQ_LIST:importantList,
-    HOME_PAGER:UI.pager(importantTotal,page,pageSize,App.route.params,'home'),
-    HOME_CATEGORY_LIST:categoryList,
-    HOME_ALL_CATEGORIES_LINK:link('categories','View all categories '+icon('arrow'),'btn home-cat-more'),
-    HOME_MIDDLE_AD:UI.adSlot('home_middle_ad')
-   });
-   return UI.layout(body||'', 'home');
+  const homeSeo=staticCopy('home','Practice smarter. Prepare with purpose.','Start with the complete MCQ library, focus on important questions, then explore past papers, categories and exam-focused preparation.');
+  const homeMcqCards=[
+   {path:'mcqs',title:'All MCQs',description:'Explore every approved question in organised sets of 100.',count:approvedTotal,icon:'book',kind:'all',action:'Browse all MCQs'},
+   {path:'important',title:'Important MCQs',description:'Practise the questions selected as important by MCQCampus.',count:importantTotal,icon:'bookmark',kind:'important',action:'Browse important MCQs'}
+  ].map(item=>`<a class="mcq-track-card ${item.kind==='important'?'important':''}" href="${e(UI.href(item.path))}"><span class="mcq-track-icon" aria-hidden="true">${UI.icon(item.icon)}</span><span class="mcq-track-copy"><strong>${e(item.title)}</strong><small>${e(item.description)}</small></span><span class="mcq-track-count"><strong>${item.count.toLocaleString('en-GB')}</strong><small>approved MCQs</small></span><span class="mcq-track-total">${e(item.action)} ${UI.icon('arrow')}</span></a>`).join('');
+  const categoryList=cats.map(c=>'<div class="home-cat-group"><div class="home-cat-title">'+link('category/'+c.id,'<span class="home-cat-icon">'+UI.entityIcon(c,'grid')+'</span><span>'+e(c.name)+'</span>'+icon('arrow'))+'</div><div class="home-sub-list"><span class="home-sub-link">'+Number(categoryCounts[String(c.id)]||0).toLocaleString('en-GB')+' MCQs</span></div></div>').join('');
+  const body=UI.templateMarkup('mcq-home-template',{
+   HOME_TITLE:e(homeSeo.title),
+   HOME_DESCRIPTION:e(homeSeo.desc),
+   HOME_HERO_ACTIONS:heroActions,
+   HOME_STATS:homeStats.map(x=>UI.statCard(x)).join(''),
+   HOME_TOP_AD:UI.adSlot('home_top_ad'),
+   HOME_MCQ_LIST:homeMcqCards,
+   HOME_CATEGORY_LIST:categoryList,
+   HOME_ALL_CATEGORIES_LINK:link('categories','View all categories '+icon('arrow'),'btn home-cat-more'),
+   HOME_MIDDLE_AD:UI.adSlot('home_middle_ad')
+  });
+  return UI.layout(body||'', 'home');
  }
 
  function browse(type,id){
@@ -1322,7 +1321,8 @@ window.Auth=(()=>{
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
-  if(['home','mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
+  const needsPublicMcqRows=!['home','mcqs','important'].includes(resolvedBase)||(['mcqs','important'].includes(resolvedBase)&&Number(routeParams.get('card'))>0);
+  if(needsPublicMcqRows&&['home','mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -1356,10 +1356,10 @@ window.Auth=(()=>{
    return '/mcqs?'+q.toString();
   };
   const publicMcqEndpoint=()=>{
-   const q=new URLSearchParams(),page=Math.max(1,Number(routeParams.get('page'))||1);
-   q.set('public','1');q.set('page',String(page));q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));
+   const q=new URLSearchParams(),card=Math.max(1,Number(routeParams.get('card'))||1),hasCard=Number(routeParams.get('card'))>0,page=hasCard?card:Math.max(1,Number(routeParams.get('page'))||1);
+   q.set('public','1');q.set('page',String(page));q.set('page_size',String(hasCard?100:(['mcq','practice'].includes(resolvedBase)?1:10)));
    if(!['mcqs','important'].includes(resolvedBase)){const passthrough=['category','paper','job','year','country','search'];for(const key of passthrough){const value=routeParams.get(key);if(value)q.set(key,value)}}
-   if(resolvedBase==='home'||resolvedBase==='important')q.set('important','1');
+   if(resolvedBase==='home'||resolvedBase==='important'||routeParams.get('track')==='important')q.set('important','1');
    if(resolvedBase==='category'&&resolvedId)q.set('category',String(resolvedId));
    if(resolvedBase==='subcategory'&&resolvedId)q.set('subcategory',String(resolvedId));
    if(resolvedBase==='topic'&&resolvedId)q.set('child',String(resolvedId));
@@ -3425,48 +3425,54 @@ mountDataDrivenPage(base,id){
   setMarkup('home-middle-ad',UI.adSlot('home_middle_ad'));
  }else if(base==='mcqs'||base==='important'){
   const serverPage=data.mcqPage||{},server=serverPage.server===true&&serverPage.scope==='public'&&serverPage.routeKey===location.pathname+location.search?serverPage:null;
-  const params=App.route.params||{},fixed=fixedCountry(),filters=fixed?{page:params.page,country:fixed}:params;
-  let rows=MCQ.publicMcqs();
-  const view=base==='important'?'important':String(filters.view||'all');
-  if(!server){
-   if(view==='important')rows=rows.filter(q=>MCQ.isImportant(q));
-   if(view==='repeated')rows=rows.filter(q=>MCQ.ids(q.job_years_ids).length>=2);
-   if(view==='latest')rows=[...rows].sort((a,b)=>String(b.created_at||b.updated_at||'').localeCompare(String(a.created_at||a.updated_at||''))||Number(b.id)-Number(a.id));
-   if(filters.category)rows=rows.filter(q=>+q.category_id===+filters.category);
-   if(filters.paper)rows=rows.filter(q=>MCQ.ids(q.paper_id).includes(+filters.paper));
-   if(filters.job)rows=rows.filter(q=>MCQ.ids(q.job_ids).includes(+filters.job));
-   if(filters.year)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+filters.year));
-   if(filters.country){
-    rows=rows.filter(q=>{
-     const paperIds=MCQ.ids(q.paper_id);
-     const paperCountries=paperIds.map(key=>MCQ.get('papers',key)?.country).filter(Boolean);
-     return String(q.country||paperCountries[0]||data.settings?.country||'Pakistan')===String(filters.country);
-    });
-   }
-  }else rows=MCQ.publicMcqs();
-  const total=server?Number(server.total||0):rows.length,pageSize=10,page=server?Math.max(1,Number(server.page||filters.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
-  const heading=shell.querySelector('.page-heading h1'),headingDesc=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=view==='important'?'Important MCQs':'Practice MCQs';
-  if(headingDesc)headingDesc.textContent='Browse approved practice MCQs with correct answers and explanations.';
-  const search=shell.querySelector('form[data-form="search"] input[name="q"]');
-  if(search)search.value=String(params.q||'');
-  setText('mcq-summary',total.toLocaleString('en-GB')+' total '+(view==='important'?'important MCQs':'MCQs')+' · only 10 load per page');
-  const list=region('mcq-list');
+  const params=App.route.params||{},track=base==='important'||String(params.track||'')==='important'?'important':'all',isImportant=track==='important';
+  const cardNumber=Number(params.card||0),hasCard=Number.isInteger(cardNumber)&&cardNumber>0;
+  const site=MCQ.db.siteCounts||{},fallbackTotal=Number(isImportant?site.importantMcqs:site.approvedMcqs)||0;
+  let rows=server?MCQ.publicMcqs():MCQ.publicMcqs();
+  if(!server&&isImportant)rows=rows.filter(q=>MCQ.isImportant(q));
+  const total=server?Number(server.total||0):fallbackTotal,pageSize=hasCard?100:10,page=hasCard?cardNumber:(server?Math.max(1,Number(server.page||1)):1);
+  const cardTotal=Math.ceil(total/100),validCard=hasCard&&cardNumber<=cardTotal;
+  const heading=shell.querySelector('.page-heading h1'),headingDesc=shell.querySelector('.page-heading p'),searchForm=shell.querySelector('form[data-form="search"]');
+  if(searchForm)searchForm.hidden=true;
+  if(heading)heading.textContent=validCard?(isImportant?'Important MCQs':'All MCQs')+' · Card '+cardNumber:(isImportant?'Important MCQs':'All MCQs');
+  if(headingDesc)headingDesc.textContent=validCard?'This card contains up to 100 approved questions. Complete the set at your own pace.':'Choose a 100-question card to start practising. Your questions are loaded only when you open a card.';
+  const list=region('mcq-list'),summary=region('mcq-summary'),pager=region('mcq-pagination');
+  if(pager)pager.hidden=true;
+  if(summary){summary.textContent=validCard?('Card '+cardNumber+' · '+Math.min(100,Math.max(0,total-(cardNumber-1)*100))+' questions in this set · '+total.toLocaleString('en-GB')+' total'):total.toLocaleString('en-GB')+' approved '+(isImportant?'important ':'')+'MCQs · 100 questions per card';summary.hidden=false;}
   if(list){
-   list.classList.add('public-main','public-main-full');
    list.replaceChildren();
-   list.append(this.staticMarkupFragment(UI.adSlot('mcq_top_ad')));
-   if(shown.length){
-    shown.forEach((question,index)=>{
-     list.append(questionCardFragment(question,false,base==='year'?Number(id)||null:null));
-     if(index===4)list.append(this.staticMarkupFragment(UI.adSlot('mcq_inline_ad')));
-    });
-   }else list.append(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No matching MCQs are available yet.','Choose another option or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
-   list.append(this.staticMarkupFragment(UI.adSlot('mcq_bottom_ad')));
+   if(!validCard){
+    list.classList.remove('public-main','public-main-full');
+    const tabAll=UI.href('mcqs'),tabImportant=UI.href('important');
+    const tabs='<nav class="mcq-level-tabs" aria-label="MCQ collections"><a class="'+(!isImportant?'active':'')+'" href="'+e(tabAll)+'" '+(!isImportant?'aria-current="page"':'')+'>All MCQs <span>'+Number(site.approvedMcqs||0).toLocaleString('en-GB')+'</span></a><a class="'+(isImportant?'active':'')+'" href="'+e(tabImportant)+'" '+(isImportant?'aria-current="page"':'')+'>Important MCQs <span>'+Number(site.importantMcqs||0).toLocaleString('en-GB')+'</span></a></nav>';
+    let cards='';
+    for(let n=1;n<=cardTotal;n++){
+     const amount=Math.min(100,total-(n-1)*100),target=e(UI.href(isImportant?'important':'mcqs',{card:n}));
+     cards+='<a class="mcq-level-card" href="'+target+'"><span class="mcq-level-badge">'+UI.icon('play')+'</span><strong class="mcq-level-number">'+n+'</strong><span class="mcq-level-label">Card '+n+'</span><span class="mcq-level-count">'+amount.toLocaleString('en-GB')+' MCQs</span><span class="mcq-level-open">Open card '+UI.icon('arrow')+'</span></a>';
+    }
+    const cardsMarkup=cards||UI.empty('No MCQs available yet','Approved questions will appear here when they are published.');
+    const selector='<section class="mcq-levels-shell">'+tabs+'<div class="mcq-levels-heading"><div><p class="eyebrow">100 QUESTION SETS</p><h2>'+(isImportant?'Important MCQ cards':'All MCQ cards')+'</h2><p>Each card opens a separate set of up to 100 questions. The final card may contain fewer.</p></div><span class="mcq-level-total">'+total.toLocaleString('en-GB')+' total</span></div><div class="mcq-level-grid">'+cardsMarkup+'</div></section>';
+    list.append(this.staticMarkupFragment(selector));
+   }else{
+    list.classList.add('public-main','public-main-full');
+    if(!server){
+     list.append(this.staticMarkupFragment(UI.empty('Loading your MCQ card','The 100 questions for this card are being requested from the question bank.')));
+    }else if(cardNumber>cardTotal||!rows.length){
+     list.append(this.staticMarkupFragment(UI.empty('This MCQ card is not available','Choose an available card from the MCQ library.',UI.link(isImportant?'important':'mcqs','Back to MCQ cards','btn primary'))));
+    }else{
+     list.append(this.staticMarkupFragment('<div class="mcq-card-navigation"><a class="btn ghost" href="'+e(UI.href(isImportant?'important':'mcqs'))+'">'+UI.icon('arrow')+' Back to MCQ cards</a><span>Card '+cardNumber+' of '+cardTotal+'</span><strong>'+rows.length+' / 100 MCQs</strong></div>'));
+     list.append(this.staticMarkupFragment(UI.adSlot('mcq_top_ad')));
+     rows.forEach((question,index)=>{
+      list.append(questionCardFragment(question,(cardNumber-1)*100+index+1));
+      if(index===49)list.append(this.staticMarkupFragment(UI.adSlot('mcq_inline_ad')));
+     });
+     list.append(this.staticMarkupFragment(UI.adSlot('mcq_bottom_ad')));
+    }
+   }
    list.hidden=false;
   }
-  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,App.route.path));
- }else if(base==='categories'||base==='papers'||base==='jobs-exams'){
+  if(base==='important'||isImportant)document.body.dataset.mcqTrack='important';else document.body.dataset.mcqTrack='all';
+  }else if(base==='categories'||base==='papers'||base==='jobs-exams'){
   const collection=base==='categories'?'categories':'papers',country=fixedCountry();
   const entityPage=data.entityPage||{},entityServer=entityPage.server===true&&entityPage.routeKey===location.pathname+location.search&&entityPage.type===collection?entityPage:null;
   let rows=(data[collection]||[]).filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy));
