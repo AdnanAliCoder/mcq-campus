@@ -329,6 +329,10 @@ window.UI=(()=>{
   closeDropdowns(selected?null:menu);
  },true);
  document.addEventListener('keydown',event=>{if(event.key==='Escape'){
+  const adminSidebar=document.getElementById('admin-sidebar');
+  if(adminSidebar?.classList.contains('open')){adminSidebar.classList.remove('open');document.body.classList.remove('admin-sidebar-open');document.querySelector('[data-action="sidebar"]')?.setAttribute('aria-expanded','false');}
+  const publicSidebar=document.getElementById('public-smart-sidebar');
+  if(publicSidebar?.classList.contains('open')){publicSidebar.classList.remove('open');document.querySelector('.public-sidebar-backdrop')?.classList.remove('open');document.querySelector('[data-action="public-sidebar-toggle"]')?.setAttribute('aria-expanded','false');}
   const menu=document.activeElement?.closest('details.user-menu[open],details.dropdown[open],details[data-dropdown][open]');
   closeDropdowns();menu?.querySelector('summary')?.focus({preventScroll:true});
  }},true);
@@ -347,11 +351,28 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   return `<aside class="ad-slot ad-slot-${esc(placement)}" data-ad-slot="${esc(placement)}" aria-label="Sponsored advertisement">${safe(ad.destination_url)?`<a href="${esc(ad.destination_url)}" target="_blank" rel="sponsored noopener noreferrer">${body}</a>`:body}</aside>`
 }
  function mountCustomAds(root=document){const scope=root&&root.querySelectorAll?root:document;scope.querySelectorAll('.custom-code-ad[data-ad-code]').forEach(slot=>{if(slot.dataset.adMounted==='true')return;const body=slot.querySelector('.custom-code-ad-body');if(!body)return;let code='';try{code=decodeURIComponent(escape(atob(slot.dataset.adCode||'')))}catch{return}slot.dataset.adMounted='true';const template=document.createElement('template');template.innerHTML=code;const nodes=[...template.content.childNodes],scripts=[];nodes.forEach(node=>{if(node.nodeType===1&&node.tagName==='SCRIPT')scripts.push(node);else body.appendChild(node)});scripts.forEach(source=>{const script=document.createElement('script');for(const attr of source.attributes)script.setAttribute(attr.name,attr.value);script.text=source.textContent||'';body.appendChild(script)})});}
- function userMenu(){const s=MCQ.db.session;if(!s)return link('login','Log in','btn primary header-login');const roles=s.roles||[s.role||'user'];const avatar=s.avatar?`<img src="${esc(s.avatar)}" alt="">`:`<span>${esc((s.name||'U').split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`;const switches=[];if(roles.includes('user'))switches.push(btn(icon('book')+' Learner dashboard','workspace-switch','user-menu-item user-menu-button',`data-role="user"`));if(roles.includes('admin'))switches.push(btn(icon('edit')+' Admin workspace','workspace-switch','user-menu-item user-menu-button',`data-role="admin"`));if(roles.includes('super-admin'))switches.push(btn(icon('shield')+' Super admin','workspace-switch','user-menu-item user-menu-button',`data-role="super-admin"`));return `<details class="user-menu"><summary class="header-user-avatar" aria-label="Open account menu">${avatar}</summary><div class="user-menu-panel"><div class="user-menu-head"><strong>${esc(s.name||'Account')}</strong><span>${esc(s.email||'')}</span></div>${switches.join('')}${link('dashboard/settings',icon('settings')+' Settings','user-menu-item')}${link('dashboard/downloads',icon('download')+' My Downloads','user-menu-item')}${btn(icon('logout')+' Log out','logout','user-menu-item user-menu-button')}</div></details>`} function header(active=''){
+ function userMenu(){
+  const s=MCQ.db.session;
+  if(!s)return link('login','Log in','btn primary header-login');
+  const roles=s.roles||[s.role||'user'];
+  const avatar=s.avatar?'<img src="'+esc(s.avatar)+'" alt="">':'<span>'+esc((s.name||'U').split(' ').map(x=>x[0]).slice(0,2).join(''))+'</span>';
+  const notificationRows=Array.isArray(MCQ.db.notifications)?MCQ.db.notifications:Array.isArray(s.notifications)?s.notifications:[];
+  const unreadFromRows=notificationRows.filter(item=>item&&item.read!==true&&item.is_read!==true&&!item.read_at).length;
+  const unreadCount=Math.max(0,Number(MCQ.db.unreadNotificationCount??s.unreadNotificationCount??unreadFromRows)||0);
+  const countText=unreadCount>99?'99+':String(unreadCount);
+  const notificationLabel=unreadCount? 'Notifications, '+unreadCount+' unread':'Notifications';
+  const notificationBadge=unreadCount?'<span class="notification-count" aria-hidden="true">'+esc(countText)+'</span>':'';
+  const notificationLink='<a class="header-notification" href="/dashboard/notifications" aria-label="'+esc(notificationLabel)+'" title="Notifications">'+icon('bell')+notificationBadge+'</a>';
+  const switches=[];
+  if(roles.includes('user'))switches.push(btn(icon('book')+' Learner dashboard','workspace-switch','user-menu-item user-menu-button',`data-role="user"`));
+  if(roles.includes('admin'))switches.push(btn(icon('edit')+' Admin workspace','workspace-switch','user-menu-item user-menu-button',`data-role="admin"`));
+  if(roles.includes('super-admin'))switches.push(btn(icon('shield')+' Super admin','workspace-switch','user-menu-item user-menu-button',`data-role="super-admin"`));
+  return '<div class="header-user-cluster">'+notificationLink+'<details class="user-menu"><summary class="header-user-avatar" aria-label="Open account menu">'+avatar+'</summary><div class="user-menu-panel"><div class="user-menu-head"><strong>'+esc(s.name||'Account')+'</strong><span>'+esc(s.email||'')+'</span></div>'+switches.join('')+link('dashboard/settings',icon('settings')+' Settings','user-menu-item')+link('dashboard/downloads',icon('download')+' My Downloads','user-menu-item')+btn(icon('logout')+' Log out','logout','user-menu-item user-menu-button')+'</div></details></div>';
+ } function header(active=''){
   const current=String(App.route?.path||'home').split('/')[0];
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
-  const mobileMenu=MCQ.db.session?btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"'):'';
-  return templateMarkup('mcq-header-template',{HEADER_AUTH_LINK:MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth'),HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
+  const mobileMenu=btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"');
+  return templateMarkup('mcq-header-template',{HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
 }
  function footer(){
   const settings=MCQ.db.settings||{},cfg=settings.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),safeUrl=u=>/^https?:\/\//i.test(String(u||''));
@@ -364,7 +385,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const description=cfg.description||'Practice MCQs, solve past papers, discover exam opportunities, and prepare confidently for competitive examinations.';const country=cfg.showCountryText!==false&&cfg.countryText?`<p class="footer-country">${esc(cfg.countryText)}</p>`:'';
   const bottom=[];if(cfg.showSitemap!==false)bottom.push(link('sitemap','Sitemap'));
   const copy=String(cfg.copyrightText||`${settings.siteName||'MCQ Campus'}. All rights reserved.`).replace(/^©\s*\d{4}\s*/,'');
-  const mobileLinks=[['home','home','Home'],['mcqs','book','MCQs'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('');
+  const mobileLinks=[['home','home','Home'],['tests','check','Tests'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('');
   return templateMarkup('mcq-footer-template',{
    FOOTER_BRAND:footerBrand,
    FOOTER_DESCRIPTION:esc(description),
@@ -528,7 +549,7 @@ window.Public=(()=>{
  const activeEntityPage=()=>{const p=MCQ.db.entityPage||{};return p.server===true&&p.routeKey===location.pathname+location.search?p:null};
  const pastPapersPath=x=>{const org=MCQ.get('papers',x.paper_id);return org?(window.SEO?SEO.cleanPath('paper',org.id):'paper/'+org.id):'papers'};
   const latestJobCard=x=>{const safe=u=>/^https?:\/\//i.test(String(u||'')),org=MCQ.get('papers',x.paper_id),logo=org?UI.entityIcon(org,'briefcase'):icon('briefcase'),slug=x.slug||MCQ.slug(x.title||'job'),path=window.SEO?SEO.cleanPath('latest-job',x.id):'latest-job/'+slug,apply=safe(x.apply_url)?'<a class="btn sm" href="'+e(x.apply_url)+'" target="_blank" rel="noopener" data-auth-action="apply-job">Apply</a>':'',prep=(/^(https?:\/\/|\/(?!\/))/i.test(String(x.prep_url||'')))?'<a class="btn sm" href="'+e(x.prep_url)+'" target="_blank" rel="noopener">Past Papers</a>':(org?link(pastPapersPath(x),'Past Papers','btn sm'):''),actions=apply||prep?'<div class="latest-job-action"><div class="actions">'+apply+prep+'</div></div>':'',markup=UI.templateMarkup('mcq-latest-job-card-template',{JOB_LOGO:logo,JOB_ORGANIZATION:e(org?.name||'Organization'),JOB_TITLE_LINK:link(path,e(x.title||'Job opportunity')),JOB_DESCRIPTION:x.description?'<p>'+e(x.description)+'</p>':'',JOB_LAST_DATE:e(UI.date(x.last_date)),JOB_DETAILS_LINK:link(path,'View job details'),JOB_ACTIONS:actions});return markup||''};
-  const pdfResourceCard=x=>{const safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||'')),href=String(x.download_url||'').trim(),title=x.title||x.name||'PDF resource',slug=x.slug||MCQ.slug(title),path=window.SEO?SEO.cleanPath('pdf',x.id):'pdf/'+slug,download=safeLink(href)?'<a class="btn primary" href="'+e(href)+'" data-auth-action="download-pdf" data-auth-download-name="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf" '+(/^data:/i.test(href)?'download="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf"':'target="_blank" rel="noopener"')+'>Download PDF</a>':'<span class="btn disabled" aria-disabled="true">Download unavailable</span>',cover=x.cover&&safeImage(x.cover)?'<img src="'+e(x.cover)+'" alt="'+e(title)+'" loading="lazy" decoding="async">':'',description=x.description?'<p>'+e(x.description)+'</p>':'',markup=UI.templateMarkup('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:link(path,e(title)),PDF_DESCRIPTION:description,PDF_OPEN_LINK:link(path,'Open PDF details'),PDF_DOWNLOAD:download});return markup||''};
+  const pdfResourceCard=x=>{const safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||'')),href=String(x.download_url||'').trim(),title=x.title||x.name||'PDF resource',slug=x.slug||MCQ.slug(title),path=window.SEO?SEO.cleanPath('pdf',x.id):'pdf/'+slug,download=safeLink(href)?'<a class="btn primary" href="'+e(href)+'" data-auth-action="download-pdf" data-auth-download-name="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf" '+(/^data:/i.test(href)?'download="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf"':'target="_blank" rel="noopener"')+'>Download PDF</a>':'<span class="btn disabled" aria-disabled="true">Download unavailable</span>',cover=x.cover&&safeImage(x.cover)?'<img src="'+e(x.cover)+'" alt="'+e(title)+'" loading="lazy" decoding="async">':'',description=x.description?'<p>'+e(x.description)+'</p>':'',markup=UI.templateMarkup('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:link(path,e(title)),PDF_DESCRIPTION:description,PDF_DOWNLOAD:download});return markup||''};
   const blogPostCard=post=>{const safeUrl=u=>/^(https?:\/\/|#\/)/i.test(String(u||'')),source=(post.links||[]).find(x=>x.label==='__blog_url'&&safeUrl(x.url)),href=source?String(source.url):UI.href('post/'+post.id),target=source&&/^https?:\/\//i.test(source.url)?'target="_blank" rel="noopener"':'',excerpt=post.excerpt?'<p>'+e(post.excerpt)+'</p>':'',media=post.featured_image?'<img src="'+e(post.featured_image)+'" alt="" loading="lazy" decoding="async">':'<span class="content-fallback content-fallback-blue">'+icon('edit')+'</span>',markup=UI.templateMarkup('mcq-blog-post-card-template',{BLOG_HREF:e(href),BLOG_TARGET:target,BLOG_CATEGORY:e(post.category||'UPDATE'),BLOG_TITLE:e(post.title),BLOG_EXCERPT:excerpt,BLOG_CALENDAR_ICON:icon('calendar'),BLOG_DATE:e(UI.date(post.updated_at||post.created_at)),BLOG_ARROW_ICON:icon('arrow'),BLOG_MEDIA:media});return markup||''};
  function relationships(q,contextYearId=null){let years=MCQ.ids(q.job_years_ids).map(id=>MCQ.get('years',id)).filter(Boolean);if(contextYearId)years=years.filter(x=>+x.id===+contextYearId);if(!years.length)return '';return `<div class="mcq-answer-years" aria-label="Years"><span class="mcq-years-label">Years</span><div class="chips">${years.map(x=>link(yearPath(x),`<span class="mcq-year-icon" aria-hidden="true">${UI.entityIcon(x,'grid')}</span><span>${e(x.name)}</span>`,'chip mcq-year-chip')).join('')}</div></div>`}
  function questionCountry(q){const direct=String(q.country||'').trim();if(direct)return direct;const paperId=MCQ.ids(q.paper_id)[0],paper=paperId?MCQ.get('papers',paperId):null;return String(paper?.country||MCQ.db.settings.country||'Pakistan').trim()||'Pakistan'}
@@ -825,7 +846,7 @@ window.Public=(()=>{
    body=`${heading('My Downloads','Resources your account is authorized to download.')}${rows.length?`<div class="grid pdf-grid">${rows.map(x=>`<div class="card"><h3>${e(x.title||x.name)}</h3><p class="small muted">Authorized resource</p></div>`).join('')}</div>`:empty('No downloads available yet.','Purchased or assigned PDFs will appear here when the backend grants access.')}`;
   }
   if(view==='settings')body=profileForm();
-  return UI.layout(UI.templateMarkup('mcq-learner-dashboard-template',{LEARNER_MENU_ICON:icon('menu'),LEARNER_SIDE:side,LEARNER_AVATAR:avatar,LEARNER_NAME:e(s?.name||'learner'),LEARNER_BODY:body})||('<div class="container page learner-dashboard-shell"><div class="learner-mobile-head"><button class="btn ghost" type="button" data-action="learner-sidebar-toggle">'+icon('menu')+' Learning menu</button></div><div class="learner-shell">'+side+'<main class="learner-content"><div class="profile-band compact-profile-band">'+avatar+'<div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Welcome back, '+e(s?.name||'learner')+'</h2><span class="small muted">Practice, review mistakes, explore past papers, and track progress.</span></div></div>'+body+'</main></div></div>'));
+  return UI.layout(UI.templateMarkup('mcq-learner-dashboard-template',{LEARNER_AVATAR:avatar,LEARNER_NAME:e(s?.name||'learner'),LEARNER_BODY:body})||('<div class="container page learner-dashboard-shell"><div class="learner-shell"><main class="learner-content"><div class="profile-band compact-profile-band">'+avatar+'<div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Welcome back, '+e(s?.name||'learner')+'</h2><span class="small muted">Practice, review mistakes, explore past papers, and track progress.</span></div></div>'+body+'</main></div></div>'));
  }
  function profileForm(){
   const s=MCQ.db.session;if(!s)return `<div class="card">${heading('Profile','Sign in to manage your profile.')} ${link('login','Log in','btn primary')}</div>`;
@@ -2441,6 +2462,7 @@ staticPageNode(shell,page){
   while(node.firstChild)wrapper.appendChild(node.firstChild);
   node.replaceWith(wrapper);
  });
+ if(page==='admin'||page==='super-admin')return shell;
  const layoutTemplate=document.getElementById('mcq-layout-template');
  if(!layoutTemplate)return shell;
  const fragment=layoutTemplate.content.cloneNode(true);
@@ -2540,6 +2562,36 @@ mountDataDrivenPage(base,id){
  const shell=reuseInitialShell||source.cloneNode(true);
  shell.dataset.staticFallback='true';
  const region=name=>shell.querySelector('[data-api-region="'+name+'"]');
+ const contextSidebarKinds={
+  mcqs:'mcqs',important:'mcqs',categories:'category',papers:'papers','jobs-exams':'papers',
+  tests:'mcqs',pdfs:'pdfs','latest-jobs':'jobs'
+ };
+ const contextSidebarKind=contextSidebarKinds[base];
+ if(contextSidebarKind){
+  const pageMain=shell.querySelector('main.container.page');
+  if(pageMain&&!pageMain.dataset.contextSidebarMounted){
+   pageMain.dataset.contextSidebarMounted='true';
+   pageMain.classList.add('public-page');
+   const layout=document.createElement('div');layout.className='public-layout mcq-context-layout';
+   const primary=document.createElement('div');primary.className='public-main mcq-context-main';
+   const mobileBar=document.createElement('div');mobileBar.className='public-sidebar-mobile-bar';
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='btn ghost';toggle.dataset.action='public-sidebar-toggle';toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-controls','public-smart-sidebar');
+   toggle.append(this.staticMarkupFragment(UI.icon('menu')));toggle.append(document.createTextNode(' Related / Browse'));mobileBar.append(toggle);primary.append(mobileBar);
+   const preserved=new Set([...pageMain.children].filter(node=>node.matches('[data-api-region="breadcrumbs"],.page-heading')));
+   [...pageMain.children].forEach(node=>{if(!preserved.has(node))primary.append(node);});
+   const aside=document.createElement('aside');aside.className='public-sidebar';aside.id='public-smart-sidebar';aside.setAttribute('aria-label','Related preparation links');
+   const asideHead=document.createElement('div');asideHead.className='public-sidebar-head';
+   const asideTitle=document.createElement('strong');asideTitle.textContent='Related / Browse';
+   const close=document.createElement('button');close.type='button';close.className='btn ghost';close.dataset.action='public-sidebar-close';close.setAttribute('aria-label','Close sidebar');close.append(this.staticMarkupFragment(UI.icon('close')));
+   asideHead.append(asideTitle,close);
+   const asideInner=document.createElement('div');asideInner.className='public-sidebar-inner';
+   asideInner.append(this.staticMarkupFragment(PublicLayout.smart(contextSidebarKind)));
+   aside.append(asideHead,asideInner);
+   layout.append(primary,aside);
+   const backdrop=document.createElement('button');backdrop.type='button';backdrop.className='public-sidebar-backdrop';backdrop.dataset.action='public-sidebar-close';backdrop.setAttribute('aria-label','Close related links');backdrop.tabIndex=-1;
+   pageMain.append(layout,backdrop);
+  }
+ }
  const setMarkup=(name,markup)=>{
   const dest=region(name);if(!dest)return false;
   dest.replaceChildren(this.staticMarkupFragment(markup));
@@ -2695,12 +2747,11 @@ mountDataDrivenPage(base,id){
   const titleLink=makeInternalLink(path,title);
   let description=document.createDocumentFragment();
   if(item.description){const paragraph=document.createElement('p');paragraph.textContent=String(item.description);description.append(paragraph);}
-  const openLink=makeInternalLink(path,'Open PDF details');
   let download;
   if(pdfUrl){download=document.createElement('a');download.className='btn primary';download.href=url;download.dataset.authAction='download-pdf';download.dataset.authDownloadName=MCQ.slug(title||'mcq-campus')+'.pdf';download.textContent='Download PDF';
    if(url.toLowerCase().startsWith('data:'))download.download=MCQ.slug(title||'mcq-campus')+'.pdf';else{download.target='_blank';download.rel='noopener';}
   }else{download=document.createElement('span');download.className='btn disabled';download.setAttribute('aria-disabled','true');download.textContent='Download unavailable';}
-  return this.staticTemplateFragment('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:titleLink,PDF_DESCRIPTION:description,PDF_OPEN_LINK:openLink,PDF_DOWNLOAD:download})||document.createDocumentFragment();
+  return this.staticTemplateFragment('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:titleLink,PDF_DESCRIPTION:description,PDF_DOWNLOAD:download})||document.createDocumentFragment();
  };
  const latestJobCardFragment=job=>{
   const organization=MCQ.get('papers',job.paper_id),title=String(job.title||'Job opportunity'),path=window.SEO?.cleanPath?SEO.cleanPath('latest-job',job.id):'latest-job/'+String(job.slug||MCQ.slug(title)),applyUrl=String(job.apply_url||'').trim(),prepUrl=String(job.prep_url||'').trim();
@@ -3074,7 +3125,7 @@ mountDataDrivenPage(base,id){
    const span=document.createElement('span');span.className='avatar';span.textContent=initials||'L';return span;
   })();
   const layout=this.staticTemplateFragment('mcq-learner-dashboard-template',{
-   LEARNER_MENU_ICON:this.staticMarkupFragment(UI.icon('menu')),LEARNER_SIDE:side,LEARNER_AVATAR:avatar,
+   LEARNER_AVATAR:avatar,
    LEARNER_NAME:String(session.name||'learner'),LEARNER_BODY:body
   });
   const layoutRoot=layout?.querySelector('.learner-dashboard-shell');
@@ -4022,7 +4073,8 @@ App.quickTimer=McqCarousel.create({advance(){
  if(a==='home-quick-next'){App.quickTimer.stop();App.quickAnswer=null;const total=MCQ.topMcqs().length;App.homeQuickIndex=total?(Number(App.homeQuickIndex||0)+1)%total:0;App.refreshQuick()}
  if(a==='home-quick-jump'){App.quickTimer.stop();App.quickAnswer=null;App.homeQuickIndex=Number(el.dataset.index||0);App.refreshQuick()}
  if(a==='home-quick-choose'){const q=MCQ.topMcqs()[App.homeQuickIndex];if(!q||q.id!==id||App.quickAnswer?.id===id)return;const choice=q['option'+el.dataset.option];if(!choice)return;App.quickAnswer={id,choice};App.quickTimer.stop();App.refreshQuick();await MCQ.attempt(id,choice)}
- if(a==='sidebar'){const n=document.getElementById('admin-sidebar');el.setAttribute('aria-expanded',String(n.classList.toggle('open')))}
+ if(a==='sidebar'){const n=document.getElementById('admin-sidebar');if(n){const open=n.classList.toggle('open');el.setAttribute('aria-expanded',String(open));document.body.classList.toggle('admin-sidebar-open',open)}}
+ if(a==='sidebar-close'){const n=document.getElementById('admin-sidebar');n?.classList.remove('open');document.body.classList.remove('admin-sidebar-open');document.querySelector('[data-action="sidebar"]')?.setAttribute('aria-expanded','false')}
  if(a==='learner-sidebar-toggle'){const n=document.getElementById('learner-sidebar');if(n)n.classList.toggle('open')}
  if(a==='public-sidebar-toggle'){const n=document.getElementById('public-smart-sidebar'),b=document.querySelector('.public-sidebar-backdrop');if(n){const open=n.classList.toggle('open');b?.classList.toggle('open',open);el.setAttribute('aria-expanded',String(open));if(open)n.querySelector('select,input,button,a')?.focus()}}
  if(a==='public-sidebar-close'){const n=document.getElementById('public-smart-sidebar'),b=document.querySelector('.public-sidebar-backdrop'),t=document.querySelector('[data-action="public-sidebar-toggle"]');n?.classList.remove('open');b?.classList.remove('open');t?.setAttribute('aria-expanded','false');t?.focus()}

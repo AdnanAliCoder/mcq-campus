@@ -36,7 +36,7 @@ function check(condition, message) {
 
 check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standards-mode doctype');
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
-check(html.includes('/assets/style.css?v=20261025-css-cache-fix-v25'), 'stylesheet URL is versioned to invalidate stale cached CSS');
+check(html.includes('/assets/style.css?v=20261106-nav-dashboard-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
@@ -146,13 +146,29 @@ check(runtime.includes("if((first==='login'||first==='register')&&!String(reques
 check(html.includes('class="country-entry-grid"') && html.includes('class="country-entry-card"'), 'country selection fallback uses responsive static card markup');
 check(html.includes('href="/login?country=USA"') && html.includes('href="/register?country=USA"'), 'country-selection fallback includes USA sign-in and signup routes');
 check(html.includes('data-nav-section="tests"') && html.includes('data-nav-section="latest-jobs"'), 'primary navigation contains hard-coded Tests and Jobs & Exams links');
-check(html.includes('data-nav-section="categories"') && html.includes('class="nav-more-menu"'), 'secondary navigation is hard-coded in the shared header template');
+const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || '';
+check(['Home','Important MCQs','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the seven requested tabs');
+check((primaryNavigation.match(/<a\s/g)||[]).length===7, 'primary navigation contains exactly seven links and no account links');
+check(!primaryNavigation.includes('More') && !primaryNavigation.includes('Blog') && !primaryNavigation.includes('About MCQCampus') && !primaryNavigation.includes('Contact'), 'secondary content links are removed from the primary header');
 check(!html.includes('<!-- SLOT:HEADER_NAV -->'), 'navigation links are not generated into the HTML template by JavaScript');
 check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]'), 'active static navigation state is styled in CSS');
 check(css.includes('.country-entry-grid') && css.includes('.country-entry-card'), 'country selection fallback uses existing responsive CSS');
 check(html.includes('Choose your country and create an account') && html.includes('Choose your country and sign in'), 'static auth forms provide a path between signup and sign-in');
 check(runtime.includes("else if(page==='admin'||page==='super-admin'){"), 'admin and super-admin shells use the centralized static wrapper');
 check(html.includes('id="mcq-admin-layout-template"') && html.includes('class="dash-layout"'), 'admin workspace layout structure is hard-coded in index.html');
+check(html.includes('class="admin-sidebar-backdrop"') && html.includes('data-action="sidebar-close"'), 'admin workspace has an explicit sidebar backdrop control');
+check(runtime.includes("if(a==='sidebar-close')") && runtime.includes("adminSidebar?.classList.contains('open')"), 'admin sidebar opens, closes and supports Escape');
+check(runtime.includes("const contextSidebarKinds=") && runtime.includes("mcqs:'mcqs',important:'mcqs',categories:'category',papers:'papers'") && runtime.includes("tests:'mcqs',pdfs:'pdfs','latest-jobs':'jobs'"), 'all seven public navigation destinations receive contextual sidebars');
+check(runtime.includes("PublicLayout.smart(contextSidebarKind)") && runtime.includes("className='public-sidebar-mobile-bar'"), 'contextual sidebars reuse existing related-content modules and mobile drawer controls');
+check(runtime.includes("if(page==='admin'||page==='super-admin')return shell;"), 'admin and super-admin workspaces bypass the public header and footer layout');
+
+check(css.includes('#admin-sidebar.sidebar.open') && css.includes('.dash-top .menu-toggle{display:inline-flex!important;flex:0 0 auto}'), 'admin sidebar is a hamburger-controlled drawer at desktop and mobile sizes');
+check(html.includes('document.documentElement.classList.add(\'js-enabled\')') && css.includes('html.js-enabled #seo-fallback{display:none!important}'), 'the temporary SEO fallback is hidden immediately for JavaScript-enabled visitors');
+check(!html.includes('SLOT:PDF_OPEN_LINK') && !runtime.includes('Open PDF details'), 'PDF cards no longer render the separate open-details link');
+check(runtime.includes("['tests','check','Tests']") && !runtime.includes("['mcqs','book','MCQs']"), 'the mobile bottom navigation uses Tests instead of MCQs');
+check(runtime.includes('header-notification') && runtime.includes('notification-count'), 'the signed-in header has a notification bell and unread-count badge support');
+check(!html.includes('SLOT:LEARNER_SIDE') && !html.includes('data-action="learner-sidebar-toggle"'), 'learner dashboard template no longer renders a sidebar toggle or sidebar slot');
+
 check(runtime.includes("populated=fill(regionName,'.dash-layout',parsed.body,'outer')||populated;"), 'protected admin workspace layout mounts into its static shell');
 check(runtime.includes("if(!['admin','super-admin'].includes(MCQ.role()))"), 'admin routes retain the existing role guard');
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'API-backed route content mounts into hard-coded page shells');
