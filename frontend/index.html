@@ -35,7 +35,7 @@
   <script>document.documentElement.classList.add('js-enabled');</script>
 
   <!-- Website styles live in one first-party stylesheet. -->
-  <link rel="stylesheet" href="/assets/style.css?v=20261106-country-entry-brand-v1">
+  <link rel="stylesheet" href="/assets/style.css?v=20261107-direct-login-v1">
 
   <!-- Optional analytics and advertising integrations are configured through the backend API. -->
 <!-- google adsence  -->
@@ -166,9 +166,9 @@
   <script id="seo-route" type="application/json">null</script>
 
   <!-- The first-party runtime handles routing, data and interactive pages. -->
-  <script defer src="/assets/script.js?v=20261106-country-entry-brand-v1"></script>
+  <script defer src="/assets/script.js?v=20261107-direct-login-v1"></script>
 
-  <!-- Static form and country-page structures; JavaScript supplies API data and field values. -->
+  <!-- Static form and reusable page structures; JavaScript supplies API data and field values. -->
   <template id="mcq-auth-field-template"><div class="field"><label for="__SLOT_FIELD_NAME__">__SLOT_FIELD_LABEL__<!-- SLOT:FIELD_REQUIRED --></label><!-- SLOT:FIELD_INPUT --></div></template>
   <template id="mcq-auth-password-field-template"><div class="field"><label for="__SLOT_FIELD_NAME__">__SLOT_FIELD_LABEL__<!-- SLOT:FIELD_REQUIRED --></label><div class="password-input-wrap"><!-- SLOT:FIELD_INPUT --><button class="password-toggle-btn" type="button" data-password-toggle="__SLOT_FIELD_NAME__" aria-label="Show __SLOT_FIELD_LABEL_LOWER__" aria-pressed="false"><!-- SLOT:FIELD_TOGGLE_ICON --></button></div><!-- SLOT:FIELD_HELP --></div></template>
   <template id="mcq-auth-login-form-template"><p class="muted small">Sign in with your existing MCQCampus account.</p><form data-form="auth-login"><!-- SLOT:AUTH_LOGIN_EMAIL --><!-- SLOT:AUTH_LOGIN_PASSWORD --><div class="actions auth-form-actions"><label class="check-line"><input type="checkbox" name="remember"> Remember me</label><span class="spacer"></span><!-- SLOT:AUTH_LOGIN_FORGOT --></div><p class="auth-error" role="alert" data-auth-error></p><button class="btn primary" type="submit">Sign in</button></form><p class="text-center small auth-bottom-copy">New here? <!-- SLOT:AUTH_LOGIN_REGISTER --></p></template>
