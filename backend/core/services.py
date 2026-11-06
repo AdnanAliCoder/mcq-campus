@@ -846,10 +846,9 @@ def visible_mcqs(user):
 
 def mcq_page(user,page=1,page_size=50,filters=None):
     filters=filters or {}; page=max(1,int(page or 1)); country=country_for_user(user)
-    # Admin list endpoints are deliberately capped so a stale URL cannot pull thousands
-    # of full MCQ rows and drive database/network egress. The UI uses 10-row pages;
-    # 50 remains available for the on-demand post-import review page.
-    max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
+    # Admin list endpoints stay capped to protect database/network egress.
+    # Public study cards deliberately load at most 100 approved questions per card.
+    max_page_size=50 if is_admin(user) else 100
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
     if country: qs=qs.filter(country__iexact=country)
