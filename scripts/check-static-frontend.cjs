@@ -36,7 +36,7 @@ function check(condition, message) {
 
 check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standards-mode doctype');
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
-check(html.includes('/assets/style.css?v=20261106-country-entry-brand-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
+check(html.includes('/assets/style.css?v=20261106-mcq-100-card-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
@@ -152,6 +152,12 @@ check(css.includes('.country-entry-list{') && css.includes('var(--green-dark)') 
 check(html.includes('href="/login?country=USA"') && html.includes('href="/register?country=USA"'), 'country-selection fallback includes USA sign-in and signup routes');
 check(html.includes('data-nav-section="tests"') && html.includes('data-nav-section="latest-jobs"'), 'primary navigation contains hard-coded Tests and Jobs & Exams links');
 const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || '';
+check(!primaryNavigation.includes('data-nav-section="important"'), 'Important MCQs is no longer a standalone header navigation item');
+check(html.includes('class="mcq-track-grid home-mcq-track-grid"') && html.includes('href="/mcqs/important-mcqs"'), 'home page links to dedicated All MCQs and Important MCQs entry cards');
+check(runtime.includes('q.set(\'page_size\',String(hasCard?100:'), 'a selected MCQ card requests 100 questions from the public API');
+check(runtime.includes('mcq-level-grid') && runtime.includes('Card '+cardNumber), 'MCQ routes render 100-question card selection and individual card views');
+check(css.includes('.mcq-level-grid{') && css.includes('.mcq-track-card{'), 'MCQ entry cards and level cards use the website stylesheet');
+
 check(['Home','Important MCQs','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the seven requested tabs');
 check((primaryNavigation.match(/<a\s/g)||[]).length===7, 'primary navigation contains exactly seven links and no account links');
 check(!primaryNavigation.includes('More') && !primaryNavigation.includes('Blog') && !primaryNavigation.includes('About MCQCampus') && !primaryNavigation.includes('Contact'), 'secondary content links are removed from the primary header');
