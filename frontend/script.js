@@ -372,7 +372,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const current=String(App.route?.path||'home').split('/')[0];
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
   const mobileMenu=btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"');
-  return templateMarkup('mcq-header-template',{HEADER_AUTH_LINK:MCQ.db.session?link('dashboard',icon('user')+'<span>My learning</span>','mobile-menu-auth'):link('login',icon('user')+'<span>Log in</span>','mobile-menu-auth'),HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
+  return templateMarkup('mcq-header-template',{HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
 }
  function footer(){
   const settings=MCQ.db.settings||{},cfg=settings.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),safeUrl=u=>/^https?:\/\//i.test(String(u||''));
