@@ -31,7 +31,7 @@ class IndependentFrontendTests(TestCase):
             "mcq-layout-template", "mcq-header-template", "mcq-footer-template",
             "mcq-home-template", "mcq-auth-layout-template",
             "mcq-learner-dashboard-template", "mcq-admin-layout-template",
-            "mcq-question-card-template", "mcq-country-landing-template",
+            "mcq-question-card-template",
         ):
             with self.subTest(template=template_id):
                 self.assertIn('id="' + template_id + '"', self.html)
@@ -53,12 +53,14 @@ class IndependentFrontendTests(TestCase):
         self.assertIn("staticPageMarkup(shell,page){", runtime)
         self.assertIn("window.UI?.layout?.(shell.outerHTML,page)", runtime)
         self.assertIn('data-api-region="home-important-count"', self.html)
-        self.assertIn('href="/login?country=USA"', self.html)
+        self.assertNotIn('href="/login?country=USA"', self.html)
         self.assertIn('data-nav-section="tests"', self.html)
         self.assertIn('data-nav-section="latest-jobs"', self.html)
         self.assertNotIn("<!-- SLOT:HEADER_NAV -->", self.html)
         self.assertIn('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]', (self.FRONTEND / "style.css").read_text(encoding="utf-8"))
-        self.assertIn("countryShell.cloneNode(true)", runtime)
+        self.assertNotIn("country-entry", runtime)
+        self.assertNotIn("showCountryEntry", runtime)
+        self.assertIn("toLowerCase()==='pakistan'", runtime)
         self.assertLess(runtime.index("const fill=(name,selector"), runtime.index("fill('breadcrumbs','.breadcrumbs',sourceMain)"))
         self.assertIn('data-api-region="home-stats"', self.html)
         self.assertIn('data-api-region="blog-filters"', self.html)
