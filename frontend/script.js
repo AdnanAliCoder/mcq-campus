@@ -3463,7 +3463,7 @@ mountDataDrivenPage(base,id){
      list.append(this.staticMarkupFragment('<div class="mcq-card-navigation"><a class="btn ghost" href="'+e(UI.href(isImportant?'important':'mcqs'))+'">'+UI.icon('arrow')+' Back to MCQ cards</a><span>Card '+cardNumber+' of '+cardTotal+'</span><strong>'+rows.length+' / 100 MCQs</strong></div>'));
      list.append(this.staticMarkupFragment(UI.adSlot('mcq_top_ad')));
      rows.forEach((question,index)=>{
-      list.append(questionCardFragment(question,(cardNumber-1)*100+index+1));
+      list.append(questionCardFragment(question,false));
       if(index===49)list.append(this.staticMarkupFragment(UI.adSlot('mcq_inline_ad')));
      });
      list.append(this.staticMarkupFragment(UI.adSlot('mcq_bottom_ad')));
