@@ -36,7 +36,7 @@ function check(condition, message) {
 
 check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standards-mode doctype');
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
-check(html.includes('/assets/style.css?v=20261106-nav-dashboard-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
+check(html.includes('/assets/style.css?v=20261106-country-entry-brand-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
@@ -144,6 +144,11 @@ check(runtime.includes('staticPageNode(shell,page){'), 'static page shells are m
 check(runtime.includes('showStaticShell(){'), 'the runtime activates hard-coded page shells while data loads');
 check(runtime.includes("if((first==='login'||first==='register')&&!String(requestedCountry||'').trim())page='country-entry';"), 'login and signup fall back to country selection when no country is selected');
 check(html.includes('class="country-entry-grid"') && html.includes('class="country-entry-card"'), 'country selection fallback uses responsive static card markup');
+check(html.includes('class="country-entry-list"') && html.includes('class="logo-crop"') && html.includes('genfavicon-48.png'), 'country chooser uses the shared MCQCampus logo and responsive country-card list');
+check(html.includes('class="btn primary"') && html.includes('data-country-login') && html.includes('data-country-register'), 'country cards use the shared green sign-in and create-account button styles');
+check(html.includes('mcq-country-entry-card-template"><li>') && runtime.includes("querySelector('.country-entry-list')"), 'dynamic country cards retain the same list and card structure as the static chooser');
+check(css.includes('.country-entry-list{') && css.includes('var(--green-dark)') && css.includes('var(--mint)'), 'country chooser uses MCQCampus green theme tokens and responsive styling');
+
 check(html.includes('href="/login?country=USA"') && html.includes('href="/register?country=USA"'), 'country-selection fallback includes USA sign-in and signup routes');
 check(html.includes('data-nav-section="tests"') && html.includes('data-nav-section="latest-jobs"'), 'primary navigation contains hard-coded Tests and Jobs & Exams links');
 const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || '';
