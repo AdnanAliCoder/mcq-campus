@@ -156,8 +156,12 @@ check(html.includes('Choose your country and create an account') && html.include
 check(runtime.includes("else if(page==='admin'||page==='super-admin'){"), 'admin and super-admin shells use the centralized static wrapper');
 check(html.includes('id="mcq-admin-layout-template"') && html.includes('class="dash-layout"'), 'admin workspace layout structure is hard-coded in index.html');
 check(html.includes('class="admin-sidebar-backdrop"') && html.includes('data-action="sidebar-close"'), 'admin workspace has an explicit sidebar backdrop control');
-check(runtime.includes("if(a==='sidebar-close')") && runtime.includes("adminSidebar.classList.contains('open')"), 'admin sidebar opens, closes and supports Escape');
-check(css.includes('#admin-sidebar.sidebar.open') && css.includes('.dash-top .menu-toggle{display:inline-flex!important}'), 'admin sidebar is a hamburger-controlled drawer at desktop and mobile sizes');
+check(runtime.includes("if(a==='sidebar-close')") && runtime.includes("adminSidebar?.classList.contains('open')"), 'admin sidebar opens, closes and supports Escape');
+check(runtime.includes("const contextSidebarKinds=") && runtime.includes("mcqs:'mcqs',important:'mcqs',categories:'category',papers:'papers'") && runtime.includes("tests:'mcqs',pdfs:'pdfs','latest-jobs':'jobs'"), 'all seven public navigation destinations receive contextual sidebars');
+check(runtime.includes("PublicLayout.smart(contextSidebarKind)") && runtime.includes("className='public-sidebar-mobile-bar'"), 'contextual sidebars reuse existing related-content modules and mobile drawer controls');
+check(runtime.includes("if(page==='admin'||page==='super-admin')return shell;"), 'admin and super-admin workspaces bypass the public header and footer layout');
+
+check(css.includes('#admin-sidebar.sidebar.open') && css.includes('.dash-top .menu-toggle{display:inline-flex!important;flex:0 0 auto}'), 'admin sidebar is a hamburger-controlled drawer at desktop and mobile sizes');
 check(html.includes('document.documentElement.classList.add(\'js-enabled\')') && css.includes('html.js-enabled #seo-fallback{display:none!important}'), 'the temporary SEO fallback is hidden immediately for JavaScript-enabled visitors');
 check(!html.includes('SLOT:PDF_OPEN_LINK') && !runtime.includes('Open PDF details'), 'PDF cards no longer render the separate open-details link');
 check(runtime.includes("['tests','check','Tests']") && !runtime.includes("['mcqs','book','MCQs']"), 'the mobile bottom navigation uses Tests instead of MCQs');
