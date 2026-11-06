@@ -158,8 +158,8 @@ check(runtime.includes('q.set(\'page_size\',String(hasCard?100:'), 'a selected M
 check(runtime.includes('mcq-level-grid') && runtime.includes('Card '+cardNumber), 'MCQ routes render 100-question card selection and individual card views');
 check(css.includes('.mcq-level-grid{') && css.includes('.mcq-track-card{'), 'MCQ entry cards and level cards use the website stylesheet');
 
-check(['Home','Important MCQs','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the seven requested tabs');
-check((primaryNavigation.match(/<a\s/g)||[]).length===7, 'primary navigation contains exactly seven links and no account links');
+check(['Home','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the six requested public tabs');
+check((primaryNavigation.match(/<a\s/g)||[]).length===6, 'primary navigation contains six public tabs and no account or Important MCQs link');
 check(!primaryNavigation.includes('More') && !primaryNavigation.includes('Blog') && !primaryNavigation.includes('About MCQCampus') && !primaryNavigation.includes('Contact'), 'secondary content links are removed from the primary header');
 check(!html.includes('<!-- SLOT:HEADER_NAV -->'), 'navigation links are not generated into the HTML template by JavaScript');
 check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]'), 'active static navigation state is styled in CSS');
