@@ -148,6 +148,7 @@ check(html.includes('href="/login?country=USA"') && html.includes('href="/regist
 check(html.includes('data-nav-section="tests"') && html.includes('data-nav-section="latest-jobs"'), 'primary navigation contains hard-coded Tests and Jobs & Exams links');
 const primaryNavigation = html.match(/<nav class="nav" id="main-nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || '';
 check(['Home','Important MCQs','Past Papers','Categories','Test','Latest Jobs','PDFs'].every(label => primaryNavigation.includes('>'+label+'</a>')), 'primary navigation exposes the seven requested tabs');
+check((primaryNavigation.match(/<a\\s/g)||[]).length===7, 'primary navigation contains exactly seven links and no account links');
 check(!primaryNavigation.includes('More') && !primaryNavigation.includes('Blog') && !primaryNavigation.includes('About MCQCampus') && !primaryNavigation.includes('Contact'), 'secondary content links are removed from the primary header');
 check(!html.includes('<!-- SLOT:HEADER_NAV -->'), 'navigation links are not generated into the HTML template by JavaScript');
 check(css.includes('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]'), 'active static navigation state is styled in CSS');
