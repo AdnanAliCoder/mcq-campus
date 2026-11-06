@@ -3355,9 +3355,7 @@ mountDataDrivenPage(base,id){
   setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,'paper/'+id));
  }else if(base==='home'){
   const site=data.siteCounts||{},country=fixedCountry(),pageSize=10;
-  const serverPage=data.mcqPage||{},server=serverPage.server===true&&serverPage.scope==='public'&&serverPage.routeKey===location.pathname+location.search?serverPage:null;
-  const rows=server?MCQ.publicMcqs():[];
-  const importantTotal=server?Number(server.total||0):Number(site.importantMcqs||0);
+  const approvedTotal=Number(site.approvedMcqs||0),importantTotal=Number(site.importantMcqs||0);
   const categories=MCQ.sortPinned('categories',(data.categories||[]).filter(c=>c.active!==false&&!c.legacy)).slice(0,7);
   const organizations=(data.papers||[]).filter(x=>x.active!==false&&(!country||(x.country||data.settings?.country||'Pakistan')===country));
   const organizationIds=new Set(organizations.map(x=>Number(x.id)));
@@ -3369,7 +3367,7 @@ mountDataDrivenPage(base,id){
    {title:'Past Papers',value:pastPapers.length,iconName:'paper',tone:'neutral',subtitle:'Past-paper records',path:'papers'},
    {title:'Categories',value:activeCategories.length,iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
-  const pageCopy=copy('home','Practice smarter. Prepare with purpose.','Start with important MCQs, then explore past papers, categories and exam-focused preparation.');
+  const pageCopy=copy('home','Practice smarter. Prepare with purpose.','Start with the complete MCQ library, focus on important questions, then explore past papers, categories and exam-focused preparation.');
   const title=shell.querySelector('[data-static-home-title]');
   const description=shell.querySelector('[data-static-home-description]');
   if(title)title.textContent=pageCopy.title;
@@ -3400,9 +3398,31 @@ mountDataDrivenPage(base,id){
    }
    statsRegion.hidden=false;
   }
-  setText('home-important-count',importantTotal.toLocaleString('en-GB')+' total important MCQs · only 10 load per page');
-  setQuestionCards('home-mcqs',rows,{compact:true,emptyMarkup:UI.empty(server?'No important MCQs available yet':'Loading important MCQs…','Important MCQs are requested from the database 10 at a time.')});
-  setMarkup('home-pagination',UI.pager(importantTotal,server?Math.max(1,Number(server.page)||1):1,pageSize,App.route.params,'home'));
+  const mcqRegion=region('home-mcqs');
+  if(mcqRegion){
+   mcqRegion.replaceChildren();
+   const choices=[
+    {path:'mcqs',title:'All MCQs',description:'Explore every approved question in organised sets of 100.',count:approvedTotal,icon:'book',kind:'all',action:'Browse all MCQs'},
+    {path:'important',title:'Important MCQs',description:'Practise the questions selected as important by MCQCampus.',count:importantTotal,icon:'bookmark',kind:'important',action:'Browse important MCQs'}
+   ];
+   for(const choice of choices){
+    const anchor=makeInternalLink(choice.path,'','mcq-track-card'+(choice.kind==='important'?' important':''));
+    const symbol=document.createElement('span');symbol.className='mcq-track-icon';symbol.setAttribute('aria-hidden','true');symbol.append(this.staticMarkupFragment(UI.icon(choice.icon)));
+    const copyNode=document.createElement('span');copyNode.className='mcq-track-copy';
+    const titleNode=document.createElement('strong');titleNode.textContent=choice.title;
+    const descriptionNode=document.createElement('small');descriptionNode.textContent=choice.description;
+    copyNode.append(titleNode,descriptionNode);
+    const countNode=document.createElement('span');countNode.className='mcq-track-count';
+    const valueNode=document.createElement('strong');valueNode.textContent=choice.count.toLocaleString('en-GB');
+    const labelNode=document.createElement('small');labelNode.textContent='approved MCQs';
+    countNode.append(valueNode,labelNode);
+    const actionNode=document.createElement('span');actionNode.className='mcq-track-total';actionNode.textContent=choice.action+' ';
+    actionNode.append(this.staticMarkupFragment(UI.icon('arrow')));
+    anchor.append(symbol,copyNode,countNode,actionNode);
+    mcqRegion.append(anchor);
+   }
+   mcqRegion.hidden=false;
+  }
   const categoryRegion=region('home-categories');
   if(categoryRegion){
    categoryRegion.replaceChildren();
@@ -3448,7 +3468,7 @@ mountDataDrivenPage(base,id){
     let cards='';
     for(let n=1;n<=cardTotal;n++){
      const amount=Math.min(100,total-(n-1)*100),target=e(UI.href(isImportant?'important':'mcqs',{card:n}));
-     cards+='<a class="mcq-level-card" href="'+target+'"><span class="mcq-level-badge">'+UI.icon('play')+'</span><strong class="mcq-level-number">'+n+'</strong><span class="mcq-level-label">Card '+n+'</span><span class="mcq-level-count">'+amount.toLocaleString('en-GB')+' MCQs</span><span class="mcq-level-open">Open card '+UI.icon('arrow')+'</span></a>';
+     cards+='<a class="mcq-level-card" href="'+target+'"><span class="mcq-level-badge">'+UI.icon('arrow')+'</span><strong class="mcq-level-number">'+n+'</strong><span class="mcq-level-label">Card '+n+'</span><span class="mcq-level-count">'+amount.toLocaleString('en-GB')+' MCQs</span><span class="mcq-level-open">Open card '+UI.icon('arrow')+'</span></a>';
     }
     const cardsMarkup=cards||UI.empty('No MCQs available yet','Approved questions will appear here when they are published.');
     const selector='<section class="mcq-levels-shell">'+tabs+'<div class="mcq-levels-heading"><div><p class="eyebrow">100 QUESTION SETS</p><h2>'+(isImportant?'Important MCQ cards':'All MCQ cards')+'</h2><p>Each card opens a separate set of up to 100 questions. The final card may contain fewer.</p></div><span class="mcq-level-total">'+total.toLocaleString('en-GB')+' total</span></div><div class="mcq-level-grid">'+cardsMarkup+'</div></section>';
