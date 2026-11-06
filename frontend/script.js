@@ -4621,3 +4621,163 @@ window.Admin=(()=>{
 window.MCQCampusPageScriptsLoaded=window.MCQCampusPageScriptsLoaded||new Set();
 for(const name of ["about","admin","blog","categories","contact","dashboard","home","latest-jobs","login","mcqs","past-papers","pdfs","register","super-admin","tests"])window.MCQCampusPageScriptsLoaded.add(name);
 window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPageHooks?.[String(name||"")]};
+/* ============================================================
+   MCQ LEVELS  — routes/renders the "mcq-levels" static page
+   ============================================================ */
+(function () {
+  const LEVELS_API = '/api/mcq-levels'; // aapka backend endpoint
+  const state = { loaded: false, data: null };
+
+  const ICON_LOCK  = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+  const ICON_PLAY  = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+
+  async function loadLevels() {
+    if (state.loaded) return state.data;
+    const res = await fetch(LEVELS_API, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) throw new Error('Failed to load levels');
+    state.data = await res.json();
+    state.loaded = true;
+    return state.data;
+  }
+
+  function renderCard({ track, index, progress, state: cardState, total }) {
+    const tpl = document.getElementById('mcq-level-card-template');
+    if (!tpl) return null;
+
+    const done = Math.min(progress, total);
+    const percent = Math.round((done / total) * 100);
+    const badge =
+      cardState === 'is-locked' ? ICON_LOCK :
+      cardState === 'is-done'   ? ICON_CHECK :
+                                  ICON_PLAY;
+    const meta =
+      cardState === 'is-locked' ? 'Locked' :
+      cardState === 'is-done'   ? 'Completed' :
+                                  `${done} / ${total}`;
+
+    const html = tpl.innerHTML
+      .replaceAll('__SLOT_LEVEL_STATE__', cardState)
+      .replaceAll('__SLOT_LEVEL_TRACK__', track)
+      .replaceAll('__SLOT_LEVEL_NUMBER__', String(index))
+      .replaceAll('__SLOT_LEVEL_PROGRESS__', String(done))
+      .replaceAll('__SLOT_LEVEL_PERCENT__', String(percent))
+      .replaceAll('__SLOT_LEVEL_META__', meta)
+      .replaceAll('__SLOT_LEVEL_BADGE__', badge)
+      .replaceAll('__SLOT_LEVEL_DISABLED__', cardState === 'is-locked' ? 'disabled' : '');
+
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html.trim();
+    return wrap.firstElementChild;
+  }
+
+  function computeState(track, cardIndex, progress) {
+    // card 1 always unlocked
+    if (cardIndex === 1) return progress >= 100 ? 'is-done' : (progress > 0 ? 'is-current' : 'is-open');
+    // check previous card progress
+    const prev = track[cardIndex - 1];
+    if (prev < 100) return 'is-locked';
+    if (progress >= 100) return 'is-done';
+    return progress > 0 ? 'is-current' : 'is-open';
+  }
+
+  function renderTrack(name, trackData, container) {
+    container.innerHTML = '';
+    const totalCards = trackData.total_cards;
+    const perCard = trackData.mcqs_per_card || 100;
+    const progressMap = trackData.progress || {};
+
+    // build a flat progress array 1..N
+    const progress = [];
+    for (let i = 1; i <= totalCards; i++) progress[i] = progressMap[i] || 0;
+
+    for (let i = 1; i <= totalCards; i++) {
+      const cardState = computeState(progress, i, progress[i]);
+      const node = renderCard({
+        track: name,
+        index: i,
+        progress: progress[i],
+        state: cardState,
+        total: perCard
+      });
+      if (node) container.appendChild(node);
+    }
+  }
+
+  function renderSummary(data) {
+    const totalCards = (data.regular?.total_cards || 0) + (data.important?.total_cards || 0);
+    const totalProgress = Object.values(data.regular?.progress || {}).filter(v => v >= 100).length
+                        + Object.values(data.important?.progress || {}).filter(v => v >= 100).length;
+
+    document.querySelector('[data-levels-total]').textContent = `${totalCards} Cards`;
+    document.querySelector('[data-levels-completed]').textContent = `${totalProgress} completed`;
+    document.querySelector('[data-levels-count-regular]').textContent = data.regular?.total_cards || 0;
+    document.querySelector('[data-levels-count-important]').textContent = data.important?.total_cards || 0;
+
+    const totalMcqs = (data.regular?.total_mcqs || 0) + (data.important?.total_mcqs || 0);
+    const doneMcqs = totalProgress * (data.regular?.mcqs_per_card || 100);
+    const pct = totalMcqs ? Math.round((doneMcqs / totalMcqs) * 100) : 0;
+
+    document.querySelector('[data-levels-overall-bar]').style.width = pct + '%';
+    document.querySelector('[data-levels-overall-text]').textContent =
+      `${pct}% overall · ${doneMcqs} / ${totalMcqs} MCQs`;
+  }
+
+  function bindTabs() {
+    document.querySelectorAll('[data-levels-track]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-levels-track]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('[data-levels-panel]').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = document.querySelector(`[data-levels-panel="${btn.dataset.levelsTrack}"]`);
+        panel?.classList.add('active');
+      });
+    });
+  }
+
+  function bindCardClicks() {
+    document.querySelectorAll('.levels-grid').forEach(grid => {
+      grid.addEventListener('click', e => {
+        const card = e.target.closest('[data-level-card]');
+        if (!card || card.disabled) return;
+        const track = card.dataset.levelTrack;
+        const num = card.dataset.levelNumber;
+        // aapke existing router / navigation ke saath match karein:
+        window.location.href = `/mcqs/levels/${track}/${num}`;
+      });
+    });
+  }
+
+  async function initLevelsPage() {
+    const page = document.querySelector('[data-static-page="mcq-levels"]');
+    if (!page || page.dataset.initialized === '1') return;
+    page.dataset.initialized = '1';
+
+    try {
+      const data = await loadLevels();
+      renderSummary(data);
+      renderTrack('regular',   data.regular   || { total_cards:0, progress:{} },
+                  document.querySelector('[data-api-region="levels-regular"]'));
+      renderTrack('important', data.important || { total_cards:0, progress:{} },
+                  document.querySelector('[data-api-region="levels-important"]'));
+      bindTabs();
+      bindCardClicks();
+    } catch (err) {
+      console.error(err);
+      document.querySelectorAll('[data-api-region^="levels-"]').forEach(el => {
+        el.innerHTML = '<p class="muted">Cards load nahi ho sake. Page refresh karein.</p>';
+      });
+    }
+  }
+
+  // Hook into your existing router. Aapke router ke hisaab se adjust karein:
+  document.addEventListener('DOMContentLoaded', initLevelsPage);
+  window.addEventListener('hashchange', initLevelsPage);
+  window.addEventListener('popstate', initLevelsPage);
+
+  // Optional: expose for manual call after route render
+  window.MCQLevels = { init: initLevelsPage };
+})();
