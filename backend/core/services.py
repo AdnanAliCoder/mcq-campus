@@ -970,13 +970,18 @@ def _attach_important_flags(objects):
             except (TypeError,ValueError): pass
         obj._important_value=bool(obj.important) or len(years)>=2
 
-def mcq_levels_data(user,country=None):
+def mcq_levels_data(user,country=None,category=None):
     """Return stable 100-question level cards and the learner's latest saved progress."""
     if user and getattr(user,'is_authenticated',False):
         country=country_for_user(user) or country
     base=MCQ.objects.filter(status='approved')
     if country:
         base=base.filter(country__iexact=str(country).strip())
+    if category not in (None,''):
+        try:
+            base=base.filter(category_id=int(category))
+        except (TypeError,ValueError):
+            base=base.none()
     annotated=_json_array_length(base,'job_year_ids','_year_count')
     important_q=Q(_year_count__gte=2)|Q(important=True)
     tracks={
