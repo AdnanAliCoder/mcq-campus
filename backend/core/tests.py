@@ -967,6 +967,35 @@ class IntegrationTests(TestCase):
         self.assertTrue(all(row.get('userAttempt') for row in page['items'][:5]))
         self.assertTrue(all(not row.get('userAttempt') for row in page['items'][5:]))
 
+    def test_mcq_level_api_can_scope_regular_and_important_cards_to_a_category(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        self.approved.important=True
+        self.approved.save(update_fields=['important'])
+        regular=[MCQ(
+            id=6500+i,question=f'Category level question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=self.category,
+            country='Pakistan',status='approved',
+        ) for i in range(105)]
+        other_category=Category.objects.create(id=99999,name='Other level category')
+        unrelated=[MCQ(
+            id=6700+i,question=f'Unrelated category question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=other_category,
+            country='Pakistan',status='approved',
+        ) for i in range(20)]
+        MCQ.objects.bulk_create(regular+unrelated)
+        response=self.client.get('/api/mcq-levels',{'category':self.category.id})
+        self.assertEqual(response.status_code,200)
+        data=response.json()
+        self.assertEqual(data['regular']['total_mcqs'],105)
+        self.assertEqual(data['regular']['total_cards'],2)
+        self.assertEqual(data['important']['total_mcqs'],1)
+        self.assertEqual(data['important']['total_cards'],1)
+        practice=self.client.get('/api/mcqs?public=1&track=regular&level=2&category='+str(self.category.id)+'&page_size=10')
+        self.assertEqual(practice.status_code,200)
+        page=practice.json()
+        self.assertEqual(page['total'],5)
+        self.assertEqual([row['id'] for row in page['items']],[6500+i for i in range(100,105)])
+
     def test_mcq_level_stars_follow_the_requested_score_bands(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         self.approved.important=True
