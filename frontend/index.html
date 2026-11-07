@@ -490,7 +490,7 @@
                             srcset="/assets/genfavicon-48.png 1x, /assets/genfavicon-64.png 2x" width="42" height="42"
                             alt=""></span><span>MCQCampus</span></a>
                 <nav class="nav" id="main-nav" aria-label="Main navigation"><a href="/"
-                        data-nav-section="home">Home</a><a href="/mcqs/important-mcqs"
+                        data-nav-section="home">Home</a><a href="/?focus=important"
                         data-nav-section="important">Important MCQs</a><a href="/past-papers"
                         data-nav-section="papers">Past Papers</a><a href="/categories"
                         data-nav-section="categories">Categories</a><a href="/tests" data-nav-section="tests">Test</a><a
@@ -660,6 +660,37 @@
                 </div>
                 <div class="home-stats home-top-stats"><!-- SLOT:HOME_STATS --></div>
             </section><!-- SLOT:HOME_TOP_AD -->
+            <section id="mcq-level-cards" class="section levels-home-section" aria-labelledby="mcq-levels-heading">
+                <div class="levels-home-heading">
+                    <div>
+                        <p class="eyebrow">YOUR PRACTICE JOURNEY</p>
+                        <h2 id="mcq-levels-heading">Practice by Levels</h2>
+                        <p class="small muted">Har level mein 100 MCQs. Progress automatically save hoti hai, taake aap baad mein wahin se continue kar sakein.</p>
+                    </div>
+                    <div class="levels-overview-card">
+                        <strong data-levels-total>Loading levels…</strong>
+                        <span data-levels-overall-text>Loading your progress</span>
+                        <div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div>
+                    </div>
+                </div>
+                <nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type">
+                    <button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button>
+                    <button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button>
+                </nav>
+                <section class="levels-track active" data-levels-panel="regular">
+                    <div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div>
+                </section>
+                <section class="levels-track" data-levels-panel="important">
+                    <div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div>
+                </section>
+                <footer class="levels-legend">
+                    <span><i class="levels-dot is-done"></i> Completed</span>
+                    <span><i class="levels-dot is-current"></i> In Progress</span>
+                    <span><i class="levels-dot is-open"></i> Unlocked</span>
+                    <span><i class="levels-dot is-locked"></i> Locked</span>
+                </footer>
+                <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
+            </section>
             <section class="section home-content-grid home-content-priority">
                 <div>
                     <div class="section-head">
@@ -684,6 +715,18 @@
                 </aside>
             </section><!-- SLOT:HOME_MIDDLE_AD -->
         </div>
+    </template>
+    <template id="mcq-level-card-template">
+        <button class="level-card __SLOT_LEVEL_STATE__" type="button"
+            data-level-card data-level-track="__SLOT_LEVEL_TRACK__" data-level-number="__SLOT_LEVEL_NUMBER__"
+            data-level-page="__SLOT_LEVEL_PAGE__" __SLOT_LEVEL_DISABLED__ aria-label="__SLOT_LEVEL_ARIA__">
+            <span class="level-badge" aria-hidden="true">__SLOT_LEVEL_BADGE__</span>
+            <span class="level-num">__SLOT_LEVEL_NUMBER__</span>
+            <span class="level-label">Level __SLOT_LEVEL_NUMBER__</span>
+            <span class="level-bar"><i style="width:__SLOT_LEVEL_PERCENT__%"></i></span>
+            <span class="level-meta">__SLOT_LEVEL_META__</span>
+            <span class="level-stars" aria-label="__SLOT_LEVEL_STARS_LABEL__">__SLOT_LEVEL_STARS__</span>
+        </button>
     </template>
     <template id="mcq-learner-dashboard-template">
         <div class="container page learner-dashboard-shell">
