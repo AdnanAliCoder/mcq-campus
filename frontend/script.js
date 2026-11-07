@@ -733,7 +733,7 @@ window.Public=(()=>{
   const isLevel=type==='mcqs'&&['regular','important'].includes(String(p.track||''))&&Number(p.level)>0;
   let rows=server?MCQ.publicMcqs():MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved practice MCQs with correct answers and explanations.',trail=[['MCQs']],record;let listHeader='';
   if(type==='mcqs'){const copy=staticCopy('mcqs',title,desc);title=copy.title;desc=copy.desc}
-  if(isLevel){const levelNumber=Number(p.level),trackLabel=p.track==='important'?'Important':'Regular';title=trackLabel+' MCQs · Level '+levelNumber;desc='100-question practice level. Your answers and progress are saved to your account so you can resume later.';trail=[['MCQ Levels','home',{focus:p.track}],[trackLabel+' MCQs'],['Level '+levelNumber]];}
+  if(isLevel){const levelNumber=Number(p.level),trackLabel=p.track==='important'?'Important':'Regular';title=trackLabel+' MCQs · Level '+levelNumber;desc='100-question practice level. Your answers and progress are saved to your account so you can resume later.';trail=[['MCQ Levels','home'],[trackLabel+' MCQs'],['Level '+levelNumber]];}
   if(type==='topic'){
    record=MCQ.get('children',id);if(!record)return notFound();const su=MCQ.get('subcategories',record.subcategory_id),ca=su&&MCQ.get('categories',su.category_id);
    if(!server)rows=rows.filter(q=>MCQ.ids(q.child_subcategory_ids).includes(+id));title=record.name+' MCQs';desc='Practice '+record.name+' MCQs with correct answers and explanations.';
@@ -4695,7 +4695,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     });
   }
   async function init(){
-    const root=document.getElementById('mcq-level-cards');if(!root)return;
+    const root=document.querySelector('#app #mcq-level-cards');if(!root)return;
     const focus=App.route?.params?.focus;
     if(root.dataset.initialized==='1'){if(focus==='important')activateTab(root,'important',true);return;}
     root.dataset.initialized='1';
