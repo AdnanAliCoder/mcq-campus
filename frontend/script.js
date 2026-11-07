@@ -4757,7 +4757,9 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     if(root.dataset.initialized==='1'){if(focus==='important'||focus==='regular')activateTab(root,focus,true);return;}
     root.dataset.initialized='1';
     try{
-      const response=await fetch(endpoint,{credentials:'include',headers:{Accept:'application/json'},cache:'no-store'});
+      const categoryId=String(root.dataset.categoryId||'').trim();
+      const requestEndpoint=categoryId?endpoint+'?category='+encodeURIComponent(categoryId):endpoint;
+      const response=await fetch(requestEndpoint,{credentials:'include',headers:{Accept:'application/json'},cache:'no-store'});
       if(!response.ok)throw new Error('Could not load MCQ level progress.');
       const data=await response.json();if(!root.isConnected)return;
       const regular=data.regular||{levels:[],total_cards:0,total_mcqs:0},important=data.important||{levels:[],total_cards:0,total_mcqs:0};
