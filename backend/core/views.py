@@ -2020,7 +2020,7 @@ def frontend_page(request,path=''):
     # Keep /mcqs?track=...&level=... for the actual level-practice flow.
     if normalized=='/mcqs' and not (request.GET.get('track') and request.GET.get('level')):
         response=HttpResponse(status=301)
-        response['Location']='/'+('?focus=regular')
+        response['Location']='/?focus=regular'
         return response
     if normalized=='/mcqs/important-mcqs':
         response=HttpResponse(status=301)
