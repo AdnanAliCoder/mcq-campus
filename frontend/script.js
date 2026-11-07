@@ -1321,6 +1321,7 @@ window.Auth=(()=>{
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(['home','mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
+  if(resolvedBase==='home')wants.push('mcq-levels');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -1396,13 +1397,14 @@ window.Auth=(()=>{
    else if(key==='catalog')endpoint='/public/catalog';
    else if(key==='legal')endpoint='/public/legal';
    else if(key==='learner')endpoint='/learner/dashboard';
+   else if(key==='mcq-levels')endpoint='/mcq-levels';
    else if(key==='profile')endpoint='/profile';
    else if(key==='workspace-mcqs')endpoint=workspaceEndpoint();
    else if(key==='public-mcqs')endpoint=publicMcqEndpoint();
    else if(key==='entity-page')endpoint=entityEndpoint();
    if(!endpoint)return false;
    const variable=new Set(['workspace-mcqs','public-mcqs','entity-page']);
-   const cacheKey=variable.has(key)?key+'|'+endpoint:key;
+   const cacheKey=key==='mcq-levels'?'mcq-levels|'+(user?.id||'guest'):variable.has(key)?key+'|'+endpoint:key;
    const fresh=loadedSections.has(cacheKey)&&Date.now()-(sectionLoadedAt.get(cacheKey)||0)<SECTION_TTL;
    const activePage=key==='entity-page'?MCQ.db.entityPage:MCQ.db.mcqPage;
    if(fresh&&(!variable.has(key)||(activePage?.request===endpoint&&activePage?.routeKey===routeKey)))return false;
@@ -1418,6 +1420,7 @@ window.Auth=(()=>{
      if(key==='resources'){MCQ.mergeCore(data);window.MCQCampusApplyOptionalIntegrations?.(data.settings||MCQ.db.settings||{});}
      if(key==='catalog')MCQ.mergeCore(data);
      if(key==='legal')MCQ.mergeCore(data);
+     if(key==='mcq-levels')MCQ.db.mcqLevels=data;
      if(key==='learner'){
       if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
       if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
@@ -1617,7 +1620,8 @@ window.Auth=(()=>{
   if(action==='attempt'){
    const [id,answer]=args,q=MCQ.get('mcqs',id);
    MCQ.db.attempts.unshift({id:Number(id),answer,correct:!!result,at:new Date().toISOString(),by_id:user?.id||null,by:user?.name||'Unknown'});
-   MCQ.db.attempts=MCQ.db.attempts.slice(0,500);return;
+   MCQ.db.attempts=MCQ.db.attempts.slice(0,500);
+   const levelsKey='mcq-levels|'+(user?.id||'guest');loadedSections.delete(levelsKey);sectionLoadedAt.delete(levelsKey);return;
   }
   if(action==='toggleBookmark'){
    const id=Number(args[0]);MCQ.db.bookmarks=result?[...new Set([...MCQ.db.bookmarks,id])]:MCQ.db.bookmarks.filter(x=>Number(x)!==id);return;
@@ -4147,6 +4151,51 @@ App.quickTimer=McqCarousel.create({advance(){
  });
 
  document.documentElement.dataset.theme='light';try{localStorage.removeItem('mcq-campus-theme')}catch{}const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content='#f6f8f7';
+
+/* Homepage level cards: progress and stars are calculated by the Django API. */
+window.MCQLevels = (() => {
+ const n=v=>Number.isFinite(Number(v))?Number(v):0,fmt=v=>n(v).toLocaleString('en-GB');
+ const stars=score=>[1,2,3].map(i=>'<span class="level-star '+(score>=i?'full':score>=i-.5?'half':'empty')+'" aria-hidden="true">★</span>').join('');
+ function activate(root,track){
+  root.querySelectorAll('[data-levels-track]').forEach(x=>{const on=x.dataset.levelsTrack===track;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on))});
+  root.querySelectorAll('[data-levels-panel]').forEach(x=>{const on=x.dataset.levelsPanel===track;x.classList.toggle('active',on);x.hidden=!on});
+ }
+ function renderTrack(root,track,data){
+  const target=root.querySelector('[data-api-region="levels-'+track+'"]');if(!target)return;
+  const levels=Array.isArray(data?.levels)?data.levels:[];target.replaceChildren();
+  if(!levels.length){const p=document.createElement('p');p.className='muted';p.textContent='No '+(track==='important'?'Important':'Regular')+' MCQs are available yet.';target.append(p);return}
+  levels.forEach(level=>{
+   const done=!!level.completed,open=!!level.unlocked,progress=n(level.progress),total=n(level.total),pct=total?Math.min(100,progress*100/total):0;
+   const card=document.createElement(open?'a':'button');card.className='level-card '+(done?'is-done':!open?'is-locked':progress?'is-current':'is-open');
+   if(open){card.href='/mcqs?track='+track+'&level='+n(level.level)+'&page='+Math.max(1,n(level.next_page)||1);card.setAttribute('aria-label',track+' level '+level.level+', '+progress+' of '+total+' answered')}
+   else{card.type='button';card.disabled=true;card.setAttribute('aria-label','Level '+level.level+' locked. Complete the previous level first.')}
+   const badge=document.createElement('span');badge.className='level-badge';badge.textContent=done?'✓':open?(progress?'▶':'↗'):'🔒';
+   const num=document.createElement('span');num.className='level-num';num.textContent=String(level.level);
+   const label=document.createElement('span');label.className='level-label';label.textContent='Level '+level.level;
+   const star=document.createElement('span');star.className='level-stars';star.setAttribute('aria-label',done?n(level.stars)+' out of 3 stars':'Stars awarded when level is complete');star.innerHTML=stars(done?n(level.stars):0);
+   const bar=document.createElement('span');bar.className='level-bar';const fill=document.createElement('i');fill.style.width=pct+'%';bar.append(fill);
+   const meta=document.createElement('span');meta.className='level-meta';meta.textContent=done?fmt(level.correct)+' / '+fmt(total)+' correct':open?fmt(progress)+' / '+fmt(total)+' answered':'Locked';
+   card.append(badge,num,label,star,bar,meta);target.append(card);
+  });
+ }
+ function init(){
+  const root=document.getElementById('mcq-level-cards');if(!root)return;
+  const data=window.MCQ?.db?.mcqLevels,regular=data?.regular||{},important=data?.important||{},params=new URLSearchParams(location.search);
+  const total=n(data?.total_mcqs),attempted=n(data?.attempted_mcqs),pct=n(data?.overall_progress);
+  const put=(selector,value)=>{const el=root.querySelector(selector);if(el)el.textContent=value};
+  put('[data-levels-total]',fmt(regular.total_cards)+' Regular levels · '+fmt(important.total_cards)+' Important levels');
+  put('[data-levels-overall-text]',fmt(attempted)+' / '+fmt(total)+' MCQs answered · '+pct+'% complete');
+  const bar=root.querySelector('[data-levels-overall-bar]');if(bar)bar.style.width=Math.min(100,pct)+'%';
+  put('[data-levels-count-regular]',fmt(regular.total_cards));put('[data-levels-count-important]',fmt(important.total_cards));
+  renderTrack(root,'regular',regular);renderTrack(root,'important',important);
+  root.querySelectorAll('[data-levels-track]').forEach(tab=>{if(tab.dataset.levelsBound==='1')return;tab.dataset.levelsBound='1';tab.addEventListener('click',()=>activate(root,tab.dataset.levelsTrack))});
+  activate(root,params.get('focus')==='important'?'important':root.querySelector('[data-levels-track].active')?.dataset.levelsTrack||'regular');
+  const note=root.querySelector('[data-levels-login-note]');if(note)note.hidden=!!data?.authenticated;
+  if(params.get('focus')==='important'&&!root.dataset.focusScrolled){root.dataset.focusScrolled='1';requestAnimationFrame(()=>root.scrollIntoView({behavior:'smooth',block:'start'}))}
+ }
+ return {init,activate};
+})();
+
  Auth.start();
  // Optional agent navigation mirrors the visible search form; unsupported browsers skip it.
  if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'search_mcq_campus',title:'Search MCQ Campus',description:'Navigate to MCQ search results for a query. Does not answer questions or change records.',inputSchema:{type:'object',properties:{query:{type:'string'}},required:['query'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute(input){if(!input||typeof input.query!=='string'||!input.query.trim())throw Error('A non-empty query is required.');App.go('search',{q:input.query});App.render();return {query:input.query,matches:MCQ.publicMcqs().filter(q=>MCQ.norm(q.question).includes(MCQ.norm(input.query))).length}}})).catch(()=>{})}catch{}}
