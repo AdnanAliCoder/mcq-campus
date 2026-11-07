@@ -2015,6 +2015,18 @@ def frontend_page(request,path=''):
     normalized='/' + str(path or '').strip('/')
     if normalized=='/':
         normalized='/'
+
+    # Retire the old public MCQ collection pages at the server boundary.
+    # Keep /mcqs?track=...&level=... for the actual level-practice flow.
+    if normalized=='/mcqs' and not (request.GET.get('track') and request.GET.get('level')):
+        response=HttpResponse(status=301)
+        response['Location']='/'+('?focus=regular')
+        return response
+    if normalized=='/mcqs/important-mcqs':
+        response=HttpResponse(status=301)
+        response['Location']='/?focus=important'
+        return response
+
     if requested_path.rstrip('/')!=normalized and requested_path!='/':
         location=normalized
         query=request.META.get('QUERY_STRING','')
