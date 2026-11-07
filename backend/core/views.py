@@ -1441,7 +1441,7 @@ def _seo_dynamic_path_exists(path):
 
 def _seo_known_spa_path(path,catalog=None):
     static={
-        '/','/mcqs','/important','/mcqs/important-mcqs','/categories',
+        '/','/mcqs','/important','/mcqs/important-mcqs','/mcqs/importent-mcqs','/categories',
         '/papers','/past-papers','/jobs','/jobs-exams','/pdfs','/past-papers/pdfs',
         '/latest-jobs','/posts','/blog','/tests','/test/auto','/about','/contact','/faq',
         '/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap','/search',
@@ -2016,15 +2016,11 @@ def frontend_page(request,path=''):
     if normalized=='/':
         normalized='/'
 
-    # Retire the old public MCQ collection pages at the server boundary.
-    # Keep /mcqs?track=...&level=... for the actual level-practice flow.
-    if normalized=='/mcqs' and not (request.GET.get('track') and request.GET.get('level')):
-        response=HttpResponse(status=301)
-        response['Location']='/?focus=regular'
-        return response
+    # The legacy collection URLs now serve focused level-card landing pages.
+    # Preserve level practice query parameters on /mcqs?track=...&level=....
     if normalized=='/mcqs/important-mcqs':
         response=HttpResponse(status=301)
-        response['Location']='/?focus=important'
+        response['Location']='/mcqs/importent-mcqs'
         return response
 
     if requested_path.rstrip('/')!=normalized and requested_path!='/':
