@@ -3460,3 +3460,9 @@ body.admin-sidebar-open{overflow:hidden}
   .levels-home-section .levels-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px}
   .level-practice-header{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Homepage keeps category discovery without the former bulk MCQ feed. */
+.home-content-grid.home-category-only{grid-template-columns:minmax(0,1fr)}
+.home-content-grid.home-category-only .home-category-nav{position:static}
+.category-levels-section{margin-top:20px}
