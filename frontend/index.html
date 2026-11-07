@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#102823">
-    <meta name="mcq-asset-version" content="20261107-level-cards-v1">
+    <meta name="mcq-asset-version" content="20261107-level-cards-v2">
     <meta name="author" content="MCQCampus">
     <meta name="application-name" content="MCQCampus">
     <meta name="mcq-page-entry" content="home">
@@ -107,20 +107,7 @@
                     </footer>
                     <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
                 </section>
-                <section class="section home-content-grid home-content-priority">
-                    <div>
-                        <div class="section-head">
-                            <div>
-                                <p class="eyebrow">PRACTICE</p>
-                                <h2>Important MCQs</h2>
-                                <p class="small muted" data-api-region="home-important-count" hidden></p>
-                            </div><a class="link" href="/mcqs/important-mcqs">Browse all MCQs</a>
-                        </div>
-                        <div class="home-mcq-list" data-api-region="home-mcqs">
-                            <p class="muted" data-static-loading>Loading important MCQs…</p>
-                        </div>
-                        <div data-api-region="home-pagination" hidden></div>
-                    </div>
+                <section class="section home-content-grid home-content-priority home-category-only">
                     <aside class="home-category-nav card">
                         <div class="section-head">
                             <div>
@@ -145,6 +132,17 @@
                     <p>Browse questions by subject.</p>
                 </header>
                 <div data-api-region="category-context" hidden></div>
+                <section id="mcq-level-cards" class="section levels-home-section category-levels-section" aria-labelledby="mcq-levels-heading" hidden>
+                    <div class="levels-home-heading">
+                        <div><p class="eyebrow">PRACTICE BY LEVELS</p><h2 id="mcq-levels-heading" data-levels-heading>Category MCQs by Levels</h2><p class="small muted" data-levels-description>Choose a level to practise this category in manageable sets of 100 questions.</p></div>
+                        <div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div>
+                    </div>
+                    <nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type"><button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button><button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button></nav>
+                    <section class="levels-track active" data-levels-panel="regular"><div class="levels-grid" data-api-region="levels-regular"><p class="muted">Loading regular levels…</p></div></section>
+                    <section class="levels-track" data-levels-panel="important"><div class="levels-grid" data-api-region="levels-important"><p class="muted">Loading important levels…</p></div></section>
+                    <footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer>
+                    <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
+                </section>
                 <div data-api-region="category-list">
                     <p class="muted" data-static-loading>Loading categories…</p>
                 </div>
@@ -722,18 +720,7 @@
                 </footer>
                 <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
             </section>
-            <section class="section home-content-grid home-content-priority">
-                <div>
-                    <div class="section-head">
-                        <div>
-                            <p class="eyebrow">PRACTICE</p>
-                            <h2>Important MCQs</h2>
-                            <p class="small muted"><!-- SLOT:HOME_IMPORTANT_COUNT --> total important MCQs · only 10
-                                load per page</p>
-                        </div><!-- SLOT:HOME_IMPORTANT_LINK -->
-                    </div>
-                    <div class="home-mcq-list"><!-- SLOT:HOME_MCQ_LIST --></div><!-- SLOT:HOME_PAGER -->
-                </div>
+            <section class="section home-content-grid home-content-priority home-category-only">
                 <aside class="home-category-nav card">
                     <div class="section-head">
                         <div>
