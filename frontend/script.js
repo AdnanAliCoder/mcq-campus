@@ -3385,7 +3385,7 @@ mountDataDrivenPage(base,id){
    if(filters.category)rows=rows.filter(q=>+q.category_id===+filters.category);
    if(filters.paper)rows=rows.filter(q=>MCQ.ids(q.paper_id).includes(+filters.paper));
    if(filters.job)rows=rows.filter(q=>MCQ.ids(q.job_ids).includes(+filters.job));
-   if(filters.year)rows=rows.filter(q=>MCQ.ids(q.job_year_ids).includes(+filters.year));
+   if(filters.year)rows=rows.filter(q=>MCQ.ids(q.job_years_ids).includes(+filters.year));
    if(filters.country){
     rows=rows.filter(q=>{
      const paperIds=MCQ.ids(q.paper_id);
@@ -3398,7 +3398,7 @@ mountDataDrivenPage(base,id){
     const offset=(Number(filters.level)-1)*100;rows=rows.slice(offset,offset+100);
    }else{
     if(view==='important')rows=rows.filter(q=>MCQ.isImportant(q));
-    if(view==='repeated')rows=rows.filter(q=>MCQ.ids(q.job_year_ids).length>=2);
+    if(view==='repeated')rows=rows.filter(q=>MCQ.ids(q.job_years_ids).length>=2);
     if(view==='latest')rows=[...rows].sort((a,b)=>String(b.created_at||b.updated_at||'').localeCompare(String(a.created_at||a.updated_at||''))||Number(b.id)-Number(a.id));
    }
   }else rows=MCQ.publicMcqs();
