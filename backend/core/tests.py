@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Report, ContactMessage, SiteSetting, TrashRecord, OneTimeToken, PendingSignup, Guide, Post, profile_for
+from .models import Category, Subcategory, ChildCategory, MCQ, Paper, Job, JobYear, Profile, Attempt, Report, ContactMessage, SiteSetting, TrashRecord, OneTimeToken, PendingSignup, Guide, Post, profile_for
 from .cache_utils import invalidate_mcqcampus_cache
 
 
@@ -922,6 +922,77 @@ class IntegrationTests(TestCase):
         self.assertEqual(len(data['items']),10)
         self.assertEqual(data['total'],MCQ.objects.filter(status='approved').count())
         self.assertTrue(all(row['status']=='approved' for row in data['items']))
+
+    def test_mcq_level_api_resumes_first_unanswered_page_and_locks_next_level(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        # Keep the fixture MCQ on the Important track so the regular test set has a known stable order.
+        self.approved.important=True
+        self.approved.save(update_fields=['important'])
+        regular=[MCQ(
+            id=4000+i,question=f'Regular level question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=self.category,
+            country='Pakistan',status='approved',
+        ) for i in range(105)]
+        important=[MCQ(
+            id=5000+i,question=f'Important level question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=self.category,
+            country='Pakistan',status='approved',important=True,
+        ) for i in range(10)]
+        MCQ.objects.bulk_create(regular+important)
+        regular_ids=list(MCQ.objects.filter(status='approved',country='Pakistan',important=False).order_by('id').values_list('id',flat=True))
+        Attempt.objects.bulk_create([
+            Attempt(user=self.learner,mcq_id=qid,answer='A' if index<35 else 'B',correct=index<35)
+            for index,qid in enumerate(regular_ids[:55])
+        ])
+
+        summary=self.client.get('/api/mcq-levels')
+        self.assertEqual(summary.status_code,200)
+        data=summary.json()
+        first=data['regular']['levels'][0]
+        self.assertEqual(data['regular']['total_mcqs'],105)
+        self.assertEqual(first['progress'],55)
+        self.assertEqual(first['correct'],35)
+        self.assertEqual(first['next_page'],6)
+        self.assertFalse(first['completed'])
+        self.assertFalse(data['regular']['levels'][1]['unlocked'])
+        self.assertEqual(data['important']['total_mcqs'],11)
+        self.assertTrue(data['important']['levels'][0]['unlocked'])
+
+        resumed=self.client.get('/api/mcqs?public=1&track=regular&level=1&page=6&page_size=10')
+        self.assertEqual(resumed.status_code,200)
+        page=resumed.json()
+        self.assertEqual(page['total'],100)
+        self.assertEqual(page['page'],6)
+        self.assertEqual([row['id'] for row in page['items']],regular_ids[50:60])
+        self.assertTrue(all(row.get('userAttempt') for row in page['items'][:5]))
+        self.assertTrue(all(not row.get('userAttempt') for row in page['items'][5:]))
+
+    def test_mcq_level_stars_follow_the_requested_score_bands(self):
+        self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
+        self.approved.important=True
+        self.approved.save(update_fields=['important'])
+        questions=[MCQ(
+            id=6000+i,question=f'Star band question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=self.category,
+            country='Pakistan',status='approved',
+        ) for i in range(400)]
+        MCQ.objects.bulk_create(questions)
+        ids=list(MCQ.objects.filter(pk__gte=6000,pk__lt=6400).order_by('id').values_list('id',flat=True))
+        correct_bands=[30,40,50,61]
+        attempts=[]
+        for level,correct_count in enumerate(correct_bands):
+            level_ids=ids[level*100:(level+1)*100]
+            attempts.extend(
+                Attempt(user=self.learner,mcq_id=qid,answer='A' if index<correct_count else 'B',correct=index<correct_count)
+                for index,qid in enumerate(level_ids)
+            )
+        Attempt.objects.bulk_create(attempts)
+        response=self.client.get('/api/mcq-levels')
+        self.assertEqual(response.status_code,200)
+        levels=response.json()['regular']['levels']
+        self.assertEqual([item['stars'] for item in levels],[1,1.5,2,3])
+        self.assertTrue(all(item['completed'] for item in levels))
+        self.assertTrue(all(item['unlocked'] for item in levels))
 
     def test_public_important_pages_use_two_distinct_job_ids(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
