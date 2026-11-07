@@ -837,39 +837,7 @@
     </template>
     <template id="mcq-learner-settings-template">
         <div class="learner-profile-page">
-            <!-- Level card (one card = 100 MCQs) -->
-            <template id="mcq-level-card-template">
-                <button class="level-card __SLOT_LEVEL_STATE__" type="button" data-level-card
-                    data-level-number="__SLOT_LEVEL_NUMBER__" data-level-track="__SLOT_LEVEL_TRACK__"
-                    data-level-state="__SLOT_LEVEL_STATE__" data-level-progress="__SLOT_LEVEL_PROGRESS__"
-                    __SLOT_LEVEL_DISABLED__ aria-label="Card __SLOT_LEVEL_NUMBER__ — __SLOT_LEVEL_META__">
-                    <span class="level-badge" aria-hidden="true">__SLOT_LEVEL_BADGE__</span>
-                    <span class="level-num">__SLOT_LEVEL_NUMBER__</span>
-                    <span class="level-label">Card __SLOT_LEVEL_NUMBER__</span>
-                    <span class="level-bar"><i style="width:__SLOT_LEVEL_PERCENT__%"></i></span>
-                    <span class="level-meta">__SLOT_LEVEL_META__</span>
-                </button>
-            </template>
 
-    <!-- Icons used inside level-card -->
-    <template id="mcq-level-icon-lock">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"
-                    stroke-linecap="round">
-                    <rect x="4" y="10" width="16" height="10" rx="2.5" />
-                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                </svg>
-            </template>
-    <template id="mcq-level-icon-check">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 13l4 4L19 7" />
-                </svg>
-            </template>
-    <template id="mcq-level-icon-play">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                </svg>
-            </template>
     <section class="card profile-header-card">
         <div class="profile-photo-row">
             <div data-profile-avatar><span class="profile-photo profile-photo-fallback">U</span></div>
