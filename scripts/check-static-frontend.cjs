@@ -36,8 +36,13 @@ function check(condition, message) {
 
 check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standards-mode doctype');
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
-check(html.includes('/assets/style.css?v=20261106-country-entry-brand-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
+check(html.includes('/assets/style.css?v=20261107-direct-login-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
+check(html.includes('id="mcq-level-cards"') && html.includes('id="mcq-level-card-template"'), 'homepage provides the MCQ level-card section and its reusable card template');
+check(html.includes('href="/?focus=important"'), 'the Important MCQs header link opens the homepage level section');
+check(runtime.includes("window.MCQLevels?.init?.()") && runtime.includes("fetch(endpoint") && runtime.includes("App.go('mcqs',{track,level,page})"), 'MCQ level cards load saved progress and open the selected practice level');
+check(runtime.includes("for(const key of ['track','level'])") && runtime.includes('if(isLevel&&server)'), 'level track and page filters flow through the existing paginated MCQ renderer');
+
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
 check(!html.includes('<nav data-api-region="mcq-pagination"'), 'pagination regions avoid nested navigation elements');
