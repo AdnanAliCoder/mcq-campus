@@ -4655,7 +4655,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     const percent=total?Math.round(progress*100/total):0,locked=!level.unlocked;
     const cardState=locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
     const badge=locked?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
-    const meta=level.completed?'Completed · '+progress+'/'+total:progress+'/'+total+' answered';
+    const meta=level.completed?'Completed · '+(Number(level.correct)||0)+'/'+total+' correct':progress+'/'+total+' answered';
     const stars=level.completed?Number(level.stars)||0:0;
     const starLabel=level.completed?(stars+' out of 3 stars'):'Stars awarded when this level is completed';
     const aria='Level '+level.level+', '+meta+(locked?', locked':'')+(level.completed?', '+starLabel:'');
