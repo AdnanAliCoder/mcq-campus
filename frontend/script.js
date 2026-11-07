@@ -246,7 +246,7 @@ window.UI=(()=>{
   };
   return flags[key]||'🏳️';
  };
- const prettyPath=path=>{const parts=String(path||'').replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);if(parts[0]==='home'&&parts.length===1)return '';
+ const prettyPath=path=>{const parts=String(path||'').replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);if(parts[0]==='home'&&parts.length===1)return '';if(parts.length===1&&parts[0]==='important-mcqs')return 'mcqs/importent-mcqs';
   if(window.SEO){
    if(parts.length===1&&parts[0]==='important')return '';
     if(parts[0]==='paper'&&parts[2]==='year'&&/^[0-9]+$/.test(parts[3]||''))return SEO.cleanPath('year',Number(parts[3])).slice(1);
@@ -772,7 +772,7 @@ window.Public=(()=>{
   const total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   if(isLevel&&server){shown.forEach(q=>{if(q.userAttempt){App.answers[q.id]=true;App.choices[q.id]=q.userAttempt.answer;}});}
   let pre='';
-  if(isLevel){pre='<section class="card level-practice-header"><div><p class="eyebrow">'+(p.track==='important'?'IMPORTANT MCQS':'REGULAR MCQS')+' · LEVEL '+Number(p.level)+'</p><h2>Continue your level</h2><p class="small muted">Progress is saved automatically. Return to the Level Cards when you are ready for your next level.</p></div><a class="btn ghost" href="/?focus='+encodeURIComponent(p.track)+'">Back to Level Cards</a></section>';}
+  if(isLevel){pre='<section class="card level-practice-header"><div><p class="eyebrow">'+(p.track==='important'?'IMPORTANT MCQS':'REGULAR MCQS')+' · LEVEL '+Number(p.level)+'</p><h2>Continue your level</h2><p class="small muted">Progress is saved automatically. Return to the Level Cards when you are ready for your next level.</p></div><a class="btn ghost" href="'+(p.track==='important'?'/mcqs/importent-mcqs':'/mcqs')+'">Back to Level Cards</a></section>';}
   const label=isLevel?(p.track==='important'?'important level MCQs':'regular level MCQs'):view==='important'?'important MCQs':view==='repeated'?'repeated MCQs':'MCQs';
   const main=`${listHeader}${UI.adSlot('mcq_top_ad')}<p class="small muted mcq-count">${total.toLocaleString('en-GB')} total ${label} · only 10 load per page</p>${shown.length?shown.map((q,i)=>`${questionCard(q,(page-1)*pageSize+i+1,false,type==='year'?+id:null)}${i===4?UI.adSlot('mcq_inline_ad'):''}`).join(''):empty(server?(view==='repeated'?'No repeated MCQs found':'No MCQs found for this selection.'):'Loading MCQs…','Choose another option or browse all MCQs.',link('mcqs','Browse All MCQs','btn primary'))}${UI.adSlot('mcq_bottom_ad')}${UI.pager(total,page,pageSize,p,App.route.path)}`;
   let sidebarKind='mcqs',ctx={};if(type==='year'){sidebarKind='papers';ctx={parent:record,type}};
