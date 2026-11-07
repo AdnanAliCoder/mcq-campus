@@ -248,7 +248,7 @@ window.UI=(()=>{
  };
  const prettyPath=path=>{const parts=String(path||'').replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);if(parts[0]==='home'&&parts.length===1)return '';
   if(window.SEO){
-   if(parts.length===1&&parts[0]==='important')return 'mcqs/important-mcqs';
+   if(parts.length===1&&parts[0]==='important')return '';
     if(parts[0]==='paper'&&parts[2]==='year'&&/^[0-9]+$/.test(parts[3]||''))return SEO.cleanPath('year',Number(parts[3])).slice(1);
    if(parts[0]==='paper'&&parts[2]==='job'&&parts[4]==='year'&&/^\d+$/.test(parts[5]||''))return SEO.cleanPath('year',Number(parts[5])).replace(/^\//,'');
    if(parts[0]==='paper'&&parts[2]==='job'&&/^\d+$/.test(parts[3]||''))return SEO.cleanPath('job',Number(parts[3])).replace(/^\//,'');
@@ -258,7 +258,7 @@ window.UI=(()=>{
    if(parts.length===1&&parts[0]==='posts')return 'blog';
   }
   return parts.join('/')};
- const href=(path,params={})=>'/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'');
+ const href=(path,params={})=>{if(path==='important'){path='home';params={...params,focus:'important'}}return '/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'')};
  const link=(path,label,cls='',params={})=>`<a class="${cls}" href="${esc(href(path,params))}" ${String(label).startsWith('<svg')&&String(label).endsWith('</svg>')?'aria-label="'+esc(path==='search'?'Search':'Open '+path.replaceAll('/',' '))+'"':''}>${label}</a>`;
  const brand=()=>link('home',`<span class="logo-crop"><img src="${esc(assetUrl('/assets/genfavicon-48.png'))}" srcset="${esc(assetUrl('/assets/genfavicon-48.png'))} 1x, ${esc(assetUrl('/assets/genfavicon-64.png'))} 2x" width="42" height="42" alt=""></span><span>MCQCampus</span>`,'brand');
  const btn=(label,action,cls='',extra='')=>`<button type="button" class="btn ${cls}" data-action="${action}" ${extra}>${label}</button>`;
@@ -367,7 +367,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   if(roles.includes('user'))switches.push(btn(icon('book')+' Learner dashboard','workspace-switch','user-menu-item user-menu-button',`data-role="user"`));
   if(roles.includes('admin'))switches.push(btn(icon('edit')+' Admin workspace','workspace-switch','user-menu-item user-menu-button',`data-role="admin"`));
   if(roles.includes('super-admin'))switches.push(btn(icon('shield')+' Super admin','workspace-switch','user-menu-item user-menu-button',`data-role="super-admin"`));
-  return '<div class="header-user-cluster">'+notificationLink+'<details class="user-menu"><summary class="header-user-avatar" aria-label="Open account menu">'+avatar+'</summary><div class="user-menu-panel"><div class="user-menu-head"><strong>'+esc(s.name||'Account')+'</strong><span>'+esc(s.email||'')+'</span></div>'+switches.join('')+link('dashboard/settings',icon('settings')+' Settings','user-menu-item')+link('dashboard/downloads',icon('download')+' My Downloads','user-menu-item')+btn(icon('logout')+' Log out','logout','user-menu-item user-menu-button')+'</div></details></div>';
+  return '<div class="header-user-cluster">'+notificationLink+'<details class="user-menu"><summary class="header-user-avatar" aria-label="Open account menu">'+avatar+'</summary><div class="user-menu-panel"><div class="user-menu-head"><strong>'+esc(s.name||'Account')+'</strong><span>'+esc(s.email||'')+'</span></div>'+switches.join('')+link('dashboard/settings',icon('settings')+' Settings','user-menu-item')+btn(icon('logout')+' Log out','logout','user-menu-item user-menu-button')+'</div></details></div>';
  } function header(active=''){
   const current=String(App.route?.path||'home').split('/')[0];
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
@@ -1030,7 +1030,7 @@ window.SEO=(()=>{
  function cleanPath(base,id){
   const get=(t,i)=>MCQ.get(t,i), s=x=>x?.slug||slug(x?.name||x?.title||x?.question||id);
   if(base==='home')return '/';
-  if(base==='mcqs')return '/mcqs'; if(base==='important')return '/mcqs/important-mcqs';
+  if(base==='mcqs')return '/mcqs'; if(base==='important')return '/?focus=important';
   if(base==='categories')return '/categories';
   if(base==='papers')return '/past-papers';
   if(base==='pdfs')return '/past-papers/pdfs';
