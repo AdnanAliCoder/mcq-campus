@@ -110,7 +110,7 @@ window.MCQ = (() => {
  function publicMcqs(){return db.mcqs.filter(x=>x.status==='approved')}
  // The supplied data has an editorial important flag, not global view/attempt metrics.
  // Cache the shortlist, and invalidate it on repository writes. Never rank by this browser's attempts.
- function isImportant(q){if(!q)return false;const jobs=new Set(ids(q.job_ids)),years=new Set(ids(q.job_years_ids));return q.important===true||jobs.size>=2||years.size>=2}
+ function isImportant(q){if(!q)return false;const years=new Set(ids(q.job_years_ids));return q.important===true||years.size>=2}
  function topMcqs(){
   if(!topCache||Date.now()-topCache.at>=300000){
    const rows=publicMcqs().filter(q=>isImportant(q))
@@ -1170,12 +1170,12 @@ window.Auth=(()=>{
   let path=location.pathname.replace(/^\/+|\/+$/g,'').replace(/index\.html$/,'').replace(/\.html$/,'');
   const aliases={
    'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset-code','auth/new-password':'reset-password','auth/verify-email':'verify',
-   'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','':''
+   'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','all-mcqs':'home','all-important-mcqs':'home','':''
   };
   const params=Object.fromEntries(new URLSearchParams(location.search));
   let mapped=aliases[path]??(path==='reset'?'reset-code':path.replace(/^public\//,''));
-  if(path==='mcqs'&&!(params.track&&params.level)){mapped='home';params.focus=params.focus||'regular';}
-  else if(path==='important'||path==='mcqs/important-mcqs'){mapped='home';params.focus='important';}
+  if(['mcqs','all-mcqs'].includes(path)&&!(params.track&&params.level)){mapped='home';params.focus='regular';}
+  else if(['important','mcqs/important-mcqs','all-important-mcqs'].includes(path)){mapped='home';params.focus='important';}
   if(mapped!==path)history.replaceState(null,'',UI.href(mapped||'home',params));
  }
  initialRoute();
