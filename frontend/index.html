@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#102823">
-    <meta name="mcq-asset-version" content="20261107-level-cards-v1">
+    <meta name="mcq-asset-version" content="20261107-home-category-sidebar-v2">
     <meta name="author" content="MCQCampus">
     <meta name="application-name" content="MCQCampus">
     <meta name="mcq-page-entry" content="home">
@@ -36,7 +36,7 @@
     <script>document.documentElement.classList.add('js-enabled');</script>
 
     <!-- Website styles live in one first-party stylesheet. -->
-    <link rel="stylesheet" href="/assets/style.css?v=20261107-level-cards-v1">
+    <link rel="stylesheet" href="/assets/style.css?v=20261107-home-category-sidebar-v2">
 
     <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4015501860532780" crossorigin="anonymous"></script>
@@ -75,48 +75,50 @@
                         <p class="muted" data-static-loading>Loading site statistics…</p>
                     </div>
                 </section>
-                <div data-api-region="home-top-ad" hidden></div>
-                <section id="mcq-level-cards" class="section levels-home-section" aria-labelledby="mcq-levels-heading">
-                    <div class="levels-home-heading">
-                        <div>
-                            <p class="eyebrow">YOUR PRACTICE JOURNEY</p>
-                            <h2 id="mcq-levels-heading">Practice by Levels</h2>
-                            <p class="small muted">Har level mein 100 MCQs. Progress automatically save hoti hai, taake aap baad mein wahin se continue kar sakein.</p>
-                        </div>
-                        <div class="levels-overview-card">
-                            <strong data-levels-total>Loading levels…</strong>
-                            <span data-levels-overall-text>Loading your progress</span>
-                            <div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div>
-                        </div>
-                    </div>
-                    <nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type">
-                        <button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button>
-                        <button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button>
-                    </nav>
-                    <section class="levels-track active" data-levels-panel="regular">
-                        <div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div>
-                    </section>
-                    <section class="levels-track" data-levels-panel="important">
-                        <div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div>
-                    </section>
-                    <footer class="levels-legend">
-                        <span><i class="levels-dot is-done"></i> Completed</span>
-                        <span><i class="levels-dot is-current"></i> In Progress</span>
-                        <span><i class="levels-dot is-open"></i> Unlocked</span>
-                        <span><i class="levels-dot is-locked"></i> Locked</span>
-                    </footer>
-                    <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
-                </section>
-                <section class="section home-content-grid home-content-priority home-categories-only">
-                    <aside class="home-category-nav card" style="grid-column:1 / -1">
+                <section class="section home-content-grid home-levels-layout">
+                    <aside class="home-category-nav card" aria-label="MCQ categories">
                         <div class="section-head">
-                            <div><p class="eyebrow">EXPLORE</p><h2>Categories</h2></div>
+                            <div><p class="eyebrow">EXPLORE BY SUBJECT</p><h2>Categories</h2></div>
                             <a class="link" href="/categories">View all</a>
                         </div>
                         <div class="home-cat-boxes" data-api-region="home-categories">
                             <p class="muted" data-static-loading>Loading categories…</p>
                         </div>
                     </aside>
+                    <div class="home-levels-main">
+                        <div data-api-region="home-top-ad" hidden></div>
+                        <section id="mcq-level-cards" class="section levels-home-section" aria-labelledby="mcq-levels-heading">
+                            <div class="levels-home-heading">
+                                <div>
+                                    <p class="eyebrow">YOUR PRACTICE JOURNEY</p>
+                                    <h2 id="mcq-levels-heading">Practice by Levels</h2>
+                                    <p class="small muted">Har level mein 100 MCQs. Progress automatically save hoti hai, taake aap baad mein wahin se continue kar sakein.</p>
+                                </div>
+                                <div class="levels-overview-card">
+                                    <strong data-levels-total>Loading levels…</strong>
+                                    <span data-levels-overall-text>Loading your progress</span>
+                                    <div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div>
+                                </div>
+                            </div>
+                            <nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type">
+                                <button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button>
+                                <button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button>
+                            </nav>
+                            <section class="levels-track active" data-levels-panel="regular">
+                                <div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div>
+                            </section>
+                            <section class="levels-track" data-levels-panel="important">
+                                <div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div>
+                            </section>
+                            <footer class="levels-legend">
+                                <span><i class="levels-dot is-done"></i> Completed</span>
+                                <span><i class="levels-dot is-current"></i> In Progress</span>
+                                <span><i class="levels-dot is-open"></i> Unlocked</span>
+                                <span><i class="levels-dot is-locked"></i> Locked</span>
+                            </footer>
+                            <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
+                        </section>
+                    </div>
                 </section>
                 <div data-api-region="home-middle-ad" hidden></div>
             </main>
@@ -675,50 +677,51 @@
                     <p class="hero-copy"><!-- SLOT:HOME_DESCRIPTION --></p><!-- SLOT:HOME_HERO_ACTIONS -->
                 </div>
                 <div class="home-stats home-top-stats"><!-- SLOT:HOME_STATS --></div>
-            </section><!-- SLOT:HOME_TOP_AD -->
-            <section id="mcq-level-cards" class="section levels-home-section" aria-labelledby="mcq-levels-heading">
-                <div class="levels-home-heading">
-                    <div>
-                        <p class="eyebrow">YOUR PRACTICE JOURNEY</p>
-                        <h2 id="mcq-levels-heading">Practice by Levels</h2>
-                        <p class="small muted">Har level mein 100 MCQs. Progress automatically save hoti hai, taake aap baad mein wahin se continue kar sakein.</p>
-                    </div>
-                    <div class="levels-overview-card">
-                        <strong data-levels-total>Loading levels…</strong>
-                        <span data-levels-overall-text>Loading your progress</span>
-                        <div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div>
-                    </div>
-                </div>
-                <nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type">
-                    <button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button>
-                    <button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button>
-                </nav>
-                <section class="levels-track active" data-levels-panel="regular">
-                    <div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div>
-                </section>
-                <section class="levels-track" data-levels-panel="important">
-                    <div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div>
-                </section>
-                <footer class="levels-legend">
-                    <span><i class="levels-dot is-done"></i> Completed</span>
-                    <span><i class="levels-dot is-current"></i> In Progress</span>
-                    <span><i class="levels-dot is-open"></i> Unlocked</span>
-                    <span><i class="levels-dot is-locked"></i> Locked</span>
-                </footer>
-                <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
             </section>
-            <section class="section home-content-grid home-content-priority home-categories-only">
-                <aside class="home-category-nav card" style="grid-column:1 / -1">
+            <section class="section home-content-grid home-levels-layout">
+                <aside class="home-category-nav card" aria-label="MCQ categories">
                     <div class="section-head">
-                        <div>
-                            <p class="eyebrow">EXPLORE</p>
-                            <h2>Categories</h2>
-                        </div>
+                        <div><p class="eyebrow">EXPLORE BY SUBJECT</p><h2>Categories</h2></div>
+                        <!-- SLOT:HOME_ALL_CATEGORIES_LINK -->
                     </div>
                     <div class="home-cat-boxes"><!-- SLOT:HOME_CATEGORY_LIST --></div>
-                    <!-- SLOT:HOME_ALL_CATEGORIES_LINK -->
                 </aside>
-            </section><!-- SLOT:HOME_MIDDLE_AD -->
+                <div class="home-levels-main">
+                    <!-- SLOT:HOME_TOP_AD -->
+                    <section id="mcq-level-cards" class="section levels-home-section" aria-labelledby="mcq-levels-heading">
+                        <div class="levels-home-heading">
+                            <div>
+                                <p class="eyebrow">YOUR PRACTICE JOURNEY</p>
+                                <h2 id="mcq-levels-heading">Practice by Levels</h2>
+                                <p class="small muted">Har level mein 100 MCQs. Progress automatically save hoti hai, taake aap baad mein wahin se continue kar sakein.</p>
+                            </div>
+                            <div class="levels-overview-card">
+                                <strong data-levels-total>Loading levels…</strong>
+                                <span data-levels-overall-text>Loading your progress</span>
+                                <div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div>
+                            </div>
+                        </div>
+                        <nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type">
+                            <button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button>
+                            <button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button>
+                        </nav>
+                        <section class="levels-track active" data-levels-panel="regular">
+                            <div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div>
+                        </section>
+                        <section class="levels-track" data-levels-panel="important">
+                            <div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div>
+                        </section>
+                        <footer class="levels-legend">
+                            <span><i class="levels-dot is-done"></i> Completed</span>
+                            <span><i class="levels-dot is-current"></i> In Progress</span>
+                            <span><i class="levels-dot is-open"></i> Unlocked</span>
+                            <span><i class="levels-dot is-locked"></i> Locked</span>
+                        </footer>
+                        <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
+                    </section>
+                    <!-- SLOT:HOME_MIDDLE_AD -->
+                </div>
+            </section>
         </div>
     </template>
     <template id="mcq-level-card-template">
@@ -944,7 +947,7 @@
     </script>
 
     <!-- The first-party runtime handles routing, data and interactive pages. -->
-    <script defer src="/assets/script.js?v=20261107-level-cards-v1"></script>
+    <script defer src="/assets/script.js?v=20261107-home-category-sidebar-v2"></script>
 
     <!-- Static form and reusable page structures; JavaScript supplies API data and field values. -->
     <template id="mcq-auth-field-template">
