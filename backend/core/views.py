@@ -26,7 +26,7 @@ from .services import (
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
     _delete_mcqs_to_trash, _restore_trash_many, _delete_trash_permanently,
     ensure_seo_indexes, seo_index_snapshot, seo_index_number, seo_catalog_key, page_seo_snapshot, entity_page_data,
-    country_catalog, country_for_user, _site_blob, _save_site_blob,
+    country_catalog, country_for_user, mcq_levels_data, _site_blob, _save_site_blob,
 )
 
 logger=logging.getLogger('mcqcampus.performance')
@@ -760,7 +760,7 @@ def mcqs(request):
         page=int(request.GET.get('page') or 1); page_size=int(request.GET.get('page_size') or (50 if request.user.is_authenticated else 20))
     except (TypeError,ValueError):
         return err('Invalid pagination values.',422)
-    filters={k:request.GET.get(k) for k in ['public','status','category','subcategory','child','paper','job','year','country','important','repeated','latest','search','owner','author','from','to','id','ids'] if request.GET.get(k)}
+    filters={k:request.GET.get(k) for k in ['public','status','category','subcategory','child','paper','job','year','country','important','repeated','latest','search','owner','author','from','to','id','ids','track','level'] if request.GET.get(k)}
     if request.GET.get('admin_scope')=='1' and is_super(request.user):
         role=request.session.get('active_role') or 'super-admin'
         if role=='super-admin':
@@ -769,6 +769,15 @@ def mcqs(request):
     elif filters.get('public'):
         filters['country']=country_for_user(request.user) or _request_content_country(request)
     return JsonResponse(mcq_page(request.user,page,page_size,filters))
+
+
+@profile_api('mcq_levels')
+@require_GET
+def mcq_levels(request):
+    country=country_for_user(request.user) or _request_content_country(request)
+    response=JsonResponse(mcq_levels_data(request.user,country=country))
+    response['Cache-Control']='private, no-store, max-age=0'
+    return response
 
 @profile_api('entities')
 @require_GET
