@@ -9,6 +9,7 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const html = read('frontend/index.html');
 const css = read('frontend/style.css');
 const nginx = read('deploy/nginx/mcqcampus-frontend-locations.conf');
+const runtime = read('frontend/script.js');
 
 const expectedPages = [
   'home', 'mcqs', 'categories', 'past-papers', 'tests', 'pdfs', 'blog',
@@ -40,8 +41,9 @@ check(html.includes('/assets/style.css?v=20261107-level-cards-v1'), 'stylesheet 
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('id="mcq-level-cards"') && html.includes('id="mcq-level-card-template"'), 'homepage provides the MCQ level-card section and its reusable card template');
 check(html.includes('href="/?focus=important"'), 'the Important MCQs header link opens the homepage level section');
-check(runtime.includes("window.MCQLevels?.init?.()") && runtime.includes("fetch(endpoint") && runtime.includes("App.go('mcqs',{track,level,page})"), 'MCQ level cards load saved progress and open the selected practice level');
+check(runtime.includes("window.MCQLevels?.init?.()") && runtime.includes("fetch(requestEndpoint") && runtime.includes("requestEndpoint=categoryId?endpoint+'?category='") && runtime.includes("App.go('mcqs',{track,level,page})"), 'MCQ level cards load saved progress and open the selected homepage or category practice level');
 check(runtime.includes("for(const key of ['track','level'])") && runtime.includes('if(isLevel&&server)'), 'level track and page filters flow through the existing paginated MCQ renderer');
+check(!html.includes('HOME_MCQ_LIST') && !runtime.includes('HOME_MCQ_LIST'), 'homepage does not render a flat Important MCQ question feed');
 
 check(html.includes('data-api-region="past-paper-pagination"'), 'past-paper pagination has a separate HTML region');
 check(html.includes('data-api-region="breadcrumbs"'), 'public shells include a reusable breadcrumb region');
@@ -141,7 +143,6 @@ check(nginx.includes('try_files $uri @mcqcampus_django;'), 'non-file browser rou
 check(nginx.includes('location @mcqcampus_django'), 'Nginx has a named Django frontend fallback for route-aware HTML responses');
 check(nginx.includes('location = / {') && nginx.includes('proxy_pass http://127.0.0.1:8000;'), 'homepage HTML is rendered by Django');
 check(nginx.includes('add_header Cache-Control "no-cache, no-store, must-revalidate" always;'), 'HTML responses revalidate after asset URL changes');
-const runtime = read('frontend/script.js');
 check(runtime.includes("'about','contact','faq','privacy','terms','disclaimer','cookies','advertising','sitemap'].includes(base)"), 'client-side noindex policy aligns with server noindex pages');
 
 check(runtime.includes("dest.classList.add('public-main','public-main-full')"), 'data regions retain public layout classes for existing CSS');
