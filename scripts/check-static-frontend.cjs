@@ -36,7 +36,7 @@ function check(condition, message) {
 
 check(html.toLowerCase().includes('<!doctype html>'), 'index.html has a standards-mode doctype');
 check(html.includes('href="/assets/style.css'), 'index.html loads the single stylesheet');
-check(html.includes('/assets/style.css?v=20261107-direct-login-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
+check(html.includes('/assets/style.css?v=20261107-level-cards-v1'), 'stylesheet URL is versioned to invalidate stale cached CSS');
 check(html.includes('src="/assets/script.js'), 'index.html loads the unified runtime');
 check(html.includes('id="mcq-level-cards"') && html.includes('id="mcq-level-card-template"'), 'homepage provides the MCQ level-card section and its reusable card template');
 check(html.includes('href="/?focus=important"'), 'the Important MCQs header link opens the homepage level section');
