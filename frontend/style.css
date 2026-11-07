@@ -3460,3 +3460,14 @@ body.admin-sidebar-open{overflow:hidden}
   .levels-home-section .levels-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px}
   .level-practice-header{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Home category sidebar beside the main level cards */
+.home-levels-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:24px;align-items:start;margin-top:24px}
+.home-levels-layout .home-category-nav{position:sticky;top:96px;min-width:0}
+.home-levels-layout .home-levels-main{min-width:0}
+.home-levels-layout .home-category-nav .section-head{margin-bottom:10px}
+.home-levels-layout .home-cat-boxes{max-height:calc(100vh - 190px);overflow:auto;padding-right:5px}
+.home-levels-layout .home-cat-group{padding:11px 0}
+@media(max-width:900px){.home-levels-layout{grid-template-columns:minmax(190px,230px) minmax(0,1fr);gap:16px}}
+@media(max-width:700px){.home-levels-layout{grid-template-columns:1fr}.home-levels-layout .home-category-nav{position:static}.home-levels-layout .home-cat-boxes{max-height:320px}}
