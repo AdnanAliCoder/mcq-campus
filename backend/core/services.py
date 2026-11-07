@@ -873,9 +873,14 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         except (TypeError,ValueError): pass
     if filters.get('country') and not country:
         qs=qs.filter(country__iexact=str(filters['country']))
-    if filters.get('important'):
+    track=str(filters.get('track') or '').strip().lower()
+    if filters.get('important') or track in {'regular','important'}:
         qs=_json_array_length(qs,'job_year_ids','_year_count')
-        qs=qs.filter(Q(_year_count__gte=2)|Q(important=True))
+        important_q=Q(_year_count__gte=2)|Q(important=True)
+        if filters.get('important') or track=='important':
+            qs=qs.filter(important_q)
+        elif track=='regular':
+            qs=qs.exclude(important_q)
     if filters.get('repeated'):
         qs=_json_array_length(qs,'job_year_ids','_year_count').filter(_year_count__gte=2)
     for key,field in [('subcategory','subcategory_ids'),('child','child_subcategory_ids')]:
@@ -916,18 +921,45 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         if filters.get(key):
             try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
             except (TypeError,ValueError): pass
-    order=['-created_at','-id'] if filters.get('latest') else ['-id']
-    qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by(*order)
-    start=(page-1)*page_size
-    objects=list(qs[start:start+page_size])
+    try:
+        level_number=int(filters.get('level') or 0)
+    except (TypeError,ValueError):
+        level_number=0
+    level_mode=track in {'regular','important'} and level_number>0
+    if level_mode:
+        # Stable ID order prevents newly added questions from shifting a learner's level.
+        qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').order_by('id')
+        total_all=qs.count()
+        level_offset=(level_number-1)*100
+        total=max(0,min(100,total_all-level_offset))
+        start=level_offset+(page-1)*page_size
+        objects=list(qs[start:start+page_size]) if start < level_offset+total else []
+        has_next=start+len(objects)<level_offset+total
+    else:
+        order=['-created_at','-id'] if filters.get('latest') else ['-id']
+        qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by(*order)
+        start=(page-1)*page_size
+        objects=list(qs[start:start+page_size])
+        total=int(objects[0]._page_total) if objects else (qs.count() if page>1 else 0)
+        has_next=start+len(objects)<total
     _attach_important_flags(objects)
-    total=int(objects[0]._page_total) if objects else (qs.count() if page>1 else 0)
     rows=[mcq_list(x) for x in objects]
+    if level_mode and user and getattr(user,'is_authenticated',False) and objects:
+        latest_attempts={}
+        attempts=(Attempt.objects.filter(user=user,mcq_id__in=[x.id for x in objects])
+                  .order_by('mcq_id','-created_at','-pk')
+                  .values('mcq_id','answer','correct'))
+        for attempt in attempts:
+            latest_attempts.setdefault(int(attempt['mcq_id']),attempt)
+        for row in rows:
+            attempt=latest_attempts.get(int(row['id']))
+            if attempt:
+                row['userAttempt']={'answer':attempt['answer'],'correct':bool(attempt['correct'])}
     keys={f"mcq:{x['id']}" for x in rows}
     registry=_site_blob().get('seoIndex') or {}
     if any(key not in (registry.get('items') or {}) for key in keys): registry=seo_index_snapshot()
     indexes={'next':int(registry.get('next') or 1),'items':{k:v for k,v in (registry.get('items') or {}).items() if k in keys}}
-    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(rows)<total,'seoIndex':indexes}
+    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':has_next,'seoIndex':indexes}
 
 def _attach_important_flags(objects):
     """Derive Important MCQs from distinct linked Past Papers, not retired Job IDs."""
@@ -937,6 +969,84 @@ def _attach_important_flags(objects):
             try: years.add(int(value))
             except (TypeError,ValueError): pass
         obj._important_value=bool(obj.important) or len(years)>=2
+
+def mcq_levels_data(user,country=None):
+    """Return stable 100-question level cards and the learner's latest saved progress."""
+    if user and getattr(user,'is_authenticated',False):
+        country=country_for_user(user) or country
+    base=MCQ.objects.filter(status='approved')
+    if country:
+        base=base.filter(country__iexact=str(country).strip())
+    annotated=_json_array_length(base,'job_year_ids','_year_count')
+    important_q=Q(_year_count__gte=2)|Q(important=True)
+    tracks={
+        'regular':annotated.exclude(important_q).order_by('id'),
+        'important':annotated.filter(important_q).order_by('id'),
+    }
+    ids_by_track={name:list(qs.values_list('id',flat=True)) for name,qs in tracks.items()}
+    all_ids=ids_by_track['regular']+ids_by_track['important']
+    latest_by_id={}
+    if user and getattr(user,'is_authenticated',False) and all_ids:
+        latest_attempts=(
+            Attempt.objects.filter(user=user,mcq_id__in=all_ids)
+            .annotate(_attempt_rank=Window(
+                expression=RowNumber(),
+                partition_by=[F('mcq_id')],
+                order_by=[F('created_at').desc(),F('pk').desc()],
+            ))
+            .filter(_attempt_rank=1)
+            .values('mcq_id','correct')
+        )
+        latest_by_id={int(row['mcq_id']):bool(row['correct']) for row in latest_attempts}
+
+    def make_track(track_name,question_ids):
+        total=len(question_ids)
+        total_cards=(total+99)//100
+        progress_map={}; correct_map={}; stars_map={}; next_page_map={}; levels=[]
+        previous_complete=True
+        for level in range(1,total_cards+1):
+            level_ids=question_ids[(level-1)*100:level*100]
+            answered=[qid for qid in level_ids if qid in latest_by_id]
+            progress=len(answered)
+            correct=sum(1 for qid in answered if latest_by_id[qid])
+            complete=bool(level_ids) and progress==len(level_ids)
+            unlocked=(level==1 or previous_complete)
+            first_unanswered=next((i for i,qid in enumerate(level_ids) if qid not in latest_by_id),None)
+            next_page=1 if complete or first_unanswered is None else (first_unanswered//10)+1
+            stars=0
+            if complete:
+                if correct<=30: stars=1
+                elif correct<50: stars=1.5
+                elif correct<=60: stars=2
+                else: stars=3
+            entry={
+                'level':level,'total':len(level_ids),'progress':progress,'correct':correct,
+                'completed':complete,'unlocked':unlocked,'next_page':next_page,'stars':stars,
+            }
+            levels.append(entry)
+            progress_map[str(level)]=progress
+            correct_map[str(level)]=correct
+            stars_map[str(level)]=stars
+            next_page_map[str(level)]=next_page
+            previous_complete=complete
+        return {
+            'total_mcqs':total,'total_cards':total_cards,'mcqs_per_card':100,
+            'progress':progress_map,'correct':correct_map,'stars':stars_map,
+            'next_page':next_page_map,'levels':levels,
+            'completed_cards':sum(1 for level in levels if level['completed']),
+        }
+
+    regular=make_track('regular',ids_by_track['regular'])
+    important=make_track('important',ids_by_track['important'])
+    total_mcqs=regular['total_mcqs']+important['total_mcqs']
+    attempted=sum(regular['progress'].values())+sum(important['progress'].values())
+    return {
+        'regular':regular,'important':important,
+        'total_mcqs':total_mcqs,'attempted_mcqs':attempted,
+        'overall_progress':round(attempted*100/total_mcqs) if total_mcqs else 0,
+        'authenticated':bool(user and getattr(user,'is_authenticated',False)),
+    }
+
 
 def snapshot(user,active_country=None,active_role=None,public_only=False):
     authenticated=bool(user and getattr(user,'is_authenticated',False))
