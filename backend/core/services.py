@@ -987,9 +987,11 @@ def mcq_levels_data(user,country=None):
     all_ids=ids_by_track['regular']+ids_by_track['important']
     latest_by_id={}
     if user and getattr(user,'is_authenticated',False) and all_ids:
+        attempts_qs=Attempt.objects.filter(user=user,mcq__status='approved')
+        if country:
+            attempts_qs=attempts_qs.filter(mcq__country__iexact=str(country).strip())
         latest_attempts=(
-            Attempt.objects.filter(user=user,mcq_id__in=all_ids)
-            .annotate(_attempt_rank=Window(
+            attempts_qs.annotate(_attempt_rank=Window(
                 expression=RowNumber(),
                 partition_by=[F('mcq_id')],
                 order_by=[F('created_at').desc(),F('pk').desc()],
