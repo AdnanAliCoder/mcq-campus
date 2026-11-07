@@ -1188,7 +1188,7 @@ window.Auth=(()=>{
  initialRoute();
 
  const route=()=>{const path=location.pathname.replace(/^\/+|\/+$/g,'')||'home';return path+location.search};
- const base=()=>{const p=location.pathname.replace(/^\\/+|\\/+$/g,'');return ['mcqs/importent-mcqs','mcqs/important-mcqs'].includes(p)?'important-mcqs':route().split(/[/?]/)[0]};
+ const base=()=>{const p=location.pathname.replace(/^\/+|\/+$/g,'');return ['mcqs/importent-mcqs','mcqs/important-mcqs'].includes(p)?'important-mcqs':route().split(/[/?]/)[0]};
  const authError='Account services are unavailable. Please try again shortly.';
  function destination(value){
   if(typeof value!=='string'||!value||value.length>2000||/^[\/\\]|[\x00-\x1f\\]/.test(value))return null;
@@ -3905,7 +3905,7 @@ render(){if(!Auth.guard())return;
   return;
  }const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
  const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
- if(base==='mcqs'&&parts[1]==='important-mcqs'){base='important'}
+ if(base==='mcqs'&&['important-mcqs','importent-mcqs'].includes(parts[1])){base='important-mcqs'}
  else if(base==='mcqs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['mcq']);if(hit){base='mcq';id=hit.key}}
  else if(base==='categories'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['category']);if(hit){base='category';id=hit.key}}
  else if(base==='past-papers'){
@@ -4760,7 +4760,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   }
   async function init(){
     const root=document.querySelector('#app #mcq-level-cards');if(!root)return;
-    const routePath=location.pathname.replace(/^\\/+|\\/+$/g,'');const focus=App.route?.params?.focus||App.route?.params?.track||(routePath==='mcqs'?'regular':(['mcqs/importent-mcqs','mcqs/important-mcqs'].includes(routePath)?'important':''));
+    const routePath=location.pathname.replace(/^\/+|\/+$/g,'');const focus=App.route?.params?.focus||App.route?.params?.track||(routePath==='mcqs'?'regular':(['mcqs/importent-mcqs','mcqs/important-mcqs'].includes(routePath)?'important':''));
     if(root.dataset.initialized==='1'){if(focus==='important'||focus==='regular')activateTab(root,focus,true);return;}
     root.dataset.initialized='1';
     try{
