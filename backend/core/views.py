@@ -775,7 +775,8 @@ def mcqs(request):
 @require_GET
 def mcq_levels(request):
     country=country_for_user(request.user) or _request_content_country(request)
-    response=JsonResponse(mcq_levels_data(request.user,country=country))
+    category_id=request.GET.get('category')
+    response=JsonResponse(mcq_levels_data(request.user,country=country,category_id=category_id))
     response['Cache-Control']='private, no-store, max-age=0'
     return response
 
