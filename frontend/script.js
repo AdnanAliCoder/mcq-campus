@@ -385,7 +385,8 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const description=cfg.description||'Practice MCQs, solve past papers, discover exam opportunities, and prepare confidently for competitive examinations.';const country=cfg.showCountryText!==false&&cfg.countryText?`<p class="footer-country">${esc(cfg.countryText)}</p>`:'';
   const bottom=[];if(cfg.showSitemap!==false)bottom.push(link('sitemap','Sitemap'));
   const copy=String(cfg.copyrightText||`${settings.siteName||'MCQ Campus'}. All rights reserved.`).replace(/^©\s*\d{4}\s*/,'');
-  const mobileLinks=[['home','home','Home'],['tests','check','Tests'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>link(p,icon(i)+l,(App.route.path||'').split('/')[0]===p?'active':'')).join('');
+  const mobileRoute=(App.route.path||'').split('/').filter(Boolean)[0]||'home';
+  const mobileLinks=[['home','home','Home'],['categories','grid','Categories'],['papers','paper','Papers'],['latest-jobs','briefcase','Updates'],['dashboard','user','Profile']].map(([p,i,l])=>{const active=p==='categories'?['categories','category','subcategory','topic'].includes(mobileRoute):mobileRoute===p;return link(p,icon(i)+l,active?'active':'')}).join('');
   return templateMarkup('mcq-footer-template',{
    FOOTER_BRAND:footerBrand,
    FOOTER_DESCRIPTION:esc(description),
@@ -3961,7 +3962,8 @@ render(){if(!Auth.guard())return;
   root?.removeAttribute('aria-busy');
   root?.querySelectorAll('[data-static-loading]').forEach(node=>{node.textContent='Live content is temporarily unavailable. Check your connection and try again.';});
   return;
- }const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
+ }const rawPath=location.pathname.replace(/^\/+|\/+$/g,'').replace(/\.html$/i,''),raw=(!rawPath||rawPath==='index')?'home':rawPath,query=location.search.replace(/^\?/,'');if(raw==='tests'||raw.startsWith('tests/')||raw==='test'||raw.startsWith('test/')){location.replace('/categories');return;}
+ const path=raw,parts=path.split('/');let base=parts[0],rawId=parts[1],third=parts[2],id;
  const indexed=(token,kinds)=>window.SEO?.resolveIndex(token,kinds);
  if(base==='mcqs'&&['important-mcqs','importent-mcqs'].includes(parts[1])){base='important-mcqs'}
  else if(base==='mcqs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['mcq']);if(hit){base='mcq';id=hit.key}}

@@ -22,7 +22,7 @@ class IndependentFrontendTests(TestCase):
     def test_single_document_contains_current_static_shells_and_templates(self):
         self.assertIn("<!doctype html>", self.html.lower())
         pages = {
-            "home", "categories", "past-papers", "tests", "pdfs", "blog",
+            "home", "categories", "past-papers", "pdfs", "blog",
             "login", "register", "forgot", "reset-code", "reset-password",
             "verify", "sitemap", "not-found", "dashboard", "admin",
             "super-admin", "about", "contact", "mcq-levels",
@@ -130,7 +130,7 @@ class IndependentFrontendTests(TestCase):
 
     def test_public_pages_render_through_django_with_route_metadata(self):
         for path in (
-            "/", "/mcqs", "/categories", "/past-papers", "/tests", "/pdfs",
+            "/", "/mcqs", "/categories", "/past-papers", "/pdfs",
             "/blog", "/latest-jobs", "/about", "/contact",
         ):
             with self.subTest(path=path):
@@ -139,6 +139,19 @@ class IndependentFrontendTests(TestCase):
                 self.assertIn("text/html", response.get("Content-Type", ""))
                 self.assertIn(b"MCQCampus", response.content)
                 self.assertNotIn(b"{{ seo_title", response.content)
+
+    def test_public_test_routes_are_retired_and_mobile_nav_opens_categories(self):
+        for path in ("/tests", "/test/auto"):
+            with self.subTest(path=path):
+                response = self.client.get(path, secure=True)
+                self.assertEqual(response.status_code, 301)
+                self.assertEqual(response["Location"], "/categories")
+
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertIn("['categories','grid','Categories']", runtime)
+        self.assertNotIn("['tests','check','Tests']", runtime)
+        self.assertIn("location.replace('/categories')", runtime)
+        self.assertNotIn('data-static-page="tests"', self.html)
 
     def test_unknown_frontend_route_returns_real_404(self):
         response = self.client.get("/this-route-does-not-exist", secure=True)
