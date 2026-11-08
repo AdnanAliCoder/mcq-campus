@@ -258,7 +258,7 @@ window.UI=(()=>{
    if(parts.length===1&&parts[0]==='posts')return 'blog';
   }
   return parts.join('/')};
- const href=(path,params={})=>{if(path==='important'){path='home';params={...params,focus:'important'}}return '/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'')};
+ const href=(path,params={})=>{if(path==='mcqs'){path='home';params={...params,focus:'regular'}}else if(['important','important-mcqs'].includes(path)){path='home';params={...params,focus:'important'}}return '/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'')};
  const link=(path,label,cls='',params={})=>`<a class="${cls}" href="${esc(href(path,params))}" ${String(label).startsWith('<svg')&&String(label).endsWith('</svg>')?'aria-label="'+esc(path==='search'?'Search':'Open '+path.replaceAll('/',' '))+'"':''}>${label}</a>`;
  const brand=()=>link('home',`<span class="logo-crop"><img src="${esc(assetUrl('/assets/genfavicon-48.png'))}" srcset="${esc(assetUrl('/assets/genfavicon-48.png'))} 1x, ${esc(assetUrl('/assets/genfavicon-64.png'))} 2x" width="42" height="42" alt=""></span><span>MCQCampus</span>`,'brand');
  const btn=(label,action,cls='',extra='')=>`<button type="button" class="btn ${cls}" data-action="${action}" ${extra}>${label}</button>`;
