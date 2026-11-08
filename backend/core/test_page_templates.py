@@ -65,6 +65,16 @@ class IndependentFrontendTests(TestCase):
         self.assertIn("renderTrack(root,'category',category)", runtime)
         self.assertIn("category-levels-section", runtime)
 
+    def test_admin_navigation_releases_sidebar_scroll_lock(self):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        stylesheet = (self.FRONTEND / "style.css").read_text(encoding="utf-8")
+        self.assertIn("function closeAdminSidebar()", runtime)
+        self.assertIn("closeAdminSidebar();", runtime)
+        self.assertIn("closeAdminSidebar();App.render()", runtime)
+        self.assertIn("min-height:100dvh!important", stylesheet)
+        self.assertIn("overflow:visible!important", stylesheet)
+        self.assertIn("body.admin-sidebar-open{overflow:hidden}", stylesheet)
+
     def test_entry_document_uses_one_first_party_script_and_stylesheet(self):
         self.assertTrue((self.FRONTEND / "script.js").is_file())
         self.assertTrue((self.FRONTEND / "style.css").is_file())
