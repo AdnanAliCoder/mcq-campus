@@ -1149,8 +1149,7 @@ def _seo_index_token(kind,key,registry=None):
 
 def _seo_indexed_path(kind,obj,registry=None):
     registry=registry or seo_index_snapshot()
-    if kind=='mcq':
-        token=_seo_index_token('mcq',obj.id,registry); return f'/mcqs/{token}/{_seo_slug(obj.question)}' if token else None
+    if kind=='mcq': return None
     if kind=='category':
         token=_seo_index_token('category',obj.id,registry); return f'/categories/{token}/{_seo_slug(obj.name)}' if token else None
     if kind=='paper':
@@ -1186,7 +1185,7 @@ def _seo_resolve_indexed_path(path,registry=None):
     registry=registry or seo_index_snapshot()
     parts=[p for p in str(path or '').strip('/').split('/') if p]
     hit=None
-    if len(parts)>=3 and parts[0]=='mcqs': hit=_seo_index_lookup(parts[1],['mcq'],registry)
+    # Individual MCQ URLs are no longer part of the public SEO index.
     elif len(parts)>=3 and parts[0]=='categories': hit=_seo_index_lookup(parts[1],['category'],registry)
     elif len(parts)>=3 and parts[0]=='past-papers' and parts[1]!='pdfs':
         hit=_seo_index_lookup(parts[1],['paper','job','year'],registry)
@@ -1239,18 +1238,7 @@ def _seo_resolve_indexed_path(path,registry=None):
 
 def _seo_legacy_target(path,catalog=None,registry=None):
     registry=registry or seo_index_snapshot()
-    if path.startswith('/mcqs/important-mcqs/'):
-        parts=[p for p in path.split('/') if p]
-        token=parts[2] if len(parts)>2 else ''
-        q=MCQ.objects.filter(pk=token,status='approved').first() if str(token).isdigit() else None
-        if q is None:
-            hit=_seo_index_lookup(token,['mcq'],registry)
-            q=MCQ.objects.filter(pk=hit[1],status='approved').first() if hit else None
-        return _seo_indexed_path('mcq',q,registry) if q else None
-    if path.startswith('/mcq/') or path.startswith('/practice/'):
-        token=path.split('/',2)[2].strip('/')
-        q=_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),token,'question')
-        return _seo_indexed_path('mcq',q,registry) if q else None
+    # Individual MCQ URLs are redirected before SEO path resolution.
     if path.startswith('/category/'):
         token=path.split('/category/',1)[1].strip('/'); obj=_seo_row_for_token(Category.objects.filter(active=True).only('id','name'),token)
         return _seo_indexed_path('category',obj,registry) if obj else None
@@ -1327,10 +1315,7 @@ def _seo_dynamic_path_exists(path):
         return bool(_seo_row_for_token(Subcategory.objects.filter(active=True,category__active=True).only('id','name'),parts[1]))
     if kind=='topic' and len(parts)==2:
         return bool(_seo_row_for_token(ChildCategory.objects.filter(active=True,subcategory__active=True,subcategory__category__active=True).only('id','name'),parts[1]))
-    if kind=='mcq' and len(parts)==2:
-        return bool(_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),parts[1],'question'))
-    if kind=='practice' and len(parts)==2:
-        return bool(_seo_row_for_token(MCQ.objects.filter(status='approved').only('id','question'),parts[1],'question'))
+    # Individual MCQ and practice-question detail routes are intentionally disabled.
     if kind=='post' and len(parts)==2:
         return bool(_seo_row_for_token(Post.objects.filter(status='published').only('id','slug','title'),parts[1],'slug'))
     if kind=='pdf' and len(parts)==2:
@@ -1406,9 +1391,8 @@ def _urlset(items):
 
 def sitemap_index(request):
     registry=seo_index_snapshot()
-    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/mcqs',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/latest-jobs',None),(SEO_ORIGIN+'/blog',None)]
-    # Individual MCQ detail URLs are intentionally omitted; retain the listing and
-    # focus sitemap discovery on organizations, past papers, years and public resources.
+    rows=[(SEO_ORIGIN+'/',None),(SEO_ORIGIN+'/past-papers',None),(SEO_ORIGIN+'/past-papers/pdfs',None),(SEO_ORIGIN+'/categories',None),(SEO_ORIGIN+'/latest-jobs',None),(SEO_ORIGIN+'/blog',None)]
+    # MCQ practice remains available in the app, but MCQ listing/detail URLs are not SEO targets.
     rows.extend((SEO_ORIGIN+_seo_indexed_path('paper',x,registry),x.updated_at) for x in Paper.objects.filter(active=True).order_by('id'))
     # Job pages are no longer public; index each Past Paper directly under its Organization / Board.
     rows.extend((SEO_ORIGIN+_seo_indexed_path('year',x,registry),x.updated_at) for x in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').order_by('id'))
@@ -1445,7 +1429,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
     heading='MCQCampus'
     intro='Practice MCQs with answers and explanations, explore organizations, past papers, categories and exam preparation resources.'
     links=[
-        ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
+        ('MCQ Categories','/categories'),('Past Papers','/papers'),
         ('Organizations / Boards','/papers'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
         ('Exam Preparation Articles','/posts'),
     ]
@@ -1466,12 +1450,12 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
         title='Practice MCQs with Answers & Explanations'
         description='Practice approved MCQs with correct answers and explanations across categories, jobs and past papers.'
         heading='Practice MCQs with Answers & Explanations'
-        links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:100]]
+        links=[('Browse Categories','/categories'),('Browse Past Papers','/past-papers')]
     elif path in {'/important','/mcqs/important-mcqs'}:
         title='Important MCQs for Competitive Exam Preparation'
         description='Practise important multiple-choice questions with correct answers and explanations for competitive examinations.'
         heading='Important MCQs'
-        links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:100]]
+        links=[('Browse Categories','/categories'),('Browse Past Papers','/past-papers')]
     elif path=='/tests':
         title='Online MCQ Tests & Exam Practice'
         description='Take online multiple-choice tests, check your score and review answers with explanations.'
@@ -1591,8 +1575,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
             parent=y.paper or (y.job.paper if y.job_id and y.job else None)
             if parent: year_links.append((f'{parent.name} — {y.name}',f'/paper/{_seo_slug(parent.name)}/year/{_seo_slug(y.name)}'))
         resource_links=[(p.title,f'/post/{p.slug}') for p in Post.objects.filter(status='published').only('title','slug').order_by('-updated_at')[:100]]
-        mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved').only('question').order_by('-updated_at')[:200]]
-        links=category_links+paper_links+year_links+resource_links+mcq_links
+        links=category_links+paper_links+year_links+resource_links
     elif _seo_job_past_papers_landing(path,catalog):
         matched_jobs=_seo_job_past_papers_landing(path,catalog)
         job_name=matched_jobs[0].name
@@ -1651,8 +1634,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 description=f'Practice {x.name} MCQs with correct answers and explanations for competitive exam preparation.'
                 heading=f'{x.name} MCQs'
                 sub_links=[(s.name,f'/subcategory/{_seo_slug(s.name)}') for s in Subcategory.objects.filter(active=True,category_id=x.id).only('name').order_by('name')]
-                mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in MCQ.objects.filter(status='approved',category_id=x.id).only('question').order_by('-updated_at')[:80]]
-                links=sub_links+mcq_links
+                links=sub_links
                 break
     elif path.startswith('/subcategory/'):
         wanted=path.split('/subcategory/',1)[1].strip('/')
@@ -1665,8 +1647,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                     (c.name,f'/topic/{_seo_slug(c.name)}')
                     for c in ChildCategory.objects.filter(active=True,subcategory_id=x.id).only('name').order_by('name')
                 ]
-                mcq_links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in _seo_mcqs_for_json_ids('subcategory_ids',x.id,80)]
-                links=topic_links+mcq_links
+                links=topic_links
                 break
     elif path.startswith('/topic/'):
         wanted=path.split('/topic/',1)[1].strip('/')
@@ -1675,7 +1656,7 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                 title=f'{x.name} MCQs with Answers'
                 description=f'Practice {x.name} multiple choice questions with correct answers and explanations.'
                 heading=f'{x.name} MCQs'
-                links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in _seo_mcqs_for_json_ids('child_subcategory_ids',x.id,100)]
+                links=[('Browse Categories','/categories')]
                 break
     elif path.startswith('/paper/'):
         parts=[p for p in path.split('/') if p]
@@ -1736,32 +1717,18 @@ def _seo_page_context(path, default_title, default_description,catalog=None):
                             if any(str(value).isdigit() and int(value) == int(year.id)
                                    for value in (q.job_year_ids or []))
                         ][:100]
-                    links=[(q.question[:100],f'/mcq/{_seo_slug(q.question)}') for q in linked_questions]
+                    links=[('Browse Organization','/paper/'+_seo_slug(paper.name)),('Browse Past Papers','/past-papers')]
             else:
                 catalog=catalog if catalog is not None else _seo_past_papers_catalog()
                 years=JobYear.objects.filter(active=True).filter(
                     Q(paper_id=paper.id)|Q(paper__isnull=True,job__paper_id=paper.id)
                 ).select_related('paper','job__paper').only('id','name','paper_id','job_id').order_by('-name','id')
                 links=[(y.name,f'/paper/{paper_slug}/year/{_seo_slug(y.name)}') for y in years]
-    elif path.startswith('/mcq/'):
-        wanted=path.split('/mcq/',1)[1].strip('/')
-        for q in MCQ.objects.filter(status='approved').only('question','description','seo_description','category_id','job_year_ids'):
-            if _seo_slug(q.question)==wanted:
-                title=f'{q.question[:70]}'
-                description=(q.seo_description or q.description or 'Practice this MCQ with the correct answer and explanation on MCQCampus.')[:155]
-                heading=q.question
-                intro=description
-                links=[('More Practice MCQs','/mcqs')]
-                category=Category.objects.filter(pk=q.category_id,active=True).only('name').first()
-                if category: links.append((f'More {category.name} MCQs',f'/category/{_seo_slug(category.name)}'))
-                year_ids=[int(v) for v in (q.job_year_ids or []) if str(v).isdigit()]
-                if year_ids:
-                    years=JobYear.objects.filter(id__in=year_ids,active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).select_related('paper','job__paper').only('name','paper__name','job__paper__name','job_id')[:12]
-                    for year_row in years:
-                        parent=year_row.paper or (year_row.job.paper if year_row.job_id and year_row.job else None)
-                        if parent: links.append((f'{parent.name} {year_row.name}',f'/paper/{_seo_slug(parent.name)}/year/{_seo_slug(year_row.name)}'))
-                links.extend([('Browse Categories','/categories'),('Browse Past Papers','/papers')])
-                break
+    elif path.startswith('/mcq/') or path.startswith('/practice/'):
+        title='Practice MCQs with Answers & Explanations'
+        description='Open the MCQ practice section to continue learning.'
+        heading='Practice MCQs'
+        links=[('Browse Categories','/categories'),('Browse Past Papers','/past-papers')]
     support_links=[
         ('Practice MCQs','/mcqs'),('MCQ Categories','/categories'),('Past Papers','/papers'),
         ('Organizations / Boards','/papers'),('Preparation PDFs','/pdfs'),('Latest Jobs','/latest-jobs'),
@@ -1832,15 +1799,8 @@ def _seo_breadcrumbs(path,catalog=None):
     if path.startswith('/latest-job/'):
         item=_seo_catalog_item('latest-job',path.split('/latest-job/',1)[1].strip('/'))
         return crumbs+[('Latest Jobs','/latest-jobs')]+([(str(item.get('title') or 'Latest Job'),path)] if item else [])
-    if path.startswith('/mcq/'):
-        slug=path.split('/mcq/',1)[1].strip('/')
-        q=next((q for q in MCQ.objects.filter(status='approved').only('question','category_id') if _seo_slug(q.question)==slug),None)
-        out=crumbs+[('MCQs','/mcqs')]
-        if q:
-            cat=Category.objects.filter(pk=q.category_id,active=True).only('name').first()
-            if cat: out.append((cat.name,f'/category/{_seo_slug(cat.name)}'))
-            out.append((q.question[:80],path))
-        return out
+    if path.startswith('/mcq/') or path.startswith('/practice/'):
+        return crumbs+[('Practice MCQs','/mcqs')]
     if path.startswith('/post/'):
         slug=path.split('/post/',1)[1].strip('/')
         p=Post.objects.filter(status='published',slug=slug).only('title').first()
@@ -1884,6 +1844,15 @@ def frontend_page(request,path=''):
     normalized='/' + str(path or '').strip('/')
     if normalized=='/':
         normalized='/'
+
+    # Remove legacy individual-question URLs from public navigation and search indexing.
+    parts=normalized.strip('/').split('/')
+    is_indexed_mcq_path=(len(parts)>=3 and parts[0]=='mcqs' and parts[1].isdigit())
+    if normalized.startswith(('/mcq/','/practice/')) or is_indexed_mcq_path:
+        response=HttpResponse(status=301)
+        response['Location']='/mcqs'
+        response['Cache-Control']='public, max-age=86400'
+        return response
 
     # The legacy collection URLs now serve focused level-card landing pages.
     # Preserve level practice query parameters on /mcqs?track=...&level=....
@@ -1942,7 +1911,7 @@ def frontend_page(request,path=''):
         description='The page you requested could not be found.'
         heading='We could not find that page.'
         intro='The link may be old, incomplete or no longer available. Use the links below to continue browsing MCQCampus.'
-        links=[('Home','/'),('Practice MCQs','/mcqs'),('Categories','/categories'),('Past Papers','/past-papers')]
+        links=[('Home','/'),('Categories','/categories'),('Organizations / Boards','/past-papers'),('Past Papers','/past-papers'),('PDFs','/past-papers/pdfs')]
         canonical_url=''
     else:
         title,description,heading,intro,links=_seo_page_context(
@@ -1962,7 +1931,7 @@ def frontend_page(request,path=''):
     noindex_paths={
         '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising',
         '/sitemap','/search','/login','/register','/forgot','/reset',
-        '/reset-code','/reset-password','/verify','/test/auto'
+        '/reset-code','/reset-password','/verify','/test/auto','/mcqs','/important','/mcqs/importent-mcqs'
     }
     noindex=(not known) or private or normalized in noindex_paths
     robots='noindex,nofollow' if noindex else 'index,follow'
@@ -2007,7 +1976,6 @@ def llms_txt(request):
         '# MCQCampus\n'
         '> MCQCampus is an exam-preparation website for practising MCQs with answers and explanations, browsing past papers, categories, jobs, exam years, PDFs and study articles.\n\n'
         '## Main sections\n'
-        f'- [Practice MCQs]({SEO_ORIGIN}/mcqs)\n'
         f'- [MCQ Categories]({SEO_ORIGIN}/categories)\n'
         f'- [Past Papers]({SEO_ORIGIN}/past-papers)\n'
         f'- [Preparation PDFs]({SEO_ORIGIN}/past-papers/pdfs)\n'
