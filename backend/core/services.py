@@ -746,11 +746,25 @@ def _approved_public_counts_uncached(country=None):
         years=years.filter(Q(paper__country__iexact=country)|Q(paper__isnull=True,job__paper__country__iexact=country))
         categories=categories.filter(pk__in=approved.values('category_id').distinct())
     important_qs=_json_array_length(approved,'job_year_ids','_year_count')
-    important=important_qs.filter(Q(_year_count__gte=2)|Q(important=True)).count()
-    category_rows=approved.values('category_id').annotate(total=Count('id'))
-    return {'approvedMcqs':approved.count(),'importantMcqs':important,'categories':categories.count(),
+    important_filter=Q(_year_count__gte=2)|Q(important=True)
+    important=important_qs.filter(important_filter).count()
+    total_approved=approved.count()
+    category_rows=important_qs.values('category_id').annotate(
+        total=Count('id'),
+        important=Count('id',filter=important_filter),
+    )
+    category_tracks={
+        str(row['category_id']):{
+            'regular':max(0,int(row['total'] or 0)-int(row['important'] or 0)),
+            'important':int(row['important'] or 0),
+        }
+        for row in category_rows
+    }
+    return {'approvedMcqs':total_approved,'regularMcqs':max(0,total_approved-important),
+            'importantMcqs':important,'categories':categories.count(),
             'papers':papers.count(),'jobs':jobs.count(),'years':years.count(),
-            'categoryMcqs':{str(row['category_id']):int(row['total'] or 0) for row in category_rows}}
+            'categoryMcqs':{key:counts['regular']+counts['important'] for key,counts in category_tracks.items()},
+            'categoryMcqTracks':category_tracks}
 
 def _approved_public_counts(country=None):
     identity={'country':str(country or '').strip().casefold()}
