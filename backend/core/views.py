@@ -1850,7 +1850,7 @@ def frontend_page(request,path=''):
         response['Location']='/mcqs'
         response['Cache-Control']='public, max-age=86400'
         return response
-    if normalized.startswith('/mcqs/important-mcqs/'):
+    if normalized.startswith(('/mcqs/important-mcqs/','/mcqs/importent-mcqs/')):
         response=HttpResponse(status=301)
         response['Location']='/mcqs/importent-mcqs'
         response['Cache-Control']='public, max-age=86400'
