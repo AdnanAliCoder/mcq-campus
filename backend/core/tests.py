@@ -923,6 +923,32 @@ class IntegrationTests(TestCase):
         self.assertEqual(data['total'],MCQ.objects.filter(status='approved').count())
         self.assertTrue(all(row['status']=='approved' for row in data['items']))
 
+    def test_public_bootstrap_includes_cached_level_counts_for_static_cards(self):
+        self.client.logout()
+        regular=[MCQ(
+            id=12000+i,question=f'Static regular count question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=self.category,
+            country='Pakistan',status='approved',
+        ) for i in range(101)]
+        important=[MCQ(
+            id=13000+i,question=f'Static important count question {i}?',option1='A',option2='B',
+            option3='C',option4='D',correct_answer='A',category=self.category,
+            country='Pakistan',status='approved',important=True,
+        ) for i in range(3)]
+        MCQ.objects.bulk_create(regular+important)
+        invalidate_mcqcampus_cache('public-counts','public-bootstrap')
+
+        response=self.client.get('/api/public/bootstrap',HTTP_CF_IPCOUNTRY='PK')
+        self.assertEqual(response.status_code,200)
+        counts=response.json()['siteCounts']
+        self.assertEqual(counts['regularMcqs'],102)
+        self.assertEqual(counts['importantMcqs'],3)
+        self.assertEqual(counts['categoryMcqs'][str(self.category.id)],105)
+        self.assertEqual(
+            counts['categoryMcqTracks'][str(self.category.id)],
+            {'regular':102,'important':3},
+        )
+
     def test_mcq_level_api_resumes_first_unanswered_page_and_locks_next_level(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         # Keep the fixture MCQ on the Important track so the regular test set has a known stable order.
