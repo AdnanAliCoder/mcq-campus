@@ -970,8 +970,8 @@ def mcq_page(user,page=1,page_size=50,filters=None):
             if attempt:
                 row['userAttempt']={'answer':attempt['answer'],'correct':bool(attempt['correct'])}
     keys={f"mcq:{x['id']}" for x in rows}
-    registry=_site_blob().get('seoIndex') or {}
-    if any(key not in (registry.get('items') or {}) for key in keys): registry=seo_index_snapshot()
+    # Individual MCQs no longer receive public SEO tokens.
+    registry=seo_index_snapshot()
     indexes={'next':int(registry.get('next') or 1),'items':{k:v for k,v in (registry.get('items') or {}).items() if k in keys}}
     return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':has_next,'seoIndex':indexes}
 
