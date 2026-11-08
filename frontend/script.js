@@ -392,7 +392,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
    FOOTER_EMAIL:emailHtml,
    FOOTER_SOCIALS:socialHtml?'<div class="footer-social" aria-label="MCQ Campus social media">'+socialHtml+'</div>':'',
    FOOTER_COUNTRY:country,
-   FOOTER_QUICK_LINKS:link('mcqs','MCQs')+link('papers','Past Papers')+link('pdfs','PDFs')+link('latest-jobs','Latest Jobs'),
+   FOOTER_QUICK_LINKS:link('mcqs','MCQs')+link('papers','Past Papers')+link('pdfs','PDFs')+link('latest-jobs','Latest Jobs')+link('posts','Blog'),
    FOOTER_HELP_LINKS:help.map(([p,l])=>link(p,l)).join(''),
    FOOTER_YEAR:new Date().getFullYear(),
    FOOTER_COPY:esc(copy),
@@ -646,8 +646,9 @@ window.Public=(()=>{
   }
   if(type==='category'){
    const cat=MCQ.get('categories',id);if(!cat)return notFound();
-   const server=activeServerMcqPage(),p=App.route.params,pageSize=10,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=['regular','important'].includes(track)&&levelNumber>0;
-   const rows=levelSelected&&server?MCQ.publicMcqs():[],total=levelSelected&&server?Number(server.total||0):0,page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(p.page)||1);
+const server=activeServerMcqPage(),p=App.route.params,pageSize=10,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=['regular','important'].includes(track)&&levelNumber>0;
+    let rows=levelSelected?(server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>Number(q.category_id)===Number(cat.id)&&(MCQ.isImportant(q)?'important':'regular')===track).sort((a,b)=>Number(a.id)-Number(b.id)).slice((levelNumber-1)*100,levelNumber*100)):[];
+    const total=levelSelected?(server?Number(server.total||0):rows.length):0,page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(p.page)||1);
    const subs=MCQ.db.subcategories.filter(x=>x.active!==false&&+x.category_id===+cat.id).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    const subcategoryPanel=subs.length?`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXPLORE TOPICS</p><h2>${e(cat.name)} Subcategories</h2></div></div><div class="chips">${subs.map(x=>link('subcategory/'+x.id,e(x.name),'chip')).join('')}</div></section>`:'';
    const levelSelector=`<section id="mcq-level-cards" class="section levels-home-section category-levels-section" data-category-id="${Number(cat.id)}" aria-labelledby="mcq-levels-heading"><div class="levels-home-heading"><div><p class="eyebrow">CATEGORY PRACTICE</p><h2 id="mcq-levels-heading">${e(cat.name)} · Practice by Levels</h2><p class="small muted">Har level mein 100 MCQs. Regular aur Important questions alag levels mein arranged hain.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><nav class="levels-tabs" data-levels-tabs aria-label="Category MCQ level type"><button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button><button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button></nav><section class="levels-track active" data-levels-panel="regular"><div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div></section><section class="levels-track" data-levels-panel="important"><div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>`;
@@ -3238,9 +3239,17 @@ mountDataDrivenPage(base,id){
   const isCategory=base==='category',record=MCQ.get(isCategory?'categories':'subcategories',id);
   if(!record)return false;
   const category=isCategory?record:MCQ.get('categories',record.category_id);
+  const params=App.route.params||{},track=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0);
+  const levelSelected=isCategory&&['regular','important'].includes(track)&&levelNumber>0;
   const server=publicMcqServerPage(),all=MCQ.publicMcqs();
-  const rows=server?all:all.filter(item=>isCategory?Number(item.category_id)===Number(id):MCQ.ids(item.subcategory_ids).includes(Number(id)));
-  const pageSize=10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  let rows=server?all:all.filter(item=>isCategory?Number(item.category_id)===Number(id):MCQ.ids(item.subcategory_ids).includes(Number(id)));
+  if(isCategory){
+   if(levelSelected&&!server){
+    rows=rows.filter(item=>(MCQ.isImportant(item)?'important':'regular')===track).sort((a,b)=>Number(a.id)-Number(b.id));
+    const levelStart=(levelNumber-1)*100;rows=rows.slice(levelStart,levelStart+100);
+   }else if(!levelSelected)rows=[];
+  }
+  const pageSize=10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=isCategory?record.name+' MCQs':record.name;
   const fallbackDescription=isCategory?'Practice '+record.name+' MCQs with correct answers and explanations, and explore related subcategories.':'Practice approved '+record.name+' MCQs with answers and explanations.';
   const pageCopy=isCategory?entityCopy('category',record.id,fallbackTitle,fallbackDescription):{title:fallbackTitle,description:fallbackDescription};
@@ -3257,22 +3266,41 @@ mountDataDrivenPage(base,id){
     if(levelRoot)levelRoot.dataset.categoryId=String(record.id);
     levelRegion.replaceChildren(levelFragment);levelRegion.hidden=false;
    }
+   if(levelSelected){
+    setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+    const list=region('mcq-list');
+    if(list){
+     list.classList.add('public-main','public-main-full');
+     if(shown.length){
+      const cards=document.createDocumentFragment();
+      shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+      list.replaceChildren(cards);
+     }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this level.':'No MCQs are available in this level yet.','Choose another level or return to the category level cards.',UI.link('category/'+id,'Back to category levels','btn primary'))));
+     list.hidden=false;
+    }
+    setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,'category/'+id));
+   }else{
+    for(const name of ['mcq-summary','mcq-list','mcq-pagination']){
+     const hiddenRegion=region(name);
+     if(hiddenRegion){hiddenRegion.replaceChildren();hiddenRegion.hidden=true;}
+    }
+   }
   }else{
    const children=(data.children||[]).filter(item=>item.active!==false&&Number(item.subcategory_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>({path:'topic/'+item.id,label:String(item.name||'')})));
+   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+   const list=region('mcq-list');
+   if(list){
+    list.classList.add('public-main','public-main-full');
+    if(shown.length){
+     const cards=document.createDocumentFragment();
+     shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+     list.replaceChildren(cards);
+    }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this subcategory yet.','Choose another topic or browse the parent category.',UI.link('category/'+(category?.id||id),'Browse parent category','btn primary'))));
+    list.hidden=false;
+   }
+   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,base+'/'+id));
   }
-  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
-  const list=region('mcq-list');
-  if(list){
-   list.classList.add('public-main','public-main-full');
-   if(shown.length){
-    const cards=document.createDocumentFragment();
-    shown.forEach(item=>cards.append(questionCardFragment(item,false)));
-    list.replaceChildren(cards);
-   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No MCQs are linked to this category yet.','Choose another category or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
-   list.hidden=false;
-  }
-  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,base+'/'+id));
  }else if(base==='paper'){
   const paper=MCQ.get('papers',id);
   if(!paper)return false;
