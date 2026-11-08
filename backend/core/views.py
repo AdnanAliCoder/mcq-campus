@@ -1036,58 +1036,6 @@ def _seo_short_name(value):
         return tokens[-1]
     return text
 
-def _seo_clean_title(value):
-    text=re.sub(r'\s+',' ',str(value or '')).strip()
-    return re.sub(r'\s*(?:\||-|—|–)\s*MCQs?\s*Campus\s*$','',text,flags=re.I).strip()
-
-def _seo_title(value, limit=60):
-    text=_seo_clean_title(value)
-    if len(text)<=limit:
-        return text
-    return text[:limit-3].rstrip(' -—|,:')+'...'
-def _seo_supporting_sections(path,heading,description):
-    subject=str(heading or 'MCQCampus').strip()
-    if path=='/':
-        return [
-            ('Practice by topic, paper and exam','MCQCampus is an independent exam-preparation platform at mcqcampus.com. It organizes preparation around subject categories, organizations, past papers and exam years so learners can move from broad revision to focused practice. Use the main sections to find approved multiple-choice questions, review answers and explanations, and continue into the organization and past paper that matches the exam you are preparing for.'),
-            ('Use answers and explanations for revision','Attempt each question before checking the answer, then use the explanation to understand why the option is correct. Revisit weak areas through category pages, compare questions that appear across different papers or job years, and use important MCQs for faster revision when you are short on time.'),
-            ('Explore connected preparation resources','Past-paper pages connect organizations and boards directly with the MCQs linked to those past-paper records. You can also browse current opportunities, preparation PDFs and exam-focused articles. These internal links make it easier to continue from one topic to the next without losing the context of your preparation.'),
-        ]
-    if path.startswith('/mcq/'):
-        return [
-            ('Review this question in context',f'This page is part of {subject} on MCQCampus. Read the question carefully, choose an answer before checking the explanation, and use the related category, organization or past-paper links to understand where the question belongs in your wider preparation.'),
-            ('Build stronger recall','A useful revision method is to answer from memory first, then compare your choice with the correct answer and explanation. If the question is linked to more than one past paper, review those related pages as well because repeated concepts can be useful signals when planning revision.'),
-            ('Continue with related MCQs','Use the related links below to practise more questions from the same subject or exam path. Moving between a question, its category and its past-paper hierarchy creates a clearer study trail than practising isolated questions without context.'),
-        ]
-    if '/year/' in path:
-        return [
-            ('Practice this past paper by year',f'{subject} groups the MCQs connected with this specific exam-year record. Work through the available questions as a focused past-paper session, then review explanations and note the topics that need another revision pass.'),
-            ('Compare repeated concepts','Questions can appear across more than one job year or paper. When a question is connected to other records, follow those links to compare how the same concept has been tested and to identify topics that deserve extra attention.'),
-            ('Broaden your preparation','After finishing this year, move to the parent organization or category pages to practise related material. This keeps your revision structured while still exposing you to a wider set of questions and explanations.'),
-        ]
-    if path.startswith('/paper/'):
-        return [
-            ('Follow the paper hierarchy',f'{subject} is organized so you can move from an organization or board directly to a past paper. Choose the level that matches your target exam and use the linked questions for focused practice.'),
-            ('Use past papers as a revision guide','Past-paper practice is most useful when you review both the answer and the explanation instead of memorizing an option. Mark weak subjects, revisit their category pages and compare related years to build a more balanced preparation plan.'),
-            ('Discover related exam material','The links on this page connect the current organization or board with its past papers and MCQs. You can also return to the wider Past Papers and Categories sections whenever you want to change your preparation path.'),
-        ]
-    if path.startswith('/category/') or path.startswith('/subcategory/') or path.startswith('/topic/'):
-        return [
-            ('Practice this subject step by step',f'{subject} collects related questions so you can revise one area without mixing unrelated topics. Start with the available MCQs, check the explanation after answering, and use subcategory or topic links when you want to narrow the subject further.'),
-            ('Connect topics with past papers','Subject practice becomes more useful when you also see where questions appear in exams. Follow related MCQ links into their organization and past-paper context to connect topic knowledge with real past-paper preparation.'),
-            ('Continue to nearby subjects','Use the related pages below to move between broader categories, narrower topics, papers and jobs. This creates a connected revision path and makes it easier to return to areas that need more practice.'),
-        ]
-    if path.startswith('/post/'):
-        return [
-            ('Use this guide with active practice',f'{description} Apply the guidance on this page alongside MCQ practice and past-paper revision so the information becomes part of an active study routine rather than a one-time read.'),
-            ('Continue with related preparation','After reading, open the linked MCQ, category, paper or jobs pages that match the subject. Combining explanatory content with practice questions and exam records gives you more ways to review the same material.'),
-        ]
-    return [
-        ('Find the right preparation path',f'{description} Use {subject} as a starting point, then follow the related links to move into categories, past papers, jobs, exam years, PDFs or articles that match your current study goal.'),
-        ('Practise with context','MCQCampus connects questions with the subjects and exam records they belong to. Answer first, review the explanation second, and then continue into a related page so each practice session builds on the previous one.'),
-        ('Explore more MCQCampus resources','The related links below provide additional routes into practice MCQs, categories, past papers and exam preparation resources. They are included to help learners and search engines discover the public study content without relying only on JavaScript navigation.'),
-    ]
-
 def _seo_is_past_papers_path(path):
     return bool(re.fullmatch(r'/[a-z0-9_][a-z0-9_-]*-past-papers',path))
 
@@ -1339,23 +1287,6 @@ def _seo_legacy_target(path,catalog=None,registry=None):
         if record.get('job'): return _seo_indexed_path('job',record['job'],registry)
         if record.get('paper'): return _seo_indexed_path('paper',record['paper'],registry)
     return None
-
-def _seo_year_search_label(job_name,year_name):
-    """Keep the useful year/date/session part without repeating the job name."""
-    text=str(year_name or '').strip()
-    if job_name:
-        text=re.sub(r'^'+re.escape(str(job_name).strip())+r'\s*[-–—:]?\s*','',text,flags=re.I)
-    text=re.sub(r'\bPast\s+Paper\b',' ',text,flags=re.I)
-    text=text.replace('[',' ').replace(']',' ').replace('(',' ').replace(')',' ')
-    text=re.sub(r'\s+',' ',text).strip(' -–—:')
-    dated=re.search(r'\b\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2}\b(?:\s+(?:Morning|Evening|Night|Shift\s*\d+))?',text,re.I)
-    if dated:
-        return dated.group(0).strip()
-    year=re.search(r'(?<!\d)(20\d{2})(?!\d)',text)
-    if year:
-        suffix=re.search(r'\b(Morning|Evening|Night|Shift\s*\d+)\b',text,re.I)
-        return year.group(1)+((' '+suffix.group(1)) if suffix else '')
-    return text or str(year_name or '').strip()
 
 def _seo_hierarchy_canonical_path(path,catalog=None):
     """Canonicalize current and legacy paper URLs to Organization -> Past Paper routes."""
@@ -1946,68 +1877,6 @@ def _seo_jsonld(title,description,canonical,path,catalog=None,links=None):
         if items:
             graph.append({'@type':'ItemList','name':title,'itemListElement':items})
     return json.dumps({'@context':'https://schema.org','@graph':graph},ensure_ascii=False,separators=(',',':')).replace('<','\\u003c')
-
-def _seo_discovery_groups(links,catalog):
-    groups={}
-    seen=set()
-    for label,href in links:
-        if href in seen: continue
-        seen.add(href)
-        record=catalog['entries'].get(href)
-        if record:
-            group='Past papers by organization' if record['paper'] and not record['job'] else 'Past papers by job'
-        elif '/year/' in href: group='Past papers by exam year'
-        elif href.startswith('/paper/'): group='Browse the collection'
-        elif href.startswith(('/category/','/subcategory/','/topic/')): group='Subjects'
-        elif href.startswith('/mcq/'): group='Practice MCQs'
-        elif href.startswith('/post/'): group='Articles'
-        else: group='More on MCQCampus'
-        groups.setdefault(group,[]).append((label,href))
-    return list(groups.items())
-
-def _seo_discovery_sections(path,heading,description,catalog):
-    """Useful crawler-visible copy for search-intent past-paper landing pages."""
-    if path=='/sitemap':
-        return []
-    record=_seo_past_papers_record(path,catalog)
-    if not record:
-        return []
-    if record['jobs']:
-        job_name=record['jobs'][0].name
-        organizations=len({j.paper_id for j in record['jobs']})
-        return [
-            (f'{job_name} past papers by organization',
-             f'Browse {job_name} past papers from {organizations} available testing organizations on MCQCampus. Each organization page keeps its own exam hierarchy so you can move from the job to the relevant paper year without mixing records from another agency.'),
-            (f'Practice {job_name} MCQs with answers',
-             f'Open the organization that matches your target exam, choose an available year, and practise the MCQs linked to that past paper. Review the correct answer and explanation after attempting each question, then use related paper and category links for wider revision.'),
-            ('Find the right exam record',
-             f'This page groups the available {job_name} preparation paths in one place. Use the organization-specific links below when the same job title appears under more than one testing body, because each organization can have different papers, years and linked MCQs.'),
-        ]
-    paper=record['paper']
-    job=record['job']
-    if paper and job:
-        short=_seo_short_name(paper.name)
-        return [
-            (f'{short} {job.name} past papers by year',
-             f'Explore the available {short} {job.name} past papers and open the exam year that matches the record you want to practise. The year links keep the {paper.name} hierarchy attached to the correct job.'),
-            (f'Prepare for {short} {job.name} with MCQs',
-             f'Use each past-paper year as a focused practice set. Attempt the linked MCQs first, then review answers and explanations and follow category links for topics that need more revision.'),
-            (f'More {short} past-paper preparation',
-             f'You can move back to the {short} organization page to browse other jobs, or continue into a specific exam year for question-level practice. These connected pages help keep job-wise and year-wise preparation easy to discover.'),
-        ]
-    if paper:
-        short=_seo_short_name(paper.name)
-        return [
-            (f'{short} past papers by year',
-             f'Browse {paper.name} past papers by year. Choose a Past Paper directly under this Organization / Board to practise the MCQs connected with that exam record.'),
-            (f'Practice {short} past-paper MCQs',
-             f'Each Past Paper links the organization with its multiple-choice questions. Attempt the questions, check the correct answers and explanations, and revisit subject categories where you need more practice.'),
-            (f'Explore more {short} exam preparation',
-             f'Return to this Organization / Board to choose a different Past Paper, or continue into categories, PDFs and other study resources.'),
-        ]
-    return []
-
-
 
 def frontend_page(request,path=''):
     """Serve the SPA shell with route-specific HTML metadata and a real 404 for unknown paths."""
