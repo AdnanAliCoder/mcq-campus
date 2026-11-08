@@ -939,7 +939,7 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         level_number=int(filters.get('level') or 0)
     except (TypeError,ValueError):
         level_number=0
-    level_mode=track in {'regular','important'} and level_number>0
+    level_mode=track in {'regular','important','category'} and level_number>0
     if level_mode:
         # Stable ID order prevents newly added questions from shifting a learner's level.
         qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').order_by('id')
@@ -996,14 +996,20 @@ def mcq_levels_data(user,country=None,category_id=None):
             base=base.filter(category_id=int(category_id))
         except (TypeError,ValueError):
             base=base.none()
-    annotated=_json_array_length(base,'job_year_ids','_year_count')
-    important_q=Q(_year_count__gte=2)|Q(important=True)
-    tracks={
-        'regular':annotated.exclude(important_q).order_by('id'),
-        'important':annotated.filter(important_q).order_by('id'),
-    }
-    ids_by_track={name:list(qs.values_list('id',flat=True)) for name,qs in tracks.items()}
-    all_ids=ids_by_track['regular']+ids_by_track['important']
+    category_scope=category_id not in (None,'')
+    if category_scope:
+        category_ids=list(base.order_by('id').values_list('id',flat=True))
+        ids_by_track={'category':category_ids}
+        all_ids=category_ids
+    else:
+        annotated=_json_array_length(base,'job_year_ids','_year_count')
+        important_q=Q(_year_count__gte=2)|Q(important=True)
+        tracks={
+            'regular':annotated.exclude(important_q).order_by('id'),
+            'important':annotated.filter(important_q).order_by('id'),
+        }
+        ids_by_track={name:list(qs.values_list('id',flat=True)) for name,qs in tracks.items()}
+        all_ids=ids_by_track['regular']+ids_by_track['important']
     latest_by_id={}
     if user and getattr(user,'is_authenticated',False) and all_ids:
         attempts_qs=Attempt.objects.filter(user=user,mcq__status='approved')
@@ -1055,6 +1061,17 @@ def mcq_levels_data(user,country=None,category_id=None):
             'progress':progress_map,'correct':correct_map,'stars':stars_map,
             'next_page':next_page_map,'levels':levels,
             'completed_cards':sum(1 for level in levels if level['completed']),
+        }
+
+    if category_scope:
+        category=make_track('category',ids_by_track['category'])
+        total_mcqs=category['total_mcqs']
+        attempted=sum(category['progress'].values())
+        return {
+            'category':category,
+            'total_mcqs':total_mcqs,'attempted_mcqs':attempted,
+            'overall_progress':round(attempted*100/total_mcqs) if total_mcqs else 0,
+            'authenticated':bool(user and getattr(user,'is_authenticated',False)),
         }
 
     regular=make_track('regular',ids_by_track['regular'])

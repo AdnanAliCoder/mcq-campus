@@ -52,6 +52,19 @@ class IndependentFrontendTests(TestCase):
         runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
         self.assertIn("link('posts','Blog')", runtime)
 
+    def test_category_levels_are_combined_and_questions_use_a_separate_view(self):
+        category_template = self.html.split(
+            'id="mcq-category-levels-template"', 1
+        )[1].split("</template>", 1)[0]
+        self.assertIn('data-api-region="levels-category"', category_template)
+        self.assertNotIn("data-levels-track", category_template)
+        self.assertNotIn("data-levels-panel", category_template)
+
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertIn("track==='category'&&levelNumber>0", runtime)
+        self.assertIn("renderTrack(root,'category',category)", runtime)
+        self.assertIn("category-levels-section", runtime)
+
     def test_entry_document_uses_one_first_party_script_and_stylesheet(self):
         self.assertTrue((self.FRONTEND / "script.js").is_file())
         self.assertTrue((self.FRONTEND / "style.css").is_file())

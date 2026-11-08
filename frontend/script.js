@@ -646,18 +646,22 @@ window.Public=(()=>{
   }
   if(type==='category'){
    const cat=MCQ.get('categories',id);if(!cat)return notFound();
-    const server=activeServerMcqPage(),p=App.route.params,pageSize=10,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=['regular','important'].includes(track)&&levelNumber>0;
-    let rows=levelSelected?(server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>Number(q.category_id)===Number(cat.id)&&(MCQ.isImportant(q)?'important':'regular')===track).sort((a,b)=>Number(a.id)-Number(b.id)).slice((levelNumber-1)*100,levelNumber*100)):[];
-    const total=levelSelected?(server?Number(server.total||0):rows.length):0,page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(p.page)||1);
+   const server=activeServerMcqPage(),p=App.route.params,pageSize=10,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=track==='category'&&levelNumber>0;
+   if(levelSelected){
+    let rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>Number(q.category_id)===Number(cat.id)).sort((a,b)=>Number(a.id)-Number(b.id)).slice((levelNumber-1)*100,levelNumber*100);
+    const total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(p.page)||1);
+    const shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+    const main=`<p class="small muted result-count">Level ${levelNumber} · ${total.toLocaleString('en-GB')} MCQs · 10 per page</p>${shown.length?shown.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty(server?'No MCQs found in this level.':'No MCQs are available in this level yet.','Return to the category level cards and choose another level.',link('category/'+cat.id,'Back to '+e(cat.name)+' levels','btn primary'))}${UI.pager(total,page,pageSize,p,'category/'+cat.id)}`;
+    return PublicLayout.page({trail:[['Categories','categories'],[cat.name,'category/'+cat.id],['Level '+levelNumber]],title:cat.name+' · Level '+levelNumber,desc:'Practise the MCQs in '+cat.name+' level '+levelNumber+'.',pre:'',main,sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
+   }
    const subs=MCQ.db.subcategories.filter(x=>x.active!==false&&+x.category_id===+cat.id).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    const subcategoryPanel=subs.length?`<section class="card seo-related-block"><div class="section-head"><div><p class="eyebrow">EXPLORE TOPICS</p><h2>${e(cat.name)} Subcategories</h2></div></div><div class="chips">${subs.map(x=>link('subcategory/'+x.id,e(x.name),'chip')).join('')}</div></section>`:'';
-   const levelSelector=`<section id="mcq-level-cards" class="section levels-home-section category-levels-section" data-category-id="${Number(cat.id)}" aria-labelledby="mcq-levels-heading"><div class="levels-home-heading"><div><p class="eyebrow">CATEGORY PRACTICE</p><h2 id="mcq-levels-heading">${e(cat.name)} · Practice by Levels</h2><p class="small muted">Har level mein 100 MCQs. Regular aur Important questions alag levels mein arranged hain.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><nav class="levels-tabs" data-levels-tabs aria-label="Category MCQ level type"><button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button><button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button></nav><section class="levels-track active" data-levels-panel="regular"><div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div></section><section class="levels-track" data-levels-panel="important"><div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>`;
+   const levelSelector=`<section id="mcq-level-cards" class="section levels-home-section category-levels-section" data-category-id="${Number(cat.id)}" aria-labelledby="mcq-levels-heading"><div class="levels-home-heading"><div><p class="eyebrow">CATEGORY PRACTICE</p><h2 id="mcq-levels-heading">${e(cat.name)} · Practice by Levels</h2><p class="small muted">All MCQs in this category are grouped together into levels of 100 questions.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><section class="levels-track active"><div class="levels-grid" data-api-region="levels-category"><p class="muted" data-static-loading>Loading category levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>`;
    const pre=subcategoryPanel+levelSelector;
-   const shown=rows.slice((page-1)*pageSize,page*pageSize);
-   const main=levelSelected?`<p class="small muted result-count">Level ${levelNumber} · ${total.toLocaleString('en-GB')} MCQs in ${e(cat.name)} · 10 per page</p>${shown.length?shown.map((q,i)=>questionCard(q,(page-1)*pageSize+i+1)).join(''):empty(server?'No MCQs in this level yet':'Loading level MCQs…','Return to the category level cards and choose another level.',link('category/'+cat.id,'Back to category levels','btn primary'))}${UI.pager(total,page,pageSize,p,'category/'+cat.id)}`:`<section class="card category-level-prompt"><p class="small muted">Choose a Regular or Important level above to practise this category in groups of 100 MCQs.</p></section>`;
-   const copy=pageCopy('category',cat.id,cat.name+' MCQs','Practice '+cat.name+' MCQs in 100-question levels, separated into Regular and Important questions.');
-   return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre,main,sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
+   const copy=pageCopy('category',cat.id,cat.name+' MCQs','Practice all approved '+cat.name+' MCQs in combined 100-question levels.');
+   return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre,main:'',sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
   }
+
   const map={categories:['categories','All categories','Choose a category to open its MCQ collection.'],papers:['papers','Organizations / Boards','Browse organizations and boards, then choose a Past Paper.'],paper:['years','Past Papers','Select a past paper to practise its linked MCQs.']};
   const conf=map[type];if(!conf)return notFound();let [collection,title,desc]=conf;
   let rows=MCQ.db[collection].filter(x=>x.active!==false&&(collection!=='categories'||!x.legacy)),trail=[],name=title,parent;
@@ -3240,13 +3244,13 @@ mountDataDrivenPage(base,id){
   if(!record)return false;
   const category=isCategory?record:MCQ.get('categories',record.category_id);
   const params=App.route.params||{},track=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0);
-  const levelSelected=isCategory&&['regular','important'].includes(track)&&levelNumber>0;
+  const levelSelected=isCategory&&track==='category'&&levelNumber>0;
   const server=publicMcqServerPage(),all=MCQ.publicMcqs();
   let rows=server?all:all.filter(item=>isCategory?Number(item.category_id)===Number(id):MCQ.ids(item.subcategory_ids).includes(Number(id)));
   if(isCategory){
    if(levelSelected&&!server){
-    rows=rows.filter(item=>(MCQ.isImportant(item)?'important':'regular')===track).sort((a,b)=>Number(a.id)-Number(b.id));
-    const levelStart=(levelNumber-1)*100;rows=rows.slice(levelStart,levelStart+100);
+    rows=rows.sort((a,b)=>Number(a.id)-Number(b.id));
+    rows=rows.slice((levelNumber-1)*100,levelNumber*100);
    }else if(!levelSelected)rows=[];
   }
   const pageSize=10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
@@ -3254,10 +3258,28 @@ mountDataDrivenPage(base,id){
   const fallbackDescription=isCategory?'Practice '+record.name+' MCQs with correct answers and explanations, and explore related subcategories.':'Practice approved '+record.name+' MCQs with answers and explanations.';
   const pageCopy=isCategory?entityCopy('category',record.id,fallbackTitle,fallbackDescription):{title:fallbackTitle,description:fallbackDescription};
   const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=pageCopy.title;
-  if(description)description.textContent=pageCopy.description;
-  setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(isCategory?[[record.name]]:[...(category?[[category.name,'category/'+category.id]]:[]),[record.name]])]));
-  if(isCategory){
+  if(heading)heading.textContent=levelSelected?record.name+' · Level '+levelNumber:pageCopy.title;
+  if(description)description.textContent=levelSelected?'Practise the MCQs in this 100-question category level.':pageCopy.description;
+  if(isCategory&&levelSelected){
+   setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],[record.name,'category/'+record.id],['Level '+levelNumber]]));
+   for(const name of ['category-context','category-level-cards']){
+    const hiddenRegion=region(name);
+    if(hiddenRegion){hiddenRegion.replaceChildren();hiddenRegion.hidden=true;}
+   }
+   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+   const list=region('mcq-list');
+   if(list){
+    list.classList.add('public-main','public-main-full');
+    if(shown.length){
+     const cards=document.createDocumentFragment();
+     shown.forEach(item=>cards.append(questionCardFragment(item,false)));
+     list.replaceChildren(cards);
+    }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found in this level.':'No MCQs are available in this level yet.','Return to the category page and choose another level.',UI.link('category/'+id,'Back to category levels','btn primary'))));
+    list.hidden=false;
+   }
+   setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,'category/'+id));
+  }else if(isCategory){
+   setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],[record.name]]));
    const subs=(data.subcategories||[]).filter(item=>item.active!==false&&Number(item.category_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    setCategoryContext('EXPLORE TOPICS',record.name+' Subcategories',subs.map(item=>({path:'subcategory/'+item.id,label:String(item.name||'')})));
    const levelRegion=region('category-level-cards'),levelTemplate=document.getElementById('mcq-category-levels-template');
@@ -3266,26 +3288,12 @@ mountDataDrivenPage(base,id){
     if(levelRoot)levelRoot.dataset.categoryId=String(record.id);
     levelRegion.replaceChildren(levelFragment);levelRegion.hidden=false;
    }
-   if(levelSelected){
-    setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
-    const list=region('mcq-list');
-    if(list){
-     list.classList.add('public-main','public-main-full');
-     if(shown.length){
-      const cards=document.createDocumentFragment();
-      shown.forEach(item=>cards.append(questionCardFragment(item,false)));
-      list.replaceChildren(cards);
-     }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this level.':'No MCQs are available in this level yet.','Choose another level or return to the category level cards.',UI.link('category/'+id,'Back to category levels','btn primary'))));
-     list.hidden=false;
-    }
-    setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,'category/'+id));
-   }else{
-    for(const name of ['mcq-summary','mcq-list','mcq-pagination']){
-     const hiddenRegion=region(name);
-     if(hiddenRegion){hiddenRegion.replaceChildren();hiddenRegion.hidden=true;}
-    }
+   for(const name of ['mcq-summary','mcq-list','mcq-pagination']){
+    const hiddenRegion=region(name);
+    if(hiddenRegion){hiddenRegion.replaceChildren();hiddenRegion.hidden=true;}
    }
   }else{
+   setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(category?[[category.name,'category/'+category.id]]:[]),[record.name]]));
    const children=(data.children||[]).filter(item=>item.active!==false&&Number(item.subcategory_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>({path:'topic/'+item.id,label:String(item.name||'')})));
    setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
@@ -4717,7 +4725,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     const levels=Array.isArray(data?.levels)?data.levels:[];
     if(!levels.length){
       const empty=document.createElement('p');empty.className='muted';
-      empty.textContent='No approved '+(name==='important'?'Important':'Regular')+' MCQs available yet.';
+      empty.textContent=name==='category'?'No approved MCQs available in this category yet.':'No approved '+(name==='important'?'Important':'Regular')+' MCQs available yet.';
       region.appendChild(empty);return;
     }
     const fragment=document.createDocumentFragment();
@@ -4772,7 +4780,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     const correct=Math.min(progress,number(card.dataset.levelCorrect)),stars=number(card.dataset.levelStars);
     const completed=card.classList.contains('is-done');
     pendingLevel={
-      track:card.dataset.levelTrack==='important'?'important':'regular',
+      track:root.dataset.categoryId?'category':(card.dataset.levelTrack==='important'?'important':'regular'),
       level,page:Number(card.dataset.levelPage)||1,categoryId:String(root.dataset.categoryId||'').trim()
     };
     const title=dialog.querySelector('#mcq-level-dialog-title'),copy=dialog.querySelector('[data-level-dialog-copy]');
@@ -4797,9 +4805,10 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     });
   }
   function updateSummary(root,data){
-    const regular=data.regular||{total_cards:0},important=data.important||{total_cards:0};
-    const totalCards=number(regular.total_cards)+number(important.total_cards);
-    const completed=number(regular.completed_cards)+number(important.completed_cards);
+    const categoryMode=!!root.dataset.categoryId,category=data.category||{total_cards:0,completed_cards:0};
+    const regular=data.regular||{total_cards:0,completed_cards:0},important=data.important||{total_cards:0,completed_cards:0};
+    const totalCards=categoryMode?number(category.total_cards):number(regular.total_cards)+number(important.total_cards);
+    const completed=categoryMode?number(category.completed_cards):number(regular.completed_cards)+number(important.completed_cards);
     const total=number(data.total_mcqs),attempted=number(data.attempted_mcqs),percent=number(data.overall_progress);
     const totalLabel=root.querySelector('[data-levels-total]'),textLabel=root.querySelector('[data-levels-overall-text]');
     const bar=root.querySelector('[data-levels-overall-bar]');
@@ -4818,8 +4827,12 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       if(!response.ok)throw new Error('Could not load saved level progress.');
       const data=await response.json();if(!root.isConnected)return;
       updateSummary(root,data);
-      renderTrack(root,'regular',data.regular||{levels:[]});
-      renderTrack(root,'important',data.important||{levels:[]});
+      if(categoryId){
+        renderTrack(root,'category',data.category||{levels:[]});
+      }else{
+        renderTrack(root,'regular',data.regular||{levels:[]});
+        renderTrack(root,'important',data.important||{levels:[]});
+      }
     }catch(error){
       // The static level cards remain usable if progress is temporarily unavailable.
       console.warn('Saved MCQ level progress is temporarily unavailable:',error);
@@ -4836,22 +4849,22 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     }
     root.dataset.initialized='1';
     const categoryId=String(root.dataset.categoryId||'').trim();
+    const isCategory=!!categoryId;
     const site=window.MCQ?.db?.siteCounts||{};
-    const categoryTracks=(site.categoryMcqTracks||{})[categoryId]||{};
-    const regularCount=categoryId?number(categoryTracks.regular):number(site.regularMcqs);
-    const importantCount=categoryId?number(categoryTracks.important):number(site.importantMcqs);
-    const regular=staticTrack(regularCount),important=staticTrack(importantCount);
-    updateSummary(root,{
-      regular,important,total_mcqs:regularCount+importantCount,
-      attempted_mcqs:0,overall_progress:0
-    });
-    renderTrack(root,'regular',regular);renderTrack(root,'important',important);
+    if(isCategory){
+      const total=number((site.categoryMcqs||{})[categoryId]);
+      const category=staticTrack(total);
+      updateSummary(root,{category,total_mcqs:total,attempted_mcqs:0,overall_progress:0});
+      renderTrack(root,'category',category);
+    }else{
+      const regular=staticTrack(number(site.regularMcqs)),important=staticTrack(number(site.importantMcqs));
+      updateSummary(root,{regular,important,total_mcqs:number(site.regularMcqs)+number(site.importantMcqs),attempted_mcqs:0,overall_progress:0});
+      renderTrack(root,'regular',regular);renderTrack(root,'important',important);
+    }
     const note=root.querySelector('[data-levels-login-note]');
     if(note)note.hidden=!!MCQ.db.session;
     bindCards(root);
-    activateTab(root,focus==='important'?'important':'regular',focus==='important'||focus==='regular');
-    // Card structure and counts are already visible from the cached bootstrap.
-    // Only signed-in learners request their saved progress, without blocking card rendering.
+    if(!isCategory)activateTab(root,focus==='important'?'important':'regular',focus==='important'||focus==='regular');
     if(MCQ.db.session)requestAnimationFrame(()=>hydrateProgress(root,categoryId));
   }
   window.MCQLevels={init};

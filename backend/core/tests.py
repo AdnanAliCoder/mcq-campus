@@ -993,7 +993,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(all(row.get('userAttempt') for row in page['items'][:5]))
         self.assertTrue(all(not row.get('userAttempt') for row in page['items'][5:]))
 
-    def test_mcq_levels_are_scoped_to_the_requested_category(self):
+    def test_category_levels_combine_all_mcqs_and_level_pages_are_scoped(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
         other_category=Category.objects.create(id=101,name='Medicine',icon='grid')
         self.approved.important=True
@@ -1004,7 +1004,7 @@ class IntegrationTests(TestCase):
             category=self.category,country='Pakistan',status='approved',
         ) for i in range(205)]
         important=[MCQ(
-            id=9000+i,question=f'Computing important level question {i}?',
+            id=9000+i,question=f'Computing important category question {i}?',
             option1='A',option2='B',option3='C',option4='D',correct_answer='A',
             category=self.category,country='Pakistan',status='approved',important=True,
         ) for i in range(15)]
@@ -1018,21 +1018,25 @@ class IntegrationTests(TestCase):
         summary=self.client.get('/api/mcq-levels',{'category':self.category.id})
         self.assertEqual(summary.status_code,200)
         data=summary.json()
-        self.assertEqual(data['regular']['total_mcqs'],205)
-        self.assertEqual([level['total'] for level in data['regular']['levels']],[100,100,5])
-        self.assertEqual(data['important']['total_mcqs'],16)
-        self.assertEqual([level['total'] for level in data['important']['levels']],[16])
+        self.assertNotIn('regular',data)
+        self.assertNotIn('important',data)
+        self.assertEqual(data['category']['total_mcqs'],221)
+        self.assertEqual([level['total'] for level in data['category']['levels']],[100,100,21])
         self.assertEqual(data['total_mcqs'],221)
 
         first_level=self.client.get('/api/mcqs',{
-            'public':'1','category':self.category.id,'track':'regular',
+            'public':'1','category':self.category.id,'track':'category',
             'level':'1','page':'1','page_size':'10',
         })
         self.assertEqual(first_level.status_code,200)
         page=first_level.json()
         self.assertEqual(page['total'],100)
         self.assertEqual(len(page['items']),10)
+        expected_ids=sorted(MCQ.objects.filter(category=self.category,status='approved').values_list('id',flat=True))[:10]
+        self.assertEqual([row['id'] for row in page['items']],expected_ids)
         self.assertTrue(all(row['category_id']==self.category.id for row in page['items']))
+        self.assertTrue(any(row['important'] for row in page['items']))
+        self.assertTrue(any(not row['important'] for row in page['items']))
 
     def test_mcq_level_stars_follow_the_requested_score_bands(self):
         self.post_json('/api/auth/login',{'email':'learner@example.com','password':'LearnerPass123'})
