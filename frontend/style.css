@@ -3838,3 +3838,11 @@ body.admin-sidebar-open{overflow:hidden}
 .home-cat-title>a>.icon:last-child{color:var(--mcq-level-muted)!important}
 
 /* Category-level cards use this same renderer and therefore inherit the full style above */
+
+
+/* Locked level cards are visually disabled and cannot receive pointer clicks. */
+.levels-home-section .level-card.is-locked{
+  pointer-events:none;
+  cursor:not-allowed;
+}
+.levels-home-section .level-card.is-locked:focus{outline:none}
