@@ -334,7 +334,7 @@ def save_page_seo_entry(user,kind,key,title='',description='',settings=None):
 
 # Permanent global SEO indexes live in the existing SiteSetting JSON blob so the
 # production database needs no schema migration. Assigned numbers are never reused.
-SEO_INDEX_ORDER=('mcq','paper','job','year','pdf','category','latest-job','post')
+SEO_INDEX_ORDER=('paper','job','year','pdf','category','latest-job','post')
 
 def next_catalog_id(rows,kind,settings=None):
     current=max([int(x.get('id',0)) for x in (rows or []) if isinstance(x,dict)]+[0])
@@ -357,7 +357,7 @@ def seo_catalog_key(row):
 
 def _seo_visible_keys(settings):
     keys=[]
-    keys.extend(('mcq',str(x)) for x in MCQ.objects.filter(status='approved').order_by('id').values_list('id',flat=True))
+    # Individual MCQs are practice content, not separately indexable SEO pages.
     keys.extend(('paper',str(x)) for x in Paper.objects.filter(active=True).order_by('id').values_list('id',flat=True))
     keys.extend(('year',str(x)) for x in JobYear.objects.filter(active=True).filter(Q(paper__active=True)|Q(paper__isnull=True,job__active=True,job__paper__active=True)).order_by('id').values_list('id',flat=True))
     site=_site_blob(settings)
@@ -401,7 +401,7 @@ def seo_index_snapshot():
     # Keep retired Job IDs reserved internally to prevent token reuse, but do
     # not publish them as indexable content after removing the Job taxonomy.
     visible={key:value for key,value in (registry.get('items') or {}).items()
-             if not str(key).startswith('job:')}
+             if not str(key).startswith(('job:','mcq:'))}
     return {'next':int(registry.get('next') or 1),'items':visible}
 
 def seo_index_number(kind,key):
@@ -683,7 +683,7 @@ def _public_resources_data_uncached(user=None,country=None):
     registry=seo_index_snapshot()
     data['seoIndex']=registry if is_admin(user) else {
         'next':registry['next'],
-        'items':{k:v for k,v in registry['items'].items() if not k.startswith('mcq:')},
+        'items':{k:v for k,v in registry['items'].items() if not k.startswith(('mcq:','job:'))},
     }
     return data
 
