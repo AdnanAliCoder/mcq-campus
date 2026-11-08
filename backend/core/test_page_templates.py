@@ -44,6 +44,14 @@ class IndependentFrontendTests(TestCase):
         self.assertIn("{{ seo_title|default:", self.html)
         self.assertIn("{% if seo_canonical %}", self.html)
 
+    def test_header_navigation_links_blog_and_hides_tests_tab(self):
+        header = self.html.split('id="mcq-header-template"', 1)[1].split("</template>", 1)[0]
+        self.assertIn('<a href="/blog" data-nav-section="blog">Blog</a>', header)
+        self.assertNotIn('href="/tests"', header)
+
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertIn("link('posts','Blog')", runtime)
+
     def test_entry_document_uses_one_first_party_script_and_stylesheet(self):
         self.assertTrue((self.FRONTEND / "script.js").is_file())
         self.assertTrue((self.FRONTEND / "style.css").is_file())
