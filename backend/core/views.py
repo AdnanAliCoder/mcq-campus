@@ -1356,7 +1356,7 @@ def _seo_known_spa_path(path,catalog=None):
     static={
         '/','/categories',
         '/papers','/past-papers','/jobs','/jobs-exams','/pdfs','/past-papers/pdfs',
-        '/latest-jobs','/posts','/blog','/tests','/test/auto','/about','/contact','/faq',
+        '/latest-jobs','/posts','/blog','/about','/contact','/faq',
         '/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap','/search',
         '/login','/register','/forgot','/reset','/reset-code','/reset-password','/verify',
         '/dashboard','/admin','/super-admin'
@@ -1842,6 +1842,13 @@ def frontend_page(request,path=''):
     if normalized=='/':
         normalized='/'
 
+    # Retire the separate public test pages and send old links to Categories.
+    if normalized in {'/tests','/test'} or normalized.startswith(('/tests/','/test/')):
+        response=HttpResponse(status=301)
+        response['Location']='/categories'
+        response['Cache-Control']='public, max-age=86400'
+        return response
+
     # Remove legacy individual-question URLs from public navigation and search indexing.
     parts=normalized.strip('/').split('/')
     is_indexed_mcq_path=(len(parts)>=3 and parts[0]=='mcqs' and parts[1].isdigit())
@@ -1937,7 +1944,7 @@ def frontend_page(request,path=''):
     noindex_paths={
         '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies','/advertising',
         '/sitemap','/search','/login','/register','/forgot','/reset',
-        '/reset-code','/reset-password','/verify','/test/auto','/mcqs','/important','/mcqs/importent-mcqs'
+        '/reset-code','/reset-password','/verify','/mcqs','/important','/mcqs/importent-mcqs'
     }
     noindex=(not known) or private or normalized in noindex_paths
     robots='noindex,nofollow' if noindex else 'index,follow'
