@@ -769,7 +769,6 @@ window.Public=(()=>{
   const total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   if(isLevel&&server){shown.forEach(q=>{if(q.userAttempt){App.answers[q.id]=true;App.choices[q.id]=q.userAttempt.answer;}});}
   let pre='';
-  if(isLevel){pre='<section class="card level-practice-header"><div><p class="eyebrow">'+(p.track==='important'?'IMPORTANT MCQS':'REGULAR MCQS')+' · LEVEL '+Number(p.level)+'</p><h2>Continue your level</h2><p class="small muted">Progress is saved automatically. Return to the Level Cards when you are ready for your next level.</p></div><a class="btn ghost" href="'+(p.track==='important'?'/mcqs/importent-mcqs':'/mcqs')+'">Back to Level Cards</a></section>';}
   const label=isLevel?(p.track==='important'?'important level MCQs':'regular level MCQs'):view==='important'?'important MCQs':view==='repeated'?'repeated MCQs':'MCQs';
   const main=`${listHeader}${UI.adSlot('mcq_top_ad')}<p class="small muted mcq-count">${total.toLocaleString('en-GB')} total ${label} · only 10 load per page</p>${shown.length?shown.map((q,i)=>`${questionCard(q,(page-1)*pageSize+i+1,false,type==='year'?+id:null)}${i===4?UI.adSlot('mcq_inline_ad'):''}`).join(''):empty(server?(view==='repeated'?'No repeated MCQs found':'No MCQs found for this selection.'):'Loading MCQs…','Choose another option or browse all MCQs.',link('mcqs','Browse All MCQs','btn primary'))}${UI.adSlot('mcq_bottom_ad')}${UI.pager(total,page,pageSize,p,App.route.path)}`;
   let sidebarKind='mcqs',ctx={};if(type==='year'){sidebarKind='papers';ctx={parent:record,type}};
@@ -799,7 +798,6 @@ window.Public=(()=>{
   const mistakes=[];for(const a of attempts){if(a.correct||mistakes.some(x=>x.id===+a.id))continue;const q=MCQ.get('mcqs',a.id);if(q)mistakes.push(q)}
   const categoryStats=d.categories.map(cat=>{const rows=attempts.filter(a=>MCQ.get('mcqs',a.id)?.category_id===cat.id),ok=rows.filter(a=>a.correct).length;return {cat,total:rows.length,correct:ok,wrong:rows.length-ok,accuracy:rows.length?Math.round(ok/rows.length*100):0}}).filter(x=>x.total);
   const weak=categoryStats.filter(x=>x.total>=3).sort((a,b)=>a.accuracy-b.accuracy||b.total-a.total).slice(0,4);
-  const recentAttempt=attempts[0],recentQ=recentAttempt&&MCQ.get('mcqs',recentAttempt.id);
   const avatar=s?.avatar?`<img class="profile-photo" src="${e(s.avatar)}" alt="">`:`<span class="avatar">${e((s?.name||'Learner').split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`;
   const nav=[
    ['overview','Dashboard','grid'],['practice','Practice MCQs','book'],['important','Important MCQs','flag'],['mistakes','My Mistakes','flag'],['saved','Bookmarks / Saved MCQs','bookmark'],['papers','Past Papers','paper'],
@@ -818,7 +816,7 @@ window.Public=(()=>{
   let body='';
   if(view==='overview'){
    const recentActivities=attempts.slice(0,5).map(a=>{const q=MCQ.get('mcqs',a.id),cat=MCQ.get('categories',q?.category_id);return `<div class="learner-activity-row"><span class="status-dot ${a.correct?'ok':'bad'}"></span><div><strong>${e(q?.question||'MCQ attempt')}</strong><span>${e(cat?.name||'Practice')} · ${a.correct?'Correct':'Incorrect'} · ${UI.date(a.at)}</span></div></div>`}).join('');
-   body=`${summary}<section class="card learner-continue"><div><p class="eyebrow">CONTINUE PREPARATION</p><h2>${recentQ?e(recentQ.question):'Start your first preparation session.'}</h2><p class="small muted">${recentQ?'Return to your most recently attempted question and keep practising.':'Choose any category or past paper to begin tracking your progress.'}</p></div>${recentQ?link('practice/'+recentQ.id,'Continue Preparation '+icon('arrow'),'btn primary'):link('mcqs','Start practising '+icon('arrow'),'btn primary')}</section>${quick}<div class="learner-home-grid"><section class="card"><div class="section-head"><div><p class="eyebrow">WEEKLY / OVERALL PROGRESS</p><h2>Category progress</h2></div>${link('dashboard/performance','Full performance','link')}</div>${categoryStats.slice(0,6).map(x=>`<div class="bar-row"><div class="row"><span>${e(x.cat.name)}</span><span>${x.correct} / ${x.total} · ${x.accuracy}%</span></div><div class="progress-track"><span style="width:${x.accuracy}%"></span></div></div>`).join('')||empty('No activity yet','Your subject progress appears after you answer MCQs.')}</section><section class="card"><div class="section-head"><div><p class="eyebrow">WEAK AREAS</p><h2>Needs more practice</h2></div></div>${weak.length?weak.map(x=>`<div class="weak-row"><span>${e(x.cat.name)}</span><strong>${x.accuracy}%</strong></div>`).join('')+link('dashboard/mistakes','Practice weak areas','btn sm'):empty('No weak areas yet','Answer at least 3 questions in a category before it is evaluated.')}</section><section class="card"><div class="section-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h2>Latest practice</h2></div>${link('dashboard/history','View history','link')}</div>${recentActivities||empty('No recent activity','Your preparation history will appear here.')}</section></div>`;
+   body=`${summary}${quick}<div class="learner-home-grid"><section class="card"><div class="section-head"><div><p class="eyebrow">WEEKLY / OVERALL PROGRESS</p><h2>Category progress</h2></div>${link('dashboard/performance','Full performance','link')}</div>${categoryStats.slice(0,6).map(x=>`<div class="bar-row"><div class="row"><span>${e(x.cat.name)}</span><span>${x.correct} / ${x.total} · ${x.accuracy}%</span></div><div class="progress-track"><span style="width:${x.accuracy}%"></span></div></div>`).join('')||empty('No activity yet','Your subject progress appears after you answer MCQs.')}</section><section class="card"><div class="section-head"><div><p class="eyebrow">WEAK AREAS</p><h2>Needs more practice</h2></div></div>${weak.length?weak.map(x=>`<div class="weak-row"><span>${e(x.cat.name)}</span><strong>${x.accuracy}%</strong></div>`).join('')+link('dashboard/mistakes','Practice weak areas','btn sm'):empty('No weak areas yet','Answer at least 3 questions in a category before it is evaluated.')}</section><section class="card"><div class="section-head"><div><p class="eyebrow">RECENT ACTIVITY</p><h2>Latest practice</h2></div>${link('dashboard/history','View history','link')}</div>${recentActivities||empty('No recent activity','Your preparation history will appear here.')}</section></div>`;
   }
   if(view==='practice'){
    const unattempted=publicMcqs.filter(q=>!attemptedSet.has(q.id)).slice(0,20);
@@ -2855,7 +2853,6 @@ mountDataDrivenPage(base,id){
    return {category,total,correct:ok,wrong:total-ok,accuracy:total?Math.round(ok/total*100):0};
   }).filter(item=>item.total);
   const weak=categoryStats.filter(item=>item.total>=3).sort((a,b)=>a.accuracy-b.accuracy||b.total-a.total).slice(0,4);
-  const recentAttempt=attempts[0],recentQuestion=recentAttempt&&MCQ.get('mcqs',recentAttempt.id);
   const side=this.staticTemplateFragment('mcq-learner-side-template',{});
   const nav=side?.querySelector('[data-dashboard-nav]');
   const navItems=[
@@ -2898,15 +2895,6 @@ mountDataDrivenPage(base,id){
     if(content)anchor.append(content);
     metrics.append(anchor);
    });
-  }
-  const continueTitle=body.querySelector('[data-dashboard-continue-title]');
-  const continueDescription=body.querySelector('[data-dashboard-continue-description]');
-  const continueAction=body.querySelector('[data-dashboard-continue-action]');
-  if(continueTitle)continueTitle.textContent=recentQuestion?String(recentQuestion.question||''):'Start your first preparation session.';
-  if(continueDescription)continueDescription.textContent=recentQuestion?'Return to your most recently attempted question and keep practising.':'Choose any category or past paper to begin tracking your progress.';
-  if(continueAction){
-   const action=makeInternalLink(recentQuestion?'practice/'+recentQuestion.id:'mcqs',recentQuestion?'Continue Preparation':'Start practising','btn primary');
-   action.append(this.staticMarkupFragment(UI.icon('arrow')));continueAction.append(action);
   }
   const quick=body.querySelector('[data-dashboard-quick-actions]');
   if(quick){
