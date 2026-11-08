@@ -207,8 +207,6 @@
 .learner-metrics .metric{padding:13px}
 .learner-metrics .metric span{display:block;color:var(--muted);font-size:.68rem;margin-bottom:5px}
 .learner-metrics .metric strong{font-size:1.35rem}
-.learner-continue{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px}
-.learner-continue h2{margin:3px 0 6px;font-size:1.15rem;max-width:760px}
 .learner-quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .learner-home-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:14px}
 .learner-home-grid>.card{min-width:0}
@@ -236,8 +234,7 @@
  .learner-side{display:none;position:static;margin-bottom:12px}
  .learner-side.open{display:block}
  .learner-home-grid{grid-template-columns:1fr}
- .learner-continue{align-items:flex-start;flex-direction:column}
-}
+ }
 @media(max-width:600px){
  .learner-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
  .learner-metrics .metric{padding:11px}
@@ -3450,16 +3447,11 @@ body.admin-sidebar-open{overflow:hidden}
 .level-card .level-star.half{background:linear-gradient(90deg,#e8a317 50%,rgba(130,140,155,.38) 50%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .level-card.is-locked .level-stars{opacity:.5}
 .level-login-note{margin-top:12px}
-.level-practice-header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:16px}
-.level-practice-header h2{margin:2px 0 5px}
-.level-practice-header p{margin-bottom:0}
-.level-practice-header .btn{flex:0 0 auto}
 @media(max-width:680px){
   .levels-home-heading{display:grid;gap:14px;align-items:stretch}
   .levels-overview-card{width:100%;max-width:none}
   .levels-home-section .levels-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px}
-  .level-practice-header{align-items:flex-start;flex-direction:column}
-}
+  }
 
 
 /* Home category sidebar beside the main level cards */
