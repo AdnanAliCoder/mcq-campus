@@ -838,7 +838,8 @@ window.Public=(()=>{
    body=`${heading('My Downloads','Resources your account is authorized to download.')}${rows.length?`<div class="grid pdf-grid">${rows.map(x=>`<div class="card"><h3>${e(x.title||x.name)}</h3><p class="small muted">Authorized resource</p></div>`).join('')}</div>`:empty('No downloads available yet.','Purchased or assigned PDFs will appear here when the backend grants access.')}`;
   }
   if(view==='settings')body=profileForm();
-  return UI.layout(UI.templateMarkup('mcq-learner-dashboard-template',{LEARNER_AVATAR:avatar,LEARNER_NAME:e(s?.name||'learner'),LEARNER_BODY:body})||('<div class="container page learner-dashboard-shell"><div class="learner-shell"><main class="learner-content"><div class="profile-band compact-profile-band">'+avatar+'<div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Welcome back, '+e(s?.name||'learner')+'</h2><span class="small muted">Practice, review mistakes, explore past papers, and track progress.</span></div></div>'+body+'</main></div></div>'));
+  const dashboardMarkup=UI.templateMarkup('mcq-learner-dashboard-template',{LEARNER_AVATAR:avatar,LEARNER_NAME:e(s?.name||'learner'),LEARNER_BODY:body})||('<div class="container page learner-dashboard-shell"><div class="learner-shell"><main class="learner-content"><div class="profile-band compact-profile-band">'+avatar+'<div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Welcome back, '+e(s?.name||'learner')+'</h2><span class="small muted">Practice, review mistakes, explore past papers, and track progress.</span></div></div>'+body+'</main></div></div>');
+  return UI.layout(view==='notifications'?dashboardMarkup.replace('<div class="profile-band compact-profile-band">','<div class="profile-band compact-profile-band" hidden>'):dashboardMarkup);
  }
  function profileForm(){
   const s=MCQ.db.session;if(!s)return `<div class="card">${heading('Profile','Sign in to manage your profile.')} ${link('login','Log in','btn primary')}</div>`;
@@ -3071,6 +3072,7 @@ mountDataDrivenPage(base,id){
   });
   const layoutRoot=layout?.querySelector('.learner-dashboard-shell');
   if(!layout||!layoutRoot)return false;
+  if(view==='notifications')layout.querySelector('.profile-band.compact-profile-band')?.remove();
   layoutRoot.classList.remove('container','page');
   const destination=region('learner-dashboard');
   if(!destination)return false;
