@@ -4141,50 +4141,6 @@ App.quickTimer=McqCarousel.create({advance(){
 
  document.documentElement.dataset.theme='light';try{localStorage.removeItem('mcq-campus-theme')}catch{}const themeMeta=document.querySelector('meta[name="theme-color"]');if(themeMeta)themeMeta.content='#f6f8f7';
 
-/* Homepage level cards: progress and stars are calculated by the Django API. */
-window.MCQLevels = (() => {
- const n=v=>Number.isFinite(Number(v))?Number(v):0,fmt=v=>n(v).toLocaleString('en-GB');
- const stars=score=>[1,2,3].map(i=>'<span class="level-star '+(score>=i?'full':score>=i-.5?'half':'empty')+'" aria-hidden="true">★</span>').join('');
- function activate(root,track){
-  root.querySelectorAll('[data-levels-track]').forEach(x=>{const on=x.dataset.levelsTrack===track;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on))});
-  root.querySelectorAll('[data-levels-panel]').forEach(x=>{const on=x.dataset.levelsPanel===track;x.classList.toggle('active',on);x.hidden=!on});
- }
- function renderTrack(root,track,data){
-  const target=root.querySelector('[data-api-region="levels-'+track+'"]');if(!target)return;
-  const levels=Array.isArray(data?.levels)?data.levels:[];target.replaceChildren();
-  if(!levels.length){const p=document.createElement('p');p.className='muted';p.textContent='No '+(track==='important'?'Important':'Regular')+' MCQs are available yet.';target.append(p);return}
-  levels.forEach(level=>{
-   const done=!!level.completed,open=!!level.unlocked,progress=n(level.progress),total=n(level.total),pct=total?Math.min(100,progress*100/total):0;
-   const card=document.createElement(open?'a':'button');card.className='level-card '+(done?'is-done':!open?'is-locked':progress?'is-current':'is-open');
-   if(open){card.href='/mcqs?track='+track+'&level='+n(level.level)+'&page='+Math.max(1,n(level.next_page)||1);card.setAttribute('aria-label',track+' level '+level.level+', '+progress+' of '+total+' answered')}
-   else{card.type='button';card.disabled=true;card.setAttribute('aria-label','Level '+level.level+' locked. Complete the previous level first.')}
-   const badge=document.createElement('span');badge.className='level-badge';badge.textContent=done?'✓':open?(progress?'▶':'↗'):'🔒';
-   const num=document.createElement('span');num.className='level-num';num.textContent=String(level.level);
-   const label=document.createElement('span');label.className='level-label';label.textContent='Level '+level.level;
-   const star=document.createElement('span');star.className='level-stars';star.setAttribute('aria-label',done?n(level.stars)+' out of 3 stars':'Stars awarded when level is complete');star.innerHTML=stars(done?n(level.stars):0);
-   const bar=document.createElement('span');bar.className='level-bar';const fill=document.createElement('i');fill.style.width=pct+'%';bar.append(fill);
-   const meta=document.createElement('span');meta.className='level-meta';meta.textContent=done?fmt(level.correct)+' / '+fmt(total)+' correct':open?fmt(progress)+' / '+fmt(total)+' answered':'Locked';
-   card.append(badge,num,label,star,bar,meta);target.append(card);
-  });
- }
- function init(){
-  const root=document.getElementById('mcq-level-cards');if(!root)return;
-  const data=window.MCQ?.db?.mcqLevels,regular=data?.regular||{},important=data?.important||{},params=new URLSearchParams(location.search);
-  const total=n(data?.total_mcqs),attempted=n(data?.attempted_mcqs),pct=n(data?.overall_progress);
-  const put=(selector,value)=>{const el=root.querySelector(selector);if(el)el.textContent=value};
-  put('[data-levels-total]',fmt(regular.total_cards)+' Regular levels · '+fmt(important.total_cards)+' Important levels');
-  put('[data-levels-overall-text]',fmt(attempted)+' / '+fmt(total)+' MCQs answered · '+pct+'% complete');
-  const bar=root.querySelector('[data-levels-overall-bar]');if(bar)bar.style.width=Math.min(100,pct)+'%';
-  put('[data-levels-count-regular]',fmt(regular.total_cards));put('[data-levels-count-important]',fmt(important.total_cards));
-  renderTrack(root,'regular',regular);renderTrack(root,'important',important);
-  root.querySelectorAll('[data-levels-track]').forEach(tab=>{if(tab.dataset.levelsBound==='1')return;tab.dataset.levelsBound='1';tab.addEventListener('click',()=>activate(root,tab.dataset.levelsTrack))});
-  activate(root,params.get('focus')==='important'?'important':root.querySelector('[data-levels-track].active')?.dataset.levelsTrack||'regular');
-  const note=root.querySelector('[data-levels-login-note]');if(note)note.hidden=!!data?.authenticated;
-  if(params.get('focus')==='important'&&!root.dataset.focusScrolled){root.dataset.focusScrolled='1';requestAnimationFrame(()=>root.scrollIntoView({behavior:'smooth',block:'start'}))}
- }
- return {init,activate};
-})();
-
  Auth.start();
  // Optional agent navigation mirrors the visible search form; unsupported browsers skip it.
  if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'search_mcq_campus',title:'Search MCQ Campus',description:'Navigate to MCQ search results for a query. Does not answer questions or change records.',inputSchema:{type:'object',properties:{query:{type:'string'}},required:['query'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute(input){if(!input||typeof input.query!=='string'||!input.query.trim())throw Error('A non-empty query is required.');App.go('search',{q:input.query});App.render();return {query:input.query,matches:MCQ.publicMcqs().filter(q=>MCQ.norm(q.question).includes(MCQ.norm(input.query))).length}}})).catch(()=>{})}catch{}}
@@ -4671,30 +4627,42 @@ window.MCQCampusPageScriptsLoaded=window.MCQCampusPageScriptsLoaded||new Set();
 for(const name of ["about","admin","blog","categories","contact","dashboard","home","latest-jobs","login","mcqs","past-papers","pdfs","register","super-admin","tests"])window.MCQCampusPageScriptsLoaded.add(name);
 window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPageHooks?.[String(name||"")]};
 /* ============================================================
-   MCQ LEVEL CARDS — homepage selector and saved resume state
+   MCQ LEVEL CARDS — render from cached bootstrap counts; hydrate progress only
    ============================================================ */
 (function () {
   const endpoint='/api/mcq-levels';
   const ICON_LOCK='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
   const ICON_CHECK='<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
   const ICON_PLAY='<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const number=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
+  const format=value=>number(value).toLocaleString('en-GB');
   const esc=value=>window.UI?.esc?UI.esc(value):String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function starsMarkup(value){
-    const score=Number(value)||0;
+    const score=number(value);
     return [0,1,2].map(index=>{
       const amount=Math.max(0,Math.min(1,score-index));
       const state=amount>=1?'full':amount>0?'half':'empty';
       return '<span class="level-star '+state+'" aria-hidden="true">★</span>';
     }).join('');
   }
+  function staticTrack(total){
+    const count=number(total),cards=Math.ceil(count/100);
+    return {
+      total_mcqs:count,total_cards:cards,completed_cards:0,
+      levels:Array.from({length:cards},(_,index)=>({
+        level:index+1,total:Math.min(100,count-index*100),progress:0,correct:0,
+        completed:false,unlocked:index===0,next_page:1,stars:0
+      }))
+    };
+  }
   function renderCard(track,level){
     const template=document.getElementById('mcq-level-card-template');if(!template)return null;
-    const total=Number(level.total)||100,progress=Math.min(total,Math.max(0,Number(level.progress)||0));
+    const total=number(level.total)||100,progress=Math.min(total,number(level.progress));
     const percent=total?Math.round(progress*100/total):0,locked=!level.unlocked;
     const cardState=locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
     const badge=locked?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
-    const meta=level.completed?'Completed · '+(Number(level.correct)||0)+'/'+total+' correct':progress+'/'+total+' answered';
-    const stars=level.completed?Number(level.stars)||0:0;
+    const meta=level.completed?'Completed · '+number(level.correct)+'/'+total+' correct':progress+'/'+total+' answered';
+    const stars=level.completed?number(level.stars):0;
     const starLabel=level.completed?(stars+' out of 3 stars'):'Stars awarded when this level is completed';
     const aria='Level '+level.level+', '+meta+(locked?', locked':'')+(level.completed?', '+starLabel:'');
     const markup=template.innerHTML
@@ -4709,22 +4677,34 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   function renderTrack(root,name,data){
     const region=root.querySelector('[data-api-region="levels-'+name+'"]');if(!region)return;
     region.replaceChildren();
-    const levels=Array.isArray(data.levels)?data.levels:[];
-    if(!levels.length){region.innerHTML='<p class="muted">No approved '+(name==='important'?'Important':'Regular')+' MCQs available yet.</p>';return;}
-    levels.forEach(level=>{const card=renderCard(name,level);if(card)region.appendChild(card);});
+    const levels=Array.isArray(data?.levels)?data.levels:[];
+    if(!levels.length){
+      const empty=document.createElement('p');empty.className='muted';
+      empty.textContent='No approved '+(name==='important'?'Important':'Regular')+' MCQs available yet.';
+      region.appendChild(empty);return;
+    }
+    const fragment=document.createDocumentFragment();
+    levels.forEach(level=>{const card=renderCard(name,level);if(card)fragment.appendChild(card);});
+    region.appendChild(fragment);
   }
   function activateTab(root,name,scroll=false){
     const track=name==='important'?'important':'regular';
     root.querySelectorAll('[data-levels-track]').forEach(button=>{
-      const active=button.dataset.levelsTrack===track;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+      const active=button.dataset.levelsTrack===track;
+      button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
     });
-    root.querySelectorAll('[data-levels-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.levelsPanel===track));
+    root.querySelectorAll('[data-levels-panel]').forEach(panel=>{
+      const active=panel.dataset.levelsPanel===track;
+      panel.classList.toggle('active',active);panel.hidden=!active;
+    });
     if(scroll)root.scrollIntoView({behavior:'smooth',block:'start'});
   }
   function bindCards(root){
     root.addEventListener('click',event=>{
-      const card=event.target.closest('[data-level-card]');if(!card||card.disabled||!root.contains(card))return;
-      const track=card.dataset.levelTrack,level=Number(card.dataset.levelNumber),page=Number(card.dataset.levelPage)||1,categoryId=String(root.dataset.categoryId||'').trim();
+      const card=event.target.closest('[data-level-card]');
+      if(!card||card.disabled||!root.contains(card))return;
+      const track=card.dataset.levelTrack,level=Number(card.dataset.levelNumber);
+      const page=Number(card.dataset.levelPage)||1,categoryId=String(root.dataset.categoryId||'').trim();
       const target=categoryId?'category/'+categoryId:'mcqs';
       if(!window.MCQ?.db?.session){
         const next=target+'?'+new URLSearchParams({track,level:String(level),page:String(page)}).toString();
@@ -4733,36 +4713,67 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       if(categoryId)App.go(target,{track,level,page});
       else App.go('mcqs',{track,level,page});
     });
+    root.querySelectorAll('[data-levels-track]').forEach(button=>{
+      button.addEventListener('click',()=>activateTab(root,button.dataset.levelsTrack));
+    });
   }
-  async function init(){
-    const root=document.querySelector('#app #mcq-level-cards');if(!root)return;
-    const routePath=location.pathname.replace(/^\/+|\/+$/g,'');const focus=App.route?.params?.focus||App.route?.params?.track||(routePath==='mcqs'?'regular':(['mcqs/importent-mcqs','mcqs/important-mcqs'].includes(routePath)?'important':''));
-    if(root.dataset.initialized==='1'){if(focus==='important'||focus==='regular')activateTab(root,focus,true);return;}
-    root.dataset.initialized='1';
+  function updateSummary(root,data){
+    const regular=data.regular||{total_cards:0},important=data.important||{total_cards:0};
+    const totalCards=number(regular.total_cards)+number(important.total_cards);
+    const completed=number(regular.completed_cards)+number(important.completed_cards);
+    const total=number(data.total_mcqs),attempted=number(data.attempted_mcqs),percent=number(data.overall_progress);
+    const totalLabel=root.querySelector('[data-levels-total]'),textLabel=root.querySelector('[data-levels-overall-text]');
+    const bar=root.querySelector('[data-levels-overall-bar]');
+    if(totalLabel)totalLabel.textContent=format(totalCards)+' Levels · '+format(total)+' MCQs';
+    if(textLabel)textLabel.textContent=percent+'% complete · '+format(attempted)+' / '+format(total)+' attempted · '+completed+' levels completed';
+    if(bar)bar.style.width=Math.min(100,percent)+'%';
+    const regularCount=root.querySelector('[data-levels-count-regular]'),importantCount=root.querySelector('[data-levels-count-important]');
+    if(regularCount)regularCount.textContent=format(regular.total_cards);
+    if(importantCount)importantCount.textContent=format(important.total_cards);
+  }
+  async function hydrateProgress(root,categoryId){
+    if(!window.MCQ?.db?.session)return;
     try{
-      const categoryId=String(root.dataset.categoryId||'').trim();
-      const requestEndpoint=categoryId?endpoint+'?category='+encodeURIComponent(categoryId):endpoint;
-      const response=await fetch(requestEndpoint,{credentials:'include',headers:{Accept:'application/json'},cache:'no-store'});
-      if(!response.ok)throw new Error('Could not load MCQ level progress.');
+      const url=categoryId?endpoint+'?category='+encodeURIComponent(categoryId):endpoint;
+      const response=await fetch(url,{credentials:'include',headers:{Accept:'application/json'},cache:'no-store'});
+      if(!response.ok)throw new Error('Could not load saved level progress.');
       const data=await response.json();if(!root.isConnected)return;
-      const regular=data.regular||{levels:[],total_cards:0,total_mcqs:0},important=data.important||{levels:[],total_cards:0,total_mcqs:0};
-      const totalCards=Number(regular.total_cards||0)+Number(important.total_cards||0),completed=Number(regular.completed_cards||0)+Number(important.completed_cards||0);
-      const total=Number(data.total_mcqs||0),attempted=Number(data.attempted_mcqs||0),percent=Number(data.overall_progress)||0;
-      const totalLabel=root.querySelector('[data-levels-total]'),textLabel=root.querySelector('[data-levels-overall-text]'),bar=root.querySelector('[data-levels-overall-bar]');
-      if(totalLabel)totalLabel.textContent=totalCards+' Levels · '+total.toLocaleString('en-GB')+' MCQs';
-      if(textLabel)textLabel.textContent=percent+'% complete · '+attempted.toLocaleString('en-GB')+' / '+total.toLocaleString('en-GB')+' attempted · '+completed+' levels completed';
-      if(bar)bar.style.width=percent+'%';
-      const regularCount=root.querySelector('[data-levels-count-regular]'),importantCount=root.querySelector('[data-levels-count-important]');
-      if(regularCount)regularCount.textContent=regular.total_cards||0;if(importantCount)importantCount.textContent=important.total_cards||0;
-      renderTrack(root,'regular',regular);renderTrack(root,'important',important);
-      const note=root.querySelector('[data-levels-login-note]');if(note)note.hidden=!!MCQ.db.session;
-      root.querySelectorAll('[data-levels-track]').forEach(button=>button.addEventListener('click',()=>activateTab(root,button.dataset.levelsTrack)));
-      bindCards(root);if(focus==='important'||focus==='regular')activateTab(root,focus,true);
+      updateSummary(root,data);
+      renderTrack(root,'regular',data.regular||{levels:[]});
+      renderTrack(root,'important',data.important||{levels:[]});
     }catch(error){
-      console.error('MCQ level cards could not load:',error);
-      root.querySelectorAll('[data-api-region^="levels-"]').forEach(region=>{region.innerHTML='<p class="muted">Level cards could not be loaded. Please refresh the page.</p>';});
-      root.dataset.initialized='0';
+      // The static level cards remain usable if progress is temporarily unavailable.
+      console.warn('Saved MCQ level progress is temporarily unavailable:',error);
     }
+  }
+  function init(){
+    const root=document.querySelector('#app #mcq-level-cards');if(!root)return;
+    const routePath=location.pathname.replace(/^\/+|\/+$/g,'');
+    const focus=App.route?.params?.focus||App.route?.params?.track||
+      (routePath==='mcqs'?'regular':(['mcqs/importent-mcqs','mcqs/important-mcqs'].includes(routePath)?'important':''));
+    if(root.dataset.initialized==='1'){
+      if(focus==='important'||focus==='regular')activateTab(root,focus,true);
+      return;
+    }
+    root.dataset.initialized='1';
+    const categoryId=String(root.dataset.categoryId||'').trim();
+    const site=window.MCQ?.db?.siteCounts||{};
+    const categoryTracks=(site.categoryMcqTracks||{})[categoryId]||{};
+    const regularCount=categoryId?number(categoryTracks.regular):number(site.regularMcqs);
+    const importantCount=categoryId?number(categoryTracks.important):number(site.importantMcqs);
+    const regular=staticTrack(regularCount),important=staticTrack(importantCount);
+    updateSummary(root,{
+      regular,important,total_mcqs:regularCount+importantCount,
+      attempted_mcqs:0,overall_progress:0
+    });
+    renderTrack(root,'regular',regular);renderTrack(root,'important',important);
+    const note=root.querySelector('[data-levels-login-note]');
+    if(note)note.hidden=!!MCQ.db.session;
+    bindCards(root);
+    activateTab(root,focus==='important'?'important':'regular',focus==='important'||focus==='regular');
+    // Card structure and counts are already visible from the cached bootstrap.
+    // Only signed-in learners request their saved progress, without blocking card rendering.
+    if(MCQ.db.session)requestAnimationFrame(()=>hydrateProgress(root,categoryId));
   }
   window.MCQLevels={init};
 })();
