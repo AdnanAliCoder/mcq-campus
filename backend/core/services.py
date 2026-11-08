@@ -850,7 +850,7 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     for obj in objects:
         row=serializers[kind](obj)
         if kind=='categories': row['country']=str(category_country_map.get(str(obj.id),'Pakistan') or 'Pakistan')
-        if public_only and kind=='years' and free_mcq_ids(None, country=country) is not None:
+        if public_only and kind=='years' and free_mcq_ids(user, country=country) is not None:
             row['premium']=int(obj.id) not in set(normalized_free_access()['free_past_paper_ids'])
         row['mcq_count']=counts.get(int(obj.id),0)
         items.append(row)
