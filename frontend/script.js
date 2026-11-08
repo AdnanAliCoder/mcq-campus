@@ -3481,6 +3481,7 @@ mountDataDrivenPage(base,id){
   }
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
   setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
+  if(collection==='categories')setMarkup('category-pagination',UI.pager(total,page,pageSize,App.route.params,'categories'));
   if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,base==='jobs-exams'?'jobs-exams':'papers'));
  }else if(base==='test'){
   const plan=Public.automaticTestPlan(),rows=Array.isArray(plan.rows)?plan.rows:[],kind='auto',key='auto:'+plan.period+':'+rows.map(item=>item.id).join(','),result=App.testResult?.key===key?App.testResult:null;

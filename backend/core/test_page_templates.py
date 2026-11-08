@@ -90,6 +90,15 @@ class IndependentFrontendTests(TestCase):
         self.assertIn("window.MCQLevels?.init?.()", runtime)
         self.assertNotIn("/assets/js/admin/", runtime)
 
+    def test_category_listing_has_working_pagination_slot(self):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertIn('data-api-region="category-pagination"', self.html)
+        self.assertIn(
+            "if(collection==='categories')setMarkup('category-pagination',UI.pager(total,page,pageSize,App.route.params,'categories'));",
+            runtime,
+        )
+        self.assertIn("const pageSize=12", runtime)
+
     def test_public_pages_render_through_django_with_route_metadata(self):
         for path in (
             "/", "/mcqs", "/categories", "/past-papers", "/tests", "/pdfs",
