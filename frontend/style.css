@@ -3873,3 +3873,17 @@ body.admin-sidebar-open{overflow:hidden}
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
 }
+
+/* Contextual right sidebars are visible on desktop and fully hidden on mobile. */
+@media(min-width:901px){
+  .public-sidebar{display:block!important;position:static;transform:none}
+  .public-sidebar-inner{position:sticky;top:104px}
+  .public-sidebar-mobile-bar,.public-sidebar-backdrop{display:none!important}
+}
+@media(max-width:900px){
+  .public-layout{grid-template-columns:minmax(0,1fr)}
+  .public-sidebar-mobile-bar,
+  .public-sidebar,
+  .public-sidebar-backdrop,
+  .home-levels-layout .home-category-nav{display:none!important}
+}

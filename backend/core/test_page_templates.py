@@ -124,3 +124,23 @@ class IndependentFrontendTests(TestCase):
         )
         self.assertIn("location ^~ /api/", self.nginx)
         self.assertIn("location @mcqcampus_django", self.nginx)
+
+    def test_contextual_right_sidebars_are_desktop_only(self):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        stylesheet = (self.FRONTEND / "style.css").read_text(encoding="utf-8")
+
+        # Regular and Important MCQ level pages get their own MCQ-related sidebar.
+        self.assertIn("sidebar:PublicLayout.smart('mcqs')", runtime)
+
+        # Public right sidebars remain visible on desktop but are hidden entirely
+        # on mobile instead of opening as drawers or stacking under page content.
+        self.assertIn("@media(min-width:901px)", stylesheet)
+        self.assertIn(".public-sidebar{display:block!important", stylesheet)
+        self.assertIn("@media(max-width:900px)", stylesheet)
+        self.assertIn(".public-sidebar-mobile-bar,", stylesheet)
+        self.assertIn(".public-sidebar,", stylesheet)
+        self.assertIn(".public-sidebar-backdrop,", stylesheet)
+        self.assertIn(
+            ".home-levels-layout .home-category-nav{display:none!important}",
+            stylesheet,
+        )
