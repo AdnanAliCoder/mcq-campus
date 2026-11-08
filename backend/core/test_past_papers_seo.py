@@ -91,7 +91,7 @@ class PastPapersSEOTests(TestCase):
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 301)
-            self.assertEqual(response['Location'], '/mcqs')
+            self.assertEqual(response['Location'], '/?focus=regular')
 
         sitemap_urls = self.urls('/sitemap.xml')
         self.assertNotIn('https://www.mcqcampus.com/mcqs', sitemap_urls)
@@ -106,12 +106,24 @@ class PastPapersSEOTests(TestCase):
         self.assertNotIn('href="/mcq/', seo_links.group(1))
         self.assertNotIn('href="/mcqs', seo_links.group(1))
 
-    def test_mcq_practice_landing_pages_are_noindex_not_removed_from_practice(self):
-        for path in ('/mcqs', '/mcqs/importent-mcqs'):
-            response = self.client.get(path)
-            self.assertEqual(response.status_code, 200)
-            self.assertIn('noindex,nofollow', response.content.decode().lower())
-            self.assertEqual(response['X-Robots-Tag'], 'noindex, nofollow')
+    def test_mcq_collection_pages_redirect_to_homepage_level_cards(self):
+        for path, destination in (
+            ('/mcqs', '/?focus=regular'),
+            ('/important', '/?focus=important'),
+            ('/mcqs/importent-mcqs', '/?focus=important'),
+            ('/mcqs/important-mcqs', '/?focus=important'),
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 301)
+                self.assertEqual(response['Location'], destination)
+
+        home = self.client.get('/')
+        html = home.content.decode()
+        self.assertEqual(home.status_code, 200)
+        self.assertIn('id="mcq-level-cards"', html)
+        self.assertIn('data-levels-track="regular"', html)
+        self.assertIn('data-levels-track="important"', html)
 
     def test_organization_catalog_does_not_expose_legacy_job_landings(self):
         catalog = _seo_past_papers_catalog()

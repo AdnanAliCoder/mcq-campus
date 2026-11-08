@@ -1354,7 +1354,7 @@ def _seo_dynamic_path_exists(path):
 
 def _seo_known_spa_path(path,catalog=None):
     static={
-        '/','/mcqs','/important','/mcqs/important-mcqs','/mcqs/importent-mcqs','/categories',
+        '/','/categories',
         '/papers','/past-papers','/jobs','/jobs-exams','/pdfs','/past-papers/pdfs',
         '/latest-jobs','/posts','/blog','/tests','/test/auto','/about','/contact','/faq',
         '/privacy','/terms','/disclaimer','/cookies','/advertising','/sitemap','/search',
@@ -1847,20 +1847,24 @@ def frontend_page(request,path=''):
     is_indexed_mcq_path=(len(parts)>=3 and parts[0]=='mcqs' and parts[1].isdigit())
     if normalized.startswith(('/mcq/','/practice/')) or is_indexed_mcq_path:
         response=HttpResponse(status=301)
-        response['Location']='/mcqs'
-        response['Cache-Control']='public, max-age=86400'
-        return response
-    if normalized.startswith(('/mcqs/important-mcqs/','/mcqs/importent-mcqs/')):
-        response=HttpResponse(status=301)
-        response['Location']='/mcqs/importent-mcqs'
+        response['Location']='/?focus=regular'
         response['Cache-Control']='public, max-age=86400'
         return response
 
-    # The legacy collection URLs now serve focused level-card landing pages.
-    # Preserve level practice query parameters on /mcqs?track=...&level=....
-    if normalized=='/mcqs/important-mcqs':
+    # Retire the separate MCQ collection pages. The homepage already contains
+    # both tracks' level cards, so legacy links land on the relevant tab.
+    if normalized.startswith(('/mcqs/important-mcqs/','/mcqs/importent-mcqs/')):
         response=HttpResponse(status=301)
-        response['Location']='/mcqs/importent-mcqs'
+        response['Location']='/?focus=important'
+        response['Cache-Control']='public, max-age=86400'
+        return response
+    if normalized in {'/mcqs','/important','/important-mcqs','/mcqs/important-mcqs','/mcqs/importent-mcqs'}:
+        focus='important' if ('important' in normalized or 'importent' in normalized) else 'regular'
+        query=request.GET.copy()
+        query['focus']=focus
+        response=HttpResponse(status=301)
+        response['Location']='/?'+query.urlencode()
+        response['Cache-Control']='public, max-age=86400'
         return response
 
     if requested_path.rstrip('/')!=normalized and requested_path!='/':
