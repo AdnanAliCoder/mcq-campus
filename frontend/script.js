@@ -295,8 +295,8 @@ window.UI=(()=>{
  const catIcons=['chart','globe','bolt','code','cpu','grid','cpu','science','chart','leaf'];
  const inheritedPaperIcon=x=>{if(!x||!window.MCQ)return '';if(x.paper_id){const p=MCQ.get('papers',x.paper_id);if(p?.icon)return p.icon}if(x.job_id){const j=MCQ.get('jobs',x.job_id),p=j&&MCQ.get('papers',j.paper_id);if(p?.icon)return p.icon}return ''};
  const entityIcon=(x,fallback='grid')=>{const v=String(inheritedPaperIcon(x)||x?.icon||x?.paper_icon||fallback).trim();const dataImage=/^data:image\/(?:png|jpeg|jpg|webp|gif|avif|svg\+xml);/i.test(v),remoteImage=/^https?:\/\//i.test(v),fileImage=/^(?:\/(?:media|static|assets|uploads)\/|\.\.?\/)[^?#]+/i.test(v)||/\.(?:png|jpe?g|webp|gif|avif|svg)(?:[?#].*)?$/i.test(v);if(dataImage||remoteImage||fileImage)return `<img class="entity-icon-img" src="${esc(v)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.hidden=true">`;if(/^[a-z][a-z0-9-]*$/i.test(v))return icon(v);return v?`<span class="entity-emoji" aria-hidden="true">${esc(v.slice(0,4))}</span>`:icon(fallback)};
- function showcaseCard(path,x,{badgeText='',title='',titleHtml='',subtitle='',meta='',fallback='grid'}={}){
-   const content=templateMarkup('mcq-showcase-card-template',{SHOWCASE_ICON:entityIcon(x,fallback),SHOWCASE_BADGE:esc(badgeText),SHOWCASE_TITLE:titleHtml||esc(title||x?.name||''),SHOWCASE_SUBTITLE:esc(subtitle),SHOWCASE_META_ICON:icon('briefcase'),SHOWCASE_META:esc(meta),SHOWCASE_ARROW:icon('arrow')});return link(path,content||('<div class="entity-card-media"><span class="entity-card-image">'+entityIcon(x,fallback)+'</span></div><div class="entity-card-body"><span class="entity-card-badge">'+esc(badgeText)+'</span><h3>'+(titleHtml||esc(title||x?.name||''))+'</h3><p>'+esc(subtitle)+'</p><div class="entity-card-meta"><span>'+icon('briefcase')+' '+esc(meta)+'</span></div></div><span class="entity-card-arrow" aria-hidden="true">'+icon('arrow')+'</span>'),'card clickable entity-showcase-card');
+ function showcaseCard(path,x,{badgeText='',title='',titleHtml='',subtitle='',meta='',fallback='grid',extraClass=''}={}){
+   const content=templateMarkup('mcq-showcase-card-template',{SHOWCASE_ICON:entityIcon(x,fallback),SHOWCASE_BADGE:esc(badgeText),SHOWCASE_TITLE:titleHtml||esc(title||x?.name||''),SHOWCASE_SUBTITLE:esc(subtitle),SHOWCASE_META_ICON:icon('briefcase'),SHOWCASE_META:esc(meta),SHOWCASE_ARROW:icon('arrow')});return link(path,content||('<div class="entity-card-media"><span class="entity-card-image">'+entityIcon(x,fallback)+'</span></div><div class="entity-card-body"><span class="entity-card-badge">'+esc(badgeText)+'</span><h3>'+(titleHtml||esc(title||x?.name||''))+'</h3><p>'+esc(subtitle)+'</p><div class="entity-card-meta"><span>'+icon('briefcase')+' '+esc(meta)+'</span></div></div><span class="entity-card-arrow" aria-hidden="true">'+icon('arrow')+'</span>'),'card clickable entity-showcase-card'+(extraClass?' '+extraClass:''));
  }
  function card(type,x,index=0){
   const conf={categories:['category',null,null,'MCQs'],subcategories:['subcategory','children','subcategory_id','topics'],children:['topic',null,null,'MCQs'],papers:['paper','years','paper_id','past papers'],jobs:['job','years','job_id','past papers'],years:['year',null,null,'MCQs']}[type];
@@ -312,7 +312,7 @@ window.UI=(()=>{
     years:{badgeText:parentPaper?.name||'Past Paper',subtitle:'Open this past paper to practise linked MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
    const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentPaper&&window.SEO?SEO.cleanPath('year',x.id):type==='years'&&parentPaper?'paper/'+parentPaper.id+'/year/'+x.id:conf[0]+'/'+x.id;
-   return showcaseCard(entityPath,x,{...data,title});
+   return showcaseCard(entityPath,x,{...data,title,extraClass:type==='categories'?'is-category-card':''});
   }
   return link(conf[0]+'/'+x.id,`<span class="tile-icon tint-${index%5}">${entityIcon(x,catIcons[index%catIcons.length])}</span><h3>${esc(title)}</h3><div class="card-foot"><span>${count} ${conf[3]}</span>${icon('arrow')}</div>`,'card clickable')
  }
@@ -2670,7 +2670,7 @@ mountDataDrivenPage(base,id){
     :{badge:String(item.country||data.settings?.country||'Pakistan'),subtitle:'Past papers for this Organization / Board.',meta:count+' past paper'+(count===1?'':'s'),fallback:'paper'};
   let path=type==='categories'?'category/'+item.id:type==='years'?(window.SEO?.cleanPath?SEO.cleanPath('year',item.id):(parentPaper?'paper/'+parentPaper.id+'/year/'+item.id:'year/'+item.id)):'paper/'+item.id;
   if(type==='papers'&&window.SEO?.cleanPath)path=SEO.cleanPath('paper',item.id);
-  const anchor=makeInternalLink(path,'','card clickable entity-showcase-card');
+  const anchor=makeInternalLink(path,'','card clickable entity-showcase-card'+(type==='categories'?' is-category-card':''));
   const card=this.staticTemplateFragment('mcq-showcase-card-template',{
    SHOWCASE_ICON:this.staticMarkupFragment(UI.entityIcon(item,config.fallback)),
    SHOWCASE_BADGE:config.badge,SHOWCASE_TITLE:String(item.name||''),
@@ -4662,12 +4662,14 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     const cardState=locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
     const badge=locked?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
     const meta=level.completed?'Completed · '+number(level.correct)+'/'+total+' correct':progress+'/'+total+' answered';
-    const stars=level.completed?number(level.stars):0;
-    const starLabel=level.completed?(stars+' out of 3 stars'):'Stars awarded when this level is completed';
+    const stars=level.completed?number(level.stars):(percent>=60?2:percent>=30?1:0);
+    const starLabel=stars+' of 3 progress stars';
     const aria='Level '+level.level+', '+meta+(locked?', locked':'')+(level.completed?', '+starLabel:'');
     const markup=template.innerHTML
       .replaceAll('__SLOT_LEVEL_STATE__',cardState).replaceAll('__SLOT_LEVEL_TRACK__',track)
       .replaceAll('__SLOT_LEVEL_NUMBER__',String(level.level)).replaceAll('__SLOT_LEVEL_PAGE__',String(level.next_page||1))
+      .replaceAll('__SLOT_LEVEL_TOTAL__',String(total)).replaceAll('__SLOT_LEVEL_PROGRESS__',String(progress))
+      .replaceAll('__SLOT_LEVEL_CORRECT__',String(number(level.correct))).replaceAll('__SLOT_LEVEL_STARS_VALUE__',String(stars))
       .replaceAll('__SLOT_LEVEL_DISABLED__',locked?'disabled':'').replaceAll('__SLOT_LEVEL_BADGE__',badge)
       .replaceAll('__SLOT_LEVEL_PERCENT__',String(percent)).replaceAll('__SLOT_LEVEL_META__',esc(meta))
       .replaceAll('__SLOT_LEVEL_STARS_LABEL__',esc(starLabel)).replaceAll('__SLOT_LEVEL_STARS__',starsMarkup(stars))
@@ -4699,19 +4701,58 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     });
     if(scroll)root.scrollIntoView({behavior:'smooth',block:'start'});
   }
+  let levelDialog=null,pendingLevel=null;
+  function ensureLevelDialog(){
+    if(levelDialog?.isConnected)return levelDialog;
+    levelDialog=document.getElementById('mcq-level-dialog');
+    if(!levelDialog){
+      levelDialog=document.createElement('dialog');
+      levelDialog.id='mcq-level-dialog';
+      levelDialog.className='mcq-level-dialog';
+      levelDialog.setAttribute('aria-labelledby','mcq-level-dialog-title');
+      levelDialog.innerHTML='<div class="mcq-level-dialog-box"><button class="mcq-level-dialog-close" type="button" data-level-dialog-close aria-label="Close dialog">×</button><h3 id="mcq-level-dialog-title">Level 1</h3><p class="mcq-level-dialog-copy" data-level-dialog-copy></p><div class="mcq-level-dialog-stars level-stars" data-level-dialog-stars aria-label="Level stars"></div><div class="mcq-level-dialog-actions"><button class="btn" type="button" data-level-dialog-close>Close</button><button class="btn primary" type="button" data-level-dialog-start>Start</button></div></div>';
+      document.body.appendChild(levelDialog);
+    }
+    if(levelDialog.dataset.bound!=='1'){
+      levelDialog.dataset.bound='1';
+      levelDialog.querySelectorAll('[data-level-dialog-close]').forEach(button=>button.addEventListener('click',()=>levelDialog.close()));
+      levelDialog.querySelector('[data-level-dialog-start]')?.addEventListener('click',()=>{
+        if(!pendingLevel)return;
+        const selection={...pendingLevel};pendingLevel=null;levelDialog.close();
+        const target=selection.categoryId?'category/'+selection.categoryId:'mcqs';
+        if(!window.MCQ?.db?.session){
+          const next=target+'?'+new URLSearchParams({track:selection.track,level:String(selection.level),page:String(selection.page)}).toString();
+          App.go('login',{next});UI.toast('Sign in to save your level progress and resume later.');return;
+        }
+        App.go(target,{track:selection.track,level:selection.level,page:selection.page});
+      });
+      levelDialog.addEventListener('click',event=>{if(event.target===levelDialog)levelDialog.close();});
+      levelDialog.addEventListener('close',()=>{pendingLevel=null;});
+    }
+    return levelDialog;
+  }
+  function openLevelDialog(card,root){
+    const dialog=ensureLevelDialog(),level=Number(card.dataset.levelNumber)||1;
+    const total=number(card.dataset.levelTotal)||100,progress=Math.min(total,number(card.dataset.levelProgress));
+    const correct=Math.min(progress,number(card.dataset.levelCorrect)),stars=number(card.dataset.levelStars);
+    const completed=card.classList.contains('is-done');
+    pendingLevel={
+      track:card.dataset.levelTrack==='important'?'important':'regular',
+      level,page:Number(card.dataset.levelPage)||1,categoryId:String(root.dataset.categoryId||'').trim()
+    };
+    const title=dialog.querySelector('#mcq-level-dialog-title'),copy=dialog.querySelector('[data-level-dialog-copy]');
+    const starsNode=dialog.querySelector('[data-level-dialog-stars]'),start=dialog.querySelector('[data-level-dialog-start]');
+    if(title)title.textContent='Level '+level;
+    if(copy)copy.textContent=completed?'Completed · '+correct+' / '+total+' correct':total+' MCQs · '+progress+' / '+total+' answered';
+    if(starsNode)starsNode.innerHTML=starsMarkup(stars);
+    if(start)start.textContent=completed?'Review':progress>0?'Continue':'Start';
+    if(!dialog.open)dialog.showModal();
+  }
   function bindCards(root){
     root.addEventListener('click',event=>{
       const card=event.target.closest('[data-level-card]');
       if(!card||card.disabled||!root.contains(card))return;
-      const track=card.dataset.levelTrack,level=Number(card.dataset.levelNumber);
-      const page=Number(card.dataset.levelPage)||1,categoryId=String(root.dataset.categoryId||'').trim();
-      const target=categoryId?'category/'+categoryId:'mcqs';
-      if(!window.MCQ?.db?.session){
-        const next=target+'?'+new URLSearchParams({track,level:String(level),page:String(page)}).toString();
-        App.go('login',{next});UI.toast('Sign in to save your level progress and resume later.');return;
-      }
-      if(categoryId)App.go(target,{track,level,page});
-      else App.go('mcqs',{track,level,page});
+      openLevelDialog(card,root);
     });
     root.querySelectorAll('[data-levels-track]').forEach(button=>{
       button.addEventListener('click',()=>activateTab(root,button.dataset.levelsTrack));
