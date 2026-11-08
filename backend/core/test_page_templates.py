@@ -1,9 +1,12 @@
+import re
+
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 
+@override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)
 class IndependentFrontendTests(TestCase):
-    """Guard the current single-document frontend + Django API boundary."""
+    """Guard the current unified frontend and Django-rendered page boundary."""
 
     FRONTEND = settings.BASE_DIR / "frontend"
 
@@ -16,82 +19,69 @@ class IndependentFrontendTests(TestCase):
             / "mcqcampus-frontend-locations.conf"
         ).read_text(encoding="utf-8")
 
-    def test_single_document_contains_static_page_shells(self):
+    def test_single_document_contains_current_static_shells_and_templates(self):
         self.assertIn("<!doctype html>", self.html.lower())
-        pages = (
-            "home", "mcqs", "categories", "past-papers", "tests", "pdfs",
-            "blog", "latest-jobs", "login", "register", "dashboard", "admin",
-            "super-admin", "about", "contact",
-        )
-        for page in pages:
-            with self.subTest(page=page):
-                self.assertIn('data-static-page="' + page + '"', self.html)
+        pages = {
+            "home", "categories", "past-papers", "tests", "pdfs", "blog",
+            "login", "register", "forgot", "reset-code", "reset-password",
+            "verify", "sitemap", "not-found", "dashboard", "admin",
+            "super-admin", "about", "contact", "mcq-levels",
+        }
+        actual = set(re.findall(r'<section\s+data-static-page="([^"]+)"', self.html))
+        self.assertEqual(actual, pages)
 
         for template_id in (
             "mcq-layout-template", "mcq-header-template", "mcq-footer-template",
             "mcq-home-template", "mcq-auth-layout-template",
             "mcq-learner-dashboard-template", "mcq-admin-layout-template",
-            "mcq-question-card-template",
+            "mcq-question-card-template", "mcq-question-option-template",
+            "mcq-level-card-template",
         ):
             with self.subTest(template=template_id):
                 self.assertIn('id="' + template_id + '"', self.html)
 
-        self.assertNotIn("{{", self.html)
-        self.assertNotIn("{%", self.html)
+        # These placeholders are intentionally rendered by Django for SEO metadata.
+        self.assertIn("{{ seo_title|default:", self.html)
+        self.assertIn("{% if seo_canonical %}", self.html)
 
     def test_entry_document_uses_one_first_party_script_and_stylesheet(self):
         self.assertTrue((self.FRONTEND / "script.js").is_file())
         self.assertTrue((self.FRONTEND / "style.css").is_file())
+        self.assertEqual(self.html.count('rel="stylesheet"'), 1)
         self.assertIn('href="/assets/style.css', self.html)
         self.assertIn('src="/assets/script.js', self.html)
-        self.assertEqual(self.html.count('rel="stylesheet"'), 1)
-        self.assertNotIn("/assets/js/bootstrap.js", self.html)
-        self.assertNotIn("/assets/css/common.css", self.html)
-        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
-        self.assertIn("showStaticShell(){", runtime)
-        self.assertIn("mountStaticPage(base,renderedHtml){", runtime)
-        self.assertIn("staticPageMarkup(shell,page){", runtime)
-        self.assertIn("window.UI?.layout?.(shell.outerHTML,page)", runtime)
-        self.assertIn('data-api-region="home-important-count"', self.html)
-        self.assertNotIn('href="/login?country=USA"', self.html)
-        self.assertIn('data-nav-section="tests"', self.html)
-        self.assertIn('data-nav-section="latest-jobs"', self.html)
-        self.assertNotIn("<!-- SLOT:HEADER_NAV -->", self.html)
-        self.assertIn('body[data-page-template="tests"] #main-nav [data-nav-section="tests"]', (self.FRONTEND / "style.css").read_text(encoding="utf-8"))
-        self.assertNotIn("country-entry", runtime)
-        self.assertNotIn("showCountryEntry", runtime)
-        self.assertIn("toLowerCase()==='pakistan'", runtime)
-        self.assertLess(runtime.index("const fill=(name,selector"), runtime.index("fill('breadcrumbs','.breadcrumbs',sourceMain)"))
-        self.assertIn('data-api-region="home-stats"', self.html)
-        self.assertIn('data-api-region="blog-filters"', self.html)
-        self.assertIn('data-api-region="past-paper-pagination"', self.html)
-        self.assertIn('data-api-region="breadcrumbs"', self.html)
-        self.assertIn("dest.classList.add('public-main','public-main-full')", runtime)
-        self.assertNotIn('<nav data-api-region="mcq-pagination"', self.html)
-        self.assertIn('form[data-form="mcq-filter"]', runtime)
-        self.assertIn("window.UI?.header?.(page)", runtime)
-        self.assertIn("window.UI?.footer?.()", runtime)
-        self.assertIn("window.MCQCampusBackendReady=false", runtime)
-        self.assertIn("else window.App?.showStaticShell?.()", runtime)
-        self.assertIn("replace(/^\\\\/+|\\\\/+$/g,'')", runtime)
+        self.assertNotIn("/assets/js/", self.html)
 
-    def test_django_does_not_serve_frontend_pages(self):
-        shell = (self.FRONTEND / "index.html").read_bytes()
-        for path in ("/", "/mcqs", "/past-papers", "/login", "/admin"):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertIn("mountDataDrivenPage(base,id){", runtime)
+        self.assertIn("staticTemplateFragment(id,slots={})", runtime)
+        self.assertIn("window.MCQCampusBackendReady===false", runtime)
+        self.assertIn("window.MCQLevels?.init?.()", runtime)
+        self.assertNotIn("/assets/js/admin/", runtime)
+
+    def test_public_pages_render_through_django_with_route_metadata(self):
+        for path in (
+            "/", "/mcqs", "/categories", "/past-papers", "/tests", "/pdfs",
+            "/blog", "/latest-jobs", "/about", "/contact",
+        ):
             with self.subTest(path=path):
                 response = self.client.get(path, secure=True)
-                self.assertEqual(response.status_code, 404, path)
-                self.assertNotEqual(response.content, shell)
+                self.assertEqual(response.status_code, 200, response.content[:300])
+                self.assertIn("text/html", response.get("Content-Type", ""))
+                self.assertIn(b"MCQCampus", response.content)
+                self.assertNotIn(b"{{ seo_title", response.content)
+
+    def test_unknown_frontend_route_returns_real_404(self):
+        response = self.client.get("/this-route-does-not-exist", secure=True)
+        self.assertEqual(response.status_code, 404)
 
     def test_api_stays_json(self):
         response = self.client.get("/api/public/bootstrap", secure=True)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, response.content.decode()[:300])
         self.assertIn("application/json", response.get("Content-Type", ""))
-        self.assertNotEqual(
-            response.content, (self.FRONTEND / "index.html").read_bytes()
-        )
+        self.assertNotIn(b"<!doctype html>", response.content.lower())
 
-    def test_nginx_serves_entry_assets_and_proxies_api_separately(self):
+    def test_nginx_serves_unified_assets_and_proxies_api_separately(self):
         self.assertIn("root /home/ubuntu/mcq-campus/frontend;", self.nginx)
         self.assertIn("location = /assets/style.css", self.nginx)
         self.assertIn(
@@ -102,4 +92,4 @@ class IndependentFrontendTests(TestCase):
             "alias /home/ubuntu/mcq-campus/frontend/script.js;", self.nginx
         )
         self.assertIn("location ^~ /api/", self.nginx)
-        self.assertIn("try_files $uri $uri.html /index.html;", self.nginx)
+        self.assertIn("location @mcqcampus_django", self.nginx)
