@@ -86,6 +86,8 @@ class PastPapersSEOTests(TestCase):
             '/mcq/what-is-the-prime-minister-of-pakistan',
             '/practice/what-is-the-prime-minister-of-pakistan',
             '/mcqs/000123/what-is-the-prime-minister-of-pakistan',
+            '/mcqs/important-mcqs/123',
+            '/mcqs/importent-mcqs/123',
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 301)
