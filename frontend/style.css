@@ -3887,3 +3887,49 @@ body.admin-sidebar-open{overflow:hidden}
   .public-sidebar-backdrop,
   .home-levels-layout .home-category-nav{display:none!important}
 }
+
+
+/* Keep MCQ level pages and their related cards in adjacent desktop columns. */
+@media(min-width:901px){
+  .public-page.mcq-level-page .public-layout{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(250px,300px)!important;
+    align-items:start!important;
+    gap:26px!important;
+  }
+  .public-page.mcq-level-page .public-main{
+    grid-column:1!important;
+    grid-row:1!important;
+    min-width:0!important;
+  }
+  .public-page.mcq-level-page .public-sidebar{
+    display:block!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    min-width:0!important;
+    position:static!important;
+    align-self:start!important;
+  }
+  .public-page.mcq-level-page .public-sidebar-inner{
+    position:sticky!important;
+    top:104px!important;
+  }
+
+  /* /mcqs and /mcqs/important-mcqs both land on the home level view. */
+  .home-content-grid.home-levels-layout{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(220px,280px)!important;
+    align-items:start!important;
+  }
+  .home-content-grid.home-levels-layout>.home-levels-main{
+    grid-column:1!important;
+    grid-row:1!important;
+    min-width:0!important;
+  }
+  .home-content-grid.home-levels-layout>.home-category-nav{
+    display:block!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    min-width:0!important;
+  }
+}
