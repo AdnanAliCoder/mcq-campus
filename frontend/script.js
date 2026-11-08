@@ -530,20 +530,12 @@ window.PublicLayout=(()=>{
 window.Public=(()=>{
  const {templateMarkup,esc:e,icon,link,btn,card,heading,crumbs,empty,badge,field,textarea,select}=UI;
  const yearPath=x=>{const p=x&&(MCQ.get('papers',x.paper_id)||MCQ.get('papers',MCQ.get('jobs',x.job_id)?.paper_id));return p?'paper/'+p.id+'/year/'+x.id:'year/'+x.id};
- const jobPath=x=>{const p=x&&MCQ.get('papers',x.paper_id);return p?'paper/'+p.id+'/job/'+x.id:'job/'+x.id};
  const pageCopy=(kind,key,title,desc)=>{const row=(MCQ.db.pageSeo||{})[kind+':'+String(key)]||{};return {title:String(row.title||title||''),desc:String(row.description||desc||'')}};
  const staticCopy=(key,title,desc)=>pageCopy('static',key,title,desc);
  const fixedPublicCountry=()=>{
   const user=window.Auth?.user||MCQ.db.session||{};
   if(String(user.activeRole||'')==='super-admin'&&(user.roles||[]).includes('super-admin'))return String(MCQ.db.activeCountry||'').trim();
   return String(user.country||MCQ.db.settings.country||'Pakistan').trim();
- };
- const publicCountryNames=()=>{
-  const fixed=fixedPublicCountry();if(fixed)return [fixed];
-  const configured=(MCQ.db.countries||[]).filter(x=>x&&x.active!==false).map(x=>String(x.name||'').trim()).filter(Boolean);
-  const paperCountries=(MCQ.db.papers||[]).filter(x=>x.active!==false).map(x=>String(x.country||'').trim()).filter(Boolean);
-  const names=[...new Set([...configured,...paperCountries])].filter(x=>x.toLowerCase()!=='both');
-  return names.length?names:['Pakistan'];
  };
  const activeServerMcqPage=()=>{const p=MCQ.db.mcqPage||{};return p.server===true&&p.scope==='public'&&p.routeKey===location.pathname+location.search?p:null};
  const activeEntityPage=()=>{const p=MCQ.db.entityPage||{};return p.server===true&&p.routeKey===location.pathname+location.search?p:null};
@@ -553,7 +545,6 @@ window.Public=(()=>{
   const blogPostCard=post=>{const safeUrl=u=>/^(https?:\/\/|#\/)/i.test(String(u||'')),source=(post.links||[]).find(x=>x.label==='__blog_url'&&safeUrl(x.url)),href=source?String(source.url):UI.href('post/'+post.id),target=source&&/^https?:\/\//i.test(source.url)?'target="_blank" rel="noopener"':'',excerpt=post.excerpt?'<p>'+e(post.excerpt)+'</p>':'',media=post.featured_image?'<img src="'+e(post.featured_image)+'" alt="" loading="lazy" decoding="async">':'<span class="content-fallback content-fallback-blue">'+icon('edit')+'</span>',markup=UI.templateMarkup('mcq-blog-post-card-template',{BLOG_HREF:e(href),BLOG_TARGET:target,BLOG_CATEGORY:e(post.category||'UPDATE'),BLOG_TITLE:e(post.title),BLOG_EXCERPT:excerpt,BLOG_CALENDAR_ICON:icon('calendar'),BLOG_DATE:e(UI.date(post.updated_at||post.created_at)),BLOG_ARROW_ICON:icon('arrow'),BLOG_MEDIA:media});return markup||''};
  function relationships(q,contextYearId=null){let years=MCQ.ids(q.job_years_ids).map(id=>MCQ.get('years',id)).filter(Boolean);if(contextYearId)years=years.filter(x=>+x.id===+contextYearId);if(!years.length)return '';return `<div class="mcq-answer-years" aria-label="Years"><span class="mcq-years-label">Years</span><div class="chips">${years.map(x=>link(yearPath(x),`<span class="mcq-year-icon" aria-hidden="true">${UI.entityIcon(x,'grid')}</span><span>${e(x.name)}</span>`,'chip mcq-year-chip')).join('')}</div></div>`}
  function questionCountry(q){const direct=String(q.country||'').trim();if(direct)return direct;const paperId=MCQ.ids(q.paper_id)[0],paper=paperId?MCQ.get('papers',paperId):null;return String(paper?.country||MCQ.db.settings.country||'Pakistan').trim()||'Pakistan'}
- function isCurrentAffairs(q){if(q.current_affairs===true||q.current_affairs==='true')return true;const cat=MCQ.get('categories',q.category_id),subs=MCQ.ids(q.subcategory_ids).map(id=>MCQ.get('subcategories',id)).filter(Boolean),children=MCQ.ids(q.child_subcategory_ids).map(id=>MCQ.get('children',id)).filter(Boolean),text=[cat?.name,...subs.map(x=>x.name),...children.map(x=>x.name),q.tags,q.topic].filter(Boolean).join(' ');return /current\s*affairs?/i.test(text)}
  function questionTags(q,{featured=false}={}){const country=questionCountry(q),bps=String(q.bps||'').trim();return `<div class="mcq-question-tags">${featured?'<span class="badge mcq-featured-badge">Featured MCQ</span>':''}${MCQ.isImportant(q)?badge('important'):''}${bps?`<span class="badge">${e(bps)}</span>`:''}<span class="badge mcq-country-badge">${e(country)}</span></div>`}
  function relatedMcqs(q,limit=5){const score=x=>{let n=0;if(q.category_id===x.category_id)n+=6;if(MCQ.ids(q.paper_id).some(id=>MCQ.ids(x.paper_id).includes(id)))n+=4;if(MCQ.ids(q.job_ids).some(id=>MCQ.ids(x.job_ids).includes(id)))n+=4;if(MCQ.ids(q.job_years_ids).some(id=>MCQ.ids(x.job_years_ids).includes(id)))n+=5;return n};return MCQ.publicMcqs().filter(x=>x.id!==q.id).map(x=>({x,s:score(x)})).filter(r=>r.s>0).sort((a,b)=>b.s-a.s||a.x.id-b.x.id).slice(0,limit).map(r=>r.x)}
  function mcq(id){
@@ -876,12 +867,6 @@ window.Public=(()=>{
   const main=`<article class="article legal-article public-article">${updated}${body}</article>`;
   return PublicLayout.page({trail:[[title]],title,desc:type==='contact'?'Contact MCQ Campus for support, corrections, technical issues, PDF questions, or advertising inquiries.':'MCQ Campus information and policy page.',main,sidebar:PublicLayout.smart('legal'),sidebarLabel:'Help & Legal'});
 }
- function testView(rows,key,title){
-  const questions=rows.slice(0,Math.min(20,rows.length)),started=Date.now();
-  if(App.testResult?.key===key){const r=App.testResult;return PublicLayout.page({trail:[['Tests','tests'],[title]],title,desc:'Test result',main:`<div class="card test-result-card"><p class="eyebrow">RESULT</p><h2>${r.correct} / ${r.total} correct</h2><div class="metric-grid"><div class="card"><strong>${r.correct}</strong><span>Correct</span></div><div class="card"><strong>${r.wrong}</strong><span>Wrong</span></div><div class="card"><strong>${r.unanswered}</strong><span>Unanswered</span></div></div><div class="actions">${btn('Try again','test-retry','primary',`data-kind="${e(key)}"`)}${link('tests','All tests','btn')}</div></div>`,sidebar:PublicLayout.smart('tests'),active:'tests'});}
-  const form=questions.length?UI.templateMarkup('mcq-test-form-template',{TEST_KEY:e(key),TEST_STARTED_AT:String(started),TEST_QUESTIONS:questions.map((q,i)=>UI.templateMarkup('mcq-test-question-template',{TEST_QUESTION_NUMBER:String(i+1),TEST_QUESTION_TEXT:e(q.question),TEST_QUESTION_OPTIONS:[1,2,3,4].map(n=>'<label><input type="radio" name="test_q_'+q.id+'" value="'+e(q['option'+n])+'"><span>'+'ABCD'[n-1]+'. '+e(q['option'+n])+'</span></label>').join('')})).join('')})||'':empty('No MCQs available','This test does not have approved MCQs yet.',link('tests','Back to tests','btn'));
-  return PublicLayout.page({trail:[['Tests','tests'],[title]],title,desc:`${questions.length} MCQs in this test.`,main:form,sidebar:PublicLayout.smart('tests'),active:'tests'});
- }
  function stableTestScore(id,seed){let h=2166136261;for(const ch of String(id)+':'+String(seed)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
  function automaticTestPlan(){
   const rows=MCQ.publicMcqs(),days=2,period=Math.floor(Date.now()/(days*86400000)),groups={important:[],category:[],paper:[]};
@@ -1001,15 +986,6 @@ window.SEO=(()=>{
  const fitTitle=(value,limit=60)=>{const text=brand(value).replace(/\s+/g,' ').replace(/\s*(?:\||-|—|–)\s*MCQCampus\s*$/i,'').trim();if(text.length<=limit)return text;return text.slice(0,limit-3).replace(/[\s\-—–|,:]+$/,'')+'...'};
  const site=()=>brand(MCQ?.db?.settings?.siteName||'MCQCampus');
  const shortName=value=>{const text=String(value||'').trim(),bracket=[...text.matchAll(/\[([^\]]{2,16})\]/g)].map(m=>m[1].trim()).filter(Boolean);if(bracket.length)return bracket[bracket.length-1];const paren=[...text.matchAll(/\(([^)]{2,16})\)/g)].map(m=>m[1].trim()).filter(x=>/^[A-Z0-9&. -]+$/.test(x));if(paren.length)return paren[paren.length-1];const caps=text.match(/\b[A-Z][A-Z0-9&.-]{1,15}\b/g);return caps?.[caps.length-1]||text};
- const yearLabel=(job,value)=>{
-  let text=String(value||'').trim();
-  const jobText=String(job||'').trim();
-  if(jobText&&text.toLowerCase().startsWith(jobText.toLowerCase())) text=text.slice(jobText.length).replace(/^\s*[-–—:]?\s*/,'');
-  text=text.replace(/\bPast\s+Paper\b/ig,' ').replace(/[\[\]()]/g,' ').replace(/\s+/g,' ').trim();
-  const dated=text.match(/\b\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2}\b(?:\s+(?:Morning|Evening|Night|Shift\s*\d+))?/i);
-  const year=text.match(/\b20\d{2}\b/);
-  return (dated&&dated[0])||(year&&year[0])||text||String(value||'').trim();
- };
  const baseUrl=()=>{try{return new URL(document.querySelector('link[rel="canonical"]')?.href||document.querySelector('meta[property="og:url"]')?.content||location.href).origin}catch{return 'https://www.mcqcampus.com'}};
  const seoItems=()=>MCQ?.db?.seoIndex?.items||{};
  const catalogKey=x=>String(x?.id??x?.slug??slug(x?.title||x?.name||'item'));
