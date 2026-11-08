@@ -132,6 +132,7 @@
                     <p>Browse questions by subject.</p>
                 </header>
                 <div data-api-region="category-context" hidden></div>
+                <div data-api-region="category-level-cards" hidden></div>
                 <div data-api-region="category-list">
                     <p class="muted" data-static-loading>Loading categories…</p>
                 </div>
@@ -724,12 +725,47 @@
             </section>
         </div>
     </template>
+    <template id="mcq-category-levels-template">
+        <section id="mcq-level-cards" class="section levels-home-section category-levels-section"
+            data-category-id="" aria-labelledby="mcq-levels-heading">
+            <div class="levels-home-heading">
+                <div>
+                    <p class="eyebrow">CATEGORY PRACTICE</p>
+                    <h2 id="mcq-levels-heading">Practice by Levels</h2>
+                    <p class="small muted">Har level mein 100 MCQs. Regular aur Important questions alag levels mein arranged hain.</p>
+                </div>
+                <div class="levels-overview-card">
+                    <strong data-levels-total>Loading levels…</strong>
+                    <span data-levels-overall-text>Loading your progress</span>
+                    <div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div>
+                </div>
+            </div>
+            <nav class="levels-tabs" data-levels-tabs aria-label="Category MCQ level type">
+                <button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button>
+                <button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button>
+            </nav>
+            <section class="levels-track active" data-levels-panel="regular">
+                <div class="levels-grid" data-api-region="levels-regular"><p class="muted" data-static-loading>Loading regular levels…</p></div>
+            </section>
+            <section class="levels-track" data-levels-panel="important">
+                <div class="levels-grid" data-api-region="levels-important"><p class="muted" data-static-loading>Loading important levels…</p></div>
+            </section>
+            <footer class="levels-legend">
+                <span><i class="levels-dot is-done"></i> Completed</span>
+                <span><i class="levels-dot is-current"></i> In Progress</span>
+                <span><i class="levels-dot is-open"></i> Unlocked</span>
+                <span><i class="levels-dot is-locked"></i> Locked</span>
+            </footer>
+            <p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p>
+        </section>
+    </template>
     <template id="mcq-level-card-template">
         <button class="level-card __SLOT_LEVEL_STATE__" type="button"
             data-level-card data-level-track="__SLOT_LEVEL_TRACK__" data-level-number="__SLOT_LEVEL_NUMBER__"
             data-level-page="__SLOT_LEVEL_PAGE__" data-level-total="__SLOT_LEVEL_TOTAL__"
             data-level-progress="__SLOT_LEVEL_PROGRESS__" data-level-correct="__SLOT_LEVEL_CORRECT__"
-            data-level-stars="__SLOT_LEVEL_STARS_VALUE__" __SLOT_LEVEL_DISABLED__ aria-label="__SLOT_LEVEL_ARIA__">
+            data-level-stars="__SLOT_LEVEL_STARS_VALUE__" data-level-unlocked="__SLOT_LEVEL_UNLOCKED__"
+            __SLOT_LEVEL_DISABLED__ aria-disabled="__SLOT_LEVEL_ARIA_DISABLED__" aria-label="__SLOT_LEVEL_ARIA__">
             <span class="level-badge" aria-hidden="true">__SLOT_LEVEL_BADGE__</span>
             <span class="level-num">__SLOT_LEVEL_NUMBER__</span>
             <span class="level-label">Level __SLOT_LEVEL_NUMBER__</span>
