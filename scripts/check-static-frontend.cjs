@@ -32,7 +32,7 @@ check(fs.existsSync(path.join(frontend, 'style.css')), 'unified stylesheet exist
 check(fs.existsSync(path.join(frontend, 'script.js')), 'unified runtime exists');
 
 const expectedPages = [
-  'home', 'categories', 'past-papers', 'tests', 'pdfs', 'blog', 'login',
+  'home', 'categories', 'past-papers', 'pdfs', 'blog', 'login',
   'register', 'forgot', 'reset-code', 'reset-password', 'verify', 'sitemap',
   'not-found', 'dashboard', 'admin', 'super-admin', 'about', 'contact', 'mcq-levels',
 ];
@@ -40,6 +40,8 @@ const pageShells = [...html.matchAll(/<section\s+data-static-page="([^"]+)"/g)].
 check(expectedPages.every(page => pageShells.includes(page)), 'all current static page shells exist');
 check(pageShells.length === expectedPages.length, 'each current static page shell appears exactly once');
 check(new Set(pageShells).size === pageShells.length, 'static page shell identifiers are unique');
+check(!html.includes('data-static-page="tests"'), 'retired public tests page shell is absent');
+check(!html.includes('data-api-region="test-list"'), 'retired public tests list region is absent');
 
 for (const page of expectedPages) {
   const start = html.indexOf('data-static-page="' + page + '"');
@@ -66,7 +68,7 @@ const requiredRegions = [
   'home-stats', 'home-categories', 'levels-regular', 'levels-important',
   'category-context', 'category-list', 'mcq-summary', 'mcq-list', 'mcq-pagination',
   'paper-context', 'organization-list', 'past-paper-list', 'past-paper-pagination',
-  'test-list', 'pdf-list', 'blog-filters', 'blog-list', 'auth-form',
+  'pdf-list', 'blog-filters', 'blog-list', 'auth-form',
   'sitemap-content', 'not-found-links', 'learner-dashboard', 'admin-workspace',
   'super-admin-workspace', 'about-content', 'contact-form',
 ];
