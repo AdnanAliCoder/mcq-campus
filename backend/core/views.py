@@ -21,6 +21,11 @@ from .models import *
 from .serializers import user_dict, user_identity_dict, user_profile_dict, mcq
 from .cache_utils import invalidate_mcqcampus_cache
 from .geolocation import visitor_country_code
+from .subscriptions import (
+    get_subscription_config, plan_payload, normalized_free_access,
+    public_pricing_payload, subscription_payload, proof_payload,
+    current_subscription, has_premium_access, PLAN_DAYS,
+)
 from .services import (
     snapshot, startup_payload, public_bootstrap_data, public_content_data, public_resources_data, public_catalog_data, public_legal_data, command, create_token, consume_token, mcq_page, _validate_password,
     learner_dashboard_data, admin_overview_data, admin_users_data, admin_reports_data, admin_trash_data, admin_logs_data, admin_content_data, is_admin, is_super, _bulk_duplicate_mcq,
@@ -632,7 +637,295 @@ def public_legal(request):
 def profile_detail(request):
     data=user_profile_dict(request.user,request.session)
     if request.session.get_expiry_date(): data['expiresAt']=request.session.get_expiry_date().isoformat()
+
     return JsonResponse({'user':data})
+
+
+@profile_api('subscription_plans')
+@require_GET
+def subscription_plans(request):
+    response=JsonResponse(public_pricing_payload(request.user))
+    response['Cache-Control']='private, no-store, max-age=0'
+    return response
+
+
+@require_GET
+def subscription_qr(request):
+    config=get_subscription_config()
+    if not config.qr_image:
+        raise Http404('Raast QR code has not been configured.')
+    response=HttpResponse(bytes(config.qr_image),content_type=config.qr_content_type or 'image/png')
+    response['Cache-Control']='public, max-age=300'
+    response['X-Content-Type-Options']='nosniff'
+    return response
+
+
+def _payment_file_type(upload, data):
+    content_type=str(getattr(upload,'content_type','') or '').lower()
+    if content_type=='image/png' and data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return content_type
+    if content_type in {'image/jpeg','image/jpg'} and data.startswith(b'\xff\xd8\xff'):
+        return 'image/jpeg'
+    if content_type=='image/webp' and len(data)>=12 and data[:4]==b'RIFF' and data[8:12]==b'WEBP':
+        return content_type
+    if content_type=='application/pdf' and data.startswith(b'%PDF-'):
+        return content_type
+    return ''
+
+
+@profile_api('subscription_payment_submit')
+@require_POST
+@login_required_json
+def submit_subscription_payment(request):
+    config=get_subscription_config()
+    plan_key=str(request.POST.get('plan') or '').strip().lower()
+    plans=plan_payload(config)
+    plan=plans.get(plan_key)
+    if plan_key not in PLAN_DAYS or not plan or not plan.get('active',True):
+        return err('Choose an available Premium plan.',422,{'plan':'Invalid plan.'})
+    try:
+        amount=int(request.POST.get('amount') or 0)
+    except (TypeError,ValueError):
+        return err('Enter the exact amount shown for this plan.',422,{'amount':'Invalid amount.'})
+    if amount!=int(plan['amount']):
+        return err('The amount must match the current plan price.',422,{'amount':'Plan price mismatch.'})
+    full_name=str(request.POST.get('name') or request.POST.get('full_name') or '').strip()[:150]
+    email=str(request.POST.get('email') or request.user.email or '').strip().lower()
+    transaction_id=re.sub(r'\s+',' ',str(request.POST.get('transaction_id') or '')).strip()[:120]
+    if not full_name:
+        return err('Enter your full name.',422,{'name':'Required.'})
+    try:
+        email=_normalize_email(email)
+    except ValueError as exc:
+        return err(exc,422,{'email':str(exc)})
+    if len(transaction_id)<3:
+        return err('Enter a valid Raast transaction reference.',422,{'transaction_id':'Required.'})
+    upload=request.FILES.get('screenshot')
+    if not upload:
+        return err('Upload your payment screenshot or PDF receipt.',422,{'screenshot':'Required.'})
+    if upload.size>5*1024*1024:
+        return err('The proof file must be 5 MB or smaller.',422,{'screenshot':'File too large.'})
+    file_data=upload.read(5*1024*1024+1)
+    content_type=_payment_file_type(upload,file_data)
+    if not content_type or len(file_data)>5*1024*1024:
+        return err('Upload a valid PNG, JPG, WebP image or PDF receipt.',422,{'screenshot':'Unsupported file.'})
+    if SubscriptionPaymentProof.objects.filter(transaction_id=transaction_id).exists():
+        return err('This transaction reference has already been submitted.',409,{'transaction_id':'Duplicate reference.'})
+    try:
+        proof=SubscriptionPaymentProof.objects.create(
+            user=request.user,plan=plan_key,plan_name=plan['name'],amount=amount,
+            full_name=full_name,email=email,transaction_id=transaction_id,
+            screenshot=file_data,screenshot_content_type=content_type,
+            screenshot_filename=re.sub(r'[^A-Za-z0-9._-]','_',upload.name or 'payment-proof')[:180],
+        )
+    except Exception as exc:
+        if exc.__class__.__name__=='IntegrityError':
+            return err('This transaction reference has already been submitted.',409)
+        raise
+    return JsonResponse({
+        'success':True,
+        'reference_id':f'PAY-{proof.id:06d}',
+        'message':'Payment proof submitted. It will be reviewed by the MCQCampus team.',
+        'status':'pending',
+    },status=201)
+
+
+@profile_api('admin_subscriptions')
+@require_GET
+@login_required_json
+def admin_subscriptions(request):
+    if not is_super(request.user):
+        return err('Only the Super Admin can review subscriptions and payments.',403)
+    config=get_subscription_config()
+    proofs=SubscriptionPaymentProof.objects.select_related('user','reviewed_by').order_by('-created_at','-id')[:150]
+    active=Subscription.objects.select_related('user').filter(is_active=True,ends_at__gt=timezone.now()).order_by('ends_at')[:150]
+    return JsonResponse({
+        'settings':{
+            'raast_id':config.raast_id,
+            'qr_set':bool(config.qr_image),
+            'plans':plan_payload(config),
+            'free_access':normalized_free_access(config),
+        },
+        'proofs':[proof_payload(row) for row in proofs],
+        'active_subscriptions':[{
+            'user_id':row.user_id,
+            'name':(row.user.get_full_name() or row.user.get_username()),
+            'email':row.user.email,
+            'plan':row.plan,
+            'starts_at':row.starts_at.isoformat(),
+            'ends_at':row.ends_at.isoformat(),
+        } for row in active],
+        'pending_count':SubscriptionPaymentProof.objects.filter(status='pending').count(),
+    })
+
+
+@profile_api('admin_subscription_settings')
+@require_POST
+@login_required_json
+def admin_subscription_settings(request):
+    if not is_super(request.user):
+        return err('Only the Super Admin can update Raast and pricing settings.',403)
+    config=get_subscription_config()
+    try:
+        plans=json.loads(request.POST.get('plans') or '{}')
+        free_access=json.loads(request.POST.get('free_access') or '{}')
+        if not isinstance(plans,dict) or not isinstance(free_access,dict):
+            raise ValueError('Invalid plan or free-access settings.')
+        current=plan_payload(config)
+        cleaned={}
+        for key in ('free','monthly','quarterly','yearly'):
+            incoming=plans.get(key) if isinstance(plans.get(key),dict) else {}
+            old=current[key]
+            try:
+                amount=0 if key=='free' else int(incoming.get('amount',old['amount']))
+            except (TypeError,ValueError):
+                raise ValueError(f'Enter a valid {key} plan price.')
+            if amount<0 or amount>1000000 or (key!='free' and amount<1):
+                raise ValueError(f'Enter a valid {key} plan price.')
+            features=incoming.get('features',old['features'])
+            if isinstance(features,str):
+                features=[line.strip() for line in features.splitlines() if line.strip()]
+            if not isinstance(features,list):
+                features=old['features']
+            cleaned[key]={
+                'name':str(incoming.get('name') or old['name']).strip()[:100],
+                'amount':amount,
+                'days':0 if key=='free' else PLAN_DAYS[key],
+                'period':str(incoming.get('period') or old['period'])[:40],
+                'tagline':str(incoming.get('tagline') or old['tagline'])[:180],
+                'features':[str(item).strip()[:180] for item in features[:16] if str(item).strip()],
+                'active':True if key=='free' else bool(incoming.get('active',old['active'])),
+            }
+            if not cleaned[key]['name']:
+                raise ValueError(f'Enter a name for the {key} plan.')
+        clean_free={}
+        for key,default in (('regular_levels',1),('important_levels',1),('category_levels',1)):
+            try:
+                value=int(free_access.get(key,default))
+            except (TypeError,ValueError):
+                raise ValueError(f'Enter a valid free {key.replace("_"," ")} value.')
+            if value<0 or value>10:
+                raise ValueError('Free level limits must be between 0 and 10.')
+            clean_free[key]=value
+        for key in ('free_past_paper_ids','free_pdf_ids'):
+            values=free_access.get(key,[])
+            if isinstance(values,str):
+                values=re.split(r'[,\\s]+',values.strip()) if values.strip() else []
+            if not isinstance(values,list):
+                raise ValueError(f'Invalid {key.replace("_"," ")}.')
+            ids=[]
+            for value in values:
+                if str(value).strip():
+                    ident=int(value)
+                    if ident<1 or ident>2147483647:
+                        raise ValueError(f'Invalid ID in {key.replace("_"," ")}.')
+                    if ident not in ids:
+                        ids.append(ident)
+            clean_free[key]=ids[:2000]
+    except (ValueError,TypeError,json.JSONDecodeError) as exc:
+        return err(exc,422)
+    config.raast_id=str(request.POST.get('raast_id') or '').strip()[:160]
+    config.plans=cleaned
+    config.free_access=clean_free
+    qr=request.FILES.get('qr_image')
+    if qr:
+        if qr.size>2*1024*1024:
+            return err('Raast QR image must be 2 MB or smaller.',422)
+        data=qr.read(2*1024*1024+1)
+        content_type=_payment_file_type(qr,data)
+        if content_type not in {'image/png','image/jpeg','image/webp'} or len(data)>2*1024*1024:
+            return err('Upload a valid PNG, JPG or WebP QR image.',422)
+        config.qr_image=data
+        config.qr_content_type=content_type
+        config.qr_filename=re.sub(r'[^A-Za-z0-9._-]','_',qr.name or 'raast-qr')[:180]
+    elif str(request.POST.get('remove_qr') or '').lower() in {'1','true','yes'}:
+        config.qr_image=None
+        config.qr_content_type=''
+        config.qr_filename=''
+    config.updated_by=request.user
+    config.save()
+    return JsonResponse({
+        'success':True,
+        'settings':{
+            'raast_id':config.raast_id,'qr_set':bool(config.qr_image),
+            'plans':plan_payload(config),'free_access':normalized_free_access(config),
+        },
+    })
+
+
+@profile_api('admin_subscription_review')
+@require_POST
+@login_required_json
+def admin_subscription_review(request):
+    if not is_super(request.user):
+        return err('Only the Super Admin can approve or reject payment proofs.',403)
+    d=payload(request)
+    try:
+        proof_id=int(d.get('id') or 0)
+    except (TypeError,ValueError):
+        return err('Select a valid payment request.',422)
+    status=str(d.get('status') or '').strip().lower()
+    if status not in {'approved','rejected'}:
+        return err('Choose approve or reject.',422)
+    note=str(d.get('note') or '').strip()[:500]
+    with transaction.atomic():
+        proof=SubscriptionPaymentProof.objects.select_for_update().select_related('user').filter(pk=proof_id).first()
+        if not proof:
+            return err('Payment request not found.',404)
+        if proof.status!='pending':
+            return err('This payment request has already been reviewed.',409)
+        if status=='approved':
+            now=timezone.now()
+            subscription=Subscription.objects.select_for_update().filter(user=proof.user).first()
+            if subscription and subscription.is_active and subscription.ends_at>now:
+                starts=subscription.starts_at
+                end_base=subscription.ends_at
+            else:
+                starts=now
+                end_base=now
+                if subscription is None:
+                    subscription=Subscription(user=proof.user)
+            subscription.plan=proof.plan
+            subscription.starts_at=starts
+            subscription.ends_at=end_base+timedelta(days=PLAN_DAYS[proof.plan])
+            subscription.is_active=True
+            subscription.source_payment=proof
+            subscription.save()
+        proof.status=status
+        proof.review_note=note
+        proof.reviewed_by=request.user
+        proof.reviewed_at=timezone.now()
+        proof.save(update_fields=['status','review_note','reviewed_by','reviewed_at'])
+    return JsonResponse({
+        'success':True,
+        'payment':proof_payload(proof),
+        'subscription':subscription_payload(proof.user),
+    })
+
+
+@profile_api('admin_subscription_screenshot')
+@require_GET
+@login_required_json
+def admin_subscription_screenshot(request,proof_id):
+    if not is_super(request.user):
+        return err('Only the Super Admin can view uploaded payment proofs.',403)
+    proof=SubscriptionPaymentProof.objects.filter(pk=proof_id).first()
+    if not proof:
+        raise Http404('Payment proof not found.')
+    response=HttpResponse(bytes(proof.screenshot),content_type=proof.screenshot_content_type)
+    response['Content-Disposition']=f'inline; filename="{proof.screenshot_filename}"'
+    response['Cache-Control']='private, no-store, max-age=0'
+    response['X-Content-Type-Options']='nosniff'
+    return response
+
+
+@profile_api('subscription_status')
+@require_GET
+@login_required_json
+def subscription_status(request):
+    response=JsonResponse({'subscription':subscription_payload(request.user)})
+    response['Cache-Control']='private, no-store, max-age=0'
+    return response
 
 _COUNTRY_NAMES_BY_CODE={
     'PK':('Pakistan',),'IN':('India',),'US':('United States','USA','United States of America'),
