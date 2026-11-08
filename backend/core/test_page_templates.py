@@ -153,6 +153,25 @@ class IndependentFrontendTests(TestCase):
         self.assertIn("location.replace('/categories')", runtime)
         self.assertNotIn('data-static-page="tests"', self.html)
 
+    def test_organization_pages_do_not_render_generic_exam_preparation_promo(self):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        self.assertNotIn('data-api-region="paper-context"', self.html)
+        self.assertNotIn('id="mcq-paper-context-template"', self.html)
+        self.assertNotIn("region('paper-context')", runtime)
+        self.assertNotIn("mcq-paper-context-template", runtime)
+
+    def test_regular_and_important_mcq_sidebars_stay_right_of_level_cards(self):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+        stylesheet = (self.FRONTEND / "style.css").read_text(encoding="utf-8")
+
+        self.assertIn("className:'mcq-level-page'", runtime)
+        self.assertIn(".public-page.mcq-level-page .public-layout", stylesheet)
+        self.assertIn("grid-template-columns:minmax(0,1fr) minmax(250px,300px)!important", stylesheet)
+        self.assertIn(".public-page.mcq-level-page .public-main", stylesheet)
+        self.assertIn("grid-column:2!important", stylesheet)
+        self.assertIn(".home-content-grid.home-levels-layout>.home-category-nav", stylesheet)
+        self.assertIn(".home-content-grid.home-levels-layout>.home-levels-main", stylesheet)
+
     def test_unknown_frontend_route_returns_real_404(self):
         response = self.client.get("/this-route-does-not-exist", secure=True)
         self.assertEqual(response.status_code, 404)
