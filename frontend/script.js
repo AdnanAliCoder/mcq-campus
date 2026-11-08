@@ -1584,21 +1584,21 @@ window.Auth=(()=>{
   const defaultCountry=selectedCountry||(activeCountries.find(item=>String(item.name).toLowerCase()==='pakistan')||activeCountries[0]||{name:'Pakistan'}).name;
   const countryOptions=activeCountries.map(item=>'<option value="'+UI.esc(item.name)+'" '+(String(item.name).toLowerCase()===String(defaultCountry).toLowerCase()?'selected':'')+'>'+UI.esc(item.name)+'</option>').join('');
   const countryField='<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
-  const titles={login:'Welcome back',register:selectedCountry?'Create your '+selectedCountry+' account':'Your next chapter',forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',reset:'Choose a new password',verify:'Email verification'};
+  const titles={login:'Sign in',register:'Create account',forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',reset:'Choose a new password',verify:'Email verification'};
   let form='';
   if(type==='login')form=UI.templateMarkup('mcq-auth-login-form-template',{
-   AUTH_LOGIN_EMAIL:field('email','Email address','email','email'),
-   AUTH_LOGIN_PASSWORD:field('password','Password','password','current-password','',false,false),
+   AUTH_LOGIN_EMAIL:field('email','Email address','email','email','placeholder="you@example.com"'),
+   AUTH_LOGIN_PASSWORD:field('password','Password','password','current-password','placeholder="Enter password"',false,false),
    AUTH_LOGIN_FORGOT:UI.link('forgot','Forgot password?','link'),
    AUTH_LOGIN_REGISTER:UI.link('register','Create an account','link')
   })||'';
   if(type==='register')form=UI.templateMarkup('mcq-auth-register-form-template',{
-   AUTH_REGISTER_FIRST:field('first_name','First name','text','given-name','',true),
-   AUTH_REGISTER_LAST:field('last_name','Last name','text','family-name','',true),
-   AUTH_REGISTER_EMAIL:field('email','Email address','email','email','',true),
+   AUTH_REGISTER_FIRST:field('first_name','First name','text','given-name','placeholder="Ali"',true),
+   AUTH_REGISTER_LAST:field('last_name','Last name','text','family-name','placeholder="Khan"',true),
+   AUTH_REGISTER_EMAIL:field('email','Email address','email','email','placeholder="you@example.com"',true),
    AUTH_REGISTER_COUNTRY:countryField,
-   AUTH_REGISTER_PASSWORD:field('password','Password','password','new-password','',true,false),
-   AUTH_REGISTER_CONFIRM:field('confirm','Confirm password','password','new-password','',true,false),
+   AUTH_REGISTER_PASSWORD:field('password','Password','password','new-password','placeholder="Min 8 characters"',true,false),
+   AUTH_REGISTER_CONFIRM:field('confirm','Confirm password','password','new-password','placeholder="Re-enter password"',true,false),
    AUTH_REGISTER_TERMS:UI.link('terms','terms','link'),
    AUTH_REGISTER_PRIVACY:UI.link('privacy','privacy policy','link'),
    AUTH_REGISTER_LOGIN:UI.link('login','Log in','link')
@@ -1700,6 +1700,63 @@ window.Auth=(()=>{
  MCQ.attempt=(...args)=>user?command('attempt',{args}):originalAttempt(...args);
  for(const name of ['toggleBookmark','savePaper','saveProfile','changePassword'])MCQ[name]=(...args)=>command(name,{args});
  MCQ.report=(id,reason)=>user?command('report',{args:[id,reason]}):request('/report',{id,reason});
+
+ document.addEventListener('input',event=>{
+  const form=event.target.closest('form[data-form="auth-register"]');
+  if(!form)return;
+  const password=form.querySelector('[name="password"]');
+  const confirm=form.querySelector('[name="confirm"]');
+  const bar=form.querySelector('[data-password-strength-bar]');
+  const label=form.querySelector('[data-password-strength-label]');
+  const hint=form.querySelector('[data-password-strength-hint]');
+  const confirmHint=form.querySelector('[data-password-match]');
+  if(!password||!bar||!label||!hint)return;
+
+  const value=password.value||'';
+  let score=0;
+  if(value.length>=8)score++;
+  if(/[A-Z]/.test(value)||/[0-9]/.test(value))score++;
+  if(/[^A-Za-z0-9]/.test(value)&&value.length>=10)score++;
+  score=Math.min(score,3);
+
+  bar.classList.remove('lvl-1','lvl-2','lvl-3');
+  label.classList.remove('lvl-1','lvl-2','lvl-3');
+  hint.className='auth-field-hint';
+  if(score===0){
+   label.textContent='—';
+   hint.textContent='At least 8 characters with letters and numbers.';
+  }else if(score===1){
+   bar.classList.add('lvl-1');label.classList.add('lvl-1');
+   label.textContent='Weak';
+   hint.classList.add('is-bad');
+   hint.textContent='Weak — add numbers or symbols.';
+  }else if(score===2){
+   bar.classList.add('lvl-2');label.classList.add('lvl-2');
+   label.textContent='Medium';
+   hint.textContent='Good — add a symbol for strong.';
+  }else{
+   bar.classList.add('lvl-3');label.classList.add('lvl-3');
+   hint.classList.add('is-ok');
+   label.textContent='Strong';
+   hint.textContent='Strong password.';
+  }
+
+  if(confirm&&confirmHint){
+   if(!confirm.value){
+    confirmHint.className='auth-field-hint';
+    confirmHint.textContent='';
+    confirm.classList.remove('is-invalid');
+   }else if(confirm.value===value){
+    confirmHint.className='auth-field-hint is-ok';
+    confirmHint.textContent='Passwords match.';
+    confirm.classList.remove('is-invalid');
+   }else{
+    confirmHint.className='auth-field-hint is-bad';
+    confirmHint.textContent='Passwords do not match.';
+    confirm.classList.add('is-invalid');
+   }
+  }
+ });
 
  document.addEventListener('click',event=>{
   const toggle=event.target.closest('[data-password-toggle]');if(!toggle)return;
