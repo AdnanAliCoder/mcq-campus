@@ -132,13 +132,15 @@ class IndependentFrontendTests(TestCase):
         # Regular and Important MCQ level pages get their own MCQ-related sidebar.
         self.assertIn("sidebar:PublicLayout.smart('mcqs')", runtime)
 
-        # Public right sidebars remain visible on desktop but do not turn into
-        # drawers or stacked sections on mobile.
+        # Public right sidebars remain visible on desktop but are hidden entirely
+        # on mobile instead of opening as drawers or stacking under page content.
         self.assertIn("@media(min-width:901px)", stylesheet)
         self.assertIn(".public-sidebar{display:block!important", stylesheet)
         self.assertIn("@media(max-width:900px)", stylesheet)
+        self.assertIn(".public-sidebar-mobile-bar,", stylesheet)
+        self.assertIn(".public-sidebar,", stylesheet)
+        self.assertIn(".public-sidebar-backdrop,", stylesheet)
         self.assertIn(
-            ".public-sidebar-mobile-bar,\n  .public-sidebar,\n  .public-sidebar-backdrop,\n  .home-levels-layout .home-category-nav{display:none!important}",
+            ".home-levels-layout .home-category-nav{display:none!important}",
             stylesheet,
         )
-
