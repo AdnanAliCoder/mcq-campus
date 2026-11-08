@@ -631,7 +631,7 @@ window.Public=(()=>{
  function levelLanding(track='regular'){
   const important=track==='important',title=important?'Important MCQs':'Regular MCQs',key=important?'important':'regular';
   const levelSelector=`<section id="mcq-level-cards" class="section levels-home-section mcq-level-landing mcq-level-landing--${key}" aria-labelledby="mcq-levels-heading"><div class="levels-home-heading"><div><p class="eyebrow">YOUR PRACTICE JOURNEY</p><h2 id="mcq-levels-heading">${title} · Practice by Levels</h2><p class="small muted">Har level mein 100 MCQs. Apni progress save karein aur aglay level se continue karein.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type"><button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button><button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button></nav><section class="levels-track active" data-levels-panel="regular"><div class="levels-grid" data-api-region="levels-regular"><p class="muted">Loading regular levels…</p></div></section><section class="levels-track" data-levels-panel="important"><div class="levels-grid" data-api-region="levels-important"><p class="muted">Loading important levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>`;
-  return PublicLayout.page({trail:[['Home','home'],[title]],title,desc:'Choose a level to practise 100 '+(important?'important':'regular')+' MCQs at a time.',pre:levelSelector,main:'',sidebar:PublicLayout.smart('mcqs'),active:'mcqs',sidebarLabel:'Browse'});
+  return PublicLayout.page({trail:[['Home','home'],[title]],title,desc:'Choose a level to practise 100 '+(important?'important':'regular')+' MCQs at a time.',pre:'',main:levelSelector,sidebar:PublicLayout.smart('mcqs'),active:'mcqs',sidebarLabel:'Browse'});
  }
 
  function browse(type,id){
@@ -659,7 +659,7 @@ window.Public=(()=>{
    const levelSelector=`<section id="mcq-level-cards" class="section levels-home-section category-levels-section" data-category-id="${Number(cat.id)}" aria-labelledby="mcq-levels-heading"><div class="levels-home-heading"><div><p class="eyebrow">CATEGORY PRACTICE</p><h2 id="mcq-levels-heading">${e(cat.name)} · Practice by Levels</h2><p class="small muted">All MCQs in this category are grouped together into levels of 100 questions.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><section class="levels-track active"><div class="levels-grid" data-api-region="levels-category"><p class="muted" data-static-loading>Loading category levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>`;
    const pre=subcategoryPanel+levelSelector;
    const copy=pageCopy('category',cat.id,cat.name+' MCQs','Practice all approved '+cat.name+' MCQs in combined 100-question levels.');
-   return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre,main:'',sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
+   return PublicLayout.page({trail:[['Categories','categories'],[cat.name]],title:copy.title,desc:copy.desc,pre:'',main:pre,sidebar:PublicLayout.smart('category',{record:cat,type:'category'}),active:'categories',sidebarLabel:'Related / Browse'});
   }
 
   const map={categories:['categories','All categories','Choose a category to open its MCQ collection.'],papers:['papers','Organizations / Boards','Browse organizations and boards, then choose a Past Paper.'],paper:['years','Past Papers','Select a past paper to practise its linked MCQs.']};
@@ -2517,9 +2517,42 @@ mountDataDrivenPage(base,id){
  const region=name=>shell.querySelector('[data-api-region="'+name+'"]');
  const contextSidebarKinds={
   mcqs:'mcqs',important:'mcqs',categories:'category',papers:'papers','jobs-exams':'papers',
-  tests:'mcqs',pdfs:'pdfs','latest-jobs':'jobs'
+  tests:'mcqs',test:'mcqs',pdfs:'pdfs','latest-jobs':'jobs',
+  mcq:'mcq-detail',practice:'mcq-detail',category:'category',subcategory:'category',topic:'category',
+  paper:'papers',year:'papers',pdf:'pdfs','latest-job':'jobs',post:'articles',
+  search:'search',about:'legal',contact:'legal',faq:'legal',privacy:'legal',terms:'legal',
+  disclaimer:'legal',cookies:'legal',advertising:'legal',sitemap:'papers'
  };
  const contextSidebarKind=contextSidebarKinds[base];
+ const contextSidebarContext={};
+ if(base==='paper'){
+  const paper=MCQ.get('papers',id);
+  if(paper)Object.assign(contextSidebarContext,{parent:paper,record:paper,type:'paper'});
+ }else if(base==='year'){
+  const year=MCQ.get('years',id);
+  const paper=year&&(MCQ.get('papers',year.paper_id)||MCQ.get('papers',MCQ.get('jobs',year.job_id)?.paper_id));
+  if(paper)Object.assign(contextSidebarContext,{parent:paper,record:year,type:'paper'});
+ }else if(base==='category'){
+  const category=MCQ.get('categories',id);
+  if(category)Object.assign(contextSidebarContext,{record:category,type:'category'});
+ }else if(base==='subcategory'){
+  const subcategory=MCQ.get('subcategories',id);
+  const category=subcategory&&MCQ.get('categories',subcategory.category_id);
+  if(category)Object.assign(contextSidebarContext,{record:category,type:'category'});
+ }else if(base==='topic'){
+  const topic=MCQ.get('children',id);
+  const subcategory=topic&&MCQ.get('subcategories',topic.subcategory_id);
+  const category=subcategory&&MCQ.get('categories',subcategory.category_id);
+  if(category)Object.assign(contextSidebarContext,{record:category,type:'category'});
+ }else if(base==='mcq'||base==='practice'){
+  const question=MCQ.get('mcqs',id);
+  if(question)contextSidebarContext.question=question;
+ }else if(base==='latest-job'){
+  const job=MCQ.get('latestJobs',id);
+  if(job)contextSidebarContext.job=job;
+ }else if(base==='post'){
+  contextSidebarContext.subtype='posts';
+ }
  if(contextSidebarKind){
   const pageMain=shell.querySelector('main.container.page');
   if(pageMain&&!pageMain.dataset.contextSidebarMounted){
@@ -2538,7 +2571,7 @@ mountDataDrivenPage(base,id){
    const close=document.createElement('button');close.type='button';close.className='btn ghost';close.dataset.action='public-sidebar-close';close.setAttribute('aria-label','Close sidebar');close.append(this.staticMarkupFragment(UI.icon('close')));
    asideHead.append(asideTitle,close);
    const asideInner=document.createElement('div');asideInner.className='public-sidebar-inner';
-   asideInner.append(this.staticMarkupFragment(PublicLayout.smart(contextSidebarKind)));
+   asideInner.append(this.staticMarkupFragment(PublicLayout.smart(contextSidebarKind,contextSidebarContext)));
    aside.append(asideHead,asideInner);
    layout.append(primary,aside);
    const backdrop=document.createElement('button');backdrop.type='button';backdrop.className='public-sidebar-backdrop';backdrop.dataset.action='public-sidebar-close';backdrop.setAttribute('aria-label','Close related links');backdrop.tabIndex=-1;
