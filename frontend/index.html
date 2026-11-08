@@ -727,11 +727,13 @@
     <template id="mcq-level-card-template">
         <button class="level-card __SLOT_LEVEL_STATE__" type="button"
             data-level-card data-level-track="__SLOT_LEVEL_TRACK__" data-level-number="__SLOT_LEVEL_NUMBER__"
-            data-level-page="__SLOT_LEVEL_PAGE__" __SLOT_LEVEL_DISABLED__ aria-label="__SLOT_LEVEL_ARIA__">
+            data-level-page="__SLOT_LEVEL_PAGE__" data-level-total="__SLOT_LEVEL_TOTAL__"
+            data-level-progress="__SLOT_LEVEL_PROGRESS__" data-level-correct="__SLOT_LEVEL_CORRECT__"
+            data-level-stars="__SLOT_LEVEL_STARS_VALUE__" __SLOT_LEVEL_DISABLED__ aria-label="__SLOT_LEVEL_ARIA__">
             <span class="level-badge" aria-hidden="true">__SLOT_LEVEL_BADGE__</span>
             <span class="level-num">__SLOT_LEVEL_NUMBER__</span>
             <span class="level-label">Level __SLOT_LEVEL_NUMBER__</span>
-            <span class="level-bar"><i style="width:__SLOT_LEVEL_PERCENT__%"></i></span>
+            <span class="level-bar" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="__SLOT_LEVEL_PERCENT__"><i aria-hidden="true" style="width:__SLOT_LEVEL_PERCENT__%"></i></span>
             <span class="level-meta">__SLOT_LEVEL_META__</span>
             <span class="level-stars" aria-label="__SLOT_LEVEL_STARS_LABEL__">__SLOT_LEVEL_STARS__</span>
         </button>
