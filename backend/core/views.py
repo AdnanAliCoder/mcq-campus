@@ -1209,10 +1209,7 @@ def _seo_resolve_indexed_path(path,registry=None):
     if not hit: return None
     kind,key=hit
     obj=None; internal=None
-    if kind=='mcq':
-        obj=MCQ.objects.filter(pk=key,status='approved').first()
-        if obj: internal=f'/mcq/{_seo_slug(obj.question)}'
-    elif kind=='category':
+    if kind=='category':
         obj=Category.objects.filter(pk=key,active=True).first()
         if obj: internal=f'/category/{_seo_slug(obj.name)}'
     elif kind=='paper':
@@ -1851,6 +1848,11 @@ def frontend_page(request,path=''):
     if normalized.startswith(('/mcq/','/practice/')) or is_indexed_mcq_path:
         response=HttpResponse(status=301)
         response['Location']='/mcqs'
+        response['Cache-Control']='public, max-age=86400'
+        return response
+    if normalized.startswith('/mcqs/important-mcqs/'):
+        response=HttpResponse(status=301)
+        response['Location']='/mcqs/importent-mcqs'
         response['Cache-Control']='public, max-age=86400'
         return response
 
