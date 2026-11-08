@@ -81,6 +81,31 @@ class PastPapersSEOTests(TestCase):
         self.assertIn(page['canonical'], urls)
         self.assertFalse(any('/mcqs/' in url for url in urls))
 
+    def test_individual_mcq_urls_redirect_and_are_not_in_public_sitemaps(self):
+        for path in (
+            '/mcq/what-is-the-prime-minister-of-pakistan',
+            '/practice/what-is-the-prime-minister-of-pakistan',
+            '/mcqs/000123/what-is-the-prime-minister-of-pakistan',
+        ):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 301)
+            self.assertEqual(response['Location'], '/mcqs')
+
+        sitemap_urls = self.urls('/sitemap.xml')
+        self.assertNotIn('https://www.mcqcampus.com/mcqs', sitemap_urls)
+        self.assertFalse(any('/mcq/' in url or '/mcqs/' in url for url in sitemap_urls))
+
+        html_sitemap = self.client.get('/sitemap').content.decode()
+        self.assertNotIn('href="/mcq/', html_sitemap)
+        self.assertNotIn('href="/mcqs/', html_sitemap)
+
+    def test_mcq_practice_landing_pages_are_noindex_not_removed_from_practice(self):
+        for path in ('/mcqs', '/mcqs/importent-mcqs'):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('noindex,nofollow', response.content.decode().lower())
+            self.assertEqual(response['X-Robots-Tag'], 'noindex, nofollow')
+
     def test_organization_catalog_does_not_expose_legacy_job_landings(self):
         catalog = _seo_past_papers_catalog()
         self.assertEqual(catalog['jobs'], [])
