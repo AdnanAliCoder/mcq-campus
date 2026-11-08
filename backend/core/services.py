@@ -13,6 +13,7 @@ from django.utils.text import slugify
 from .cache_utils import cached_value
 from .models import *
 from .serializers import *
+from .subscriptions import free_mcq_ids, normalized_free_access, subscription_payload
 
 PERMISSION_CATALOG=['super_admin_permission','add_mcq','edit_own_mcq','edit_any_mcq','delete_own_mcq','delete_any_mcq','review_mcq','approve_mcq','reject_mcq','bulk_import_mcqs','manage_categories','manage_subcategories','manage_child_categories','manage_papers','manage_jobs','manage_job_years','manage_guides','delete_guides','manage_posts','publish_posts','delete_posts','manage_pdfs','delete_pdfs','manage_latest_jobs','delete_latest_jobs','manage_current_affairs','manage_seo','view_reports','resolve_reports','view_analytics','view_logs','manage_users','manage_admins','assign_roles','change_permissions','manage_settings','manage_footer','manage_legal_pages','manage_social_links','manage_ads','backup','restore_backup']
 ENTITY_MODELS={'categories':Category,'subcategories':Subcategory,'children':ChildCategory,'papers':Paper,'jobs':Job,'years':JobYear}
@@ -849,6 +850,8 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
     for obj in objects:
         row=serializers[kind](obj)
         if kind=='categories': row['country']=str(category_country_map.get(str(obj.id),'Pakistan') or 'Pakistan')
+        if public_only and kind=='years' and free_mcq_ids(None, country=country) is not None:
+            row['premium']=int(obj.id) not in set(normalized_free_access()['free_past_paper_ids'])
         row['mcq_count']=counts.get(int(obj.id),0)
         items.append(row)
     return {'type':kind,'items':items,'page':page,'pageSize':page_size,'total':total,'hasNext':start+len(items)<total,'filters':filters}
@@ -940,6 +943,12 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     except (TypeError,ValueError):
         level_number=0
     level_mode=track in {'regular','important','category'} and level_number>0
+    premium_required=False
+    allowed_free_ids=free_mcq_ids(user, country=country or filters.get('country'))
+    if allowed_free_ids is not None:
+        matching_total=qs.count()
+        qs=qs.filter(pk__in=allowed_free_ids)
+        premium_required=matching_total>qs.count()
     if level_mode:
         # Stable ID order prevents newly added questions from shifting a learner's level.
         qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').order_by('id')
@@ -973,7 +982,7 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     # Individual MCQs no longer receive public SEO tokens.
     registry=seo_index_snapshot()
     indexes={'next':int(registry.get('next') or 1),'items':{k:v for k,v in (registry.get('items') or {}).items() if k in keys}}
-    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':has_next,'seoIndex':indexes}
+    return {'items':rows,'page':page,'pageSize':page_size,'total':total,'hasNext':has_next,'seoIndex':indexes,'premium_required':premium_required}
 
 def _attach_important_flags(objects):
     """Derive Important MCQs from distinct linked Past Papers, not retired Job IDs."""
@@ -986,6 +995,9 @@ def _attach_important_flags(objects):
 
 def mcq_levels_data(user,country=None,category_id=None):
     """Return stable 100-question level cards, optionally scoped to one category."""
+    free_ids=free_mcq_ids(user,country=country)
+    free=normalized_free_access()
+    is_free_account=free_ids is not None
     if user and getattr(user,'is_authenticated',False):
         country=country_for_user(user) or country
     base=MCQ.objects.filter(status='approved')
@@ -1046,9 +1058,11 @@ def mcq_levels_data(user,country=None,category_id=None):
                 elif correct<50: stars=1.5
                 elif correct<=60: stars=2
                 else: stars=3
+            limit=free['category_levels'] if track_name=='category' else free['important_levels'] if track_name=='important' else free['regular_levels']
             entry={
                 'level':level,'total':len(level_ids),'progress':progress,'correct':correct,
                 'completed':complete,'unlocked':unlocked,'next_page':next_page,'stars':stars,
+                'premium':is_free_account and level>limit,'free_levels':limit,
             }
             levels.append(entry)
             progress_map[str(level)]=progress
@@ -1154,6 +1168,7 @@ def learner_dashboard_data(user):
         'attempts':[{'id':a.mcq_id,'answer':a.answer,'correct':a.correct,'at':iso(a.created_at),'by_id':user.id,'by':user_name(user)} for a in attempts],
         'bookmarks':bookmarks,
         'savedPapers':saved,
+        'subscription':subscription_payload(user),
     }
 
 def admin_overview_data(user,active_role=None,active_country=None):
@@ -2050,6 +2065,9 @@ def command(user,action,payload,active_country=None):
         if country: qs=qs.filter(country__iexact=country)
         q=qs.first()
         if not q: raise ValueError('Question not available.')
+        allowed_free_ids=free_mcq_ids(user,country=country)
+        if allowed_free_ids is not None and q.id not in allowed_free_ids:
+            raise PermissionError('This question is part of Premium. Choose a plan to continue.')
         correct=str(q.correct_answer)==str(answer); Attempt.objects.create(user=user,mcq=q,answer=str(answer),correct=correct); return correct
     if action=='toggleBookmark':
         qid=(payload.get('args') or [None])[0]; qs=MCQ.objects.filter(pk=qid)
