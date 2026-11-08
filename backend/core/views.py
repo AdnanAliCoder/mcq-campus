@@ -1186,7 +1186,7 @@ def _seo_resolve_indexed_path(path,registry=None):
     parts=[p for p in str(path or '').strip('/').split('/') if p]
     hit=None
     # Individual MCQ URLs are no longer part of the public SEO index.
-    elif len(parts)>=3 and parts[0]=='categories': hit=_seo_index_lookup(parts[1],['category'],registry)
+    if len(parts)>=3 and parts[0]=='categories': hit=_seo_index_lookup(parts[1],['category'],registry)
     elif len(parts)>=3 and parts[0]=='past-papers' and parts[1]!='pdfs':
         hit=_seo_index_lookup(parts[1],['paper','job','year'],registry)
         if not hit:
