@@ -99,6 +99,10 @@ check(runtime.includes('staticTemplateFragment(id,slots={})'), 'runtime clones r
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'runtime mounts API content into static page shells');
 check(runtime.includes('window.MCQCampusBackendReady===false'), 'static fallback remains available when API bootstrap fails');
 check(runtime.includes('window.MCQLevels?.init?.()'), 'MCQ level progress is initialized');
+check(runtime.includes('function ensureLevelDialog()') && runtime.includes('dialog.showModal()'), 'MCQ level cards open an accessible preview and Start dialog');
+check(runtime.includes("extraClass:type==='categories'?'is-category-card':''") && runtime.includes("type==='categories'?' is-category-card':''"), 'category cards receive the shared green card modifier');
+check(html.includes('data-level-total="__SLOT_LEVEL_TOTAL__"') && html.includes('role="progressbar"'), 'level card template exposes actual progress accessibly');
+check(css.includes('.level-card.is-current') && css.includes('.level-card.is-done') && css.includes('.entity-showcase-card.is-category-card'), 'level and category cards include the green status styling');
 check(runtime.includes('window.MCQCampusLoadBundledModule'), 'bundled module loader is present');
 
 check(nginx.includes('location = /assets/style.css'), 'Nginx maps the unified stylesheet');
