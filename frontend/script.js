@@ -4744,7 +4744,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   function renderCard(track,level){
     const template=document.getElementById('mcq-level-card-template');if(!template)return null;
     const total=number(level.total)||100,progress=Math.min(total,number(level.progress));
-    const percent=total?Math.round(progress*100/total):0,locked=level.unlocked!==true;
+    const percent=total?Math.round(progress*100/total):0,locked=level.unlocked!==true||level.premium===true;
     const cardState=locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
     const badge=locked?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
     const meta=level.completed?'Completed · '+number(level.correct)+'/'+total+' correct':progress+'/'+total+' answered';
