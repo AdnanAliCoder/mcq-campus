@@ -2520,7 +2520,7 @@ mountDataDrivenPage(base,id){
   tests:'mcqs',test:'mcqs',pdfs:'pdfs','latest-jobs':'jobs',
   mcq:'mcq-detail',practice:'mcq-detail',category:'category',subcategory:'category',topic:'category',
   paper:'papers',year:'papers',pdf:'pdfs','latest-job':'jobs',post:'articles',
-  search:'search',about:'legal',contact:'legal',faq:'legal',privacy:'legal',terms:'legal',
+  search:'search',posts:'articles',about:'legal',contact:'legal',faq:'legal',privacy:'legal',terms:'legal',
   disclaimer:'legal',cookies:'legal',advertising:'legal',sitemap:'papers'
  };
  const contextSidebarKind=contextSidebarKinds[base];
