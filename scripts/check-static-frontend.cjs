@@ -100,6 +100,9 @@ check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'runtime mounts A
 check(runtime.includes('window.MCQCampusBackendReady===false'), 'static fallback remains available when API bootstrap fails');
 check(runtime.includes('window.MCQLevels?.init?.()'), 'MCQ level progress is initialized');
 check(runtime.includes('function ensureLevelDialog()') && runtime.includes('dialog.showModal()'), 'MCQ level cards open an accessible preview and Start dialog');
+check(html.includes('data-api-region="category-level-cards"') && html.includes('id="mcq-category-levels-template"'), 'category pages mount their own MCQ level card grid');
+check(runtime.includes("['mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase)"), 'category pages always request their MCQ list');
+check(runtime.includes("card.dataset.levelUnlocked!=='true'") && runtime.includes("card.classList.contains('is-locked')"), 'locked level cards are blocked from opening the preview');
 check(runtime.includes("extraClass:type==='categories'?'is-category-card':''") && runtime.includes("type==='categories'?' is-category-card':''"), 'category cards receive the shared green card modifier');
 check(html.includes('data-level-total="__SLOT_LEVEL_TOTAL__"') && html.includes('role="progressbar"'), 'level card template exposes actual progress accessibly');
 check(css.includes('.level-card.is-current') && css.includes('.level-card.is-done') && css.includes('.entity-showcase-card.is-category-card'), 'level and category cards include the green status styling');
