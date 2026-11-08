@@ -1305,9 +1305,8 @@ window.Auth=(()=>{
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
-  if(['mcqs','important','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
+  if(['mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
   if(resolvedBase==='home'||resolvedBase==='category')wants.push('mcq-levels');
-  if(resolvedBase==='category'&&routeParams.get('track')&&routeParams.get('level'))wants.push('public-mcqs');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -3252,6 +3251,12 @@ mountDataDrivenPage(base,id){
   if(isCategory){
    const subs=(data.subcategories||[]).filter(item=>item.active!==false&&Number(item.category_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    setCategoryContext('EXPLORE TOPICS',record.name+' Subcategories',subs.map(item=>({path:'subcategory/'+item.id,label:String(item.name||'')})));
+   const levelRegion=region('category-level-cards'),levelTemplate=document.getElementById('mcq-category-levels-template');
+   if(levelRegion&&levelTemplate){
+    const levelFragment=levelTemplate.content.cloneNode(true),levelRoot=levelFragment.querySelector('#mcq-level-cards');
+    if(levelRoot)levelRoot.dataset.categoryId=String(record.id);
+    levelRegion.replaceChildren(levelFragment);levelRegion.hidden=false;
+   }
   }else{
    const children=(data.children||[]).filter(item=>item.active!==false&&Number(item.subcategory_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>({path:'topic/'+item.id,label:String(item.name||'')})));
@@ -4658,7 +4663,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   function renderCard(track,level){
     const template=document.getElementById('mcq-level-card-template');if(!template)return null;
     const total=number(level.total)||100,progress=Math.min(total,number(level.progress));
-    const percent=total?Math.round(progress*100/total):0,locked=!level.unlocked;
+    const percent=total?Math.round(progress*100/total):0,locked=level.unlocked!==true;
     const cardState=locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
     const badge=locked?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
     const meta=level.completed?'Completed · '+number(level.correct)+'/'+total+' correct':progress+'/'+total+' answered';
@@ -4670,6 +4675,8 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       .replaceAll('__SLOT_LEVEL_NUMBER__',String(level.level)).replaceAll('__SLOT_LEVEL_PAGE__',String(level.next_page||1))
       .replaceAll('__SLOT_LEVEL_TOTAL__',String(total)).replaceAll('__SLOT_LEVEL_PROGRESS__',String(progress))
       .replaceAll('__SLOT_LEVEL_CORRECT__',String(number(level.correct))).replaceAll('__SLOT_LEVEL_STARS_VALUE__',String(stars))
+      .replaceAll('__SLOT_LEVEL_UNLOCKED__',locked?'false':'true')
+      .replaceAll('__SLOT_LEVEL_ARIA_DISABLED__',locked?'true':'false')
       .replaceAll('__SLOT_LEVEL_DISABLED__',locked?'disabled':'').replaceAll('__SLOT_LEVEL_BADGE__',badge)
       .replaceAll('__SLOT_LEVEL_PERCENT__',String(percent)).replaceAll('__SLOT_LEVEL_META__',esc(meta))
       .replaceAll('__SLOT_LEVEL_STARS_LABEL__',esc(starLabel)).replaceAll('__SLOT_LEVEL_STARS__',starsMarkup(stars))
@@ -4751,9 +4758,12 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   function bindCards(root){
     root.addEventListener('click',event=>{
       const card=event.target.closest('[data-level-card]');
-      if(!card||card.disabled||!root.contains(card))return;
+      if(!card||!root.contains(card))return;
+      const locked=card.disabled||card.dataset.levelUnlocked!=='true'||
+        card.getAttribute('aria-disabled')==='true'||card.classList.contains('is-locked');
+      if(locked){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();return;}
       openLevelDialog(card,root);
-    });
+    },true);
     root.querySelectorAll('[data-levels-track]').forEach(button=>{
       button.addEventListener('click',()=>activateTab(root,button.dataset.levelsTrack));
     });
