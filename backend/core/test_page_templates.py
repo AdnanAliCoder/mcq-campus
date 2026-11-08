@@ -99,6 +99,35 @@ class IndependentFrontendTests(TestCase):
         )
         self.assertIn("const pageSize=12", runtime)
 
+    def test_inner_public_routes_have_contextual_right_sidebars(self):
+        runtime = (self.FRONTEND / "script.js").read_text(encoding="utf-8")
+
+        # Level cards must live in the left grid column, beside the sidebar.
+        self.assertIn(
+            "pre:'',main:levelSelector,sidebar:PublicLayout.smart('mcqs')",
+            runtime,
+        )
+        self.assertIn(
+            "pre:'',main:pre,sidebar:PublicLayout.smart('category'",
+            runtime,
+        )
+
+        # Inner entity pages should receive a sidebar tied to the entity being viewed.
+        for route in (
+            "paper:'papers'", "year:'papers'", "category:'category'",
+            "subcategory:'category'", "topic:'category'", "mcq:'mcq-detail'",
+            "practice:'mcq-detail'", "post:'articles'", "'latest-job':'jobs'",
+            "pdf:'pdfs'",
+        ):
+            with self.subTest(route=route):
+                self.assertIn(route, runtime)
+        self.assertIn(
+            "PublicLayout.smart(contextSidebarKind,contextSidebarContext)",
+            runtime,
+        )
+        self.assertIn("contextSidebarContext.question=question", runtime)
+        self.assertIn("{parent:paper,record:paper,type:'paper'}", runtime)
+
     def test_public_pages_render_through_django_with_route_metadata(self):
         for path in (
             "/", "/mcqs", "/categories", "/past-papers", "/tests", "/pdfs",
