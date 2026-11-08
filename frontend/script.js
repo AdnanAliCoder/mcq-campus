@@ -372,7 +372,7 @@ if(ad.provider==='custom_code'&&String(ad.code||'').trim()){const encoded=btoa(u
   const current=String(App.route?.path||'home').split('/')[0];
   const currentQuery=current==='search'?(App.route?.params?.q||''):'';
   const mobileMenu=btn(icon('menu'),'menu','ghost menu-toggle','aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav"');
-  return templateMarkup('mcq-header-template',{HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';
+  const markup=templateMarkup('mcq-header-template',{HEADER_SEARCH:publicSearch('Search MCQs, papers, categories, jobs...',currentQuery),HEADER_USER_MENU:userMenu(),HEADER_MOBILE_MENU:mobileMenu})||'';return markup.replace('</nav>','<a href="/pricing" data-nav-section="pricing">Pricing</a></nav>');
 }
  function footer(){
   const settings=MCQ.db.settings||{},cfg=settings.footer||{},pages=MCQ.db.content?.legalPages||{},coreHelpPages=new Set(['about','contact','privacy','terms','disclaimer']),safeUrl=u=>/^https?:\/\//i.test(String(u||''));
@@ -4004,7 +4004,7 @@ render(){if(!Auth.guard())return;
  else if(base==='latest-jobs'&&/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['latest-job']);if(hit){base='latest-job';id=hit.key}}
  else if(base==='blog'){if(/^\d+$/.test(parts[1]||'')){const hit=indexed(parts[1],['post']);if(hit){base='post';id=hit.key}}else base='posts'}
  if(parts[0]==='paper'&&parts[1]){const paperId=resolveRouteId('paper',parts[1]);if(parts[2]==='year'&&parts[3]){base='year';rawId=parts[3];id=resolveRouteId('year',parts[3],x=>(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)===Number(paperId))}else if(parts[2]==='job'&&parts[3]){const jobId=resolveRouteId('job',parts[3],x=>Number(x.paper_id)===Number(paperId));if(parts[4]==='year'&&parts[5]){base='year';rawId=parts[5];id=resolveRouteId('year',parts[5],x=>Number(x.job_id)===Number(jobId))}else{base='job';rawId=parts[3];id=jobId}}else{base='paper';id=paperId}}if(id===undefined)id=resolveRouteId(base,rawId);if(this.activeQuestionId&&(base!=='practice'||Number(id)!==Number(this.activeQuestionId))){delete this.answers[this.activeQuestionId];delete this.choices[this.activeQuestionId];this.activeQuestionId=null}this.route={path,params:Object.fromEntries(new URLSearchParams(query))};document.body.dataset.pageTemplate=base;
- const pageTemplateMap={home:'index',mcqs:'mcqs',mcq:'mcqs',practice:'mcqs',important:'mcqs',search:'mcqs',categories:'categories',category:'categories',subcategory:'categories',topic:'categories',papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',tests:'tests',test:'tests',login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login','forgot-password':'login','reset-password':'login','password-reset':'login',verify:'login',pdfs:'pdfs',pdf:'pdfs',blog:'blog',posts:'blog',post:'blog',about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',contact:'contact',dashboard:'dashboard',profile:'dashboard',admin:'admin','super-admin':'super-admin','latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs'};
+ const pageTemplateMap={home:'index',mcqs:'mcqs',mcq:'mcqs',practice:'mcqs',important:'mcqs',search:'mcqs',categories:'categories',category:'categories',subcategory:'categories',topic:'categories',papers:'past-papers',paper:'past-papers',job:'past-papers',year:'past-papers',tests:'tests',test:'tests',login:'login',register:'register',forgot:'login',reset:'login','reset-code':'login','forgot-password':'login','reset-password':'login','password-reset':'login',verify:'login',pdfs:'pdfs',pdf:'pdfs',blog:'blog',pricing:'index',posts:'blog',post:'blog',about:'about',faq:'about',privacy:'about',terms:'about',disclaimer:'about',cookies:'about',advertising:'about',contact:'contact',dashboard:'dashboard',profile:'dashboard',admin:'admin','super-admin':'super-admin','latest-jobs':'latest-jobs','latest-job':'latest-jobs','jobs-exams':'latest-jobs'};
  const templatePage=pageTemplateMap[base]||'index';
  if(!document.getElementById('mcq-layout-template')||document.body.dataset.mcqTemplatesPage!==templatePage){
   const pending=this.pageTemplatesPromise;
@@ -4026,7 +4026,7 @@ render(){if(!Auth.guard())return;
   });
   return;
  }
- if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}const discovery=window.SEO?.discoveryPage?.(path);if(discovery?.landing?.type==='paper'&&discovery.landing.id){base='paper';id=String(discovery.landing.id);}let html;try{if(this.mountDataDrivenPage(base,id))html=null;else if(discovery)html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(base==='mcqs'&&!(this.route.params?.track&&this.route.params?.level))html=Public.levelLanding('regular');else if(base==='important-mcqs')html=Public.levelLanding('important');else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else{base='not-found';html=Public.notFound();}if(html!==null){const mountedStatic=this.mountStaticPage(base,html);if(!mountedStatic)document.getElementById('app').replaceChildren(this.staticMarkupFragment(html));}try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));window.MCQLevels?.init?.();const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
+ if(base!=='home'){this.quickTimer?.stop();this.quickAnswer=null;}if(window.SEO?.needsDocumentNavigation(path)){location.replace(UI.href(path,this.route.params));return}const discovery=window.SEO?.discoveryPage?.(path);if(discovery?.landing?.type==='paper'&&discovery.landing.id){base='paper';id=String(discovery.landing.id);}let html;try{if(this.mountDataDrivenPage(base,id))html=null;else if(discovery)html=SEO.renderDiscovery(path);else if(base==='home')html=Public.home();else if(base==='mcqs'&&!(this.route.params?.track&&this.route.params?.level))html=Public.levelLanding('regular');else if(base==='important-mcqs')html=Public.levelLanding('important');else if(['categories','category','subcategory','papers','paper','job'].includes(base))html=Public.browse(base,id);else if(['topic','year','mcqs','important','search'].includes(base))html=Public.listing(base,id);else if(base==='practice')html=Public.practice(id);else if(base==='jobs-exams')html=Public.jobsExams();else if(base==='pdfs')html=Public.pdfs();else if(base==='pdf')html=Public.pdf(id);else if(base==='latest-jobs')html=Public.latestJobs();else if(base==='latest-job')html=Public.latestJob(id);else if(base==='mcq')html=Public.mcq(id);else if(base==='posts'||base==='post')html=Public.posts(base==='post'?id:undefined);else if(base==='tests')html=Public.tests();else if(base==='test')html=Public.test(id);else if(['login','register','forgot','reset','reset-code','reset-password','verify'].includes(base))html=Auth.view(base);else if(base==='pricing')html=window.MCQSubscriptions?.pricingPage?.()||UI.layout('<div class="container page">Loading pricing…</div>');else if(base==='dashboard')html=Public.dashboard(id||'overview');else if(base==='profile')html=Public.dashboard('settings');else if(['about','contact','faq','privacy','terms','disclaimer','cookies','advertising'].includes(base))html=Public.info(base);else if(base==='sitemap')html=Public.sitemap();else if(base==='admin'||base==='super-admin')html=Admin.render(id||'overview',third);else{base='not-found';html=Public.notFound();}if(html!==null){const mountedStatic=this.mountStaticPage(base,html);if(!mountedStatic)document.getElementById('app').replaceChildren(this.staticMarkupFragment(html));}try{const pageKey=templatePage==='index'?'home':templatePage;window.MCQCampusPageHooks?.[pageKey]?.afterRender?.(document.getElementById('app'),{path,base,route:this.route});window.MCQSubscriptions?.afterRender?.(base);}catch(pageError){console.error('Page-specific JavaScript hook failed:',pageError)}UI.mountCustomAds?.(document.getElementById('app'));UI.ensureLinkNames?.(document.getElementById('app'));this.fitBracketBreaks?.();this.fitOverflowText?.();window.MCQMotion?.enter(document.getElementById('app'));window.MCQLevels?.init?.();const side=document.getElementById('admin-sidebar');if(side){side.scrollTop=Number(sessionStorage.getItem('mcq-admin-sidebar-scroll')||0);side.addEventListener('scroll',()=>sessionStorage.setItem('mcq-admin-sidebar-scroll',side.scrollTop),{passive:true});side.querySelector('.item.active')?.scrollIntoView({block:'nearest'});}const quick=base==='home'&&document.querySelector('.hero-quick')?MCQ.topMcqs():[];this.quickTimer?.sync(quick.length?String(quick[Math.max(0,Math.min(Number(this.homeQuickIndex||0),quick.length-1))].id):null);const faq=document.querySelector('[data-faq-rotator]');clearInterval(window.mcqFaqTimer);if(faq&&!matchMedia('(prefers-reduced-motion: reduce)').matches){faq.dataset.current='0';window.mcqFaqTimer=setInterval(()=>{if(document.hidden)return;const dots=[...faq.querySelectorAll('.faq-dot')];if(!dots.length)return;const next=(Number(faq.dataset.current||0)+1)%dots.length;dots[next].click()},5200)}const title=document.querySelector('h1')?.textContent||({home:'A little practice. A lot of progress.',dashboard:'My learning',practice:'Practice MCQs'}[base]||base);document.title=title+' | '+MCQ.db.seo.title;document.querySelector('meta[name="description"]').content=MCQ.db.seo.description;window.SEO?.apply(base,id);Auth.ensureRouteData?.(path,{base,id}).then(changed=>{if(changed&&App.route.path===path)App.render()});document.querySelectorAll('.brand span:last-child').forEach(el=>{const name=MCQ.db.settings.siteName;if(name!=='MCQ Campus')el.textContent=name});}catch(err){this.quickTimer?.stop();document.getElementById('app').innerHTML=UI.layout('<div class="container page">'+UI.empty('We could not load this view',err.message,UI.link('home','Return home','btn'))+'</div>');console.error(err)}}};
 
 App.fitBracketBreaks=function(root=document){
  const scope=root===document?document.getElementById('app'):root;if(!scope)return;
@@ -4254,7 +4254,7 @@ let mcqBracketResizeTimer;window.addEventListener('resize',()=>{clearTimeout(mcq
 /* SOURCE: frontend/js/admin/admin.js */
 window.Admin=(()=>{
  const {esc:e,icon,link,btn,heading,empty,badge,field,textarea,select}=UI;
- const names={categories:'Categories',papers:'Organizations / Boards',jobs:'Legacy Jobs (hidden)',years:'Past Papers',countries:'Countries'};
+ const names={categories:'Categories',papers:'Organizations / Boards',jobs:'Legacy Jobs (hidden)',years:'Past Papers',countries:'Countries',subscriptions:'Subscriptions & Payments'};
  const root=()=>{const routeRoot=String(location.pathname||'').split('/').filter(Boolean)[0]||'';return routeRoot==='super-admin'?'super-admin':routeRoot==='admin'?'admin':MCQ.role()==='super-admin'?'super-admin':'admin';};
  const url=p=>root()+'/'+p;
  const ADMIN_MCQ_PAGE_SIZE=10,IMPORT_PAGE_SIZE=50;
@@ -4283,7 +4283,7 @@ window.Admin=(()=>{
    ? `${navLink('all-mcqs','All MCQs','book')}${navLink('mcqs','My Collection','user')}${navLink('admin-records','Admin Records','shield')}${navLink('add','Add MCQ','plus')}${MCQ.allowed('import')?navLink('import','Bulk import','upload'):''}`
    : `${MCQ.allowed('globalMcqs')?navLink('all-mcqs','All MCQs','book'):''}${navLink('mcqs','My Collection','user')}${MCQ.allowed('add')?navLink('add','Add MCQ','plus'):''}${MCQ.allowed('import')?navLink('import','Bulk import','upload'):''}`;
   const contentLinks=[MCQ.allowed('categories')?navLink('categories','Categories','grid'):'',MCQ.allowed('papers')||MCQ.allowed('years')?navLink('papers','Organizations / Boards','paper'):'',MCQ.allowed('posts')?navLink('posts','Blog','edit'):'',MCQ.allowed('pdfs')?navLink('pdfs-manager','PDFs','download'):'',MCQ.allowed('latestJobs')?navLink('latest-jobs-manager','Latest Jobs','briefcase'):''].filter(Boolean).join('');
-  const systemLinks=(MCQ.allowed('system')?navLink('settings','Settings','settings'):'')+(superAdmin?navLink('countries','Countries','globe'):'');
+  const systemLinks=(MCQ.allowed('system')?navLink('settings','Settings','settings'):'')+(superAdmin?navLink('subscriptions','Subscriptions','credit-card')+navLink('countries','Countries','globe'):'');
   const management=(contentLinks?`<div class="nav-label">Content</div>${contentLinks}`:'')+(systemLinks?`<div class="nav-label">System</div>${systemLinks}`:'');
   const countryOptions=(MCQ.db.countries||[]).filter(c=>c.active!==false).map(c=>`<option value="${e(c.name)}" ${String(c.name).toLowerCase()===String(MCQ.db.activeCountry||'Pakistan').toLowerCase()?'selected':''}>${e(c.name)}</option>`).join('');
   const countrySwitcher=superAdmin?`<label class="admin-country-switcher"><span>Active country</span><select data-active-country-select aria-label="Active Super Admin country">${countryOptions}</select></label>`:'';
@@ -4585,10 +4585,10 @@ window.Admin=(()=>{
  function render(view,id){
   if(!['admin','super-admin'].includes(MCQ.role()))return UI.layout(`<div class="container page">${empty('Sign in required','Use an Admin or Super Admin account to open this workspace.',link('login','Log in','btn primary'))}</div>`);
   const viewCaps={
-   add:'add',edit:'edit','all-mcqs':'globalMcqs','admin-records':'admins','paper-mcqs':'papers',categories:'categories',papers:'papers',jobs:'jobs',years:'years',countries:'system',import:'import',settings:'system','site-settings':'settings',users:'users',admins:'admins',reports:'reports',posts:'posts','pdfs-manager':'pdfs','latest-jobs-manager':'latestJobs','page-seo':'system',footer:'footer','legal-pages':'legal','social-links':'social',trash:'restore',backup:'backup',analytics:'analytics',ads:'ads'
+   add:'add',edit:'edit','all-mcqs':'globalMcqs','admin-records':'admins','paper-mcqs':'papers',categories:'categories',papers:'papers',jobs:'jobs',years:'years',countries:'system',import:'import',settings:'system','site-settings':'settings',users:'users',admins:'admins',reports:'reports',posts:'posts','pdfs-manager':'pdfs','latest-jobs-manager':'latestJobs','page-seo':'system',footer:'footer','legal-pages':'legal','social-links':'social',trash:'restore',backup:'backup',analytics:'analytics',ads:'ads',subscriptions:'subscriptions'
   };
   const cap=viewCaps[view];
-  if(App.route.path.startsWith('super-admin')&&MCQ.role()!=='super-admin'||['roles','page-seo','countries'].includes(view)&&MCQ.role()!=='super-admin'||cap&&!MCQ.allowed(cap))return shell(empty('This account does not have access to this area','Ask the Super Admin to grant the required permission for this workspace.',link(url('overview'),'Back to overview','btn')),'Access limited');
+  if(App.route.path.startsWith('super-admin')&&MCQ.role()!=='super-admin'||['roles','page-seo','countries','subscriptions'].includes(view)&&MCQ.role()!=='super-admin'||cap&&!MCQ.allowed(cap))return shell(empty('This account does not have access to this area','Ask the Super Admin to grant the required permission for this workspace.',link(url('overview'),'Back to overview','btn')),'Access limited');
   let body,title=view;
   if(view==='overview')body=overview();
   else if(['mcqs','all-mcqs'].includes(view))body=mcqs(view);
@@ -4615,6 +4615,7 @@ window.Admin=(()=>{
   else if(view==='backup')body=backup();
   else if(view==='analytics')body=analytics();
   else if(view==='ads')body=adManager();
+  else if(view==='subscriptions')body=window.MCQSubscriptions?.adminPanel?.()||empty('Subscriptions unavailable','Refresh the page and try again.');
   else body=empty('Page not found','This item is no longer part of the simplified Super Admin navigation.');
   return shell(body,names[view]||({'all-mcqs':'All MCQs','admin-records':'Admin Records','paper-mcqs':'Organizations / Past Papers',settings:'Settings','site-settings':'Website Settings','page-seo':'Page Titles & Descriptions','pdfs-manager':'PDF Resources','latest-jobs-manager':'Latest Jobs'}[view])||view.replace(/^./,x=>x.toUpperCase()))
  }
@@ -4925,3 +4926,167 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   }
   window.MCQLevels={init};
 })();
+
+
+
+/* ===== MCQCAMPUS MODULE: subscriptions-ui.js ===== */
+window.MCQSubscriptions = (() => {
+ const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ const money = amount => 'Rs. ' + Number(amount || 0).toLocaleString('en-PK');
+ const keys = ['monthly','quarterly','yearly'];
+ let publicData = null, publicPending = null, adminData = null, adminPending = null;
+ let selectedPlan = 'monthly', notice = '', noticeKind = 'info', busy = false;
+ const activeAdminRoute = () => String(window.App?.route?.path || '').split('/')[1] === 'subscriptions';
+ const fmtDate = value => { try { return value ? new Date(value).toLocaleString() : '—'; } catch { return '—'; } };
+ const user = () => window.Auth?.user || null;
+ const showMessage = (message, kind='info') => { notice=String(message||''); noticeKind=kind; };
+ function loadPublic(force=false){
+  if(publicPending)return publicPending;
+  if(publicData&&!force)return Promise.resolve(publicData);
+  publicPending=window.Auth.request('/subscription/plans').then(data=>{publicData=data;return data;}).finally(()=>{publicPending=null;});
+  return publicPending;
+ }
+ function loadAdmin(force=false){
+  if(adminPending)return adminPending;
+  if(adminData&&!force)return Promise.resolve(adminData);
+  adminPending=window.Auth.request('/admin/subscriptions').then(data=>{adminData=data;return data;}).finally(()=>{adminPending=null;});
+  return adminPending;
+ }
+ function pricingPage(){
+  if(!publicData) return window.UI.layout('<section class="container page subscription-page"><div class="subscription-hero"><p class="eyebrow">MCQCAMPUS PREMIUM</p><h1>Choose your preparation plan</h1><p>Loading current plans and Raast payment details…</p></div><div class="card subscription-loading">Please wait while we load pricing.</div></section>');
+  const plans=publicData.plans||{}, current=publicData.subscription||{};
+  const cards=['free',...keys].map(key=>{
+   const p=plans[key]||{}, features=(p.features||[]).map(item=>'<li><span class="sub-check">✓</span>'+esc(item)+'</li>').join('');
+   const disabled=key!=='free'&&p.active===false;
+   const button=key==='free'
+    ? '<a class="btn secondary" href="/mcqs">Start free</a>'
+    : '<button class="btn '+(key==='yearly'?'primary':'secondary')+'" type="button" data-sub-plan="'+key+'" '+(disabled?'disabled':'')+'>'+(disabled?'Not available':selectedPlan===key?'Selected':'Choose plan')+'</button>';
+   return '<article class="subscription-plan '+(key===selectedPlan?'is-selected':'')+' '+(key==='yearly'?'is-featured':'')+'"><div class="subscription-plan-top"><span class="subscription-plan-label">'+(key==='yearly'?'Best value':key==='quarterly'?'Save more':'')+'</span><h2>'+esc(p.name||key)+'</h2><p>'+esc(p.tagline||'')+'</p></div><div class="subscription-price">'+(key==='free'?'Free':money(p.amount))+'<small>'+esc(p.period||'')+'</small></div><ul class="subscription-features">'+features+'</ul><div class="subscription-plan-action">'+button+'</div></article>';
+  }).join('');
+  const plan=plans[selectedPlan]||{}, qr=publicData.qr_url||'';
+  const currentNotice=current.active
+   ? '<div class="notice success subscription-current"><strong>Premium is active.</strong> Your '+esc(current.plan||'')+' plan is active until '+esc(fmtDate(current.ends_at))+'.</div>'
+   : '';
+  let payment='';
+  if(selectedPlan){
+   if(!user()){
+    payment='<section class="card subscription-paybox"><h2>Continue with '+esc(plan.name||'Premium')+'</h2><p>Sign in to submit your Raast payment reference and proof. Access begins only after Super Admin approval.</p><a class="btn primary" href="/login?next=pricing">Sign in to continue</a></section>';
+   }else{
+    const me=user(), fallbackName=me.full_name||me.name||me.username||'';
+    payment='<section class="card subscription-paybox" id="subscription-payment"><div class="subscription-pay-head"><div><p class="eyebrow">PAYMENT &amp; VERIFICATION</p><h2>Activate '+esc(plan.name||'Premium')+'</h2><p>Pay the exact amount, then upload your receipt. Your account remains on its current access until the payment is approved.</p></div><div class="subscription-due">'+money(plan.amount)+'<small>'+esc(plan.period||'')+'</small></div></div>'+
+     '<div class="subscription-payment-grid"><div class="subscription-qr-card">'+(qr?'<img src="'+esc(qr)+'" alt="MCQCampus Raast QR code">':'<div class="subscription-qr-empty">Raast QR has not been configured yet.</div>')+'<strong>Raast payment</strong><p>Scan the QR using your banking app.</p><div class="raast-id-line"><span>Raast ID</span><strong>'+(publicData.raast_id?esc(publicData.raast_id):'Not configured yet')+'</strong></div></div>'+
+     '<div><form data-subscription-payment novalidate><input type="hidden" name="plan" value="'+esc(selectedPlan)+'"><input type="hidden" name="amount" value="'+Number(plan.amount||0)+'"><div class="form-grid"><label>Full name<input name="name" value="'+esc(fallbackName)+'" maxlength="150" required></label><label>Email address<input type="email" name="email" value="'+esc(me.email||'')+'" maxlength="254" required></label><label class="wide">Raast transaction reference<input name="transaction_id" maxlength="120" placeholder="Enter transaction ID / reference" required></label><label class="wide">Payment screenshot or PDF receipt<input type="file" name="screenshot" accept=".png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf" required><small>PNG, JPG, WebP or PDF · Maximum 5 MB</small></label></div><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Submit payment proof</button><p class="small muted">Submitting proof does not automatically unlock Premium. Our Super Admin verifies the receipt first.</p></form></div></div></section>';
+   }
+  }
+  const alert=notice?'<div class="notice '+(noticeKind==='error'?'error':noticeKind==='success'?'success':'')+'" role="status">'+esc(notice)+'</div>':'';
+  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One plan. Your complete exam preparation.</h1><p>Unlock premium MCQs, important questions, past papers and premium PDF resources with a secure Raast payment.</p><div class="subscription-hero-points"><span>✓ Server-verified access</span><span>✓ Manual payment verification</span><span>✓ No automatic charges</span></div></section>'+currentNotice+alert+'<section class="subscription-plan-grid" aria-label="Subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Premium access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Premium begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Raast payments using the configured QR code or Raast ID are supported.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
+ }
+ function adminPanel(){
+  if(!adminData)return '<div class="subscription-admin"><div class="notice">Loading subscription requests and payment settings…</div></div>';
+  const s=adminData.settings||{}, plans=s.plans||{}, free=s.free_access||{};
+  const proofRows=(adminData.proofs||[]).map(p=>{
+   const pending=p.status==='pending';
+   const action=pending?'<div class="subscription-review-actions"><input type="text" maxlength="500" placeholder="Optional review note" data-proof-note="'+p.id+'"><button type="button" class="btn primary" data-proof-review="'+p.id+'" data-review-status="approved">Approve &amp; activate</button><button type="button" class="btn danger" data-proof-review="'+p.id+'" data-review-status="rejected">Reject</button></div>':'<p class="small muted">Reviewed '+esc(fmtDate(p.reviewed_at))+ (p.review_note?' · '+esc(p.review_note):'')+'</p>';
+   return '<article class="subscription-proof"><div class="subscription-proof-head"><div><strong>'+esc(p.reference)+' · '+esc(p.name)+'</strong><p>'+esc(p.email)+' · '+esc(p.plan_name)+'</p></div><span class="subscription-status status-'+esc(p.status)+'">'+esc(p.status)+'</span></div><div class="subscription-proof-meta"><span><b>Amount</b>'+money(p.amount)+'</span><span><b>Transaction ID</b>'+esc(p.transaction_id)+'</span><span><b>Submitted</b>'+esc(fmtDate(p.created_at))+'</span></div><a href="'+esc(p.screenshot_url)+'" target="_blank" rel="noopener">View payment proof ↗</a>'+action+'</article>';
+  }).join('')||'<div class="empty">No payment requests have been submitted yet.</div>';
+  const subscriptions=(adminData.active_subscriptions||[]).map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+esc(row.email)+'</td><td>'+esc(row.plan)+'</td><td>'+esc(fmtDate(row.ends_at))+'</td></tr>').join('')||'<tr><td colspan="4">No active paid subscriptions.</td></tr>';
+  const planFields=keys.map(key=>{
+   const p=plans[key]||{};
+   return '<div class="subscription-setting-plan"><label><span>'+esc(p.name||key)+' price (PKR)</span><input type="number" min="1" max="1000000" step="1" name="amount_'+key+'" value="'+Number(p.amount||0)+'" required></label><label class="subscription-active-toggle"><input type="checkbox" name="active_'+key+'" '+(p.active===false?'':'checked')+'> Available for purchase</label></div>';
+  }).join('');
+  const freeName=plans.free||{};
+  return '<div class="subscription-admin"><div class="subscription-admin-top"><div><h2>Subscription management</h2><p>Configure Raast details, pricing and free access; review student payment proofs.</p></div><button type="button" class="btn secondary" data-sub-refresh>Refresh</button></div>'+
+   '<div class="metric-grid subscription-metrics"><div class="metric-card"><strong>'+Number(adminData.pending_count||0)+'</strong><span>Pending requests</span></div><div class="metric-card"><strong>'+(adminData.active_subscriptions||[]).length+'</strong><span>Active subscriptions shown</span></div><div class="metric-card"><strong>'+(adminData.proofs||[]).length+'</strong><span>Payment proofs shown</span></div></div>'+
+   '<section class="card subscription-settings-card"><h3>Raast &amp; pricing settings</h3><form data-subscription-settings enctype="multipart/form-data"><label>Raast ID<input type="text" name="raast_id" maxlength="160" value="'+esc(s.raast_id||'')+'" placeholder="Your official Raast ID"></label><div class="subscription-qr-admin">'+(s.qr_set?'<img src="/api/subscription/qr" alt="Current Raast QR code">':'<span>No QR code uploaded</span>')+'<label>Upload / replace QR image<input type="file" name="qr_image" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"><small>PNG, JPG or WebP · Maximum 2 MB</small></label>'+(s.qr_set?'<label class="inline-check"><input type="checkbox" name="remove_qr" value="1"> Remove current QR code</label>':'')+'</div>'+
+   '<h4>Paid plan prices</h4><div class="subscription-settings-plans">'+planFields+'</div><h4>Free plan</h4><div class="form-grid"><label>Free plan name<input name="free_name" maxlength="100" value="'+esc(freeName.name||'Free Plan')+'"></label><label>Tagline<input name="free_tagline" maxlength="180" value="'+esc(freeName.tagline||'')+'"></label><label class="wide">Free plan features<textarea name="free_features" rows="4">'+esc((freeName.features||[]).join('\n'))+'</textarea></label></div>'+
+   '<h4>Free access allowance (levels of 100 MCQs)</h4><div class="subscription-free-limits"><label>Regular MCQ levels<input type="number" min="0" max="10" name="regular_levels" value="'+Number(free.regular_levels??1)+'"></label><label>Important MCQ levels<input type="number" min="0" max="10" name="important_levels" value="'+Number(free.important_levels??1)+'"></label><label>Each category levels<input type="number" min="0" max="10" name="category_levels" value="'+Number(free.category_levels??1)+'"></label></div><div class="form-grid"><label>Free past-paper IDs (comma separated)<input name="free_past_paper_ids" value="'+esc((free.free_past_paper_ids||[]).join(', '))+'"></label><label>Free PDF IDs (comma separated)<input name="free_pdf_ids" value="'+esc((free.free_pdf_ids||[]).join(', '))+'"></label></div><button class="btn primary" type="submit">Save subscription settings</button></form></section>'+
+   '<section class="subscription-review-section"><div class="section-head"><div><h3>Student payment requests</h3><p class="small muted">Approving a verified payment activates the selected plan.</p></div></div>'+proofRows+'</section>'+
+   '<section class="card subscription-active-section"><h3>Active subscriptions</h3><div class="table-wrap"><table><thead><tr><th>Student</th><th>Email</th><th>Plan</th><th>Expires</th></tr></thead><tbody>'+subscriptions+'</tbody></table></div></section></div>';
+ }
+ async function refreshAdmin(){
+  showMessage('');
+  try{await loadAdmin(true);window.App?.render();}
+  catch(error){showMessage(error.message||'Could not load subscription administration.','error');adminData={settings:{},proofs:[],active_subscriptions:[],pending_count:0};window.App?.render();}
+ }
+ function afterRender(base){
+  if(base==='pricing'&&!publicData&&!publicPending){
+   loadPublic().then(()=>{if(window.App?.route?.path==='pricing')window.App.render();}).catch(error=>{showMessage(error.message,'error');publicData={plans:{},subscription:{}};if(window.App?.route?.path==='pricing')window.App.render();});
+  }
+  if(base==='super-admin'&&activeAdminRoute()&&!adminData&&!adminPending){
+   loadAdmin().then(()=>{if(activeAdminRoute())window.App.render();}).catch(error=>{showMessage(error.message,'error');adminData={settings:{},proofs:[],active_subscriptions:[],pending_count:0};if(activeAdminRoute())window.App.render();});
+  }
+ }
+ document.addEventListener('click',async event=>{
+  const choose=event.target.closest('[data-sub-plan]');
+  if(choose){selectedPlan=choose.getAttribute('data-sub-plan');showMessage('');window.App?.render();return;}
+  if(event.target.closest('[data-sub-refresh]')){await refreshAdmin();return;}
+  const review=event.target.closest('[data-proof-review]');
+  if(review){
+   const id=Number(review.getAttribute('data-proof-review')),status=review.getAttribute('data-review-status');
+   const note=document.querySelector('[data-proof-note="'+id+'"]')?.value||'';
+   if(!id||!['approved','rejected'].includes(status))return;
+   if(status==='approved'&&!window.confirm('Approve this verified payment and activate Premium access?'))return;
+   review.disabled=true;
+   try{
+    const result=await window.Auth.request('/admin/subscriptions/review',{id,status,note});
+    showMessage(result.payment?.reference+' '+status+'.','success');
+    await loadAdmin(true);window.App?.render();
+   }catch(error){showMessage(error.message||'Could not review this payment.','error');window.App?.render();}
+  }
+ },true);
+ document.addEventListener('submit',async event=>{
+  const payment=event.target.closest('form[data-subscription-payment]');
+  if(payment){
+   event.preventDefault();event.stopImmediatePropagation();
+   const file=payment.elements.screenshot?.files?.[0];
+   if(!file){showMessage('Select your payment screenshot or PDF receipt.','error');window.App?.render();return;}
+   const fd=new FormData();
+   fd.append('plan',payment.elements.plan.value);
+   fd.append('amount',payment.elements.amount.value);
+   fd.append('name',payment.elements.name.value.trim());
+   fd.append('email',payment.elements.email.value.trim());
+   fd.append('transaction_id',payment.elements.transaction_id.value.trim());
+   fd.append('screenshot',file);
+   const button=payment.querySelector('[type="submit"]');if(button)button.disabled=true;
+   busy=true;
+   try{
+    const result=await window.Auth.upload('/subscription/payment-proof',fd,{timeout:30000});
+    showMessage((result.message||'Payment proof submitted.')+' Reference: '+result.reference_id+'.','success');
+    selectedPlan='';await loadPublic(true);window.App?.render();
+   }catch(error){showMessage(error.message||'Could not submit payment proof.','error');window.App?.render();}
+   finally{busy=false;}
+   return;
+  }
+  const settings=event.target.closest('form[data-subscription-settings]');
+  if(settings){
+   event.preventDefault();event.stopImmediatePropagation();
+   const fd=new FormData(),plans={},free=adminData?.settings?.free_access||{};
+   for(const key of keys){
+    const old=adminData?.settings?.plans?.[key]||{};
+    plans[key]={name:old.name||key,amount:Number(settings.elements['amount_'+key].value),period:old.period||'',tagline:old.tagline||'',features:old.features||[],active:settings.elements['active_'+key].checked};
+   }
+   const freeOld=adminData?.settings?.plans?.free||{};
+   plans.free={name:settings.elements.free_name.value.trim(),amount:0,period:freeOld.period||'/ forever',tagline:settings.elements.free_tagline.value.trim(),features:settings.elements.free_features.value.split('\n').map(x=>x.trim()).filter(Boolean)};
+   const freeAccess={
+    regular_levels:Number(settings.elements.regular_levels.value),
+    important_levels:Number(settings.elements.important_levels.value),
+    category_levels:Number(settings.elements.category_levels.value),
+    free_past_paper_ids:settings.elements.free_past_paper_ids.value,
+    free_pdf_ids:settings.elements.free_pdf_ids.value
+   };
+   fd.append('raast_id',settings.elements.raast_id.value.trim());
+   fd.append('plans',JSON.stringify(plans));
+   fd.append('free_access',JSON.stringify(freeAccess));
+   const qr=settings.elements.qr_image?.files?.[0];if(qr)fd.append('qr_image',qr);
+   if(settings.elements.remove_qr?.checked)fd.append('remove_qr','1');
+   const button=settings.querySelector('[type="submit"]');if(button)button.disabled=true;
+   try{
+    await window.Auth.upload('/admin/subscriptions/settings',fd,{timeout:30000});
+    showMessage('Raast details, plan prices and Free plan settings saved.','success');
+    await loadAdmin(true);window.App?.render();
+   }catch(error){showMessage(error.message||'Could not save subscription settings.','error');window.App?.render();}
+  }
+ },true);
+ return {pricingPage,adminPanel,afterRender,refreshAdmin};
+})();
+/* ===== END MODULE: subscriptions-ui.js ===== */
