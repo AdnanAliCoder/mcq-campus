@@ -624,7 +624,19 @@ def public_resources(request):
 @profile_api('public_catalog')
 @require_GET
 def public_catalog(request):
-    return _public_json(request,public_catalog_data(_request_content_country(request)))
+    data=public_catalog_data(_request_content_country(request))
+    free_ids=set(normalized_free_access()['free_pdf_ids'])
+    unrestricted=has_premium_access(request.user) or is_admin(request.user)
+    for pdf in data.get('pdfs',[]):
+        try: ident=int(pdf.get('id') or 0)
+        except (TypeError,ValueError): ident=0
+        locked=not unrestricted and ident not in free_ids
+        pdf['premium']=locked
+        if locked:
+            # Do not send direct or embedded file URLs to unpaid clients.
+            for key in ('download_url','url','file_url','file_data','pdf_file_data','data'):
+                pdf.pop(key,None)
+    return _public_json(request,data)
 
 @profile_api('public_legal')
 @require_GET
