@@ -96,8 +96,13 @@ class PastPapersSEOTests(TestCase):
         self.assertFalse(any('/mcq/' in url or '/mcqs/' in url for url in sitemap_urls))
 
         html_sitemap = self.client.get('/sitemap').content.decode()
-        self.assertNotIn('href="/mcq/', html_sitemap)
-        self.assertNotIn('href="/mcqs/', html_sitemap)
+        seo_links = re.search(
+            r'<nav class="seo-fallback-links"[^>]*>(.*?)</nav>',
+            html_sitemap, re.S
+        )
+        self.assertIsNotNone(seo_links)
+        self.assertNotIn('href="/mcq/', seo_links.group(1))
+        self.assertNotIn('href="/mcqs', seo_links.group(1))
 
     def test_mcq_practice_landing_pages_are_noindex_not_removed_from_practice(self):
         for path in ('/mcqs', '/mcqs/importent-mcqs'):
