@@ -632,7 +632,7 @@ window.Public=(()=>{
  function levelLanding(track='regular'){
   const important=track==='important',title=important?'Important MCQs':'Regular MCQs',key=important?'important':'regular';
   const levelSelector=`<section id="mcq-level-cards" class="section levels-home-section mcq-level-landing mcq-level-landing--${key}" aria-labelledby="mcq-levels-heading"><div class="levels-home-heading"><div><p class="eyebrow">YOUR PRACTICE JOURNEY</p><h2 id="mcq-levels-heading">${title} · Practice by Levels</h2><p class="small muted">Har level mein 100 MCQs. Apni progress save karein aur aglay level se continue karein.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading your progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><nav class="levels-tabs" data-levels-tabs aria-label="MCQ level type"><button class="levels-tab active" type="button" data-levels-track="regular">Regular MCQs <em data-levels-count-regular>0</em></button><button class="levels-tab" type="button" data-levels-track="important">Important MCQs <em data-levels-count-important>0</em></button></nav><section class="levels-track active" data-levels-panel="regular"><div class="levels-grid" data-api-region="levels-regular"><p class="muted">Loading regular levels…</p></div></section><section class="levels-track" data-levels-panel="important"><div class="levels-grid" data-api-region="levels-important"><p class="muted">Loading important levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>`;
-  return PublicLayout.page({trail:[['Home','home'],[title]],title,desc:'Choose a level to practise 100 '+(important?'important':'regular')+' MCQs at a time.',pre:'',main:levelSelector,sidebar:PublicLayout.smart('mcqs'),active:'mcqs',sidebarLabel:'Browse'});
+  return PublicLayout.page({trail:[['Home','home'],[title]],title,desc:'Choose a level to practise 100 '+(important?'important':'regular')+' MCQs at a time.',pre:'',main:levelSelector,sidebar:PublicLayout.smart('mcqs'),active:'mcqs',className:'mcq-level-page',sidebarLabel:'Browse'});
  }
 
  function browse(type,id){
@@ -3362,12 +3362,6 @@ mountDataDrivenPage(base,id){
   if(heading)heading.textContent=pageCopy.title;
   if(description)description.textContent=pageCopy.description;
   setMarkup('breadcrumbs',UI.crumbs([['Past Papers','papers'],[titleText]]));
-  const contextRegion=region('paper-context'),contextTemplate=document.getElementById('mcq-paper-context-template');
-  if(contextRegion&&contextTemplate){
-   const fragment=contextTemplate.content.cloneNode(true),contextTitle=fragment.querySelector('[data-paper-context-title]');
-   if(contextTitle)contextTitle.textContent=titleText+' Past Papers';
-   contextRegion.replaceChildren(fragment);contextRegion.hidden=false;
-  }
   setText('past-paper-summary',total.toLocaleString('en-GB')+' past-paper records · 12 per page');
   const list=region('past-paper-list');
   if(list){
