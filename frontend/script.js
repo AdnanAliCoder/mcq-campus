@@ -1302,6 +1302,25 @@ window.Auth=(()=>{
    return data;
   }finally{if(loading)backendLoading(false);}
  }
+ async function upload(path,formData,{loading=true,timeout=30000}={}){
+  await ensureCsrfToken();
+  if(loading)backendLoading(true);
+  try{
+   const send=()=>fetch('/api'+path,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-CSRFToken':csrf},body:formData,signal:AbortSignal.timeout(timeout)});
+   let response;
+   try{response=await send();}catch{throw Error('Unable to upload to MCQCampus. Check your connection and try again.');}
+   if(response.status===403&&!response.headers.get('content-type')?.includes('application/json')){
+    await ensureCsrfToken({force:true});
+    try{response=await send();}catch{throw Error('Unable to upload to MCQCampus. Check your connection and try again.');}
+   }
+   if(response.status===401){clearPrivateState();ready=true;throw Error('Your session has ended. Please sign in again.');}
+   if(!response.headers.get('content-type')?.includes('application/json'))throw Error(authError);
+   const data=await response.json();
+   if(data.csrfToken)csrf=data.csrfToken;
+   if(!response.ok){const error=Error(data.message||'The upload could not be completed.');error.fields=data.fields;throw error;}
+   return data;
+  }finally{if(loading)backendLoading(false);}
+ }
  async function ensureRouteData(path,context={}){
   if(!path)return false;
   const clean=String(path).split('?')[0].replace(/^\/+|\/+$/g,'')||'home';
@@ -1947,7 +1966,7 @@ window.Auth=(()=>{
  window.addEventListener('pageshow',event=>{if(event.persisted&&user)validateSession(false).then(()=>App.render());});
  document.addEventListener('input',event=>{if(event.target.closest('form[data-form="mcq"]'))window.mcqDirty=true;});
  window.addEventListener('beforeunload',event=>{if(window.mcqDirty){event.preventDefault();event.returnValue='';}});
- return {guard,view,start,logout,switchRole,request,command,ensureRouteData,destination,allowed,syncVerificationTimer,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
+ return {guard,view,start,logout,switchRole,request,upload,command,ensureRouteData,destination,allowed,syncVerificationTimer,ADMIN_PAGE_SIZES,ADMIN_DEFAULT_PAGE_SIZE,get user(){return user;}};
 })();
 
 

@@ -162,3 +162,132 @@ class OneTimeToken(models.Model):
     used_at=models.DateTimeField(null=True,blank=True)
     attempt_count=models.PositiveSmallIntegerField(default=0)
     created_at=models.DateTimeField(auto_now_add=True)
+
+def default_subscription_plans():
+    return {
+        'free': {
+            'name': 'Free Plan', 'amount': 0, 'days': 0, 'period': '/ forever',
+            'tagline': 'Free forever',
+            'features': [
+                'First free level of Regular MCQs',
+                'First free level of Important MCQs',
+                'First level in each category',
+                'Selected past papers and PDF resources',
+                'Latest jobs with application links',
+                'All blogs and helping articles',
+            ],
+        },
+        'monthly': {
+            'name': 'Monthly Premium', 'amount': 299, 'days': 30, 'period': '/ month',
+            'tagline': 'Recommended for beginners', 'active': True,
+            'features': [
+                'All 17,000+ MCQs unlocked', 'All Important MCQs unlocked',
+                'All categories and levels', 'All past papers',
+                'Premium PDF resources', 'Progress tracking and new content',
+            ],
+        },
+        'quarterly': {
+            'name': '3 Months Premium', 'amount': 699, 'days': 90, 'period': '/ 3 months',
+            'tagline': 'Save Rs. 198 vs monthly', 'active': True,
+            'features': [
+                'Everything in Monthly Premium', '90 days full premium access',
+                'All MCQs and past papers', 'All premium PDFs',
+                'All new content during subscription',
+            ],
+        },
+        'yearly': {
+            'name': 'Yearly Premium', 'amount': 1499, 'days': 365, 'period': '/ year',
+            'tagline': 'Best value — save Rs. 2,089', 'active': True,
+            'features': [
+                'Everything in Monthly Premium', '365 days full premium access',
+                'Complete MCQ and Important MCQ libraries', 'All categories and past papers',
+                'All premium PDFs', 'Future MCQs and resources',
+            ],
+        },
+    }
+
+
+def default_subscription_free_access():
+    return {
+        'regular_levels': 1,
+        'important_levels': 1,
+        'category_levels': 1,
+        'free_past_paper_ids': [],
+        'free_pdf_ids': [],
+    }
+
+
+class SubscriptionConfig(models.Model):
+    """Private Super Admin-managed settings for manual Raast subscriptions."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    raast_id = models.CharField(max_length=160, blank=True, default='')
+    qr_image = models.BinaryField(null=True, blank=True)
+    qr_content_type = models.CharField(max_length=80, blank=True, default='')
+    qr_filename = models.CharField(max_length=180, blank=True, default='')
+    plans = models.JSONField(default=default_subscription_plans, blank=True)
+    free_access = models.JSONField(default=default_subscription_free_access, blank=True)
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='subscription_config_updates')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_solo(cls):
+        row, _ = cls.objects.get_or_create(id=1)
+        return row
+
+    def __str__(self):
+        return 'MCQCampus subscription and Raast settings'
+
+
+class SubscriptionPaymentProof(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending verification'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    PLAN_CHOICES = [
+        ('monthly', 'Monthly Premium'),
+        ('quarterly', '3 Months Premium'),
+        ('yearly', 'Yearly Premium'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscription_payment_proofs')
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES)
+    plan_name = models.CharField(max_length=100)
+    amount = models.PositiveIntegerField()
+    full_name = models.CharField(max_length=150)
+    email = models.EmailField()
+    transaction_id = models.CharField(max_length=120, unique=True)
+    screenshot = models.BinaryField()
+    screenshot_content_type = models.CharField(max_length=80)
+    screenshot_filename = models.CharField(max_length=180)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pending', db_index=True)
+    review_note = models.CharField(max_length=500, blank=True, default='')
+    reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_subscription_payments')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f'{self.transaction_id} · {self.plan_name} · {self.status}'
+
+
+class Subscription(models.Model):
+    PLAN_CHOICES = [
+        ('monthly', 'Monthly Premium'),
+        ('quarterly', '3 Months Premium'),
+        ('yearly', 'Yearly Premium'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='mcqcampus_subscription')
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(db_index=True)
+    is_active = models.BooleanField(default=True)
+    source_payment = models.ForeignKey(SubscriptionPaymentProof, null=True, blank=True, on_delete=models.SET_NULL, related_name='activated_subscriptions')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-ends_at']
+
+    def __str__(self):
+        return f'{self.user_id} · {self.plan} · {self.ends_at}'
