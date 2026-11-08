@@ -40,6 +40,8 @@ const pageShells = [...html.matchAll(/<section\s+data-static-page="([^"]+)"/g)].
 check(expectedPages.every(page => pageShells.includes(page)), 'all current static page shells exist');
 check(pageShells.length === expectedPages.length, 'each current static page shell appears exactly once');
 check(new Set(pageShells).size === pageShells.length, 'static page shell identifiers are unique');
+check(!html.includes('data-api-region="paper-context"'), 'organization pages omit the generic exam-preparation promo region');
+check(!html.includes('id="mcq-paper-context-template"'), 'generic organization promo template is absent');
 check(!html.includes('data-static-page="tests"'), 'retired public tests page shell is absent');
 check(!html.includes('data-api-region="test-list"'), 'retired public tests list region is absent');
 
@@ -67,7 +69,7 @@ for (const id of requiredTemplates) {
 const requiredRegions = [
   'home-stats', 'home-categories', 'levels-regular', 'levels-important',
   'category-context', 'category-list', 'mcq-summary', 'mcq-list', 'mcq-pagination',
-  'paper-context', 'organization-list', 'past-paper-list', 'past-paper-pagination',
+  'organization-list', 'past-paper-list', 'past-paper-pagination',
   'pdf-list', 'blog-filters', 'blog-list', 'auth-form',
   'sitemap-content', 'not-found-links', 'learner-dashboard', 'admin-workspace',
   'super-admin-workspace', 'about-content', 'contact-form',
