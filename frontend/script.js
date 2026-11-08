@@ -646,7 +646,7 @@ window.Public=(()=>{
   }
   if(type==='category'){
    const cat=MCQ.get('categories',id);if(!cat)return notFound();
-const server=activeServerMcqPage(),p=App.route.params,pageSize=10,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=['regular','important'].includes(track)&&levelNumber>0;
+    const server=activeServerMcqPage(),p=App.route.params,pageSize=10,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=['regular','important'].includes(track)&&levelNumber>0;
     let rows=levelSelected?(server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>Number(q.category_id)===Number(cat.id)&&(MCQ.isImportant(q)?'important':'regular')===track).sort((a,b)=>Number(a.id)-Number(b.id)).slice((levelNumber-1)*100,levelNumber*100)):[];
     const total=levelSelected?(server?Number(server.total||0):rows.length):0,page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(p.page)||1);
    const subs=MCQ.db.subcategories.filter(x=>x.active!==false&&+x.category_id===+cat.id).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
