@@ -543,7 +543,7 @@ window.Public=(()=>{
  const activeEntityPage=()=>{const p=MCQ.db.entityPage||{};return p.server===true&&p.routeKey===location.pathname+location.search?p:null};
  const pastPapersPath=x=>{const org=MCQ.get('papers',x.paper_id);return org?(window.SEO?SEO.cleanPath('paper',org.id):'paper/'+org.id):'papers'};
   const latestJobCard=x=>{const safe=u=>/^https?:\/\//i.test(String(u||'')),org=MCQ.get('papers',x.paper_id),logo=org?UI.entityIcon(org,'briefcase'):icon('briefcase'),slug=x.slug||MCQ.slug(x.title||'job'),path=window.SEO?SEO.cleanPath('latest-job',x.id):'latest-job/'+slug,apply=safe(x.apply_url)?'<a class="btn sm" href="'+e(x.apply_url)+'" target="_blank" rel="noopener" data-auth-action="apply-job">Apply</a>':'',prep=(/^(https?:\/\/|\/(?!\/))/i.test(String(x.prep_url||'')))?'<a class="btn sm" href="'+e(x.prep_url)+'" target="_blank" rel="noopener">Past Papers</a>':(org?link(pastPapersPath(x),'Past Papers','btn sm'):''),actions=apply||prep?'<div class="latest-job-action"><div class="actions">'+apply+prep+'</div></div>':'',markup=UI.templateMarkup('mcq-latest-job-card-template',{JOB_LOGO:logo,JOB_ORGANIZATION:e(org?.name||'Organization'),JOB_TITLE_LINK:link(path,e(x.title||'Job opportunity')),JOB_DESCRIPTION:x.description?'<p>'+e(x.description)+'</p>':'',JOB_LAST_DATE:e(UI.date(x.last_date)),JOB_DETAILS_LINK:link(path,'View job details'),JOB_ACTIONS:actions});return markup||''};
-  const pdfResourceCard=x=>{const safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||'')),href=String(x.download_url||'').trim(),title=x.title||x.name||'PDF resource',slug=x.slug||MCQ.slug(title),path=window.SEO?SEO.cleanPath('pdf',x.id):'pdf/'+slug,download=safeLink(href)?'<a class="btn primary" href="'+e(href)+'" data-auth-action="download-pdf" data-auth-download-name="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf" '+(/^data:/i.test(href)?'download="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf"':'target="_blank" rel="noopener"')+'>Download PDF</a>':'<span class="btn disabled" aria-disabled="true">Download unavailable</span>',cover=x.cover&&safeImage(x.cover)?'<img src="'+e(x.cover)+'" alt="'+e(title)+'" loading="lazy" decoding="async">':'',description=x.description?'<p>'+e(x.description)+'</p>':'',markup=UI.templateMarkup('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:link(path,e(title)),PDF_DESCRIPTION:description,PDF_DOWNLOAD:download});return markup||''};
+  const pdfResourceCard=x=>{const safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||'')),href=String(x.download_url||'').trim(),title=x.title||x.name||'PDF resource',slug=x.slug||MCQ.slug(title),premium=x.premium===true,path=premium?'pricing':window.SEO?SEO.cleanPath('pdf',x.id):'pdf/'+slug,download=premium?'<a class="btn primary" href="/pricing">Unlock with Premium</a>':safeLink(href)?'<a class="btn primary" href="'+e(href)+'" data-auth-action="download-pdf" data-auth-download-name="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf" '+(/^data:/i.test(href)?'download="'+e(MCQ.slug(title||'mcq-campus'))+'.pdf"':'target="_blank" rel="noopener"')+'>Download PDF</a>':'<span class="btn disabled" aria-disabled="true">Download unavailable</span>',cover=x.cover&&safeImage(x.cover)?'<img src="'+e(x.cover)+'" alt="'+e(title)+'" loading="lazy" decoding="async">':'',description=x.description?'<p>'+e(x.description)+'</p>':'',markup=UI.templateMarkup('mcq-pdf-resource-card-template',{PDF_COVER:cover,PDF_TITLE_LINK:link(path,e(title)),PDF_DESCRIPTION:description,PDF_DOWNLOAD:download});return markup||''};
   const blogPostCard=post=>{const safeUrl=u=>/^(https?:\/\/|#\/)/i.test(String(u||'')),source=(post.links||[]).find(x=>x.label==='__blog_url'&&safeUrl(x.url)),href=source?String(source.url):UI.href('post/'+post.id),target=source&&/^https?:\/\//i.test(source.url)?'target="_blank" rel="noopener"':'',excerpt=post.excerpt?'<p>'+e(post.excerpt)+'</p>':'',media=post.featured_image?'<img src="'+e(post.featured_image)+'" alt="" loading="lazy" decoding="async">':'<span class="content-fallback content-fallback-blue">'+icon('edit')+'</span>',markup=UI.templateMarkup('mcq-blog-post-card-template',{BLOG_HREF:e(href),BLOG_TARGET:target,BLOG_CATEGORY:e(post.category||'UPDATE'),BLOG_TITLE:e(post.title),BLOG_EXCERPT:excerpt,BLOG_CALENDAR_ICON:icon('calendar'),BLOG_DATE:e(UI.date(post.updated_at||post.created_at)),BLOG_ARROW_ICON:icon('arrow'),BLOG_MEDIA:media});return markup||''};
  function relationships(q,contextYearId=null){let years=MCQ.ids(q.job_years_ids).map(id=>MCQ.get('years',id)).filter(Boolean);if(contextYearId)years=years.filter(x=>+x.id===+contextYearId);if(!years.length)return '';return `<div class="mcq-answer-years" aria-label="Years"><span class="mcq-years-label">Years</span><div class="chips">${years.map(x=>link(yearPath(x),`<span class="mcq-year-icon" aria-hidden="true">${UI.entityIcon(x,'grid')}</span><span>${e(x.name)}</span>`,'chip mcq-year-chip')).join('')}</div></div>`}
  function questionCountry(q){const direct=String(q.country||'').trim();if(direct)return direct;const paperId=MCQ.ids(q.paper_id)[0],paper=paperId?MCQ.get('papers',paperId):null;return String(paper?.country||MCQ.db.settings.country||'Pakistan').trim()||'Pakistan'}
@@ -912,7 +912,7 @@ window.Public=(()=>{
   const x=(MCQ.db.pdfs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||row.name||''))===String(id));
   if(!x||x.active===false)return notFound();
   const safeLink=u=>/^https?:\/\//i.test(String(u||''))||/^data:application\/pdf;base64,/i.test(String(u||'')),safeImage=u=>/^https?:\/\//i.test(String(u||''))||/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(String(u||''));
-  const fallbackTitle=x.title||x.name||'Exam Preparation PDF',fallbackDesc=x.description||'Download this exam preparation PDF and continue with related past papers and MCQs.',copy={title:x.seo_title||fallbackTitle+' PDF',desc:x.seo_description||fallbackDesc},title=copy.title,href=String(x.download_url||'').trim(),download=safeLink(href)?`<a class="btn primary" href="${e(href)}" data-auth-action="download-pdf" data-auth-download-name="${e(MCQ.slug(title))}.pdf" ${/^data:/i.test(href)?`download="${e(MCQ.slug(title))}.pdf"`:'target="_blank" rel="noopener"'}>Download PDF</a>`:'<span class="btn disabled" aria-disabled="true">Download unavailable</span>';
+  const fallbackTitle=x.title||x.name||'Exam Preparation PDF',fallbackDesc=x.description||'Download this exam preparation PDF and continue with related past papers and MCQs.',copy={title:x.seo_title||fallbackTitle+' PDF',desc:x.seo_description||fallbackDesc},title=copy.title,premium=x.premium===true,href=String(x.download_url||'').trim(),download=premium?'<a class="btn primary" href="/pricing">Unlock PDF with Premium</a>':safeLink(href)?`<a class="btn primary" href="${e(href)}" data-auth-action="download-pdf" data-auth-download-name="${e(MCQ.slug(title))}.pdf" ${/^data:/i.test(href)?`download="${e(MCQ.slug(title))}.pdf"`:'target="_blank" rel="noopener"'}>Download PDF</a>`:'<span class="btn disabled" aria-disabled="true">Download unavailable</span>';
   const main=UI.templateMarkup('mcq-pdf-detail-template',{PDF_DETAIL_COVER:x.cover&&safeImage(x.cover)?'<img src="'+e(x.cover)+'" alt="'+e(title)+'">':'',PDF_DETAIL_TITLE:e(title),PDF_DETAIL_DESCRIPTION:e(copy.desc),PDF_DETAIL_DOWNLOAD:download})||'';
   return PublicLayout.page({trail:[['PDFs','pdfs'],[fallbackTitle]],title:copy.title,desc:copy.desc,main,sidebar:PublicLayout.smart('pdfs'),active:'pdfs',sidebarLabel:'Related / Browse'});
  }
@@ -4756,13 +4756,13 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   function renderCard(track,level){
     const template=document.getElementById('mcq-level-card-template');if(!template)return null;
     const total=number(level.total)||100,progress=Math.min(total,number(level.progress));
-    const percent=total?Math.round(progress*100/total):0,locked=level.unlocked!==true;
-    const cardState=locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
-    const badge=locked?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
-    const meta=level.completed?'Completed · '+number(level.correct)+'/'+total+' correct':progress+'/'+total+' answered';
+    const percent=total?Math.round(progress*100/total):0,premium=level.premium===true,locked=!premium&&level.unlocked!==true;
+    const cardState=premium?'is-premium':locked?'is-locked':level.completed?'is-done':progress>0?'is-current':'is-open';
+    const badge=(premium||locked)?ICON_LOCK:level.completed?ICON_CHECK:ICON_PLAY;
+    const meta=premium?'Premium access required':level.completed?'Completed · '+number(level.correct)+'/'+total+' correct':progress+'/'+total+' answered';
     const stars=level.completed?number(level.stars):(percent>=60?2:percent>=30?1:0);
     const starLabel=stars+' of 3 progress stars';
-    const aria='Level '+level.level+', '+meta+(locked?', locked':'')+(level.completed?', '+starLabel:'');
+    const aria='Level '+level.level+', '+meta+((locked||premium)?', locked':'')+(level.completed?', '+starLabel:'');
     const markup=template.innerHTML
       .replaceAll('__SLOT_LEVEL_STATE__',cardState).replaceAll('__SLOT_LEVEL_TRACK__',track)
       .replaceAll('__SLOT_LEVEL_NUMBER__',String(level.level)).replaceAll('__SLOT_LEVEL_PAGE__',String(level.next_page||1))
@@ -4774,7 +4774,9 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       .replaceAll('__SLOT_LEVEL_PERCENT__',String(percent)).replaceAll('__SLOT_LEVEL_META__',esc(meta))
       .replaceAll('__SLOT_LEVEL_STARS_LABEL__',esc(starLabel)).replaceAll('__SLOT_LEVEL_STARS__',starsMarkup(stars))
       .replaceAll('__SLOT_LEVEL_ARIA__',esc(aria));
-    const holder=document.createElement('template');holder.innerHTML=markup.trim();return holder.content.firstElementChild;
+    const holder=document.createElement('template');holder.innerHTML=markup.trim();const card=holder.content.firstElementChild;
+    if(card){card.dataset.levelPremium=String(premium);if(premium){const tag=document.createElement('span');tag.className='premium-level-tag';tag.textContent='PREMIUM';card.appendChild(tag);}}
+    return card;
   }
   function renderTrack(root,name,data){
     const region=root.querySelector('[data-api-region="levels-'+name+'"]');if(!region)return;
@@ -4852,6 +4854,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     root.addEventListener('click',event=>{
       const card=event.target.closest('[data-level-card]');
       if(!card||!root.contains(card))return;
+      if(card.dataset.levelPremium==='true'){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();App.go('pricing');return;}
       const locked=card.disabled||card.dataset.levelUnlocked!=='true'||
         card.getAttribute('aria-disabled')==='true'||card.classList.contains('is-locked');
       if(locked){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();return;}
@@ -4877,7 +4880,6 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     if(importantCount)importantCount.textContent=format(important.total_cards);
   }
   async function hydrateProgress(root,categoryId){
-    if(!window.MCQ?.db?.session)return;
     try{
       const url=categoryId?endpoint+'?category='+encodeURIComponent(categoryId):endpoint;
       const response=await fetch(url,{credentials:'include',headers:{Accept:'application/json'},cache:'no-store'});
@@ -4922,7 +4924,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     if(note)note.hidden=!!MCQ.db.session;
     bindCards(root);
     if(!isCategory)activateTab(root,focus==='important'?'important':'regular',focus==='important'||focus==='regular');
-    if(MCQ.db.session)requestAnimationFrame(()=>hydrateProgress(root,categoryId));
+    requestAnimationFrame(()=>hydrateProgress(root,categoryId));
   }
   window.MCQLevels={init};
 })();
