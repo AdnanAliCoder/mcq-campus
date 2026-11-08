@@ -3846,3 +3846,30 @@ body.admin-sidebar-open{overflow:hidden}
   cursor:not-allowed;
 }
 .levels-home-section .level-card.is-locked:focus{outline:none}
+
+
+/* Super Admin scrolling: keep workspace content on the document scroller.
+   Releasing the drawer lock on navigation prevents a hidden sidebar from freezing the page. */
+.dash-layout{
+  min-height:100dvh!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+.dash-layout .dash-main{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:100dvh!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+.dash-layout .dash-content{
+  flex:1 0 auto!important;
+  min-height:calc(100dvh - 62px)!important;
+  height:auto!important;
+  overflow:visible!important;
+  overscroll-behavior-y:auto;
+}
+#admin-sidebar.sidebar{
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
