@@ -258,7 +258,7 @@ window.UI=(()=>{
    if(parts.length===1&&parts[0]==='posts')return 'blog';
   }
   return parts.join('/')};
- const href=(path,params={})=>{if(path==='mcqs'){path='home';params={...params,focus:'regular'}}else if(['important','important-mcqs'].includes(path)){path='home';params={...params,focus:'important'}}return '/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'')};
+ const href=(path,params={})=>{if(['important','important-mcqs'].includes(path))path='mcqs/importent-mcqs';return '/'+prettyPath(path)+(Object.keys(params).length?'?'+new URLSearchParams(params):'')};
  const link=(path,label,cls='',params={})=>`<a class="${cls}" href="${esc(href(path,params))}" ${String(label).startsWith('<svg')&&String(label).endsWith('</svg>')?'aria-label="'+esc(path==='search'?'Search':'Open '+path.replaceAll('/',' '))+'"':''}>${label}</a>`;
  const brand=()=>link('home',`<span class="logo-crop"><img src="${esc(assetUrl('/assets/genfavicon-48.png'))}" srcset="${esc(assetUrl('/assets/genfavicon-48.png'))} 1x, ${esc(assetUrl('/assets/genfavicon-64.png'))} 2x" width="42" height="42" alt=""></span><span>MCQCampus</span>`,'brand');
  const btn=(label,action,cls='',extra='')=>`<button type="button" class="btn ${cls}" data-action="${action}" ${extra}>${label}</button>`;
@@ -610,7 +610,7 @@ window.Public=(()=>{
   const activeOrganizations=MCQ.db.papers.filter(x=>x.active!==false&&(!fixedPublicCountry()||(x.country||MCQ.db.settings.country||'Pakistan')===fixedPublicCountry())),organizationIds=new Set(activeOrganizations.map(x=>Number(x.id))),activePastPapers=MCQ.db.years.filter(x=>x.active!==false&&organizationIds.has(Number(x.paper_id)||Number(MCQ.get('jobs',x.job_id)?.paper_id)||0)),activeCategories=MCQ.db.categories.filter(c=>c.active!==false&&!c.legacy&&(!fixedPublicCountry()||(c.country||'Both')==='Both'||(c.country||MCQ.db.settings.country||'Pakistan')===fixedPublicCountry()));
   const homeStats=[
    {title:'Total MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Practice questions · arranged by levels',path:'mcqs'},
-   {title:'Organizations / Boards / Agencies',value:activeOrganizations.length,iconName:'landmark',tone:'neutral',subtitle:'Exam organizations, boards and agencies',path:'papers'},
+   {title:'Important MCQs',value:Number(site.importantMcqs||0),iconName:'flag',tone:'neutral',subtitle:'High-priority questions for exam preparation',path:'important-mcqs'},
    {title:'Past Papers',value:activePastPapers.length,iconName:'paper',tone:'neutral',subtitle:'Past-paper records',path:'papers'},
    {title:'Categories',value:activeCategories.length,iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
@@ -1155,6 +1155,7 @@ window.Auth=(()=>{
    'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','all-mcqs':'home','all-important-mcqs':'home','':''
   };
   const params=Object.fromEntries(new URLSearchParams(location.search));
+  if(!path&&params.focus==='regular'){history.replaceState(null,'',UI.href('mcqs'));return;}
   let mapped=aliases[path]??(path==='reset'?'reset-code':path.replace(/^public\//,''));
   if(['all-mcqs'].includes(path)&&!(params.track&&params.level)){mapped='mcqs';}
   else if(['important','mcqs/important-mcqs','all-important-mcqs'].includes(path)){mapped='mcqs/importent-mcqs';}
@@ -2410,9 +2411,6 @@ window.MCQCampusLoadSharedTemplates=function(){
 /* ===== MCQCAMPUS MODULE: app.js ===== */
 const resolveRouteId=(base,token,predicate=null)=>{if(!token)return token;const map={category:'categories',subcategory:'subcategories',topic:'children',paper:'papers',job:'jobs',year:'years',mcq:'mcqs',practice:'mcqs',post:'posts',pdf:'pdfs','latest-job':'latestJobs'},type=map[base];if(!type||!window.MCQ)return token;const rows=(MCQ.db[type]||[]).filter(x=>!predicate||predicate(x));if(/^\d+$/.test(String(token))){const row=rows.find(x=>Number(x.id)===Number(token));return row?String(row.id):token}const wanted=decodeURIComponent(token).toLowerCase(),row=rows.find(x=>[String(x.slug||MCQ.slug(x.name||x.title||x.question||'')).toLowerCase(),window.SEO?.hierarchySlug(x.name||x.title||x.question||'')].includes(wanted));return row?String(row.id):token};
 window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId:null,homeQuickIndex:0,quickAnswer:null,homeRandomIds:[],homeRandomSignature:'',draft:null,draftKey:null,importRows:null,importSummary:null,importedIds:[],importPage:null,testResult:null,testNonce:0,page(total,size=12){const requested=Number(this.route.params.page);const perPage=Math.max(1,Number(size)||12);return Math.max(1,Math.min(Number.isFinite(requested)?Math.floor(requested):1,Math.max(1,Math.ceil(total/perPage))))},go(path,params={}){
-  const target=String(path||'home').replace(/^\/+|\/+$/g,'');
-  if(target==='mcqs'&&!(params.track&&params.level)){path='home';params={...params,focus:params.focus||'regular'};}
-  else if(target==='important'){path='home';params={...params,focus:'important'};}
   history.pushState(null,'',UI.href(path,params));this.render();window.scrollTo(0,0)
 },ensureAdminBundle(){
  if(window.Admin&&window.Importer&&window.MCQEnhancements)return Promise.resolve();
@@ -2948,10 +2946,10 @@ mountDataDrivenPage(base,id){
     tests:['TEST HISTORY','My Tests / Results','Your test activity and latest result summary.'],
     performance:['ANALYTICS','My Performance','Learner-specific analytics from your actual attempts.'],
     history:['ACTIVITY','Practice History','Your latest MCQ attempts, newest first.'],
-    notifications:['UPDATES','Notifications','Updates relevant to your account and preparation.'],
+    notifications:['','Notifications','Updates relevant to your account and preparation.'],
     downloads:['RESOURCES','My Downloads','Resources your account is authorized to download.']
    }[view]||['MY LEARNING','My Learning','Track your preparation and progress.'];
-   if(eyebrow)eyebrow.textContent=viewMeta[0];
+   if(eyebrow){eyebrow.textContent=viewMeta[0];eyebrow.hidden=view==='notifications';}
    if(titleNode)titleNode.textContent=viewMeta[1];
    if(description)description.textContent=viewMeta[2];
    const content=body.querySelector('[data-dashboard-view-content]'),quickActions=body.querySelector('[data-dashboard-quick-actions]');
@@ -3308,7 +3306,7 @@ mountDataDrivenPage(base,id){
   const activeCategories=(data.categories||[]).filter(c=>c.active!==false&&!c.legacy&&(!country||(c.country||'Both')==='Both'||(c.country||data.settings?.country||'Pakistan')===country));
   const stats=[
    {title:'MCQs',value:Number(site.approvedMcqs||0),iconName:'book',tone:'primary',subtitle:'Approved practice questions',path:'mcqs'},
-   {title:'Organizations / Boards / Agencies',value:organizations.length,iconName:'landmark',tone:'neutral',subtitle:'Exam organizations, boards and agencies',path:'papers'},
+   {title:'Important MCQs',value:importantTotal,iconName:'flag',tone:'neutral',subtitle:'High-priority questions for exam preparation',path:'important-mcqs'},
    {title:'Past Papers',value:pastPapers.length,iconName:'paper',tone:'neutral',subtitle:'Past-paper records',path:'papers'},
    {title:'Categories',value:activeCategories.length,iconName:'grid',tone:'neutral',subtitle:'Preparation subjects',path:'categories'}
   ];
