@@ -4332,3 +4332,176 @@ body.admin-sidebar-open{overflow:hidden}
         transition: none;
     }
 }
+
+
+/* Mobile polish for sign-in, sign-up and learner payment history. */
+body.auth-screen {
+    overflow-x: hidden;
+}
+body.auth-screen .container.auth-page {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 100svh;
+    padding-left: clamp(12px, 4vw, 24px);
+    padding-right: clamp(12px, 4vw, 24px);
+}
+body.auth-screen .auth-layout {
+    box-sizing: border-box;
+    width: min(100%, 420px);
+    max-width: 420px;
+    min-width: 0;
+}
+body.auth-screen .auth-layout > .auth-form,
+body.auth-screen .auth-form form,
+body.auth-screen .auth-form .field {
+    box-sizing: border-box;
+    min-width: 0;
+}
+body.auth-screen .auth-form input:not([type="checkbox"]):not([type="radio"]),
+body.auth-screen .auth-form select {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+body.auth-screen .auth-form .auth-field-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+body.auth-screen .auth-form .check-line span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+    body.auth-screen .container.auth-page {
+        place-items: start center;
+        padding-top: clamp(18px, 5vh, 36px);
+        padding-bottom: 24px;
+    }
+    body.auth-screen .auth-layout {
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 16px;
+    }
+    body.auth-screen .auth-layout > .auth-form {
+        padding: clamp(17px, 5vw, 24px);
+    }
+    body.auth-screen .auth-form .auth-field-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+    body.auth-screen .auth-form .auth-form-actions {
+        align-items: flex-start;
+        gap: 12px;
+    }
+    body.auth-screen .auth-form .check-line {
+        align-items: flex-start;
+        line-height: 1.45;
+    }
+    body.auth-screen .auth-form .btn.primary {
+        min-height: 46px;
+    }
+    body.auth-screen .auth-form .field input:not([type="checkbox"]):not([type="radio"]),
+    body.auth-screen .auth-form .field select {
+        min-height: 44px;
+        font-size: 16px;
+    }
+}
+@media (max-width: 360px) {
+    body.auth-screen .container.auth-page {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    body.auth-screen .auth-layout > .auth-form {
+        padding: 16px 13px;
+    }
+    body.auth-screen .auth-form h1 {
+        font-size: 19px;
+    }
+    body.auth-screen .auth-form .auth-form-actions {
+        flex-direction: column;
+    }
+}
+.subscription-history {
+    min-width: 0;
+    margin: 18px 0;
+    padding: clamp(16px, 3vw, 22px);
+}
+.subscription-history-head,
+.subscription-history-primary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.subscription-history-head h2 {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+}
+.subscription-history-head p {
+    margin: 0;
+}
+.subscription-history-head .btn {
+    flex: 0 0 auto;
+}
+.subscription-history-list {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    margin-top: 14px;
+}
+.subscription-history-item {
+    min-width: 0;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+}
+.subscription-history-primary > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+.subscription-history-primary > div span,
+.subscription-history-note,
+.subscription-history-meta {
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+.subscription-history-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 9px 14px;
+    margin-top: 11px;
+    font-size: .82rem;
+}
+.subscription-history-meta span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+.subscription-history-meta b {
+    color: var(--ink);
+    font-size: .72rem;
+}
+.subscription-history-note {
+    margin: 10px 0 0;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+    font-size: .82rem;
+}
+@media (max-width: 560px) {
+    .subscription-history-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .subscription-history-head .btn {
+        width: 100%;
+    }
+    .subscription-history-primary {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+}
