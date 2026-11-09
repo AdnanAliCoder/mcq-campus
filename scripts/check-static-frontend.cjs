@@ -24,6 +24,7 @@ function check(condition, message) {
 }
 
 check(html.toLowerCase().includes('<!doctype html>'), 'entry document uses standards mode');
+check(!html.includes('{{') && !html.includes('{%'), 'entry document contains no Django template syntax');
 check((html.match(/rel="stylesheet"/g) || []).length === 1, 'entry document loads exactly one stylesheet');
 check(/href="\/assets\/style\.css(?:\?[^"]*)?"/.test(html), 'entry document loads the unified stylesheet');
 check((html.match(/<script\b[^>]*src="\/assets\/script\.js(?:\?[^"]*)?"[^>]*>/g) || []).length === 1, 'entry document loads exactly one first-party runtime');

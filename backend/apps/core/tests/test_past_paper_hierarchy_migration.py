@@ -6,10 +6,10 @@ from pathlib import Path
 from django.core.management import call_command
 from django.test import TransactionTestCase
 
-from .models import Category, Job, JobYear, MCQ, Paper
-from .serializers import _important_mcq
-from .services import _attach_important_flags
-from .management.commands.migrate_past_paper_hierarchy import normalized_past_paper_name
+from ..models import Category, Job, JobYear, MCQ, Paper
+from ..serializers import _important_mcq
+from ..services import _attach_important_flags
+from ..management.commands.migrate_past_paper_hierarchy import normalized_past_paper_name
 
 
 class PastPaperHierarchyMigrationCommandTests(TransactionTestCase):
