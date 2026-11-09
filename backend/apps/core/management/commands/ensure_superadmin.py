@@ -1,7 +1,7 @@
 import os
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from core.models import profile_for
+from apps.core.models import profile_for
 class Command(BaseCommand):
     help='Create or update the owner account from environment variables.'
     def handle(self,*args,**opts):
