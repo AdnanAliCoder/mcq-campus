@@ -1,14 +1,13 @@
-# MCQCampus — static frontend, Django API backend
+# MCQCampus — single-document frontend, Django API backend
 
-## Repository layout
+## Frontend structure
 
-- `frontend/` is a standalone static frontend. Nginx serves `index.html`, CSS, JavaScript, images, the web manifest and service worker directly.
-- `backend/manage.py` is the only Django management entry point.
-- `backend/config/` contains Django settings, URL configuration, ASGI and WSGI entry points.
-- `backend/apps/core/` contains the existing Django app; its test modules live in `backend/apps/core/tests/`.
-- `deploy/nginx/mcqcampus-frontend-locations.conf` is the Nginx include for static frontend routes and Django API/admin/crawler endpoints.
+- `frontend/index.html` is the single HTML entry document. It includes the reusable header/footer/layout component templates and hard-coded page shells for home, MCQs, categories, past papers, tests, PDFs, blog, jobs, authentication, learner dashboard, admin, super-admin, about and contact.
+- `frontend/style.css` is the one first-party stylesheet for the site.
+- `frontend/script.js` is the unified browser runtime. It preserves the existing vanilla-JavaScript routes and interactions, calls Django APIs for data and account operations, and uses the HTML templates in `index.html` for reusable markup. API-backed lists and some route content are still populated by the runtime; the HTML shells are not a server-side Django template system.
+- `frontend/assets/` contains images, icons and the web assets that are not the main CSS/JavaScript entry files.
 
-Public frontend routes do not pass through Django and are not rendered with Django templates. Nginx serves the existing static SPA and falls back to `frontend/index.html` for application routes. Django remains responsible for JSON APIs under `/api/`, the Django admin under `/admin/`, and crawler endpoints such as robots.txt and sitemap.xml. Browser-native HTML `<template>` fragments remain part of the frontend; they are not Django templates.
+Django remains separate: it serves JSON endpoints under `/api/` and crawler endpoints such as robots and sitemap. It does not serve the frontend HTML routes. The database models, authentication/session and CSRF handling, permissions and API contracts remain in the backend.
 
 ## Checks
 
@@ -18,16 +17,14 @@ Run these from the repository root:
 node --check frontend/script.js
 node scripts/check-static-frontend.cjs
 node scripts/check-bundled-modules.cjs
-python backend/manage.py check
-python backend/manage.py test
+python manage.py check
+python manage.py test
 ```
 
-The root `requirements.txt` aggregates `backend/requirements.txt`. The validation workflow uses the backend requirements and runs Django from `backend/manage.py`.
+The validation workflow runs the same checks. It intentionally validates the current unified files rather than looking for deleted per-page JavaScript/CSS files.
 
 ## Oracle deployment
 
-GitHub changes do not deploy themselves. Back up the current Nginx site configuration and review `deploy/nginx/mcqcampus-frontend-locations.conf`. This file is an include snippet, not a full TLS virtual host: include it inside the existing HTTPS server block while preserving TLS and `server_name`.
+GitHub changes do not deploy themselves. Before deployment, back up the current Nginx site configuration and review `deploy/nginx/mcqcampus-frontend-locations.conf`. This file is an include snippet, not a full TLS virtual host: include it inside the existing HTTPS server block while preserving TLS and `server_name`. It maps `/assets/style.css` and `/assets/script.js` to the unified entry files, maps other `/assets/` requests to `frontend/assets/`, and proxies `/api/` to Django.
 
-The include maps `/assets/` to `frontend/assets/`, the unified CSS and JavaScript entry files to their existing frontend paths, `/django-static/` to Django's `STATIC_ROOT`, and `/api/`, `/admin/` plus crawler endpoints to Django. Public application routes are served by Nginx with `index.html` as the SPA fallback.
-
-After pulling a reviewed change on the server, install `backend/requirements.txt`, run Django checks/tests and `python backend/manage.py collectstatic --noinput`, run `sudo nginx -t`, and test direct/deep frontend routes, login/signup, authenticated APIs, CSS/JavaScript, favicon, robots and sitemap before reloading Nginx. No production deployment or Nginx reload is performed by repository validation.
+After a reviewed change is pulled on Oracle, run Django checks/tests, run `sudo nginx -t`, and test direct/deep routes, login/signup, authenticated APIs, CSS/JavaScript, favicon, robots and sitemap before reloading Nginx. No production deployment or Nginx reload is performed by these repository checks.

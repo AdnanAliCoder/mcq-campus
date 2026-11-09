@@ -58,38 +58,38 @@ if not DEBUG and PUBLIC_CANONICAL_ORIGIN not in CSRF_TRUSTED_ORIGINS:
 
 INSTALLED_APPS = [
     'django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes',
-    'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'apps.core.apps.CoreConfig',
+    'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'core',
 ]
 
 # AUDIT: WhiteNoise docs -> place immediately after SecurityMiddleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'apps.core.middleware.CanonicalHostRedirectMiddleware',
-    'apps.core.middleware.PerformanceTimingMiddleware',
+    'core.middleware.CanonicalHostRedirectMiddleware',
+    'core.middleware.PerformanceTimingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'apps.core.middleware.LoginWallMiddleware',
+    'core.middleware.LoginWallMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = 'mcqcampus.urls'
 TEMPLATES = [{
     'BACKEND': 'django.template.backends.django.DjangoTemplates',
     # AUDIT: keep templates separate from static so index.html is NOT publicly served
-    'DIRS': [],
+    'DIRS': [BASE_DIR / 'frontend'],
     'APP_DIRS': True,
     'OPTIONS': {'context_processors': [
         'django.template.context_processors.request',
         'django.contrib.auth.context_processors.auth',
         'django.contrib.messages.context_processors.messages',
-        'apps.core.context_processors.mcqcampus_asset_version',
+        'core.context_processors.mcqcampus_asset_version',
     ]},
 }]
-WSGI_APPLICATION = 'config.wsgi.application'
-ASGI_APPLICATION = 'config.asgi.application'
+WSGI_APPLICATION = 'mcqcampus.wsgi.application'
+ASGI_APPLICATION = 'mcqcampus.asgi.application'
 
 
 def _db():
@@ -142,7 +142,7 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Karachi'
 USE_I18N = True
 USE_TZ = True
-STATIC_URL = '/django-static/'
+STATIC_URL = '/assets/'
 STATICFILES_DIRS = [BASE_DIR / 'frontend' / 'assets', BASE_DIR / 'frontend']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 WHITENOISE_MAX_AGE = 31536000
@@ -212,7 +212,7 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
-        'apps.core': {
+        'core': {
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,

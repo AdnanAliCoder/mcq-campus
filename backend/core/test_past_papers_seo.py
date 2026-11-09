@@ -6,9 +6,9 @@ import xml.etree.ElementTree as ET
 from django.test import TestCase, override_settings
 from django.utils.html import escape
 
-from ..models import Job, JobYear, Paper, SiteSetting
-from ..views import _seo_indexed_path, _seo_past_papers_catalog, _seo_past_papers_record
-from ..cache_utils import invalidate_mcqcampus_cache
+from .models import Job, JobYear, Paper, SiteSetting
+from .views import _seo_indexed_path, _seo_past_papers_catalog, _seo_past_papers_record
+from .cache_utils import invalidate_mcqcampus_cache
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)
