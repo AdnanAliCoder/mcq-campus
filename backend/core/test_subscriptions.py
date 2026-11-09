@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -6,7 +7,6 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from .models import (
-    Profile,
     Subscription,
     SubscriptionConfig,
     SubscriptionPaymentProof,
@@ -134,7 +134,7 @@ class SubscriptionPaymentTests(TestCase):
         self.assertEqual(subscription.source_payment_id, proof.id)
         self.assertTrue(subscription.is_active)
         self.assertGreater(subscription.ends_at, timezone.now())
-        self.assertEqual(subscription.ends_at - subscription.starts_at, timezone.timedelta(days=30))
+        self.assertEqual(subscription.ends_at - subscription.starts_at, timedelta(days=30))
 
     def test_rejected_proof_does_not_activate_access_or_allow_second_review(self):
         self.submit_payment()
