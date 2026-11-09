@@ -3,10 +3,10 @@ import json
 from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 
-from ..models import SiteSetting, Paper, Job, JobYear, profile_for
-from ..services import _site_blob, _save_site_blob
-from ..views import _seo_indexed_path
-from ..cache_utils import invalidate_mcqcampus_cache
+from .models import SiteSetting, Paper, Job, JobYear, profile_for
+from .services import _site_blob, _save_site_blob
+from .views import _seo_indexed_path
+from .cache_utils import invalidate_mcqcampus_cache
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, PREPEND_WWW=False)

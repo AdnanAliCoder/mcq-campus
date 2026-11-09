@@ -2,7 +2,7 @@ import json
 from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 
-from ..models import Category, MCQ, Paper, JobYear, profile_for
+from .models import Category, MCQ, Paper, JobYear, profile_for
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
