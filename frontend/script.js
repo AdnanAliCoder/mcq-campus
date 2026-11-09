@@ -4980,6 +4980,7 @@ window.MCQSubscriptions = (() => {
  const money = amount => 'Rs. ' + Number(amount || 0).toLocaleString('en-PK');
  const keys = ['monthly','quarterly','yearly'];
  let publicData = null, publicPending = null, adminData = null, adminPending = null;
+ let paymentHistory = [], paymentHistoryFor = '', paymentHistoryPending = null, paymentHistoryPendingFor = '', paymentHistoryError = '';
  let selectedPlan = 'monthly', notice = '', noticeKind = 'info', busy = false;
  const activeAdminRoute = () => String(window.App?.route?.path || '').split('/')[1] === 'subscriptions';
  const fmtDate = value => { try { return value ? new Date(value).toLocaleString() : '—'; } catch { return '—'; } };
@@ -4997,6 +4998,44 @@ window.MCQSubscriptions = (() => {
   if(adminData&&!force)return Promise.resolve(adminData);
   adminPending=window.Auth.request('/admin/subscriptions').then(data=>{adminData=data;return data;}).finally(()=>{adminPending=null;});
   return adminPending;
+ }
+ function loadPaymentHistory(force=false){
+  const account=user();
+  if(!account?.id){paymentHistory=[];paymentHistoryFor='';paymentHistoryError='';return Promise.resolve([]);}
+  const accountKey=String(account.id);
+  if(paymentHistoryPending&&paymentHistoryPendingFor===accountKey)return paymentHistoryPending;
+  if(!force&&paymentHistoryFor===accountKey)return Promise.resolve(paymentHistory);
+  paymentHistoryError='';
+  paymentHistoryPendingFor=accountKey;
+  const task=window.Auth.request('/subscription/payments').then(data=>{
+   const rows=Array.isArray(data.payments)?data.payments:[];
+   if(String(user()?.id||'')===accountKey){paymentHistory=rows;paymentHistoryFor=accountKey;paymentHistoryError='';}
+   return rows;
+  }).catch(error=>{
+   if(String(user()?.id||'')===accountKey){paymentHistory=[];paymentHistoryFor=accountKey;paymentHistoryError=error.message||'Could not load payment history.';}
+   throw error;
+  }).finally(()=>{
+   if(paymentHistoryPending===task){paymentHistoryPending=null;paymentHistoryPendingFor='';}
+  });
+  paymentHistoryPending=task;
+  return task;
+ }
+ function paymentHistoryPanel(){
+  const account=user();
+  if(!account?.id)return '';
+  const accountKey=String(account.id);
+  if(paymentHistoryFor!==accountKey){
+   return '<section class="card subscription-history" aria-live="polite"><p class="muted">Loading your payment history…</p></section>';
+  }
+  const rows=paymentHistory.map(row=>{
+   const status=['pending','approved','rejected'].includes(row.status)?row.status:'unknown';
+   const note=row.review_note?'<p class="subscription-history-note">'+esc(row.review_note)+'</p>':'';
+   return '<article class="subscription-history-item"><div class="subscription-history-primary"><div><strong>'+esc(row.reference||('PAY-'+row.id))+'</strong><span>'+esc(row.plan_name||row.plan||'Premium plan')+'</span></div><span class="subscription-status status-'+status+'">'+esc(status)+'</span></div><div class="subscription-history-meta"><span><b>Amount</b>'+money(row.amount)+'</span><span><b>Transaction ID</b>'+esc(row.transaction_id)+'</span><span><b>Submitted</b>'+esc(fmtDate(row.created_at))+'</span></div>'+note+'</article>';
+  }).join('');
+  const body=paymentHistoryError
+   ? '<p class="small muted">'+esc(paymentHistoryError)+'</p>'
+   : rows||'<p class="small muted">Aap ne abhi tak koi payment proof submit nahi kiya.</p>';
+  return '<section class="card subscription-history" aria-labelledby="subscription-history-title"><div class="subscription-history-head"><div><h2 id="subscription-history-title">My payment requests</h2><p class="small muted">Aap apni payment verification ka status yahan check kar sakte hain.</p></div><button class="btn secondary sm" type="button" data-payment-history-refresh '+(paymentHistoryPending?'disabled':'')+'>Refresh status</button></div><div class="subscription-history-list">'+body+'</div></section>';
  }
  function pricingPage(){
   if(!publicData) return window.UI.layout('<section class="container page subscription-page"><div class="subscription-hero"><p class="eyebrow">MCQCAMPUS PREMIUM</p><h1>Choose your preparation plan</h1><p>Loading current plans and Raast payment details…</p></div><div class="card subscription-loading">Please wait while we load pricing.</div></section>');
@@ -5025,7 +5064,7 @@ window.MCQSubscriptions = (() => {
    }
   }
   const alert=notice?'<div class="notice '+(noticeKind==='error'?'error':noticeKind==='success'?'success':'')+'" role="status">'+esc(notice)+'</div>':'';
-  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One plan. Your complete exam preparation.</h1><p>Unlock premium MCQs, important questions, past papers and premium PDF resources with a secure Raast payment.</p><div class="subscription-hero-points"><span>✓ Server-verified access</span><span>✓ Manual payment verification</span><span>✓ No automatic charges</span></div></section>'+currentNotice+alert+'<section class="subscription-plan-grid" aria-label="Subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Premium access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Premium begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Raast payments using the configured QR code or Raast ID are supported.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
+  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One plan. Your complete exam preparation.</h1><p>Unlock premium MCQs, important questions, past papers and premium PDF resources with a secure Raast payment.</p><div class="subscription-hero-points"><span>✓ Server-verified access</span><span>✓ Manual payment verification</span><span>✓ No automatic charges</span></div></section>'+currentNotice+paymentHistoryPanel()+alert+'<section class="subscription-plan-grid" aria-label="Subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Premium access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Premium begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Raast payments using the configured QR code or Raast ID are supported.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
  }
  function adminPanel(){
   if(!adminData)return '<div class="subscription-admin"><div class="notice">Loading subscription requests and payment settings…</div></div>';
@@ -5056,14 +5095,25 @@ window.MCQSubscriptions = (() => {
   catch(error){showMessage(error.message||'Could not load subscription administration.','error');adminData={settings:{},proofs:[],active_subscriptions:[],pending_count:0};window.App?.render();}
  }
  function afterRender(base){
+  if(base==='pricing'&&!user()){paymentHistory=[];paymentHistoryFor='';paymentHistoryError='';}
   if(base==='pricing'&&!publicData&&!publicPending){
    loadPublic().then(()=>{if(window.App?.route?.path==='pricing')window.App.render();}).catch(error=>{showMessage(error.message,'error');publicData={plans:{},subscription:{}};if(window.App?.route?.path==='pricing')window.App.render();});
+  }
+  if(base==='pricing'&&user()&&paymentHistoryFor!==String(user().id)&&!paymentHistoryPending){
+   loadPaymentHistory().then(()=>{if(window.App?.route?.path==='pricing')window.App.render();}).catch(()=>{if(window.App?.route?.path==='pricing')window.App.render();});
   }
   if(base==='super-admin'&&activeAdminRoute()&&!adminData&&!adminPending){
    loadAdmin().then(()=>{if(activeAdminRoute())window.App.render();}).catch(error=>{showMessage(error.message,'error');adminData={settings:{},proofs:[],active_subscriptions:[],pending_count:0};if(activeAdminRoute())window.App.render();});
   }
  }
  document.addEventListener('click',async event=>{
+  const historyRefresh=event.target.closest('[data-payment-history-refresh]');
+  if(historyRefresh){
+   historyRefresh.disabled=true;
+   try{await loadPaymentHistory(true);showMessage('Payment status refreshed.','success');}
+   catch(error){showMessage(error.message||'Could not refresh payment status.','error');}
+   window.App?.render();return;
+  }
   const choose=event.target.closest('[data-sub-plan]');
   if(choose){selectedPlan=choose.getAttribute('data-sub-plan');showMessage('');window.App?.render();return;}
   if(event.target.closest('[data-sub-refresh]')){await refreshAdmin();return;}
@@ -5099,7 +5149,9 @@ window.MCQSubscriptions = (() => {
    try{
     const result=await window.Auth.upload('/subscription/payment-proof',fd,{timeout:30000});
     showMessage((result.message||'Payment proof submitted.')+' Reference: '+result.reference_id+'.','success');
-    selectedPlan='';await loadPublic(true);window.App?.render();
+    selectedPlan='';await loadPublic(true);
+    try{await loadPaymentHistory(true);}catch{}
+    window.App?.render();
    }catch(error){showMessage(error.message||'Could not submit payment proof.','error');window.App?.render();}
    finally{busy=false;}
    return;
