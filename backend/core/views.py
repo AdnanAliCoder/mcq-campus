@@ -931,6 +931,28 @@ def admin_subscription_screenshot(request,proof_id):
     return response
 
 
+@profile_api('subscription_payment_history')
+@require_GET
+@login_required_json
+def subscription_payment_history(request):
+    rows=SubscriptionPaymentProof.objects.filter(user=request.user).order_by('-created_at','-id')[:20]
+    payments=[{
+        'id':row.id,
+        'reference':f'PAY-{row.id:06d}',
+        'plan':row.plan,
+        'plan_name':row.plan_name,
+        'amount':row.amount,
+        'transaction_id':row.transaction_id,
+        'status':row.status,
+        'review_note':row.review_note,
+        'created_at':row.created_at.isoformat(),
+        'reviewed_at':row.reviewed_at.isoformat() if row.reviewed_at else None,
+    } for row in rows]
+    response=JsonResponse({'payments':payments})
+    response['Cache-Control']='private, no-store, max-age=0'
+    return response
+
+
 @profile_api('subscription_status')
 @require_GET
 @login_required_json
