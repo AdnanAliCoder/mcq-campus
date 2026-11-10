@@ -36,7 +36,7 @@
     <script>document.documentElement.classList.add('js-enabled');</script>
 
     <!-- Website styles live in one first-party stylesheet. -->
-    <link rel="stylesheet" href="/assets/style.css?v=20261108-auth-ui-v1">
+    <link rel="stylesheet" href="/assets/style.css?v=20261110-auth-pricing-v2">
 
     <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4015501860532780" crossorigin="anonymous"></script>
@@ -194,6 +194,16 @@
                 <section data-static-page="login">
             <main class="container page auth-page">
                 <section class="auth-layout">
+                    <aside class="auth-story auth-story-login" aria-label="Welcome back to MCQCampus">
+                        <p class="eyebrow">WELCOME BACK</p>
+                        <h2>Keep your preparation moving.</h2>
+                        <p>Sign in to pick up where you left off and keep building confidence, one question at a time.</p>
+                        <ul class="auth-story-points">
+                            <li><span aria-hidden="true">✓</span> Resume your saved practice</li>
+                            <li><span aria-hidden="true">✓</span> Track your learning progress</li>
+                            <li><span aria-hidden="true">✓</span> Find MCQs and past papers in one place</li>
+                        </ul>
+                    </aside>
                     <div class="auth-form">
                         <a class="auth-brand" href="/" aria-label="MCQCampus home">
                             <span class="auth-brand-mark" aria-hidden="true">MC</span>
@@ -229,6 +239,16 @@
         <section data-static-page="register">
             <main class="container page auth-page">
                 <section class="auth-layout">
+                    <aside class="auth-story auth-story-register" aria-label="Start learning with MCQCampus">
+                        <p class="eyebrow">YOUR NEXT STEP STARTS HERE</p>
+                        <h2>Build a stronger study routine.</h2>
+                        <p>Create your free account and make your exam preparation easier to organise and follow.</p>
+                        <ul class="auth-story-points">
+                            <li><span aria-hidden="true">✓</span> Save your practice progress</li>
+                            <li><span aria-hidden="true">✓</span> Organise your exam preparation</li>
+                            <li><span aria-hidden="true">✓</span> Keep your learning in one place</li>
+                        </ul>
+                    </aside>
                     <div class="auth-form">
                         <a class="auth-brand" href="/" aria-label="MCQCampus home">
                             <span class="auth-brand-mark" aria-hidden="true">MC</span>
@@ -677,6 +697,12 @@
     <template id="mcq-auth-layout-template">
         <div class="container auth-page">
             <section class="auth-layout">
+                <aside class="auth-story">
+                    <p class="eyebrow"><!-- SLOT:AUTH_STORY_EYEBROW --></p>
+                    <h2><!-- SLOT:AUTH_STORY_TITLE --></h2>
+                    <p><!-- SLOT:AUTH_STORY_COPY --></p>
+                    <ul class="auth-story-points"><!-- SLOT:AUTH_STORY_POINTS --></ul>
+                </aside>
                 <div class="auth-form">
                     <a class="auth-brand" href="/" aria-label="MCQCampus home">
                         <span class="auth-brand-mark" aria-hidden="true">MC</span>
@@ -1016,7 +1042,7 @@
     </script>
 
     <!-- The first-party runtime handles routing, data and interactive pages. -->
-    <script defer src="/assets/script.js?v=20261108-auth-ui-v1"></script>
+    <script defer src="/assets/script.js?v=20261110-auth-pricing-v2"></script>
 
     <!-- Static form and reusable page structures; JavaScript supplies API data and field values. -->
     <template id="mcq-auth-field-template">
