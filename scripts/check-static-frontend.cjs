@@ -103,6 +103,9 @@ check(runtime.includes('staticTemplateFragment(id,slots={})'), 'runtime clones r
 check(runtime.includes('mountStaticPage(base,renderedHtml){'), 'runtime mounts API content into static page shells');
 check(runtime.includes('window.MCQCampusBackendReady===false'), 'static fallback remains available when API bootstrap fails');
 check(runtime.includes('window.MCQLevels?.init?.()'), 'MCQ level progress is initialized');
+check(runtime.includes("'signin':'login'") && runtime.includes("'signup':'register'"), 'short sign-in and sign-up routes resolve to the account pages');
+check(runtime.includes('data-pricing-retry') && runtime.includes('subscription-unavailable'), 'pricing failures show a retry state instead of empty-price plans');
+check(html.includes('auth-story-points') && css.includes('body.auth-screen .auth-layout > .auth-story'), 'sign-in and sign-up pages have responsive welcome panels');
 check(runtime.includes('function ensureLevelDialog()') && runtime.includes('dialog.showModal()'), 'MCQ level cards open an accessible preview and Start dialog');
 check(html.includes('data-api-region="category-level-cards"') && html.includes('id="mcq-category-levels-template"'), 'category pages mount their own MCQ level card grid');
 check(runtime.includes("['mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase)"), 'category pages always request their MCQ list');
