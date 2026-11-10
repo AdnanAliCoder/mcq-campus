@@ -3,6 +3,9 @@ from django.urls import include, path, re_path
 from core import views
 
 urlpatterns = [
+    # The Nginx root location proxies / to Django for the homepage HTML.
+    path('', views.frontend_page),
+
     # AUDIT: Django admin restored (add only if you still want /admin accessible;
     # if you intentionally removed it, delete this line)
     path('admin/', admin.site.urls),
