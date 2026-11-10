@@ -192,158 +192,134 @@
         </section>
 
                 <section data-static-page="login">
-            <main class="container page auth-page">
-                <section class="auth-layout">
-                    <aside class="auth-story auth-story-login" aria-label="Welcome back to MCQCampus">
-                        <p class="eyebrow">WELCOME BACK</p>
-                        <h2>Keep your preparation moving.</h2>
-                        <p>Sign in to pick up where you left off and keep building confidence, one question at a time.</p>
-                        <ul class="auth-story-points">
-                            <li><span aria-hidden="true">✓</span> Resume your saved practice</li>
-                            <li><span aria-hidden="true">✓</span> Track your learning progress</li>
-                            <li><span aria-hidden="true">✓</span> Find MCQs and past papers in one place</li>
-                        </ul>
-                    </aside>
-                    <div class="auth-form">
-                        <a class="auth-brand" href="/" aria-label="MCQCampus home">
-                            <span class="auth-brand-mark" aria-hidden="true">MC</span>
-                            <span>MCQCampus</span>
-                        </a>
-                        <h1>Sign in</h1>
-                        <p class="auth-sub">Enter your email and password to continue.</p>
-                        <form data-form="auth-login">
-                            <div class="field">
-                                <label for="auth-login-email">Email <span class="required-mark" aria-hidden="true">*</span></label>
-                                <input id="auth-login-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-                            </div>
-                            <div class="field">
-                                <label for="auth-login-password">Password <span class="required-mark" aria-hidden="true">*</span></label>
-                                <div class="password-input-wrap">
-                                    <input id="auth-login-password" name="password" type="password" autocomplete="current-password" placeholder="Enter password" required>
-                                    <button class="password-toggle-btn" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
-                                </div>
-                            </div>
-                            <div class="actions auth-form-actions">
-                                <label class="check-line"><input type="checkbox" name="remember"> <span>Remember me</span></label>
-                                <span class="spacer"></span>
-                                <a class="link" href="/forgot">Forgot?</a>
-                            </div>
-                            <p class="auth-error" role="alert" data-auth-error></p>
-                            <button class="btn primary" type="submit">Sign in</button>
-                        </form>
-                        <p class="text-center small auth-bottom-copy">New here? <a href="/register">Create an account</a></p>
-                    </div>
-                </section>
-            </main>
-        </section>
+  <div class="auth-compact-page">
+    <div class="auth-compact-card">
+      <a class="auth-compact-brand" href="/" aria-label="MCQCampus home">
+        <span class="auth-compact-brand-mark" aria-hidden="true">MC</span>
+        <span>MCQCampus</span>
+      </a>
+      <h1>Sign in</h1>
+      <p class="auth-compact-sub">Enter your email and password to continue.</p>
+      <form data-form="auth-login">
+        <div class="field">
+          <label for="auth-login-email">Email <span class="required-mark" aria-hidden="true">*</span></label>
+          <input id="auth-login-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="auth-login-password">Password <span class="required-mark" aria-hidden="true">*</span></label>
+          <div class="password-input-wrap">
+            <input id="auth-login-password" name="password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+            <button class="password-toggle-btn" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+        </div>
+        <div class="actions auth-form-actions">
+          <label class="check-line"><input type="checkbox" name="remember"> <span>Remember me</span></label>
+          <span class="spacer"></span>
+          <a class="link" href="/forgot">Forgot?</a>
+        </div>
+        <p class="auth-error" role="alert" data-auth-error></p>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+      <p class="auth-compact-switch">New here? <a href="/register">Create an account</a></p>
+    </div>
+  </div>
+</section>
         <section data-static-page="register">
-            <main class="container page auth-page">
-                <section class="auth-layout">
-                    <aside class="auth-story auth-story-register" aria-label="Start learning with MCQCampus">
-                        <p class="eyebrow">YOUR NEXT STEP STARTS HERE</p>
-                        <h2>Build a stronger study routine.</h2>
-                        <p>Create your free account and make your exam preparation easier to organise and follow.</p>
-                        <ul class="auth-story-points">
-                            <li><span aria-hidden="true">✓</span> Save your practice progress</li>
-                            <li><span aria-hidden="true">✓</span> Organise your exam preparation</li>
-                            <li><span aria-hidden="true">✓</span> Keep your learning in one place</li>
-                        </ul>
-                    </aside>
-                    <div class="auth-form">
-                        <a class="auth-brand" href="/" aria-label="MCQCampus home">
-                            <span class="auth-brand-mark" aria-hidden="true">MC</span>
-                            <span>MCQCampus</span>
-                        </a>
-                        <h1>Create account</h1>
-                        <p class="auth-sub">Takes less than a minute.</p>
-                        <form data-form="auth-register">
-                            <div class="auth-field-row">
-                                <div class="field">
-                                    <label for="auth-register-first-name">First name <span class="required-mark" aria-hidden="true">*</span></label>
-                                    <input id="auth-register-first-name" name="first_name" type="text" autocomplete="given-name" placeholder="Ali" required>
-                                </div>
-                                <div class="field">
-                                    <label for="auth-register-last-name">Last name <span class="required-mark" aria-hidden="true">*</span></label>
-                                    <input id="auth-register-last-name" name="last_name" type="text" autocomplete="family-name" placeholder="Khan" required>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label for="auth-register-email">Email <span class="required-mark" aria-hidden="true">*</span></label>
-                                <input id="auth-register-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-                            </div>
-                            <div class="field">
-                                <label for="auth-register-country">Country <span class="required-mark" aria-hidden="true">*</span></label>
-                                <select id="auth-register-country" name="country" autocomplete="country" required>
-                                    <option value="">Select country</option>
-                                    <option value="Pakistan" selected>Pakistan</option>
-                                    <option value="India">India</option>
-                                    <option value="Bangladesh">Bangladesh</option>
-                                    <option value="Afghanistan">Afghanistan</option>
-                                    <option value="Saudi Arabia">Saudi Arabia</option>
-                                    <option value="United Arab Emirates">United Arab Emirates</option>
-                                    <option value="Qatar">Qatar</option>
-                                    <option value="Oman">Oman</option>
-                                    <option value="Kuwait">Kuwait</option>
-                                    <option value="Bahrain">Bahrain</option>
-                                    <option value="Turkey">Turkey</option>
-                                    <option value="Malaysia">Malaysia</option>
-                                    <option value="Indonesia">Indonesia</option>
-                                    <option value="United Kingdom">United Kingdom</option>
-                                    <option value="United States">United States</option>
-                                    <option value="Canada">Canada</option>
-                                    <option value="Australia">Australia</option>
-                                    <option value="Germany">Germany</option>
-                                    <option value="France">France</option>
-                                    <option value="Italy">Italy</option>
-                                    <option value="Netherlands">Netherlands</option>
-                                    <option value="Spain">Spain</option>
-                                    <option value="Sweden">Sweden</option>
-                                    <option value="Norway">Norway</option>
-                                    <option value="South Africa">South Africa</option>
-                                    <option value="Nigeria">Nigeria</option>
-                                    <option value="Kenya">Kenya</option>
-                                    <option value="Egypt">Egypt</option>
-                                    <option value="China">China</option>
-                                    <option value="Japan">Japan</option>
-                                    <option value="South Korea">South Korea</option>
-                                    <option value="Singapore">Singapore</option>
-                                    <option value="New Zealand">New Zealand</option>
-                                    <option value="Ireland">Ireland</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label for="auth-register-password">Password <span class="required-mark" aria-hidden="true">*</span></label>
-                                <div class="password-input-wrap">
-                                    <input id="auth-register-password" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Min 8 characters" required>
-                                    <button class="password-toggle-btn" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
-                                </div>
-                                <div class="auth-password-strength" aria-live="polite">
-                                    <div class="auth-strength-track" data-password-strength-bar><span></span></div>
-                                    <span class="auth-strength-label" data-password-strength-label>—</span>
-                                </div>
-                                <p class="auth-field-hint" data-password-strength-hint>At least 8 characters with letters and numbers.</p>
-                            </div>
-                            <div class="field">
-                                <label for="auth-register-confirm">Confirm password <span class="required-mark" aria-hidden="true">*</span></label>
-                                <div class="password-input-wrap">
-                                    <input id="auth-register-confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Re-enter password" required>
-                                    <button class="password-toggle-btn" type="button" data-password-toggle="confirm" aria-label="Show confirm password" aria-pressed="false">Show</button>
-                                </div>
-                                <p class="auth-field-hint" data-password-match aria-live="polite"></p>
-                            </div>
-                            <label class="check-line auth-terms-line">
-                                <input type="checkbox" name="terms" required>
-                                <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
-                            </label>
-                            <p class="auth-error" role="alert" data-auth-error></p>
-                            <button class="btn primary" type="submit">Create account</button>
-                        </form>
-                        <p class="text-center small auth-bottom-copy">Have an account? <a href="/login">Sign in</a></p>
-                    </div>
-                </section>
-            </main>
-        </section>
+  <div class="auth-compact-page">
+    <div class="auth-compact-card">
+      <a class="auth-compact-brand" href="/" aria-label="MCQCampus home">
+        <span class="auth-compact-brand-mark" aria-hidden="true">MC</span>
+        <span>MCQCampus</span>
+      </a>
+      <h1>Create account</h1>
+      <p class="auth-compact-sub">Takes less than a minute.</p>
+      <form data-form="auth-register">
+        <div class="auth-field-row">
+          <div class="field">
+            <label for="auth-register-first-name">First name <span class="required-mark" aria-hidden="true">*</span></label>
+            <input id="auth-register-first-name" name="first_name" type="text" autocomplete="given-name" placeholder="Ali" required>
+          </div>
+          <div class="field">
+            <label for="auth-register-last-name">Last name <span class="required-mark" aria-hidden="true">*</span></label>
+            <input id="auth-register-last-name" name="last_name" type="text" autocomplete="family-name" placeholder="Khan" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="auth-register-email">Email <span class="required-mark" aria-hidden="true">*</span></label>
+          <input id="auth-register-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="auth-register-country">Country <span class="required-mark" aria-hidden="true">*</span></label>
+          <select id="auth-register-country" name="country" autocomplete="country" required>
+            <option value="">Select country</option>
+            <option value="Pakistan" selected>Pakistan</option>
+            <option value="India">India</option>
+            <option value="Bangladesh">Bangladesh</option>
+            <option value="Afghanistan">Afghanistan</option>
+            <option value="Saudi Arabia">Saudi Arabia</option>
+            <option value="United Arab Emirates">United Arab Emirates</option>
+            <option value="Qatar">Qatar</option>
+            <option value="Oman">Oman</option>
+            <option value="Kuwait">Kuwait</option>
+            <option value="Bahrain">Bahrain</option>
+            <option value="Turkey">Turkey</option>
+            <option value="Malaysia">Malaysia</option>
+            <option value="Indonesia">Indonesia</option>
+            <option value="United Kingdom">United Kingdom</option>
+            <option value="United States">United States</option>
+            <option value="Canada">Canada</option>
+            <option value="Australia">Australia</option>
+            <option value="Germany">Germany</option>
+            <option value="France">France</option>
+            <option value="Italy">Italy</option>
+            <option value="Netherlands">Netherlands</option>
+            <option value="Spain">Spain</option>
+            <option value="Sweden">Sweden</option>
+            <option value="Norway">Norway</option>
+            <option value="South Africa">South Africa</option>
+            <option value="Nigeria">Nigeria</option>
+            <option value="Kenya">Kenya</option>
+            <option value="Egypt">Egypt</option>
+            <option value="China">China</option>
+            <option value="Japan">Japan</option>
+            <option value="South Korea">South Korea</option>
+            <option value="Singapore">Singapore</option>
+            <option value="New Zealand">New Zealand</option>
+            <option value="Ireland">Ireland</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="auth-register-password">Password <span class="required-mark" aria-hidden="true">*</span></label>
+          <div class="password-input-wrap">
+            <input id="auth-register-password" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Min 8 characters" required>
+            <button class="password-toggle-btn" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <div class="auth-password-strength" aria-live="polite">
+            <div class="auth-strength-track" data-password-strength-bar><span></span></div>
+            <span class="auth-strength-label" data-password-strength-label>—</span>
+          </div>
+          <p class="auth-field-hint" data-password-strength-hint>At least 8 characters with letters and numbers.</p>
+        </div>
+        <div class="field">
+          <label for="auth-register-confirm">Confirm password <span class="required-mark" aria-hidden="true">*</span></label>
+          <div class="password-input-wrap">
+            <input id="auth-register-confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Re-enter password" required>
+            <button class="password-toggle-btn" type="button" data-password-toggle="confirm" aria-label="Show confirm password" aria-pressed="false">Show</button>
+          </div>
+          <p class="auth-field-hint" data-password-match aria-live="polite"></p>
+        </div>
+        <label class="check-line auth-terms-line">
+          <input type="checkbox" name="terms" required>
+          <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
+        </label>
+        <p class="auth-error" role="alert" data-auth-error></p>
+        <button class="btn primary" type="submit">Create account</button>
+      </form>
+      <p class="auth-compact-switch">Have an account? <a href="/login">Sign in</a></p>
+    </div>
+  </div>
+</section>
 <section data-static-page="forgot">
             <main class="container page">
                 <section class="auth-layout">
