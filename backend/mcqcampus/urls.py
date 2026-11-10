@@ -29,6 +29,6 @@ urlpatterns = [
     re_path(r'^(?!api/|admin/|assets/)(?P<path>.+)$', views.frontend_page),
 ]
 
-# AUDIT: explicit handlers make sure unknown paths and crashes hit the right template
-handler404 = 'core.views.handler404'
-handler500 = 'core.views.handler500'
+# Use Django's built-in error handlers. Unknown frontend routes already receive
+# an explicit 404 response from frontend_page; core.views does not define custom
+# handler404 or handler500 callables.
