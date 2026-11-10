@@ -1156,7 +1156,7 @@ window.Auth=(()=>{
   }
   let path=location.pathname.replace(/^\/+|\/+$/g,'').replace(/index\.html$/,'').replace(/\.html$/,'');
   const aliases={
-   'auth/login':'login','auth/register':'register','auth/forgot-password':'forgot','auth/reset-password':'reset-code','auth/new-password':'reset-password','auth/verify-email':'verify',
+   'auth/login':'login','auth/register':'register','auth/signin':'login','auth/sign-in':'login','auth/signup':'register','auth/sign-up':'register','signin':'login','sign-in':'login','signup':'register','sign-up':'register','auth/forgot-password':'forgot','auth/reset-password':'reset-code','auth/new-password':'reset-password','auth/verify-email':'verify',
    'user-dashboard':'dashboard','user-dashboard/profile':'profile','admin':'admin/overview','super-admin':'super-admin/overview','public':'home','all-mcqs':'home','all-important-mcqs':'home','':''
   };
   const params=Object.fromEntries(new URLSearchParams(location.search));
@@ -1585,6 +1585,10 @@ window.Auth=(()=>{
   const countryOptions=activeCountries.map(item=>'<option value="'+UI.esc(item.name)+'" '+(String(item.name).toLowerCase()===String(defaultCountry).toLowerCase()?'selected':'')+'>'+UI.esc(item.name)+'</option>').join('');
   const countryField='<div class="field"><label for="country">Country <span class="required-mark" aria-hidden="true">*</span></label><select id="country" name="country" required>'+countryOptions+'</select></div>';
   const titles={login:'Sign in',register:'Create account',forgot:'Forgot your password?','reset-code':'Verify reset code','reset-password':'Choose a new password',reset:'Choose a new password',verify:'Email verification'};
+  const story=type==='register'
+   ? {eyebrow:'YOUR PREPARATION STARTS HERE',title:'Build a stronger study routine.',copy:'Create your free account and make your exam preparation easier to organise and follow.',points:['Save your practice progress','Organise your exam preparation','Keep your learning in one place']}
+   : {eyebrow:'WELCOME BACK',title:'Keep your preparation moving.',copy:'Sign in to pick up where you left off and keep building confidence, one question at a time.',points:['Resume your saved practice','Track your learning progress','Find MCQs and past papers in one place']};
+  const storyPoints=story.points.map(point=>'<li><span aria-hidden="true">✓</span> '+UI.esc(point)+'</li>').join('');
   let form='';
   if(type==='login')form=UI.templateMarkup('mcq-auth-login-form-template',{
    AUTH_LOGIN_EMAIL:field('email','Email address','email','email','placeholder="you@example.com"'),
@@ -1619,7 +1623,7 @@ window.Auth=(()=>{
    AUTH_VERIFY_CODE:field('code','6-digit verification code','text','one-time-code','inputmode="numeric" maxlength="6" pattern="[0-9]{6}"'),
    AUTH_VERIFY_LOGIN:UI.link('login','Back to login','link')
   })||'';setTimeout(()=>syncVerificationTimer(emailParam),0)}
-  return UI.layout(UI.templateMarkup('mcq-auth-layout-template',{AUTH_TITLE:UI.esc(titles[type]),AUTH_FORM:form})||('<div class="container"><div class="auth-layout"><div class="auth-story"><p class="eyebrow">MCQCampus</p><h2>Make room<br>for progress.</h2><p>Your questions, your pace,<br>your next step forward.</p></div><div class="auth-form"><h1>'+UI.esc(titles[type])+'</h1>'+form+'</div></div></div>'));
+  return UI.layout(UI.templateMarkup('mcq-auth-layout-template',{AUTH_TITLE:UI.esc(titles[type]),AUTH_FORM:form,AUTH_STORY_EYEBROW:UI.esc(story.eyebrow),AUTH_STORY_TITLE:UI.esc(story.title),AUTH_STORY_COPY:UI.esc(story.copy),AUTH_STORY_POINTS:storyPoints})||('<div class="container auth-page"><div class="auth-layout"><div class="auth-form"><h1>'+UI.esc(titles[type])+'</h1>'+form+'</div></div></div>'));
  }
 
  const pendingCommands=new Map();
@@ -4990,7 +4994,14 @@ window.MCQSubscriptions = (() => {
   if(publicPending)return publicPending;
   if(publicData&&!force)return Promise.resolve(publicData);
   const initial=!publicData;
-  publicPending=window.Auth.request('/subscription/plans').then(data=>{publicData=data;if(initial)selectedPlan=keys.find(key=>data.plans?.[key]?.active!==false)||'';return data;}).finally(()=>{publicPending=null;});
+  publicPending=window.Auth.request('/subscription/plans').then(data=>{
+   publicData=data;
+   if(initial){
+    const valid=key=>{const plan=data.plans?.[key],amount=Number(plan?.amount);return !!plan&&Number.isFinite(amount)&&amount>0;};
+    selectedPlan=keys.find(key=>valid(key)&&data.plans[key].active!==false)||keys.find(valid)||'';
+   }
+   return data;
+  }).finally(()=>{publicPending=null;});
   return publicPending;
  }
  function loadAdmin(force=false){
@@ -5039,14 +5050,23 @@ window.MCQSubscriptions = (() => {
  }
  function pricingPage(){
   if(!publicData) return window.UI.layout('<section class="container page subscription-page"><div class="subscription-hero"><p class="eyebrow">MCQCAMPUS PREMIUM</p><h1>Choose your preparation plan</h1><p>Loading current plans and Raast payment details…</p></div><div class="card subscription-loading">Please wait while we load pricing.</div></section>');
-  const plans=publicData.plans||{}, current=publicData.subscription||{};
-  const cards=['free',...keys].map(key=>{
+  const plans=publicData.plans&&typeof publicData.plans==='object'?publicData.plans:{}, current=publicData.subscription||{};
+  const paidPlanKeys=keys.filter(key=>{
+   const plan=plans[key],amount=Number(plan?.amount);
+   return !!plan&&Number.isFinite(amount)&&amount>0;
+  });
+  if(!plans.free||!paidPlanKeys.length){
+   const errorText=notice||'Current plan details could not be loaded. Check your connection and try again.';
+   return window.UI.layout('<div class="container page subscription-page"><section class="card subscription-unavailable" role="alert"><p class="eyebrow">PRICING TEMPORARILY UNAVAILABLE</p><h1>We could not load the current plans</h1><p>'+esc(errorText)+'</p><button class="btn primary" type="button" data-pricing-retry>Try again</button></section></div>');
+  }
+  const cards=['free',...paidPlanKeys].map(key=>{
    const p=plans[key]||{}, features=(p.features||[]).map(item=>'<li><span class="sub-check">✓</span>'+esc(item)+'</li>').join('');
+   const period=p.period||(key==='free'?'/ forever':'');
    const disabled=key!=='free'&&p.active===false;
    const button=key==='free'
     ? '<a class="btn secondary" href="/mcqs">Start free</a>'
-    : '<button class="btn '+(key==='yearly'?'primary':'secondary')+'" type="button" data-sub-plan="'+key+'" '+(disabled?'disabled':'')+'>'+(disabled?'Not available':selectedPlan===key?'Selected':'Choose plan')+'</button>';
-   return '<article class="subscription-plan '+(key===selectedPlan?'is-selected':'')+' '+(key==='yearly'?'is-featured':'')+'"><div class="subscription-plan-top"><span class="subscription-plan-label">'+(key==='yearly'?'Best value':key==='quarterly'?'Save more':'')+'</span><h2>'+esc(p.name||key)+'</h2><p>'+esc(p.tagline||'')+'</p></div><div class="subscription-price">'+(key==='free'?'Free':money(p.amount))+'<small>'+esc(p.period||'')+'</small></div><ul class="subscription-features">'+features+'</ul><div class="subscription-plan-action">'+button+'</div></article>';
+    : '<button class="btn '+(key==='yearly'?'primary':'secondary')+'" type="button" data-sub-plan="'+key+'" aria-pressed="'+String(selectedPlan===key)+'" '+(disabled?'disabled':'')+'>'+(disabled?'Not available':selectedPlan===key?'Selected':'Choose plan')+'</button>';
+   return '<article class="subscription-plan '+(key===selectedPlan?'is-selected':'')+' '+(key==='yearly'?'is-featured':'')+'"><div class="subscription-plan-top"><span class="subscription-plan-label">'+(key==='yearly'?'Best value':key==='quarterly'?'Save more':'')+'</span><h2>'+esc(p.name||key)+'</h2><p>'+esc(p.tagline||'')+'</p></div><div class="subscription-price">'+(key==='free'?'Free':money(p.amount))+'<small>'+esc(period)+'</small></div><ul class="subscription-features">'+features+'</ul><div class="subscription-plan-action">'+button+'</div></article>';
   }).join('');
   const plan=plans[selectedPlan]||{}, qr=publicData.qr_url||'';
   const currentNotice=current.active
@@ -5064,7 +5084,7 @@ window.MCQSubscriptions = (() => {
    }
   }
   const alert=notice?'<div class="notice '+(noticeKind==='error'?'error':noticeKind==='success'?'success':'')+'" role="status">'+esc(notice)+'</div>':'';
-  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One plan. Your complete exam preparation.</h1><p>Unlock premium MCQs, important questions, past papers and premium PDF resources with a secure Raast payment.</p><div class="subscription-hero-points"><span>✓ Server-verified access</span><span>✓ Manual payment verification</span><span>✓ No automatic charges</span></div></section>'+currentNotice+paymentHistoryPanel()+alert+'<section class="subscription-plan-grid" aria-label="Subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Premium access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Premium begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Raast payments using the configured QR code or Raast ID are supported.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
+  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One plan. Your complete exam preparation.</h1><p>Unlock premium MCQs, important questions, past papers and premium PDF resources with a secure Raast payment.</p><div class="subscription-hero-points"><span>✓ Server-verified access</span><span>✓ Manual payment verification</span><span>✓ No automatic charges</span></div></section>'+currentNotice+paymentHistoryPanel()+alert+'<section class="subscription-plans-heading" aria-labelledby="subscription-plans-title"><div><p class="eyebrow">SIMPLE, TRANSPARENT PLANS</p><h2 id="subscription-plans-title">Choose the plan that matches your pace</h2><p>Compare access and choose the preparation period that works for you.</p></div><span class="subscription-no-renewal">✓ One-time payment · Manual verification</span></section><section class="subscription-plan-grid" aria-label="Subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Premium access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Premium begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Raast payments using the configured QR code or Raast ID are supported.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
  }
  function adminPanel(){
   if(!adminData)return '<div class="subscription-admin"><div class="notice">Loading subscription requests and payment settings…</div></div>';
@@ -5107,6 +5127,17 @@ window.MCQSubscriptions = (() => {
   }
  }
  document.addEventListener('click',async event=>{
+  const pricingRetry=event.target.closest('[data-pricing-retry]');
+  if(pricingRetry){
+   pricingRetry.disabled=true;
+   publicData=null;selectedPlan='';showMessage('');
+   loadPublic(true).then(()=>{showMessage('Pricing details refreshed.','success');window.App?.render();}).catch(error=>{
+    showMessage(error.message||'Could not load current pricing.','error');
+    publicData={plans:{},subscription:{}};
+    window.App?.render();
+   });
+   return;
+  }
   const historyRefresh=event.target.closest('[data-payment-history-refresh]');
   if(historyRefresh){
    historyRefresh.disabled=true;
