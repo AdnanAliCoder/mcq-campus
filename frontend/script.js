@@ -5220,3 +5220,171 @@ window.MCQSubscriptions = (() => {
  return {pricingPage,adminPanel,afterRender,refreshAdmin};
 })();
 /* ===== END MODULE: subscriptions-ui.js ===== */
+/* ============================================================
+   COMPACT AUTH PAGES (login / register) — single column
+   ============================================================ */
+.auth-compact-page {
+  min-height: calc(100vh - 200px);
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+.auth-compact-card {
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 18px 40px -22px rgba(7, 91, 76, 0.2);
+  animation: authCompactFade 0.25s ease;
+}
+@keyframes authCompactFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.auth-compact-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+.auth-compact-brand:hover { color: var(--ink); text-decoration: none; }
+.auth-compact-brand-mark {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--green), var(--green-dark));
+  color: #fff;
+  display: grid; place-items: center;
+  font-size: 10px; font-weight: 900;
+}
+.auth-compact-card h1 {
+  margin: 0 0 3px;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: #123b30;
+}
+.auth-compact-sub {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.auth-compact-card form { display: grid; gap: 10px; }
+.auth-compact-card .field { display: grid; gap: 4px; }
+.auth-compact-card .field > label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #123b30;
+}
+.auth-compact-card .field input,
+.auth-compact-card .field select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}
+.auth-compact-card .field input:focus,
+.auth-compact-card .field select:focus {
+  border-color: var(--green);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(8, 126, 101, 0.12);
+}
+.auth-compact-card .auth-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.auth-compact-card .auth-form-actions {
+  font-size: 11.5px;
+  margin: 2px 0;
+}
+.auth-compact-card .auth-form-actions a.link {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--green-dark);
+}
+.auth-compact-card .check-line {
+  font-size: 11.5px;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 2px;
+}
+.auth-compact-card .check-line input[type="checkbox"] {
+  width: 14px; height: 14px;
+  margin-top: 2px;
+  flex: 0 0 14px;
+}
+.auth-compact-card .auth-error {
+  min-height: 14px;
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--red);
+}
+.auth-compact-card .btn.primary {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.auth-compact-card .auth-password-strength {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+.auth-compact-card .auth-strength-track {
+  flex: 1;
+  height: 3px;
+  border-radius: 99px;
+  background: #eef2f0;
+  overflow: hidden;
+}
+.auth-compact-card .auth-strength-track span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  background: var(--red);
+  transition: width 0.3s, background 0.3s;
+}
+.auth-compact-card .auth-strength-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 44px;
+  text-align: right;
+}
+.auth-compact-card .auth-field-hint {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 0;
+}
+.auth-compact-switch {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.auth-compact-switch a {
+  color: var(--green-dark);
+  font-weight: 700;
+}
+@media (max-width: 420px) {
+  .auth-compact-card { padding: 20px 16px 16px; border-radius: 14px; }
+  .auth-compact-card h1 { font-size: 18px; }
+  .auth-compact-card .auth-field-row { grid-template-columns: 1fr; }
+}
