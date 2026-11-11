@@ -820,6 +820,9 @@ def admin_subscription_settings(request):
                 raise ValueError('Free level limits must be between 0 and 10.')
             clean_free[key]=value
         for key in ('free_past_paper_ids','free_pdf_ids'):
+            if key=='free_past_paper_ids':
+                clean_free[key]=[]
+                continue
             values=free_access.get(key,[])
             if isinstance(values,str):
                 values=re.split(r'[,\\s]+',values.strip()) if values.strip() else []
