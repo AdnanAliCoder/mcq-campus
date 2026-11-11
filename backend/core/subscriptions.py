@@ -24,12 +24,13 @@ def get_subscription_config():
     if all(
         str(raw.get(key, 1)) == '1'
         for key in ('regular_levels', 'important_levels', 'category_levels')
-    ) and not raw.get('free_past_paper_ids'):
+    ):
         upgraded = dict(raw)
         upgraded.update({
             'regular_levels': 10,
             'important_levels': 5,
             'category_levels': 1,
+            'free_past_paper_ids': [],
         })
         config.free_access = upgraded
         config.save(update_fields=['free_access', 'updated_at'])
