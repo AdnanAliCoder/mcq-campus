@@ -1328,7 +1328,7 @@ window.Auth=(()=>{
   if(['home','posts','post','search','blog'].includes(workspace))wants.push('public-content');
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
-  if(['mcqs','important','category','subcategory','topic','mcq','practice','search'].includes(resolvedBase)||(resolvedBase==='year'&&routeParams.get('track')==='past-paper'&&Number(routeParams.get('level'))>0))wants.push('public-mcqs');
+  if(['mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
   if(['home','category'].includes(resolvedBase)||(resolvedBase==='year'&&!(routeParams.get('track')==='past-paper'&&Number(routeParams.get('level'))>0)))wants.push('mcq-levels');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
