@@ -21,7 +21,7 @@ def get_subscription_config():
     raw = config.free_access if isinstance(config.free_access, dict) else {}
     # Upgrade untouched installations from the original 1/1/1 defaults.
     # Explicit Super Admin changes are preserved via updated_by.
-    if not config.updated_by_id and all(
+    if all(
         str(raw.get(key, 1)) == '1'
         for key in ('regular_levels', 'important_levels', 'category_levels')
     ) and not raw.get('free_past_paper_ids'):
