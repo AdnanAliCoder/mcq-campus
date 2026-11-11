@@ -19,8 +19,8 @@ PLAN_KEYS = tuple(PLAN_DAYS)
 def get_subscription_config():
     config = SubscriptionConfig.get_solo()
     raw = config.free_access if isinstance(config.free_access, dict) else {}
-    # Upgrade untouched installations from the original 1/1/1 defaults.
-    # Explicit Super Admin changes are preserved via updated_by.
+    # Upgrade installations still carrying the original 1/1/1 defaults to the requested policy.
+    # Past Paper exceptions are always removed for the Free plan.
     if all(
         str(raw.get(key, 1)) == '1'
         for key in ('regular_levels', 'important_levels', 'category_levels')
