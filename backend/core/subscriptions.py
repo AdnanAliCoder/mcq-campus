@@ -67,7 +67,9 @@ def subscription_payload(user):
 def normalized_free_access(config=None):
     config = config or get_subscription_config()
     raw = config.free_access if isinstance(config.free_access, dict) else {}
-    def level(key, default=10 if key == 'regular_levels' else 5 if key == 'important_levels' else 1):
+    def level(key, default=None):
+        if default is None:
+            default = {'regular_levels': 10, 'important_levels': 5, 'category_levels': 1}.get(key, 1)
         try:
             return max(0, min(10, int(raw.get(key, default))))
         except (TypeError, ValueError):
