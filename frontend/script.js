@@ -309,7 +309,7 @@ window.UI=(()=>{
     categories:{badgeText:'Category',subtitle:'Practice approved MCQs in this category.',meta:`${count} MCQs`,fallback:catIcons[index%catIcons.length]},
     papers:{badgeText:x.country||MCQ.db.settings.country||'Pakistan',subtitle:'Past papers for this Organization / Board.',meta:`${count} past paper${count===1?'':'s'}`,fallback:'paper'},
     jobs:{badgeText:parentPaper?.name||'Recruitment',subtitle:'Legacy hierarchy record.',meta:`${count} past paper${count===1?'':'s'}`,fallback:'briefcase'},
-    years:{badgeText:parentPaper?.name||'Past Paper',subtitle:'Open this past paper to practise linked MCQs.',meta:`${count} MCQs`,fallback:'paper'}
+    years:{badgeText:x.premium===true?'Premium only':parentPaper?.name||'Past Paper',subtitle:x.premium===true?'Premium subscription required to access this Past Paper.':'Open this past paper to practise linked MCQs.',meta:`${count} MCQs`,fallback:'paper'}
    }[type];
    const entityPath=type==='papers'&&window.SEO?SEO.cleanPath('paper',x.id):type==='jobs'&&parentPaper&&window.SEO?SEO.cleanPath('job',x.id):type==='years'&&parentPaper&&window.SEO?SEO.cleanPath('year',x.id):type==='years'&&parentPaper?'paper/'+parentPaper.id+'/year/'+x.id:conf[0]+'/'+x.id;
    return showcaseCard(entityPath,x,{...data,title,extraClass:type==='categories'?'is-category-card':''});
@@ -2789,7 +2789,7 @@ mountDataDrivenPage(base,id){
   const config=type==='categories'
    ?{badge:String(item.country||'Category'),subtitle:'Practice approved MCQs in this category.',meta:count+' MCQs',fallback:'grid'}
    :type==='years'
-    ?{badge:String(parentPaper?.name||'Past Paper'),subtitle:'Open this past paper to practise linked MCQs.',meta:count+' MCQs',fallback:'paper'}
+    ?{badge:item.premium===true?'Premium only':String(parentPaper?.name||'Past Paper'),subtitle:item.premium===true?'Premium subscription required to access this Past Paper.':'Open this past paper to practise linked MCQs.',meta:count+' MCQs',fallback:'paper'}
     :{badge:String(item.country||data.settings?.country||'Pakistan'),subtitle:'Past papers for this Organization / Board.',meta:count+' past paper'+(count===1?'':'s'),fallback:'paper'};
   let path=type==='categories'?'category/'+item.id:type==='years'?(window.SEO?.cleanPath?SEO.cleanPath('year',item.id):(parentPaper?'paper/'+parentPaper.id+'/year/'+item.id:'year/'+item.id)):'paper/'+item.id;
   if(type==='papers'&&window.SEO?.cleanPath)path=SEO.cleanPath('paper',item.id);
