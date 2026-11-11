@@ -1329,7 +1329,7 @@ window.Auth=(()=>{
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(['mcqs','important','category','subcategory','topic','mcq','practice','search'].includes(resolvedBase)||(resolvedBase==='year'&&routeParams.get('track')==='past-paper'&&Number(routeParams.get('level'))>0))wants.push('public-mcqs');
-  if(['home','category','year'].includes(resolvedBase))wants.push('mcq-levels');
+  if(['home','category'].includes(resolvedBase)||(resolvedBase==='year'&&!(routeParams.get('track')==='past-paper'&&Number(routeParams.get('level'))>0)))wants.push('mcq-levels');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -3305,27 +3305,47 @@ mountDataDrivenPage(base,id){
   const year=MCQ.get('years',id);
   const paper=year&&(MCQ.get('papers',year.paper_id)||MCQ.get('papers',MCQ.get('jobs',year.job_id)?.paper_id));
   if(!year||!paper)return false;
+  const params=App.route.params||{},track=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0);
+  const levelSelected=track==='past-paper'&&levelNumber>0;
   const server=publicMcqServerPage(),rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(item=>MCQ.ids(item.job_years_ids).includes(Number(id)));
   const pageSize=10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=paper.name+' '+year.name,fallbackDescription='Practice '+paper.name+' '+year.name+' MCQs with correct answers and explanations.';
   const pageCopy=entityCopy('year',year.id,fallbackTitle,fallbackDescription);
   const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=pageCopy.title;
-  if(description)description.textContent=pageCopy.description;
-  setMarkup('breadcrumbs',UI.crumbs([['Past Papers','papers'],[paper.name,'paper/'+paper.id],[year.name]]));
+  if(heading)heading.textContent=levelSelected?pageCopy.title+' · Level '+levelNumber:pageCopy.title;
+  if(description)description.textContent=levelSelected?'Practise this 100-question Past Paper level. Premium access is required.':fallbackDescription+' Choose a level below to begin.';
+  setMarkup('breadcrumbs',UI.crumbs([['Past Papers','papers'],[paper.name,'paper/'+paper.id],[year.name,yearPath(year)],...(levelSelected?[['Level '+levelNumber]]:[])]));
   setMarkup('year-actions',UI.btn(UI.icon('bookmark')+' '+((MCQ.db.savedPapers||[]).includes(Number(id))?'Remove saved paper':'Save paper'),'save-paper','','data-id="'+Number(id)+'"'));
-  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
   const list=region('mcq-list');
+  if(!levelSelected){
+   if(list){
+    list.classList.add('public-main','public-main-full');
+    const section=document.createElement('section');
+    section.id='mcq-level-cards';section.className='section levels-home-section category-levels-section past-paper-levels-section';
+    section.dataset.yearId=String(Number(id));
+    section.setAttribute('aria-labelledby','mcq-levels-heading');
+    section.innerHTML='<div class="levels-home-heading"><div><p class="eyebrow">PAST PAPER PRACTICE</p><h2 id="mcq-levels-heading">'+UI.esc(pageCopy.title)+' · Levels</h2><p class="small muted">All linked MCQs are grouped into levels of 100 questions. Past Papers require Premium access.</p></div><div class="levels-overview-card"><strong data-levels-total>Loading levels…</strong><span data-levels-overall-text>Loading progress</span><div class="levels-overall-bar"><span data-levels-overall-bar style="width:0%"></span></div></div></div><section class="levels-track active"><div class="levels-grid" data-api-region="levels-past-paper"><p class="muted">Loading Past Paper levels…</p></div></section><footer class="levels-legend"><span><i class="levels-dot is-done"></i> Completed</span><span><i class="levels-dot is-current"></i> In Progress</span><span><i class="levels-dot is-open"></i> Unlocked</span><span><i class="levels-dot is-locked"></i> Premium locked</span></footer><p class="small muted levels-login-note" data-levels-login-note hidden>Sign in to save your progress and resume levels on another day.</p></section>';
+    list.replaceChildren(section);list.hidden=false;
+   }
+   setText('mcq-summary','Past Paper MCQs arranged into levels of 100.');
+   const pagination=region('mcq-pagination');if(pagination){pagination.replaceChildren();pagination.hidden=true;}
+   return true;
+  }
+  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
   if(list){
    list.classList.add('public-main','public-main-full');
    if(shown.length){
     const cards=document.createDocumentFragment();
     shown.forEach(item=>cards.append(questionCardFragment(item,false,Number(id))));
     list.replaceChildren(cards);
-   }else list.replaceChildren(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this past paper.':'No MCQs are linked to this past paper yet.','Browse the other past papers or continue with important MCQs.',UI.link('important','Important MCQs','btn primary'))));
+   }else if(server?.premium_required){
+    list.replaceChildren(this.staticMarkupFragment(UI.empty('Premium Past Paper level','Upgrade your plan to access this Past Paper and its MCQs.',UI.link('pricing','View Premium plans','btn primary'))));
+   }else{
+    list.replaceChildren(this.staticMarkupFragment(UI.empty('No MCQs linked to this Past Paper level yet.','Browse other past papers or return to the Past Paper levels.',UI.link('year/'+id,'Back to Past Paper levels','btn primary'))));
+   }
    list.hidden=false;
   }
-  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,App.route.params,'year/'+id));
+  setMarkup('mcq-pagination',UI.pager(total,page,pageSize,params,'year/'+id));
  }else if(base==='topic'){
   const topic=MCQ.get('children',id);
   if(!topic)return false;
