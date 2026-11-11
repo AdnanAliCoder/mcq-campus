@@ -169,10 +169,10 @@ def default_subscription_plans():
             'name': 'Free Plan', 'amount': 0, 'days': 0, 'period': '/ forever',
             'tagline': 'Free forever',
             'features': [
-                'First free level of Regular MCQs',
-                'First free level of Important MCQs',
+                'First 10 levels of Regular MCQs',
+                'First 5 levels of Important MCQs',
                 'First level in each category',
-                'Selected past papers and PDF resources',
+                'Past Papers are Premium only',
                 'Latest jobs with application links',
                 'All blogs and helping articles',
             ],
@@ -209,8 +209,8 @@ def default_subscription_plans():
 
 def default_subscription_free_access():
     return {
-        'regular_levels': 1,
-        'important_levels': 1,
+        'regular_levels': 10,
+        'important_levels': 5,
         'category_levels': 1,
         'free_past_paper_ids': [],
         'free_pdf_ids': [],
