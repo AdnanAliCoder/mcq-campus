@@ -942,23 +942,39 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         level_number=int(filters.get('level') or 0)
     except (TypeError,ValueError):
         level_number=0
-    level_mode=track in {'regular','important','category'} and level_number>0
+    level_mode=track in {'regular','important','category','past-paper'} and level_number>0
     premium_required=False
     allowed_free_ids=free_mcq_ids(user, country=country or filters.get('country'))
-    if allowed_free_ids is not None:
-        matching_total=qs.count()
-        qs=qs.filter(pk__in=allowed_free_ids)
-        premium_required=matching_total>qs.count()
     if level_mode:
-        # Stable ID order prevents newly added questions from shifting a learner's level.
+        # Slice the full ordered track first. Filtering by the union of free IDs
+        # before slicing lets category allowances shift MCQs into paid track levels.
         qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').order_by('id')
         total_all=qs.count()
         level_offset=(level_number-1)*100
-        total=max(0,min(100,total_all-level_offset))
-        start=level_offset+(page-1)*page_size
-        objects=list(qs[start:start+page_size]) if start < level_offset+total else []
-        has_next=start+len(objects)<level_offset+total
+        level_qs=qs[level_offset:level_offset+100]
+        if allowed_free_ids is not None:
+            free=normalized_free_access()
+            track_limit=(
+                free['category_levels'] if track=='category' else
+                free['important_levels'] if track=='important' else
+                free['regular_levels'] if track=='regular' else 0
+            )
+            if track=='past-paper' or level_number>track_limit:
+                premium_required=True
+                level_qs=qs.none()
+        total=level_qs.count()
+        start=(page-1)*page_size
+        objects=list(level_qs[start:start+page_size])
+        has_next=start+len(objects)<total
     else:
+        if allowed_free_ids is not None:
+            matching_total=qs.count()
+            if filters.get('year'):
+                # Every Past Paper is premium, even when its MCQs also appear in a free category.
+                qs=qs.none()
+            else:
+                qs=qs.filter(pk__in=allowed_free_ids)
+            premium_required=matching_total>qs.count()
         order=['-created_at','-id'] if filters.get('latest') else ['-id']
         qs=qs.select_related('category','created_by','submitted_by','reviewed_by','approved_by').defer('source','seo_description','audit_history').annotate(_page_total=Window(expression=Count('id'))).order_by(*order)
         start=(page-1)*page_size
@@ -993,8 +1009,8 @@ def _attach_important_flags(objects):
             except (TypeError,ValueError): pass
         obj._important_value=bool(obj.important) or len(years)>=2
 
-def mcq_levels_data(user,country=None,category_id=None):
-    """Return stable 100-question level cards, optionally scoped to one category."""
+def mcq_levels_data(user,country=None,category_id=None,year_id=None):
+    """Return stable 100-question level cards for MCQ tracks, categories or a Past Paper."""
     free_ids=free_mcq_ids(user,country=country)
     free=normalized_free_access()
     is_free_account=free_ids is not None
@@ -1003,16 +1019,42 @@ def mcq_levels_data(user,country=None,category_id=None):
     base=MCQ.objects.filter(status='approved')
     if country:
         base=base.filter(country__iexact=str(country).strip())
-    if category_id not in (None,''):
+    category_scope=category_id not in (None,'')
+    year_scope=year_id not in (None,'')
+    if category_scope and year_scope:
+        base=base.none()
+    if category_scope:
         try:
             base=base.filter(category_id=int(category_id))
         except (TypeError,ValueError):
             base=base.none()
-    category_scope=category_id not in (None,'')
+    if year_scope:
+        try:
+            selected_year=int(year_id)
+            if selected_year<=0:
+                raise ValueError
+            if connection.vendor=='postgresql':
+                base=base.filter(job_year_ids__contains=[selected_year])
+            else:
+                year_rows=base.values_list('id','job_year_ids')
+                selected_ids=[
+                    ident for ident,linked in year_rows
+                    if selected_year in {
+                        int(value) for value in (linked or [])
+                        if str(value).isdigit()
+                    }
+                ]
+                base=base.filter(pk__in=selected_ids)
+        except (TypeError,ValueError):
+            base=base.none()
     if category_scope:
-        category_ids=list(base.order_by('id').values_list('id',flat=True))
-        ids_by_track={'category':category_ids}
-        all_ids=category_ids
+        question_ids=list(base.order_by('id').values_list('id',flat=True))
+        ids_by_track={'category':question_ids}
+        all_ids=question_ids
+    elif year_scope:
+        question_ids=list(base.order_by('id').values_list('id',flat=True))
+        ids_by_track={'past-paper':question_ids}
+        all_ids=question_ids
     else:
         annotated=_json_array_length(base,'job_year_ids','_year_count')
         important_q=Q(_year_count__gte=2)|Q(important=True)
@@ -1043,6 +1085,12 @@ def mcq_levels_data(user,country=None,category_id=None):
         total_cards=(total+99)//100
         progress_map={}; correct_map={}; stars_map={}; next_page_map={}; levels=[]
         previous_complete=True
+        limit=(
+            0 if track_name=='past-paper' else
+            free['category_levels'] if track_name=='category' else
+            free['important_levels'] if track_name=='important' else
+            free['regular_levels']
+        )
         for level in range(1,total_cards+1):
             level_ids=question_ids[(level-1)*100:level*100]
             answered=[qid for qid in level_ids if qid in latest_by_id]
@@ -1058,11 +1106,11 @@ def mcq_levels_data(user,country=None,category_id=None):
                 elif correct<50: stars=1.5
                 elif correct<=60: stars=2
                 else: stars=3
-            limit=free['category_levels'] if track_name=='category' else free['important_levels'] if track_name=='important' else free['regular_levels']
             entry={
                 'level':level,'total':len(level_ids),'progress':progress,'correct':correct,
                 'completed':complete,'unlocked':unlocked,'next_page':next_page,'stars':stars,
-                'premium':is_free_account and level>limit,'free_levels':limit,
+                'premium':is_free_account and (track_name=='past-paper' or level>limit),
+                'free_levels':limit,
             }
             levels.append(entry)
             progress_map[str(level)]=progress
@@ -1083,6 +1131,16 @@ def mcq_levels_data(user,country=None,category_id=None):
         attempted=sum(category['progress'].values())
         return {
             'category':category,
+            'total_mcqs':total_mcqs,'attempted_mcqs':attempted,
+            'overall_progress':round(attempted*100/total_mcqs) if total_mcqs else 0,
+            'authenticated':bool(user and getattr(user,'is_authenticated',False)),
+        }
+    if year_scope:
+        past_paper=make_track('past-paper',ids_by_track['past-paper'])
+        total_mcqs=past_paper['total_mcqs']
+        attempted=sum(past_paper['progress'].values())
+        return {
+            'past_paper':past_paper,
             'total_mcqs':total_mcqs,'attempted_mcqs':attempted,
             'overall_progress':round(attempted*100/total_mcqs) if total_mcqs else 0,
             'authenticated':bool(user and getattr(user,'is_authenticated',False)),
