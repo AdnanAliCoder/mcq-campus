@@ -17,7 +17,23 @@ PLAN_KEYS = tuple(PLAN_DAYS)
 
 
 def get_subscription_config():
-    return SubscriptionConfig.get_solo()
+    config = SubscriptionConfig.get_solo()
+    raw = config.free_access if isinstance(config.free_access, dict) else {}
+    # Upgrade untouched installations from the original 1/1/1 defaults.
+    # Explicit Super Admin changes are preserved via updated_by.
+    if not config.updated_by_id and all(
+        str(raw.get(key, 1)) == '1'
+        for key in ('regular_levels', 'important_levels', 'category_levels')
+    ) and not raw.get('free_past_paper_ids'):
+        upgraded = dict(raw)
+        upgraded.update({
+            'regular_levels': 10,
+            'important_levels': 5,
+            'category_levels': 1,
+        })
+        config.free_access = upgraded
+        config.save(update_fields=['free_access', 'updated_at'])
+    return config
 
 
 def current_subscription(user, now=None):
@@ -51,7 +67,7 @@ def subscription_payload(user):
 def normalized_free_access(config=None):
     config = config or get_subscription_config()
     raw = config.free_access if isinstance(config.free_access, dict) else {}
-    def level(key, default=1):
+    def level(key, default=10 if key == 'regular_levels' else 5 if key == 'important_levels' else 1):
         try:
             return max(0, min(10, int(raw.get(key, default))))
         except (TypeError, ValueError):
@@ -90,7 +106,6 @@ def free_mcq_ids(user=None, country=None, config=None):
     regular_limit = free['regular_levels'] * 100
     important_limit = free['important_levels'] * 100
     category_limit = free['category_levels'] * 100
-    free_years = set(free['free_past_paper_ids'])
     allowed = set()
     regular_count = important_count = 0
     category_counts = {}
@@ -117,8 +132,6 @@ def free_mcq_ids(user=None, country=None, config=None):
         else:
             included = included or regular_count < regular_limit
             regular_count += 1
-        if free_years and linked_years.intersection(free_years):
-            included = True
         if included:
             allowed.add(int(ident))
     return allowed
@@ -133,6 +146,15 @@ def plan_payload(config=None):
         source = stored.get(key) if isinstance(stored.get(key), dict) else {}
         fallback = defaults.get(key, {})
         features = source.get('features', fallback.get('features', []))
+        if key == 'free':
+            features = [
+                'First 10 levels of Regular MCQs',
+                'First 5 levels of Important MCQs',
+                'First level in each category',
+                'All Past Papers require a Premium subscription',
+                'Latest jobs with application links',
+                'All blogs and helping articles',
+            ]
         if not isinstance(features, list):
             features = []
         item = {
