@@ -933,11 +933,24 @@ def mcq_page(user,page=1,page_size=50,filters=None):
                 if job_ids: search_q|=Q(job_ids__overlap=job_ids)
                 if year_ids: search_q|=Q(job_year_ids__overlap=year_ids)
             qs=qs.filter(search_q).distinct()
-    # JSON membership filters are supported by PostgreSQL/Supabase. Keep them optional.
+    # JSON membership is native on PostgreSQL; use a portable fallback on SQLite.
     for key,field in [('paper','paper_ids'),('job','job_ids'),('year','job_year_ids')]:
         if filters.get(key):
-            try: qs=qs.filter(**{field+'__contains':[int(filters[key])]})
-            except (TypeError,ValueError): pass
+            try:
+                ident=int(filters[key])
+                if connection.vendor=='postgresql':
+                    qs=qs.filter(**{field+'__contains':[ident]})
+                else:
+                    matching_ids=[
+                        row_id for row_id,values in qs.values_list('id',field)
+                        if ident in {
+                            int(value) for value in (values or [])
+                            if str(value).isdigit()
+                        }
+                    ]
+                    qs=qs.filter(pk__in=matching_ids)
+            except (TypeError,ValueError):
+                pass
     try:
         level_number=int(filters.get('level') or 0)
     except (TypeError,ValueError):
