@@ -811,7 +811,7 @@ def admin_subscription_settings(request):
             if not cleaned[key]['name']:
                 raise ValueError(f'Enter a name for the {key} plan.')
         clean_free={}
-        for key,default in (('regular_levels',1),('important_levels',1),('category_levels',1)):
+        for key,default in (('regular_levels',10),('important_levels',5),('category_levels',1)):
             try:
                 value=int(free_access.get(key,default))
             except (TypeError,ValueError):
@@ -1103,7 +1103,8 @@ def mcqs(request):
 def mcq_levels(request):
     country=country_for_user(request.user) or _request_content_country(request)
     category_id=request.GET.get('category')
-    response=JsonResponse(mcq_levels_data(request.user,country=country,category_id=category_id))
+    year_id=request.GET.get('year')
+    response=JsonResponse(mcq_levels_data(request.user,country=country,category_id=category_id,year_id=year_id))
     response['Cache-Control']='private, no-store, max-age=0'
     return response
 
