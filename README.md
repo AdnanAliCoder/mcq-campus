@@ -9,6 +9,18 @@
 
 Django remains separate: it serves JSON endpoints under `/api/` and crawler endpoints such as robots and sitemap. It does not serve the frontend HTML routes. The database models, authentication/session and CSRF handling, permissions and API contracts remain in the backend.
 
+## Oracle database schema sync
+
+The current repository has a Django `core` app but no committed `core` migration files. In this state, plain `migrate` does not create tables for the unmigrated app unless `--run-syncdb` is supplied. Missing tables can cause multiple unrelated `/api/` endpoints to return HTTP 500.
+
+After activating the same Python virtual environment and loading the production environment variables (especially `DATABASE_URL` and `SECRET_KEY`), take a database backup and run:
+
+```sh
+bash deploy/repair-django-schema.sh
+```
+
+The script runs Django checks and `migrate --run-syncdb --noinput`. It is safe to rerun for missing tables, but it does not alter columns in existing tables. If an endpoint still returns 500 after this step, inspect the Django/Gunicorn traceback before attempting any schema alteration.
+
 ## Checks
 
 Run these from the repository root:
