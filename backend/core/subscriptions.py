@@ -48,6 +48,8 @@ def get_subscription_config():
         if isinstance(item, dict) and str(item.get('amount')) == str(old_price):
             updated = dict(item)
             updated['amount'] = target_prices[key]
+            updated['name'] = {'monthly': 'Monthly Pro', 'quarterly': '3 Months Pro', 'yearly': 'Yearly Pro'}[key]
+            updated['tagline'] = {'monthly': 'Full access for one month', 'quarterly': 'Save Rs. 498 vs monthly billing', 'yearly': 'Best value — save Rs. 989 vs monthly billing'}[key]
             upgraded_plans[key] = updated
             plans_changed = True
     if plans_changed:
