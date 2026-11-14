@@ -4951,3 +4951,21 @@ body.auth-screen .auth-form .auth-bottom-copy {
   .auth-compact-card h1 { font-size: 18px; }
   .auth-compact-card .auth-field-row { grid-template-columns: 1fr; }
 }
+
+/* Pricing refresh: Free + Pro billing options and focused payment dialog */
+.subscription-plan.is-free-plan{border-color:#c9ddd5;background:linear-gradient(180deg,#f8fcfa,#fff)}
+.subscription-plan.is-free-plan .subscription-plan-label{color:#087e65}
+.subscription-plan.is-featured{box-shadow:0 16px 38px #087e6518}
+.subscription-saving{margin:-7px 0 14px;color:#087e65;font-size:.78rem;font-weight:750}
+.subscription-no-renewal{align-self:center;padding:9px 12px;border:1px solid var(--line);border-radius:999px;color:var(--green-dark);font-size:.8rem;font-weight:750;white-space:nowrap}
+.subscription-modal-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:rgba(9,25,21,.68);backdrop-filter:blur(5px);overflow-y:auto}
+.subscription-payment-modal{position:relative;width:min(100%,900px);max-height:min(92vh,900px);overflow-y:auto;padding:clamp(20px,3vw,32px);border:1px solid #dce8e2;border-radius:22px;background:#fff;box-shadow:0 28px 90px #0005}
+.subscription-modal-close{position:absolute;top:12px;right:14px;width:38px;height:38px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--ink);font-size:1.5rem;line-height:1;cursor:pointer}
+.subscription-payment-modal .subscription-pay-head{padding-right:36px}
+.subscription-payment-modal .subscription-payment-grid{grid-template-columns:minmax(220px,.8fr) minmax(0,1.5fr)}
+.subscription-payment-modal .subscription-qr-card{align-items:stretch}
+.subscription-payment-modal .subscription-qr-card img{width:min(100%,260px)}
+.subscription-payment-modal .subscription-qr-card strong{text-align:center}
+.subscription-payment-modal .subscription-qr-card>p{text-align:center}
+.subscription-payment-modal .subscription-qr-card .raast-id-line{text-align:left}
+@media(max-width:720px){.subscription-plans-heading{display:block}.subscription-no-renewal{display:inline-flex;margin-top:12px}.subscription-modal-backdrop{padding:10px;align-items:start}.subscription-payment-modal{max-height:calc(100vh - 20px);border-radius:16px;padding:20px 16px}.subscription-payment-modal .subscription-payment-grid{grid-template-columns:1fr}.subscription-payment-modal .subscription-pay-head{padding-right:30px}.subscription-payment-modal .subscription-due{margin-top:12px}}

@@ -5013,7 +5013,7 @@ window.MCQSubscriptions = (() => {
  const keys = ['monthly','quarterly','yearly'];
  let publicData = null, publicPending = null, adminData = null, adminPending = null;
  let paymentHistory = [], paymentHistoryFor = '', paymentHistoryPending = null, paymentHistoryPendingFor = '', paymentHistoryError = '';
- let selectedPlan = 'monthly', notice = '', noticeKind = 'info', busy = false;
+ let selectedPlan = '', notice = '', noticeKind = 'info', busy = false;
  const activeAdminRoute = () => String(window.App?.route?.path || '').split('/')[1] === 'subscriptions';
  const fmtDate = value => { try { return value ? new Date(value).toLocaleString() : '—'; } catch { return '—'; } };
  const user = () => window.Auth?.user || null;
@@ -5024,10 +5024,7 @@ window.MCQSubscriptions = (() => {
   const initial=!publicData;
   publicPending=window.Auth.request('/subscription/plans').then(data=>{
    publicData=data;
-   if(initial){
-    const valid=key=>{const plan=data.plans?.[key],amount=Number(plan?.amount);return !!plan&&Number.isFinite(amount)&&amount>0;};
-    selectedPlan=keys.find(key=>valid(key)&&data.plans[key].active!==false)||keys.find(valid)||'';
-   }
+   if(initial) selectedPlan='';
    return data;
   }).finally(()=>{publicPending=null;});
   return publicPending;
@@ -5083,36 +5080,57 @@ window.MCQSubscriptions = (() => {
    const plan=plans[key],amount=Number(plan?.amount);
    return !!plan&&Number.isFinite(amount)&&amount>0;
   });
-  if(!plans.free||!paidPlanKeys.length){
+  if(!plans.free||paidPlanKeys.length!==3){
    const errorText=notice||'Current plan details could not be loaded. Check your connection and try again.';
-   return window.UI.layout('<div class="container page subscription-page"><section class="card subscription-unavailable" role="alert"><p class="eyebrow">PRICING TEMPORARILY UNAVAILABLE</p><h1>We could not load the current plans</h1><p>'+esc(errorText)+'</p><button class="btn primary" type="button" data-pricing-retry>Try again</button></section></div>');
+   return window.UI.layout('<div class="container page subscription-page"><section class="card subscription-unavailable" role="alert"><p class="eyebrow">PRICING TEMPORARILY UNAVAILABLE</p><h1>We could not load all subscription plans</h1><p>'+esc(errorText)+'</p><button class="btn primary" type="button" data-pricing-retry>Try again</button></section></div>');
   }
+  const paidFeatures=[
+   'All Regular MCQs and every level',
+   'All Important MCQs and every level',
+   'All MCQs across every category',
+   'All Past Papers and Past Paper MCQs',
+   'All premium PDFs and study resources',
+   'Access to newly added MCQs and content'
+  ];
+  const freeFeatures=[
+   'First 10 levels of Regular MCQs',
+   'First 5 levels of Important MCQs',
+   'First level in every category',
+   'Past Papers and Past Paper MCQs are locked',
+   'Free practice access with no payment'
+  ];
+  const monthlyAmount=Number(plans.monthly?.amount||0);
   const cards=['free',...paidPlanKeys].map(key=>{
-   const p=plans[key]||{}, features=(p.features||[]).map(item=>'<li><span class="sub-check">✓</span>'+esc(item)+'</li>').join('');
-   const period=p.period||(key==='free'?'/ forever':'');
-   const disabled=key!=='free'&&p.active===false;
-   const button=key==='free'
-    ? '<a class="btn secondary" href="/mcqs">Start free</a>'
-    : '<button class="btn '+(key==='yearly'?'primary':'secondary')+'" type="button" data-sub-plan="'+key+'" aria-pressed="'+String(selectedPlan===key)+'" '+(disabled?'disabled':'')+'>'+(disabled?'Not available':selectedPlan===key?'Selected':'Choose plan')+'</button>';
-   return '<article class="subscription-plan '+(key===selectedPlan?'is-selected':'')+' '+(key==='yearly'?'is-featured':'')+'"><div class="subscription-plan-top"><span class="subscription-plan-label">'+(key==='yearly'?'Best value':key==='quarterly'?'Save more':'')+'</span><h2>'+esc(p.name||key)+'</h2><p>'+esc(p.tagline||'')+'</p></div><div class="subscription-price">'+(key==='free'?'Free':money(p.amount))+'<small>'+esc(period)+'</small></div><ul class="subscription-features">'+features+'</ul><div class="subscription-plan-action">'+button+'</div></article>';
+   const p=plans[key]||{}, isFree=key==='free';
+   const features=(isFree?freeFeatures:paidFeatures).map(item=>'<li><span class="sub-check">✓</span><span>'+esc(item)+'</span></li>').join('');
+   const period=p.period||(isFree?'/ forever':key==='monthly'?'/ month':key==='quarterly'?'/ 3 months':'/ year');
+   const amount=Number(p.amount||0);
+   const saving=key==='quarterly'?Math.max(0,monthlyAmount*3-amount):key==='yearly'?Math.max(0,monthlyAmount*12-amount):0;
+   const label=isFree?(!current.active?'CURRENT PLAN':'FREE FOREVER'):key==='yearly'?'BEST VALUE':key==='quarterly'?'3-MONTH SAVING':'FLEXIBLE MONTHLY';
+   const disabled=!isFree&&p.active===false;
+   const button=isFree
+    ? '<button class="btn secondary" type="button" disabled>Free plan included</button>'
+    : '<button class="btn '+(key==='yearly'?'primary':'secondary')+'" type="button" data-sub-plan="'+key+'" aria-pressed="'+String(selectedPlan===key)+'" '+(disabled?'disabled':'')+'>'+(disabled?'Not available':'Subscribe now')+'</button>';
+   const savingLine=saving?'<p class="subscription-saving">Save '+money(saving)+' compared with monthly billing</p>':'';
+   return '<article class="subscription-plan '+(selectedPlan===key?'is-selected':'')+' '+(key==='yearly'?'is-featured':'')+' '+(isFree?'is-free-plan':'')+'"><div class="subscription-plan-top"><span class="subscription-plan-label">'+label+'</span><h2>'+esc(p.name||(isFree?'Free Plan':key))+'</h2><p>'+esc(p.tagline||(isFree?'Start learning for free':'Full MCQCampus access'))+'</p></div><div class="subscription-price">'+(isFree?'Rs. 0':money(amount))+'<small>'+esc(period)+'</small></div>'+savingLine+'<ul class="subscription-features">'+features+'</ul><div class="subscription-plan-action">'+button+'</div></article>';
   }).join('');
   const plan=plans[selectedPlan]||{}, qr=publicData.qr_url||'';
   const currentNotice=current.active
-   ? '<div class="notice success subscription-current"><strong>Premium is active.</strong> Your '+esc(current.plan||'')+' plan is active until '+esc(fmtDate(current.ends_at))+'.</div>'
+   ? '<div class="notice success subscription-current"><strong>Pro is active.</strong> Your '+esc(current.plan||'')+' plan is active until '+esc(fmtDate(current.ends_at))+'.</div>'
    : '';
   let payment='';
-  if(selectedPlan){
+  if(selectedPlan&&plans[selectedPlan]){
    if(!user()){
-    payment='<section class="card subscription-paybox"><h2>Continue with '+esc(plan.name||'Premium')+'</h2><p>Sign in to submit your Raast payment reference and proof. Access begins only after Super Admin approval.</p><a class="btn primary" href="/login?next=pricing">Sign in to continue</a></section>';
+    payment='<div class="subscription-modal-backdrop" data-sub-modal-backdrop><section class="subscription-payment-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-modal-title"><button class="subscription-modal-close" type="button" data-sub-close aria-label="Close payment window">×</button><p class="eyebrow">SIGN IN REQUIRED</p><h2 id="subscription-modal-title">Continue with '+esc(plan.name||'Pro')+'</h2><p>Sign in to submit your Raast payment reference and proof. Pro access begins only after Super Admin approval.</p><a class="btn primary" href="/login?next=pricing">Sign in to continue</a></section></div>';
    }else{
     const me=user(), fallbackName=me.full_name||me.name||me.username||'';
-    payment='<section class="card subscription-paybox" id="subscription-payment"><div class="subscription-pay-head"><div><p class="eyebrow">PAYMENT &amp; VERIFICATION</p><h2>Activate '+esc(plan.name||'Premium')+'</h2><p>Pay the exact amount, then upload your receipt. Your account remains on its current access until the payment is approved.</p></div><div class="subscription-due">'+money(plan.amount)+'<small>'+esc(plan.period||'')+'</small></div></div>'+
-     '<div class="subscription-payment-grid"><div class="subscription-qr-card">'+(qr?'<img src="'+esc(qr)+'" alt="MCQCampus Raast QR code">':'<div class="subscription-qr-empty">Raast QR has not been configured yet.</div>')+'<strong>Raast payment</strong><p>Scan the QR using your banking app.</p><div class="raast-id-line"><span>Raast ID</span><strong>'+(publicData.raast_id?esc(publicData.raast_id):'Not configured yet')+'</strong></div></div>'+
-     '<div><form data-subscription-payment novalidate><input type="hidden" name="plan" value="'+esc(selectedPlan)+'"><input type="hidden" name="amount" value="'+Number(plan.amount||0)+'"><div class="form-grid"><label>Full name<input name="name" value="'+esc(fallbackName)+'" maxlength="150" required></label><label>Email address<input type="email" name="email" value="'+esc(me.email||'')+'" maxlength="254" required></label><label class="wide">Raast transaction reference<input name="transaction_id" maxlength="120" placeholder="Enter transaction ID / reference" required></label><label class="wide">Payment screenshot or PDF receipt<input type="file" name="screenshot" accept=".png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf" required><small>PNG, JPG, WebP or PDF · Maximum 5 MB</small></label></div><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Submit payment proof</button><p class="small muted">Submitting proof does not automatically unlock Premium. Our Super Admin verifies the receipt first.</p></form></div></div></section>';
+    payment='<div class="subscription-modal-backdrop" data-sub-modal-backdrop><section class="subscription-payment-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-modal-title"><button class="subscription-modal-close" type="button" data-sub-close aria-label="Close payment window">×</button><div class="subscription-pay-head"><div><p class="eyebrow">SECURE MANUAL PAYMENT</p><h2 id="subscription-modal-title">Subscribe to '+esc(plan.name||'Pro')+'</h2><p>Pay the exact amount shown below, then submit your transaction reference and receipt. Pro access starts after Super Admin approval.</p></div><div class="subscription-due">'+money(plan.amount)+'<small>'+esc(plan.period||'')+'</small></div></div>'+
+     '<div class="subscription-payment-grid"><div class="subscription-qr-card">'+(qr?'<img src="'+esc(qr)+'" alt="MCQCampus Raast payment QR code">':'<div class="subscription-qr-empty">Super Admin has not uploaded a Raast QR code yet.</div>')+'<strong>Scan to pay with Raast</strong><p>Open your banking app and scan this QR code.</p><div class="raast-id-line"><span>Raast ID</span><strong>'+(publicData.raast_id?esc(publicData.raast_id):'Not configured yet')+'</strong></div></div>'+
+     '<div><form data-subscription-payment novalidate><input type="hidden" name="plan" value="'+esc(selectedPlan)+'"><input type="hidden" name="amount" value="'+Number(plan.amount||0)+'"><div class="form-grid"><label>Full name<input name="name" value="'+esc(fallbackName)+'" maxlength="150" required></label><label>Email address<input type="email" name="email" value="'+esc(me.email||'')+'" maxlength="254" required></label><label class="wide">Raast transaction reference<input name="transaction_id" maxlength="120" placeholder="Enter transaction ID / reference" required></label><label class="wide">Payment screenshot or PDF receipt<input type="file" name="screenshot" accept=".png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf" required><small>PNG, JPG, WebP or PDF · Maximum 5 MB</small></label></div><button class="btn primary" type="submit" '+(busy?'disabled':'')+'>Submit payment proof</button><p class="small muted">Your receipt is reviewed by the Super Admin. Submitting proof does not unlock Pro automatically.</p></form></div></div></section></div>';
    }
   }
   const alert=notice?'<div class="notice '+(noticeKind==='error'?'error':noticeKind==='success'?'success':'')+'" role="status">'+esc(notice)+'</div>':'';
-  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One plan. Your complete exam preparation.</h1><p>Unlock premium MCQs, important questions, past papers and premium PDF resources with a secure Raast payment.</p><div class="subscription-hero-points"><span>✓ Server-verified access</span><span>✓ Manual payment verification</span><span>✓ No automatic charges</span></div></section>'+currentNotice+paymentHistoryPanel()+alert+'<section class="subscription-plans-heading" aria-labelledby="subscription-plans-title"><div><p class="eyebrow">SIMPLE, TRANSPARENT PLANS</p><h2 id="subscription-plans-title">Choose the plan that matches your pace</h2><p>Compare access and choose the preparation period that works for you.</p></div><span class="subscription-no-renewal">✓ One-time payment · Manual verification</span></section><section class="subscription-plan-grid" aria-label="Subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Premium access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Premium begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Raast payments using the configured QR code or Raast ID are supported.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
+  return window.UI.layout('<div class="container page subscription-page"><section class="subscription-hero"><p class="eyebrow">PREPARE SMARTER WITH MCQCAMPUS</p><h1>One free plan. Three ways to go Pro.</h1><p>Start with free practice, or unlock every MCQ level, Important MCQs, category and Past Paper with Pro.</p><div class="subscription-hero-points"><span>✓ Free plan available forever</span><span>✓ One-time Raast payment</span><span>✓ Super Admin verifies every receipt</span></div></section>'+currentNotice+paymentHistoryPanel()+alert+'<section class="subscription-plans-heading" aria-labelledby="subscription-plans-title"><div><p class="eyebrow">SIMPLE, TRANSPARENT PLANS</p><h2 id="subscription-plans-title">Choose your access</h2><p>All prices are in Pakistani Rupees. Pro access is activated after payment approval.</p></div><span class="subscription-no-renewal">✓ No automatic renewal</span></section><section class="subscription-plan-grid" aria-label="Free and Pro subscription plans">'+cards+'</section>'+payment+'<section class="subscription-faq"><h2>Frequently asked questions</h2><details><summary>When does Pro access start?</summary><p>After you submit your payment proof, the Super Admin checks the transaction and approves it. Pro begins after approval.</p></details><details><summary>Which payment methods are supported?</summary><p>Pay by scanning the Raast QR code or sending payment to the configured Raast ID shown in the payment window.</p></details><details><summary>Which proof files can I upload?</summary><p>Upload a PNG, JPG, WebP screenshot or a PDF receipt up to 5 MB.</p></details><details><summary>Does submitting a receipt unlock the website?</summary><p>No. Access is granted only when the Super Admin approves the payment request.</p></details></section></div>');
  }
  function adminPanel(){
   if(!adminData)return '<div class="subscription-admin"><div class="notice">Loading subscription requests and payment settings…</div></div>';
@@ -5175,6 +5193,7 @@ window.MCQSubscriptions = (() => {
   }
   const choose=event.target.closest('[data-sub-plan]');
   if(choose){selectedPlan=choose.getAttribute('data-sub-plan');showMessage('');window.App?.render();return;}
+  if(event.target.closest('[data-sub-close]')||event.target.matches('[data-sub-modal-backdrop]')){selectedPlan='';window.App?.render();return;}
   if(event.target.closest('[data-sub-refresh]')){await refreshAdmin();return;}
   const review=event.target.closest('[data-proof-review]');
   if(review){

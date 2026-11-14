@@ -21,6 +21,7 @@ def get_subscription_config():
     raw = config.free_access if isinstance(config.free_access, dict) else {}
     # Upgrade installations still carrying the original 1/1/1 defaults to the requested policy.
     # Past Paper exceptions are always removed for the Free plan.
+    changed_fields = []
     if all(
         str(raw.get(key, 1)) == '1'
         for key in ('regular_levels', 'important_levels', 'category_levels')
@@ -33,7 +34,29 @@ def get_subscription_config():
             'free_past_paper_ids': [],
         })
         config.free_access = upgraded
-        config.save(update_fields=['free_access', 'updated_at'])
+        changed_fields.append('free_access')
+
+    # Upgrade only the original bundled prices; preserve any values already
+    # customised by the Super Admin.
+    stored_plans = config.plans if isinstance(config.plans, dict) else {}
+    legacy_prices = {'monthly': 299, 'quarterly': 699, 'yearly': 1499}
+    target_prices = {'monthly': 499, 'quarterly': 999, 'yearly': 4999}
+    upgraded_plans = dict(stored_plans)
+    plans_changed = False
+    for key, old_price in legacy_prices.items():
+        item = upgraded_plans.get(key)
+        if isinstance(item, dict) and str(item.get('amount')) == str(old_price):
+            updated = dict(item)
+            updated['amount'] = target_prices[key]
+            updated['name'] = {'monthly': 'Monthly Pro', 'quarterly': '3 Months Pro', 'yearly': 'Yearly Pro'}[key]
+            updated['tagline'] = {'monthly': 'Full access for one month', 'quarterly': 'Save Rs. 498 vs monthly billing', 'yearly': 'Best value — save Rs. 989 vs monthly billing'}[key]
+            upgraded_plans[key] = updated
+            plans_changed = True
+    if plans_changed:
+        config.plans = upgraded_plans
+        changed_fields.append('plans')
+    if changed_fields:
+        config.save(update_fields=[*changed_fields, 'updated_at'])
     return config
 
 
@@ -154,9 +177,17 @@ def plan_payload(config=None):
                 'First 10 levels of Regular MCQs',
                 'First 5 levels of Important MCQs',
                 'First level in each category',
-                'All Past Papers require a Premium subscription',
-                'Latest jobs with application links',
-                'All blogs and helping articles',
+                'Past Papers and Past Paper MCQs are Pro-only',
+                'Free practice access with no payment',
+            ]
+        else:
+            features = [
+                'All Regular MCQs and every level',
+                'All Important MCQs and every level',
+                'All MCQs across every category',
+                'All Past Papers and Past Paper MCQs',
+                'All premium PDFs and study resources',
+                'Access to newly added MCQs and content',
             ]
         if not isinstance(features, list):
             features = []
