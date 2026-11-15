@@ -224,7 +224,7 @@ def auth_login(request):
     login(request,user)
     role=user_role(user)
     # A super-admin permission must activate the Super Admin workspace on a fresh login.
-    request.session['active_role']='super-admin' if is_super(user) else 'admin' if role=='admin' else 'user'
+    request.session['active_role']='super-admin' if is_super(user) else 'user'
     request.session.set_expiry(60*60*24*30 if d.get('remember') else 60*60*2)
     session_prepare_ms=(time.perf_counter()-phase)*1000
     phase=time.perf_counter()
@@ -1127,7 +1127,7 @@ def entities(request):
         elif request.GET.get('admin_scope')=='1' and is_super(request.user):
             role=request.session.get('active_role') or 'super-admin'
             if role=='super-admin': active_country=_request_active_country(request)
-        page_size=12 if public_only and kind in ('categories','papers','years') else 10
+        page_size=15
         data=entity_page_data(request.user,kind,page,page_size,filters,public_only=public_only,active_country=active_country)
     except PermissionError as exc:
         return err(exc,403)
@@ -1235,7 +1235,7 @@ def admin_content(request):
 def auth_switch_role(request):
     role=str(payload(request).get('role') or '')
     account_role=user_role(request.user)
-    available=['user']+(['admin'] if account_role in {'admin','super-admin'} else [])+(['super-admin'] if is_super(request.user) else [])
+    available=['user']+(['super-admin'] if is_super(request.user) else [])
     if role not in available: return err('This account does not have that workspace.',403)
     request.session['active_role']=role
     request.session.modified=True
