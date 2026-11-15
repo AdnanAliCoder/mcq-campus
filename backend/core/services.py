@@ -858,7 +858,6 @@ def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=Fals
 
 def visible_mcqs(user):
     if is_super(user): return MCQ.objects.all()
-    if user_role(user)=='admin': return MCQ.objects.filter(Q(status='approved')|Q(created_by=user)|Q(submitted_by=user)).distinct()
     return MCQ.objects.filter(status='approved')
 
 def mcq_page(user,page=1,page_size=50,filters=None):
@@ -1773,7 +1772,7 @@ def _invalidate_user_sessions(user_id):
 def save_user(user,payload):
     require(is_super(user)); fields,v,c,_=parse_fields(payload); uid=int(c.get('id') or 0) or None
     email=_normalize_email(v.get('email')); name=str(v.get('name') or '').strip(); role=v.get('role') or 'user'; status=v.get('status') or 'active'
-    if role not in {'user','admin','super-admin'}: raise ValueError('Invalid role.')
+    if role not in {'user','super-admin'}: raise ValueError('Invalid role.')
     obj=User.objects.filter(pk=uid).first() if uid else User.objects.filter(email__iexact=email).first()
     creating=obj is None
     if creating:
@@ -1784,10 +1783,9 @@ def save_user(user,payload):
         require(_active_super_admins(exclude_id=obj.pk),'At least one active Super Admin must remain.')
     duplicate=User.objects.exclude(pk=obj.pk).filter(email__iexact=email).exists() if obj.pk else User.objects.filter(email__iexact=email).exists()
     require(not duplicate,'That email is already in use.')
-    obj.email=email; obj.username=email; obj.first_name=name; obj.is_active=status=='active'; obj.is_staff=role in {'admin','super-admin'}; obj.is_superuser=role=='super-admin'; obj.save()
+    obj.email=email; obj.username=email; obj.first_name=name; obj.is_active=status=='active'; obj.is_staff=role=='super-admin'; obj.is_superuser=role=='super-admin'; obj.save()
     prof=profile_for(obj); prof.role=role
-    if role=='admin': prof.permissions=['super_admin_permission'] if 'super_admin_permission' in fields else list(BASE_ADMIN_PERMISSIONS)
-    elif role=='super-admin': prof.permissions=list(PERMISSION_CATALOG)
+    if role=='super-admin': prof.permissions=list(PERMISSION_CATALOG)
     else: prof.permissions=[]
     prof.save()
     if old_active and not obj.is_active: _invalidate_user_sessions(obj.pk)
