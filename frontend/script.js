@@ -4849,16 +4849,33 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
   }
   function renderTrack(root,name,data){
     const region=root.querySelector('[data-api-region="levels-'+name+'"]');if(!region)return;
-    region.replaceChildren();
     const levels=Array.isArray(data?.levels)?data.levels:[];
+    region._levelRows=levels;
     if(!levels.length){
+      region.replaceChildren();
       const empty=document.createElement('p');empty.className='muted';
       empty.textContent=name==='category'?'No approved MCQs available in this category yet.':name==='past-paper'?'No approved MCQs are linked to this Past Paper yet.':'No approved '+(name==='important'?'Important':'Regular')+' MCQs available yet.';
       region.appendChild(empty);return;
     }
+    const pageSize=15,totalPages=Math.max(1,Math.ceil(levels.length/pageSize));
+    const page=Math.min(totalPages,Math.max(1,Number(region.dataset.page)||1));
+    region.dataset.page=String(page);
+    region.replaceChildren();
     const fragment=document.createDocumentFragment();
-    levels.forEach(level=>{const card=renderCard(name,level);if(card)fragment.appendChild(card);});
+    levels.slice((page-1)*pageSize,page*pageSize).forEach(level=>{const card=renderCard(name,level);if(card)fragment.appendChild(card);});
     region.appendChild(fragment);
+    if(totalPages>1){
+      const nav=document.createElement('nav');nav.className='pagination level-pagination';nav.setAttribute('aria-label','Level pages');
+      const previous=document.createElement('button');previous.type='button';previous.className='btn sm';previous.textContent='Previous';previous.dataset.levelPage=String(Math.max(1,page-1));previous.disabled=page===1;nav.append(previous);
+      const numbers=document.createElement('div');numbers.className='page-numbers';
+      for(let n=1;n<=totalPages;n++){
+        if(totalPages>9&&n>2&&n<totalPages-1&&Math.abs(n-page)>1){if(n===3||n===totalPages-2){const gap=document.createElement('span');gap.className='page-gap';gap.textContent='…';numbers.append(gap);}continue;}
+        const button=document.createElement('button');button.type='button';button.className='btn sm'+(n===page?' primary current':'');button.textContent=String(n);button.dataset.levelPage=String(n);if(n===page)button.setAttribute('aria-current','page');numbers.append(button);
+      }
+      nav.append(numbers);
+      const next=document.createElement('button');next.type='button';next.className='btn sm';next.textContent='Next';next.dataset.levelPage=String(Math.min(totalPages,page+1));next.disabled=page===totalPages;nav.append(next);
+      region.append(nav);
+    }
   }
   function activateTab(root,name,scroll=false){
     const track=name==='important'?'important':'regular';
@@ -4881,7 +4898,7 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       levelDialog.id='mcq-level-dialog';
       levelDialog.className='mcq-level-dialog';
       levelDialog.setAttribute('aria-labelledby','mcq-level-dialog-title');
-      levelDialog.innerHTML='<div class="mcq-level-dialog-box"><button class="mcq-level-dialog-close" type="button" data-level-dialog-close aria-label="Close dialog">×</button><h3 id="mcq-level-dialog-title">Level 1</h3><p class="mcq-level-dialog-copy" data-level-dialog-copy></p><div class="mcq-level-dialog-stars level-stars" data-level-dialog-stars aria-label="Level stars"></div><div class="mcq-level-dialog-actions"><button class="btn" type="button" data-level-dialog-close>Close</button><button class="btn primary" type="button" data-level-dialog-start>Start</button></div></div>';
+      levelDialog.innerHTML='<div class="mcq-level-dialog-box"><button class="mcq-level-dialog-close" type="button" data-level-dialog-close aria-label="Close dialog">×</button><h3 id="mcq-level-dialog-title">Level 1</h3><p class="mcq-level-dialog-copy" data-level-dialog-copy></p><div class="mcq-level-dialog-stars level-stars" data-level-dialog-stars aria-label="Level stars"></div><fieldset class="level-mode-choice"><legend>Choose mode</legend><label><input type="radio" name="level-mode" value="practice" checked><span><strong>Practice</strong><small>Instant answer and explanation</small></span></label><label><input type="radio" name="level-mode" value="test"><span><strong>Test</strong><small>See your result after submission</small></span></label></fieldset><div class="mcq-level-dialog-actions"><button class="btn" type="button" data-level-dialog-close>Close</button><button class="btn primary" type="button" data-level-dialog-start>Start</button></div></div>';
       document.body.appendChild(levelDialog);
     }
     if(levelDialog.dataset.bound!=='1'){
@@ -4889,13 +4906,9 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       levelDialog.querySelectorAll('[data-level-dialog-close]').forEach(button=>button.addEventListener('click',()=>levelDialog.close()));
       levelDialog.querySelector('[data-level-dialog-start]')?.addEventListener('click',()=>{
         if(!pendingLevel)return;
-        const selection={...pendingLevel};pendingLevel=null;levelDialog.close();
+        const selection={...pendingLevel,mode:levelDialog.querySelector('input[name="level-mode"]:checked')?.value==='test'?'test':'practice'};pendingLevel=null;levelDialog.close();
         const target=selection.yearId?'year/'+selection.yearId:selection.categoryId?'category/'+selection.categoryId:'mcqs';
-        if(!window.MCQ?.db?.session){
-          const next=target+'?'+new URLSearchParams({track:selection.track,level:String(selection.level),page:String(selection.page)}).toString();
-          App.go('login',{next});UI.toast('Sign in to save your level progress and resume later.');return;
-        }
-        App.go(target,{track:selection.track,level:selection.level,page:selection.page});
+        App.go(target,{track:selection.track,level:selection.level,page:selection.page,mode:selection.mode});
       });
       levelDialog.addEventListener('click',event=>{if(event.target===levelDialog)levelDialog.close();});
       levelDialog.addEventListener('close',()=>{pendingLevel=null;});
@@ -4918,6 +4931,8 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     if(copy)copy.textContent=completed?'Completed · '+correct+' / '+total+' correct':total+' MCQs · '+progress+' / '+total+' answered';
     if(starsNode)starsNode.innerHTML=starsMarkup(stars);
     if(start)start.textContent=completed?'Review':progress>0?'Continue':'Start';
+    const practice=dialog.querySelector('input[name="level-mode"][value="practice"]'),test=dialog.querySelector('input[name="level-mode"][value="test"]');
+    if(practice)practice.checked=true;if(test)test.checked=false;
     if(!dialog.open)dialog.showModal();
   }
   function bindCards(root){
@@ -4931,6 +4946,17 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
     },true);
     root.querySelectorAll('[data-levels-track]').forEach(button=>{
       button.addEventListener('click',()=>activateTab(root,button.dataset.levelsTrack));
+    });
+    root.addEventListener('click',event=>{
+      const pageButton=event.target.closest('[data-level-page]');
+      if(!pageButton||!root.contains(pageButton))return;
+      const region=pageButton.closest('[data-api-region^="levels-"]');
+      if(!region)return;
+      event.preventDefault();
+      const next=Math.max(1,Math.min(Math.ceil((region._levelRows||[]).length/15),Number(pageButton.dataset.levelPage)||1));
+      if(next===Number(region.dataset.page||1))return;
+      region.dataset.page=String(next);
+      renderTrack(root,region.dataset.apiRegion.replace('levels-',''),{levels:region._levelRows||[]});
     });
   }
   function updateSummary(root,data){
