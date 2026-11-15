@@ -90,13 +90,13 @@ class LoginWallMiddleware:
     """Protect account workspaces while keeping public exam preparation pages accessible."""
     STATIC_PREFIXES=('/assets/',)
     STATIC_PATHS={'/favicon.ico','/favicon.svg','/site.webmanifest','/sw.js'}
-    PUBLIC_API_PATHS={'/api/public/bootstrap','/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal'}
+    PUBLIC_API_PATHS={'/api/public/bootstrap','/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal','/api/mcq-levels','/api/subscription/plans','/api/subscription/qr'}
     AUTH_API_PATHS={
         '/api/auth/session','/api/auth/login','/api/auth/register','/api/auth/forgot',
         '/api/auth/reset','/api/auth/verify','/api/auth/resend-verification','/api/startup',
     }
     AUTH_PAGE_PATHS={'/login','/register','/forgot','/reset','/verify','/reset-code','/reset-password'}
-    PRIVATE_PAGE_PREFIXES=('/dashboard','/admin','/super-admin','/profile')
+    PRIVATE_PAGE_PREFIXES=('/dashboard','/super-admin','/profile')
     NOINDEX_PUBLIC_PATHS={
         '/about','/contact','/faq','/privacy','/terms','/disclaimer','/cookies',
         '/advertising','/sitemap','/search','/country-entry','/test/auto',
