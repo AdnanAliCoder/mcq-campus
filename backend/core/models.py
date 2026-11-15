@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 
 class Profile(models.Model):
-    ROLE_CHOICES=[('user','Learner'),('admin','Admin'),('super-admin','Super admin')]
+    ROLE_CHOICES=[('user','Learner'),('super-admin','Super admin')]
     user=models.OneToOneField(User,on_delete=models.CASCADE,related_name='profile')
     role=models.CharField(max_length=20,choices=ROLE_CHOICES,default='user')
     permissions=models.JSONField(default=list,blank=True)
@@ -19,21 +19,22 @@ def profile_for(user):
     if cached is not None: return cached
     try: p=user.profile
     except Profile.DoesNotExist:
-        p,_=Profile.objects.get_or_create(user=user,defaults={'role':'super-admin' if user.is_superuser else 'admin' if user.is_staff else 'user'})
+        p,_=Profile.objects.get_or_create(user=user,defaults={'role':'super-admin' if user.is_superuser else 'user'})
     user._mcq_profile_cache=p
     return p
 
 def user_role(user):
+    """Resolve the only supported account roles: learner and Super Admin.
+
+    Legacy Profile rows marked `admin` are intentionally downgraded to learner;
+    a Django staff flag alone must never grant application workspace access.
+    """
     if not user or not getattr(user,'is_authenticated',False): return 'user'
     if user.is_superuser: return 'super-admin'
     p=profile_for(user)
     permissions=p.permissions or [] if p else []
-    # Keep elevated account access consistent even if an older profile still says "user".
     if 'super_admin_permission' in permissions: return 'super-admin'
-    if p and p.role in {'admin','super-admin'}: return p.role
-    # Django staff accounts are administrative accounts even if their legacy Profile role was never updated.
-    if getattr(user,'is_staff',False): return 'admin'
-    return p.role if p else 'user'
+    return 'super-admin' if p and p.role=='super-admin' else 'user'
 def user_permissions(user):
     p=profile_for(user); return p.permissions or [] if p else []
 def user_name(user):
