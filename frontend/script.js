@@ -2500,7 +2500,7 @@ function closeAdminSidebar(){
  document.body.classList.remove('admin-sidebar-open');
  document.querySelectorAll('[data-action="sidebar"]').forEach(toggle=>toggle.setAttribute('aria-expanded','false'));
 }
-window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId:null,homeQuickIndex:0,quickAnswer:null,homeRandomIds:[],homeRandomSignature:'',draft:null,draftKey:null,importRows:null,importSummary:null,importedIds:[],importPage:null,testResult:null,testNonce:0,page(total,size=12){const requested=Number(this.route.params.page);const perPage=Math.max(1,Number(size)||12);return Math.max(1,Math.min(Number.isFinite(requested)?Math.floor(requested):1,Math.max(1,Math.ceil(total/perPage))))},go(path,params={}){
+window.App={route:{path:'home',params:{}},choices:{},answers:{},activeQuestionId:null,homeQuickIndex:0,quickAnswer:null,homeRandomIds:[],homeRandomSignature:'',draft:null,draftKey:null,importRows:null,importSummary:null,importedIds:[],importPage:null,testResult:null,testNonce:0,levelTestKey:'',levelTestAnswers:{},levelTestQuestionIds:[],levelTestResult:null,levelTestStartedAt:0,page(total,size=12){const requested=Number(this.route.params.page);const perPage=Math.max(1,Number(size)||12);return Math.max(1,Math.min(Number.isFinite(requested)?Math.floor(requested):1,Math.max(1,Math.ceil(total/perPage))))},go(path,params={}){
   closeAdminSidebar();
   history.pushState(null,'',UI.href(path,params));this.render();window.scrollTo(0,0)
 },ensureAdminBundle(){
@@ -2897,6 +2897,52 @@ mountDataDrivenPage(base,id){
  const publicMcqServerPage=()=>{
   const page=data.mcqPage||{};
   return page.server===true&&page.scope==='public'&&page.routeKey===location.pathname+location.search?page:null;
+ };
+ const renderLevelQuestions=({rows,track,level,params,pagePath,scopeId='',contextYearId=null})=>{
+  const mode=params.mode==='test'?'test':'practice',key=['level',track,level,scopeId].join(':');
+  if(App.levelTestKey!==key){App.levelTestKey=key;App.levelTestAnswers={};App.levelTestQuestionIds=rows.map(q=>Number(q.id));App.levelTestResult=null;App.levelTestStartedAt=Date.now();}
+  else App.levelTestQuestionIds=rows.map(q=>Number(q.id));
+  const pageSize=15,total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
+  if(heading)heading.textContent='Level '+level+' · '+(track==='important'?'Important MCQs':track==='category'?'Category MCQs':track==='past-paper'?'Past Paper MCQs':'Regular MCQs');
+  if(description)description.textContent=mode==='test'?'Answer all questions. Correct answers and explanations appear after you submit the test.':'Practice mode: choose an option to see the correct answer and explanation immediately.';
+  setText('mcq-summary',total.toLocaleString('en-GB')+' questions · 15 per page · '+(mode==='test'?'Test mode':'Practice mode'));
+  const list=region('mcq-list');if(!list)return false;
+  list.classList.add('public-main','public-main-full');list.replaceChildren();
+  const result=mode==='test'&&App.levelTestResult?.key===key?App.levelTestResult:null;
+  if(result){
+   const stats=document.createElement('div');stats.className='test-result-grid';
+   [['Total Questions',result.total],['Correct',result.correct],['Wrong',result.wrong],['Unanswered',result.unanswered],['Score',result.correct+' / '+result.total],['Accuracy',result.total?Math.round(result.correct*100/result.total)+'%':'0%']].forEach(([label,value])=>{const card=document.createElement('article');card.className='card stat-card';const name=document.createElement('span');name.className='stat-card-label';name.textContent=label;const number=document.createElement('strong');number.className='stat-card-value';number.textContent=String(value);card.append(name,number);stats.append(card);});
+   list.append(stats);
+   const title=document.createElement('h2');title.textContent='Questions to review';title.style.marginTop='26px';list.append(title);
+   const mistakes=rows.filter(q=>(result.answers[String(q.id)]||'')!==String(q.correct_answer||''));
+   if(!mistakes.length){const good=document.createElement('div');good.className='notice success';good.textContent='Excellent work — you answered every question correctly.';list.append(good);}
+   mistakes.forEach((q,index)=>{const card=document.createElement('article');card.className='card test-review-item';const question=document.createElement('h3');question.textContent=(index+1)+'. '+String(q.question||'');const your=document.createElement('p');your.textContent='Your answer: '+(result.answers[String(q.id)]||'Not answered');const correct=document.createElement('p');correct.textContent='Correct answer: '+String(q.correct_answer||'');correct.className='test-review-correct';const explanation=document.createElement('p');explanation.textContent='Explanation: '+String(q.description||'No explanation has been added yet.');card.append(question,your,correct,explanation);list.append(card);});
+   list.append(makeInternalLink(pagePath,'Back to level','btn primary'));
+  }else if(mode==='test'){
+   const form=document.createElement('form');form.dataset.form='level-test-submit';form.dataset.testKey=key;form.dataset.startedAt=String(App.levelTestStartedAt||Date.now());form.className='test-form level-test-form';
+   shown.forEach((q,index)=>{
+    const card=document.createElement('article');card.className='card test-question';
+    const question=document.createElement('h3');question.textContent='Question '+((page-1)*pageSize+index+1)+'. '+String(q.question||'');card.append(question);
+    const options=document.createElement('div');options.className='test-options';
+    [1,2,3,4].forEach(n=>{const value=String(q['option'+n]||'');const label=document.createElement('label');const input=document.createElement('input');input.type='radio';input.name='level_test_q_'+q.id;input.value=value;input.dataset.levelTestQ=String(q.id);input.checked=(App.levelTestAnswers[String(q.id)]||'')===value;const text=document.createElement('span');text.className='test-option-label';text.textContent='ABCD'[n-1]+'. '+value;label.append(input,text);options.append(label);});
+    card.append(options);form.append(card);
+   });
+   const actions=document.createElement('div');actions.className='actions test-submit';
+   const count=Object.keys(App.levelTestAnswers||{}).filter(id=>(App.levelTestAnswers[id]||'')!=='').length;
+   const progress=document.createElement('span');progress.className='small muted';progress.textContent=count+' / '+total+' answered';
+   const submit=document.createElement('button');submit.type='submit';submit.className='btn primary';submit.textContent='Submit test and view result';
+   actions.append(progress,submit);form.append(actions);
+   form.addEventListener('change',event=>{const input=event.target.closest('input[data-level-test-q]');if(input)App.levelTestAnswers[String(input.dataset.levelTestQ)]=input.value;});
+   list.append(form);
+  }else{
+   if(shown.length)shown.forEach(q=>list.append(questionCardFragment(q,false,contextYearId)));
+   else list.append(this.staticMarkupFragment(UI.empty('No MCQs available in this level.','Return to the levels page and choose another level.')));
+  }
+  list.hidden=false;
+  const pager=region('mcq-pagination');
+  if(pager){pager.hidden=mode==='test'&&!!result;pager.replaceChildren();if(!(mode==='test'&&result))pager.append(this.staticMarkupFragment(UI.pager(total,page,pageSize,params,pagePath)));}
+  return true;
  };
  if(base==='dashboard'||base==='profile'){
   const requestedView=String(id||'overview'),view=base==='profile'||requestedView==='profile'?'settings':requestedView,allowedDashboardViews=['overview','practice','important','mistakes','saved','papers','tests','performance','history','notifications','downloads','settings'];
@@ -3308,7 +3354,7 @@ mountDataDrivenPage(base,id){
   const params=App.route.params||{},track=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0);
   const levelSelected=track==='past-paper'&&levelNumber>0;
   const server=publicMcqServerPage(),rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(item=>MCQ.ids(item.job_years_ids).includes(Number(id)));
-  const pageSize=levelSelected?100:10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=15,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=paper.name+' '+year.name,fallbackDescription='Practice '+paper.name+' '+year.name+' MCQs with correct answers and explanations.';
   const pageCopy=entityCopy('year',year.id,fallbackTitle,fallbackDescription);
   const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
@@ -3331,7 +3377,7 @@ mountDataDrivenPage(base,id){
    const pagination=region('mcq-pagination');if(pagination){pagination.replaceChildren();pagination.hidden=true;}
    return true;
   }
-  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+  if(renderLevelQuestions({rows,track:'past-paper',level:levelNumber,params,pagePath:'year/'+id,scopeId:id,contextYearId:Number(id)}))return true;
   if(list){
    list.classList.add('public-main','public-main-full');
    if(shown.length){
@@ -3382,7 +3428,7 @@ mountDataDrivenPage(base,id){
     rows=rows.slice((levelNumber-1)*100,levelNumber*100);
    }else if(!levelSelected)rows=[];
   }
-  const pageSize=10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=15,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=isCategory?record.name+' MCQs':record.name;
   const fallbackDescription=isCategory?'Practice '+record.name+' MCQs with correct answers and explanations, and explore related subcategories.':'Practice approved '+record.name+' MCQs with answers and explanations.';
   const pageCopy=isCategory?entityCopy('category',record.id,fallbackTitle,fallbackDescription):{title:fallbackTitle,description:fallbackDescription};
@@ -3395,7 +3441,8 @@ mountDataDrivenPage(base,id){
     const hiddenRegion=region(name);
     if(hiddenRegion){hiddenRegion.replaceChildren();hiddenRegion.hidden=true;}
    }
-   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+   if(renderLevelQuestions({rows,track:'category',level:levelNumber,params,pagePath:'category/'+id,scopeId:id}))return true;
+   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 15 per page');
    const list=region('mcq-list');
    if(list){
     list.classList.add('public-main','public-main-full');
@@ -3442,7 +3489,7 @@ mountDataDrivenPage(base,id){
   const paper=MCQ.get('papers',id);
   if(!paper)return false;
   const all=(data.years||[]).filter(item=>item.active!==false&&(Number(item.paper_id)||Number(MCQ.get('jobs',item.job_id)?.paper_id)||0)===Number(paper.id));
-  const rows=MCQ.sortPinned('years',all),pageSize=12,total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
+  const rows=MCQ.sortPinned('years',all),pageSize=15,total=rows.length,page=App.page(total,pageSize),shown=rows.slice((page-1)*pageSize,page*pageSize);
   const titleText=String(paper.name||'').replace(/[\[\]()]+/g,' ').replace(/\s+/g,' ').trim();
   const fallbackDescription='Browse '+titleText+' past papers and select an exam year to practise linked MCQs with correct answers and explanations.';
   const pageCopy=entityCopy('paper',paper.id,titleText+' Past Papers',fallbackDescription);
@@ -3532,7 +3579,7 @@ mountDataDrivenPage(base,id){
   setMarkup('home-middle-ad',UI.adSlot('home_middle_ad'));
  }else if(base==='mcqs'||base==='important'){
   const serverPage=data.mcqPage||{},server=serverPage.server===true&&serverPage.scope==='public'&&serverPage.routeKey===location.pathname+location.search?serverPage:null;
-  const params=App.route.params||{},fixed=fixedCountry(),filters=fixed?{page:params.page,country:fixed}:params;
+  const params=App.route.params||{},fixed=fixedCountry(),filters=fixed?{...params,country:fixed}:params;
   let rows=MCQ.publicMcqs();
   const view=base==='important'?'important':String(filters.view||'all');
   if(!server){
@@ -3551,13 +3598,18 @@ mountDataDrivenPage(base,id){
     });
    }
   }else rows=MCQ.publicMcqs();
-  const total=server?Number(server.total||0):rows.length,pageSize=10,page=server?Math.max(1,Number(server.page||filters.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const levelTrack=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0),levelSelected=base==='mcqs'&&['regular','important'].includes(levelTrack)&&levelNumber>0;
+  if(levelSelected){
+   setMarkup('breadcrumbs',UI.crumbs([['MCQs','mcqs'],[levelTrack==='important'?'Important MCQs':'Regular MCQs','mcqs'],['Level '+levelNumber]]));
+   return renderLevelQuestions({rows,track:levelTrack,level:levelNumber,params,pagePath:'mcqs'});
+  }
+  const total=server?Number(server.total||0):rows.length,pageSize=15,page=server?Math.max(1,Number(server.page||filters.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const heading=shell.querySelector('.page-heading h1'),headingDesc=shell.querySelector('.page-heading p');
   if(heading)heading.textContent=view==='important'?'Important MCQs':'Practice MCQs';
   if(headingDesc)headingDesc.textContent='Browse approved practice MCQs with correct answers and explanations.';
   const search=shell.querySelector('form[data-form="search"] input[name="q"]');
   if(search)search.value=String(params.q||'');
-  setText('mcq-summary',total.toLocaleString('en-GB')+' total '+(view==='important'?'important MCQs':'MCQs')+' · only 10 load per page');
+  setText('mcq-summary',total.toLocaleString('en-GB')+' total '+(view==='important'?'important MCQs':'MCQs')+' · 15 per page');
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
@@ -3580,7 +3632,7 @@ mountDataDrivenPage(base,id){
   if(collection==='papers'&&country)rows=rows.filter(x=>(x.country||data.settings?.country||'Pakistan')===country);
   if(collection==='categories'&&country)rows=rows.filter(x=>(x.country||'Both')==='Both'||(x.country||data.settings?.country||'Pakistan')===country);
   rows=MCQ.sortPinned(collection,rows);
-  const pageSize=12,total=entityServer?Number(entityPage.total||0):rows.length,page=entityServer?Math.max(1,Number(entityPage.page)||1):App.page(total,pageSize),shown=entityServer?(Array.isArray(entityPage.items)?entityPage.items:[]):rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=15,total=entityServer?Number(entityPage.total||0):rows.length,page=entityServer?Math.max(1,Number(entityPage.page)||1):App.page(total,pageSize),shown=entityServer?(Array.isArray(entityPage.items)?entityPage.items:[]):rows.slice((page-1)*pageSize,page*pageSize);
   const pageCopy=collection==='categories'?copy('categories','All categories','Choose a category to open its MCQ collection.'):copy('past-papers','Organizations / Boards','Browse organizations and boards, then choose a Past Paper.');
   const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
   if(heading)heading.textContent=pageCopy.title;
@@ -3596,7 +3648,7 @@ mountDataDrivenPage(base,id){
    list.hidden=false;
   }
   const summaryName=collection==='categories'?'category-context':'past-paper-summary';
-  setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 12 per page');
+  setText(summaryName,total.toLocaleString('en-GB')+' '+(collection==='categories'?'categories':'organizations / boards')+' · 15 per page');
   if(collection==='categories')setMarkup('category-pagination',UI.pager(total,page,pageSize,App.route.params,'categories'));
   if(collection==='papers')setMarkup('past-paper-pagination',UI.pager(total,page,pageSize,App.route.params,base==='jobs-exams'?'jobs-exams':'papers'));
  }else if(base==='test'){
@@ -3674,7 +3726,7 @@ mountDataDrivenPage(base,id){
   const body=this.staticTemplateFragment('mcq-pdf-detail-template',{PDF_DETAIL_COVER:cover,PDF_DETAIL_TITLE:title,PDF_DETAIL_DESCRIPTION:description,PDF_DETAIL_DOWNLOAD:download});
   const destination=region('route-detail');if(destination&&body){destination.replaceChildren(body);destination.classList.add('public-main','public-main-full');destination.hidden=false;}
  }else if(base==='pdfs'){
-  const pdfPage=data.pdfPage||{},pageSize=12,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
+  const pdfPage=data.pdfPage||{},pageSize=15,rows=(data.pdfs||[]).filter(x=>x&&x.active!==false).sort((a,b)=>Number(b.id)-Number(a.id));
   const total=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Number(pdfPage.total||0):rows.length;
   const page=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search?Math.max(1,Number(pdfPage.page)||1):App.page(total,pageSize);
   const shown=pdfPage.server===true&&pdfPage.routeKey===location.pathname+location.search&&Array.isArray(pdfPage.items)?pdfPage.items:rows.slice((page-1)*pageSize,page*pageSize);
@@ -3687,7 +3739,7 @@ mountDataDrivenPage(base,id){
    list.replaceChildren(cards);
    list.hidden=false;
   }
-  setText('pdf-summary',total.toLocaleString('en-GB')+' PDF resources · 12 per page');
+  setText('pdf-summary',total.toLocaleString('en-GB')+' PDF resources · 15 per page');
   setMarkup('pdf-pagination',UI.pager(total,page,pageSize,App.route.params,'pdfs'));
  }else if(base==='latest-job'){
   const job=(data.latestJobs||[]).find(row=>String(row.id)===String(id)||String(row.slug||MCQ.slug(row.title||''))===String(id));
