@@ -21,8 +21,8 @@ ENTITY_PARENT={'subcategories':('category_id',Category),'children':('subcategory
 
 BASE_ADMIN_PERMISSIONS={'add_mcq','edit_own_mcq'}
 def is_super(u): return bool(u and u.is_authenticated and (user_role(u)=='super-admin' or 'super_admin_permission' in user_permissions(u)))
-def is_admin(u): return bool(u and u.is_authenticated and user_role(u) in {'admin','super-admin'})
-def has_perm(u,p): return is_super(u) or (user_role(u)=='admin' and p in BASE_ADMIN_PERMISSIONS)
+def is_admin(u): return is_super(u)
+def has_perm(u,p): return is_super(u)
 def require(cond,msg='Your account does not have permission for this action.'):
     if not cond: raise PermissionError(msg)
 def log(u,action,detail=''): AuditLog.objects.create(user=u if getattr(u,'is_authenticated',False) else None,action=action,detail=str(detail)[:5000])
@@ -795,7 +795,7 @@ def _entity_mcq_counts(kind,ids,public_only=False,country=None):
 
 def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=False,active_country=None):
     require(kind in ENTITY_MODELS,'Unknown record type.')
-    page=max(1,int(page or 1)); page_size=12 if public_only and kind in ('categories','papers','years') else 10
+    page=max(1,int(page or 1)); page_size=15 if public_only and kind in ('categories','papers','years') else 15
     filters=filters or {}
     model=ENTITY_MODELS[kind]; qs=model.objects.all(); country=country_for_user(user) or (str(active_country or '').strip() if (is_super(user) or public_only) else '')
     # Keep the legacy Job model only for safe upgrades of old databases. Do not expose it.
@@ -866,8 +866,12 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     # Admin list endpoints are deliberately capped so a stale URL cannot pull thousands
     # of full MCQ rows and drive database/network egress. The UI uses 10-row pages;
     # 50 remains available for the on-demand post-import review page.
-    max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
-    page_size=max(1,min(int(page_size or 50),max_page_size))
+    track_hint=str(filters.get('track') or '').strip().lower()
+    try: level_hint=int(filters.get('level') or 0)
+    except (TypeError,ValueError): level_hint=0
+    is_level_request=track_hint in {'regular','important','category','past-paper'} and level_hint>0
+    max_page_size=100 if is_level_request else (50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 15))
+    page_size=max(1,min(int(page_size or 15),max_page_size))
     qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
     if country: qs=qs.filter(country__iexact=country)
     if filters.get('ids'):
