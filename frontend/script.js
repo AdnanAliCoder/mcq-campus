@@ -647,7 +647,7 @@ window.Public=(()=>{
   }
   if(type==='category'){
    const cat=MCQ.get('categories',id);if(!cat)return notFound();
-   const server=activeServerMcqPage(),p=App.route.params,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=track==='category'&&levelNumber>0,pageSize=levelSelected?100:10;
+   const server=activeServerMcqPage(),p=App.route.params,track=String(p.track||''),levelNumber=Math.max(0,Number(p.level)||0),levelSelected=track==='category'&&levelNumber>0,pageSize=10;
    if(levelSelected){
     let rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(q=>Number(q.category_id)===Number(cat.id)).sort((a,b)=>Number(a.id)-Number(b.id)).slice((levelNumber-1)*100,levelNumber*100);
     const total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(p.page)||1);
@@ -730,7 +730,7 @@ window.Public=(()=>{
   if(type==='search')return searchResults();
   const server=activeServerMcqPage(),routeParams=App.route.params,fixedCountry=fixedPublicCountry(),p={...routeParams},site=MCQ.db.siteCounts||{};
   if(fixedCountry)p.country=fixedCountry;
-  const isLevel=type==='mcqs'&&['regular','important'].includes(String(p.track||''))&&Number(p.level)>0,pageSize=isLevel?100:10;
+  const isLevel=type==='mcqs'&&['regular','important'].includes(String(p.track||''))&&Number(p.level)>0,pageSize=10;
   let rows=server?MCQ.publicMcqs():MCQ.publicMcqs(),title=type==='important'?'Important MCQs':'Practice MCQs',desc='Browse approved practice MCQs with correct answers and explanations.',trail=[['MCQs']],record;let listHeader='';
   if(type==='mcqs'){const copy=staticCopy('mcqs',title,desc);title=copy.title;desc=copy.desc}
   if(isLevel){const levelNumber=Number(p.level),trackLabel=p.track==='important'?'Important':'Regular';title=trackLabel+' MCQs · Level '+levelNumber;desc='100-question practice level. Your answers and progress are saved to your account so you can resume later.';trail=[['MCQ Levels','home'],[trackLabel+' MCQs'],['Level '+levelNumber]];}
@@ -1364,7 +1364,7 @@ window.Auth=(()=>{
   };
   const publicMcqEndpoint=()=>{
    const q=new URLSearchParams(),page=Math.max(1,Number(routeParams.get('page'))||1);
-   q.set('public','1');q.set('page',String(page));const levelRequest=Number(routeParams.get('level'))>0&&['regular','important','category','past-paper'].includes(String(routeParams.get('track')||''));q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:levelRequest?100:10));
+   q.set('public','1');q.set('page',String(page));q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));
    if(!['mcqs','important'].includes(resolvedBase)){const passthrough=['category','paper','job','year','country','search','track','level'];for(const key of passthrough){const value=routeParams.get(key);if(value)q.set(key,value)}}
    if(resolvedBase==='mcqs'){for(const key of ['track','level']){const value=routeParams.get(key);if(value)q.set(key,value)}}
    if(resolvedBase==='important')q.set('important','1');
@@ -3308,7 +3308,7 @@ mountDataDrivenPage(base,id){
   const params=App.route.params||{},track=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0);
   const levelSelected=track==='past-paper'&&levelNumber>0;
   const server=publicMcqServerPage(),rows=server?MCQ.publicMcqs():MCQ.publicMcqs().filter(item=>MCQ.ids(item.job_years_ids).includes(Number(id)));
-  const pageSize=levelSelected?100:10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=10,total=server?Number(server.total||0):rows.length,page=server?Math.max(1,Number(server.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=paper.name+' '+year.name,fallbackDescription='Practice '+paper.name+' '+year.name+' MCQs with correct answers and explanations.';
   const pageCopy=entityCopy('year',year.id,fallbackTitle,fallbackDescription);
   const heading=shell.querySelector('.page-heading h1'),description=shell.querySelector('.page-heading p');
@@ -3382,7 +3382,7 @@ mountDataDrivenPage(base,id){
     rows=rows.slice((levelNumber-1)*100,levelNumber*100);
    }else if(!levelSelected)rows=[];
   }
-  const pageSize=levelSelected?100:10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=isCategory?record.name+' MCQs':record.name;
   const fallbackDescription=isCategory?'Practice '+record.name+' MCQs with correct answers and explanations, and explore related subcategories.':'Practice approved '+record.name+' MCQs with answers and explanations.';
   const pageCopy=isCategory?entityCopy('category',record.id,fallbackTitle,fallbackDescription):{title:fallbackTitle,description:fallbackDescription};
