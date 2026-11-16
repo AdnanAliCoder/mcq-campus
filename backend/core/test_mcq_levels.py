@@ -95,11 +95,12 @@ class McqLevelAccessTests(TestCase):
                 "level": "10",
             },
         )
-        self.assertEqual(len(free_level["items"]), 100)
+        self.assertEqual(free_level["pageSize"], 10)
+        self.assertEqual(len(free_level["items"]), 10)
         self.assertFalse(free_level["premium_required"])
         self.assertEqual(
             [row["id"] for row in free_level["items"]],
-            list(range(901, 1001)),
+            list(range(901, 911)),
         )
 
     def test_category_first_level_is_free_and_second_level_is_premium(self):
