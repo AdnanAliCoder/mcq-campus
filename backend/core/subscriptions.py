@@ -171,26 +171,44 @@ def plan_payload(config=None):
     for key in ('free',) + PLAN_KEYS:
         source = stored.get(key) if isinstance(stored.get(key), dict) else {}
         fallback = defaults.get(key, {})
-        features = source.get('features', fallback.get('features', []))
-        if key == 'free':
-            features = [
+        default_features = {
+            'free': [
                 'First 10 levels of Regular MCQs',
                 'First 5 levels of Important MCQs',
                 'First level in each category',
                 'Past Papers and Past Paper MCQs are Pro-only',
                 'Free practice access with no payment',
-            ]
-        else:
-            features = [
+            ],
+            'monthly': [
                 'All Regular MCQs and every level',
                 'All Important MCQs and every level',
                 'All MCQs across every category',
                 'All Past Papers and Past Paper MCQs',
                 'All premium PDFs and study resources',
                 'Access to newly added MCQs and content',
-            ]
-        if not isinstance(features, list):
-            features = []
+            ],
+            'quarterly': [
+                'All Regular MCQs and every level',
+                'All Important MCQs and every level',
+                'All MCQs across every category',
+                'All Past Papers and Past Paper MCQs',
+                'All premium PDFs and study resources',
+                'Access to newly added MCQs and content',
+            ],
+            'yearly': [
+                'All Regular MCQs and every level',
+                'All Important MCQs and every level',
+                'All MCQs across every category',
+                'All Past Papers and Past Paper MCQs',
+                'All premium PDFs and study resources',
+                'Access to newly added MCQs and content',
+            ],
+        }
+        features = source.get('features', fallback.get('features', default_features[key]))
+        # Existing installations may still store the original bundled copy.
+        # Replace only that untouched default; preserve actual Super Admin edits.
+        if not isinstance(features, list) or features == fallback.get('features'):
+            features = default_features[key]
         item = {
             'key': key,
             'name': str(source.get('name') or fallback.get('name') or key.title())[:100],
