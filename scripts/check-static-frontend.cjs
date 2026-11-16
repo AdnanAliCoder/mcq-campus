@@ -105,6 +105,8 @@ check(runtime.includes('window.MCQCampusBackendReady===false'), 'static fallback
 check(runtime.includes('window.MCQLevels?.init?.()'), 'MCQ level progress is initialized');
 check(runtime.includes("'signin':'login'") && runtime.includes("'signup':'register'"), 'short sign-in and sign-up routes resolve to the account pages');
 check(runtime.includes('data-pricing-retry') && runtime.includes('subscription-unavailable'), 'pricing failures show a retry state instead of empty-price plans');
+check(runtime.includes('const configuredFeatures=Array.isArray(p.features)?p.features:[];'), 'pricing cards render the configured plan features');
+check(runtime.includes("name_'+key+'" ) && runtime.includes("features_'+key+'"), 'Super Admin can edit paid plan names and features');
 check(html.includes('auth-story-points') && css.includes('body.auth-screen .auth-layout > .auth-story'), 'sign-in and sign-up pages have responsive welcome panels');
 check(runtime.includes('function ensureLevelDialog()') && runtime.includes('dialog.showModal()'), 'MCQ level cards open an accessible preview and Start dialog');
 check(runtime.includes('const LEVELS_PER_PAGE=12') && runtime.includes('levelPageState=new WeakMap()'), 'MCQ level cards are paginated twelve levels at a time');
