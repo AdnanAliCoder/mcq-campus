@@ -114,12 +114,12 @@ class McqLevelAccessTests(TestCase):
         self.assertFalse(levels[0]["premium"])
         self.assertTrue(levels[1]["premium"])
 
-    def test_guest_level_pages_return_100_questions_for_every_track(self):
+    def test_level_contains_100_questions_paged_ten_at_a_time(self):
         self.make_mcqs(5001, 205, self.category)
         self.make_mcqs(6001, 100, self.second_category)
         self.make_mcqs(6101, 100, self.second_category, important=True)
 
-        def load(track, level, category=None):
+        def load(track, level, category=None, page=1):
             filters = {
                 "public": "1",
                 "country": "Pakistan",
@@ -130,40 +130,53 @@ class McqLevelAccessTests(TestCase):
                 filters["category"] = str(category.id)
             return mcq_page(
                 AnonymousUser(),
-                page=1,
-                page_size=100,
+                page=page,
+                page_size=10,
                 filters=filters,
             )
 
-        regular_level_one = load("regular", 1)
-        regular_level_two = load("regular", 2)
-        important_level = load("important", 1)
-        category_level = load("category", 1, self.second_category)
+        regular_page_one = load("regular", 1)
+        regular_page_two = load("regular", 1, page=2)
+        regular_page_ten = load("regular", 1, page=10)
+        next_regular_level = load("regular", 2)
+        important_page = load("important", 1)
+        category_page = load("category", 1, self.second_category)
 
         for response in (
-            regular_level_one,
-            regular_level_two,
-            important_level,
-            category_level,
+            regular_page_one,
+            regular_page_two,
+            regular_page_ten,
+            next_regular_level,
+            important_page,
+            category_page,
         ):
-            self.assertEqual(response["pageSize"], 100)
-            self.assertEqual(len(response["items"]), 100)
+            self.assertEqual(response["pageSize"], 10)
+            self.assertEqual(len(response["items"]), 10)
 
         self.assertEqual(
-            [row["id"] for row in regular_level_one["items"]],
-            list(range(5001, 5101)),
+            [row["id"] for row in regular_page_one["items"]],
+            list(range(5001, 5011)),
         )
         self.assertEqual(
-            [row["id"] for row in regular_level_two["items"]],
-            list(range(5101, 5201)),
+            [row["id"] for row in regular_page_two["items"]],
+            list(range(5011, 5021)),
         )
         self.assertEqual(
-            [row["id"] for row in important_level["items"]],
-            list(range(6101, 6201)),
+            [row["id"] for row in regular_page_ten["items"]],
+            list(range(5091, 5101)),
+        )
+        self.assertFalse(regular_page_ten["hasNext"])
+        self.assertEqual(
+            [row["id"] for row in next_regular_level["items"]],
+            list(range(5101, 5111)),
         )
         self.assertEqual(
-            [row["id"] for row in category_level["items"]],
-            list(range(6001, 6101)),
+            [row["id"] for row in important_page["items"]],
+            list(range(6101, 6111)),
+        )
+        self.assertEqual(
+            [row["id"] for row in category_page["items"]],
+            list(range(6001, 6011)),
         )
 
     def test_past_paper_levels_are_premium_and_direct_api_is_blocked(self):
