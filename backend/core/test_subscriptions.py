@@ -41,6 +41,8 @@ class SubscriptionPaymentTests(TestCase):
         admin_profile.email_verified = True
         admin_profile.save(update_fields=["role", "email_verified"])
         self.config = SubscriptionConfig.get_solo()
+        self.config.raast_id = "payments@mcqcampus"
+        self.config.save(update_fields=["raast_id", "updated_at"])
 
     def payment_file(self, name="receipt.png", content=None, content_type="image/png"):
         return SimpleUploadedFile(
@@ -49,7 +51,7 @@ class SubscriptionPaymentTests(TestCase):
             content_type=content_type,
         )
 
-    def submit_payment(self, transaction_id="RR-TEST-0001", amount=299, user=None, content=None):
+    def submit_payment(self, transaction_id="RR-TEST-0001", amount=499, user=None, content=None):
         account = user or self.learner
         self.client.force_login(account)
         return self.client.post(
@@ -76,8 +78,87 @@ class SubscriptionPaymentTests(TestCase):
         self.assertEqual(response.status_code, 201)
         proof = SubscriptionPaymentProof.objects.get(transaction_id="RR-TEST-0001")
         self.assertEqual(proof.status, "pending")
-        self.assertEqual(proof.amount, 299)
+        self.assertEqual(proof.amount, 499)
         self.assertFalse(Subscription.objects.filter(user=self.learner).exists())
+
+    def test_public_pricing_returns_current_prices_and_saved_features(self):
+        plans = dict(self.config.plans)
+        plans["monthly"] = dict(plans["monthly"])
+        plans["monthly"].update({
+            "amount": 875,
+            "name": "Campus Monthly",
+            "tagline": "A custom monthly plan",
+            "features": ["Custom feature shown on the pricing page"],
+        })
+        self.config.plans = plans
+        self.config.save(update_fields=["plans", "updated_at"])
+
+        response = self.client.get("/api/subscription/plans")
+        self.assertEqual(response.status_code, 200)
+        monthly = response.json()["plans"]["monthly"]
+        self.assertEqual(monthly["amount"], 875)
+        self.assertEqual(monthly["name"], "Campus Monthly")
+        self.assertEqual(monthly["tagline"], "A custom monthly plan")
+        self.assertEqual(monthly["features"], ["Custom feature shown on the pricing page"])
+
+    def test_super_admin_can_update_prices_plan_copy_and_availability(self):
+        plans = {
+            key: dict(value)
+            for key, value in self.config.plans.items()
+        }
+        plans["quarterly"].update({
+            "name": "Campus 90 Day",
+            "amount": 1299,
+            "tagline": "Ninety days of access",
+            "features": ["Updated plan feature"],
+            "active": False,
+        })
+        free_access = {
+            "regular_levels": 10,
+            "important_levels": 5,
+            "category_levels": 1,
+            "free_past_paper_ids": [],
+            "free_pdf_ids": [],
+        }
+        self.client.force_login(self.super_admin)
+        response = self.client.post(
+            "/api/admin/subscriptions/settings",
+            {
+                "raast_id": "new-payments@mcqcampus",
+                "plans": json.dumps(plans),
+                "free_access": json.dumps(free_access),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.raast_id, "new-payments@mcqcampus")
+        updated = response.json()["settings"]["plans"]["quarterly"]
+        self.assertEqual(updated["name"], "Campus 90 Day")
+        self.assertEqual(updated["amount"], 1299)
+        self.assertEqual(updated["tagline"], "Ninety days of access")
+        self.assertEqual(updated["features"], ["Updated plan feature"])
+        self.assertFalse(updated["active"])
+        self.assertEqual(updated["days"], 90)
+
+    def test_payment_proof_is_blocked_until_raast_details_are_configured(self):
+        self.config.raast_id = ""
+        self.config.qr_image = None
+        self.config.save(update_fields=["raast_id", "qr_image", "updated_at"])
+
+        response = self.submit_payment(transaction_id="RR-NO-DESTINATION")
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(SubscriptionPaymentProof.objects.exists())
+
+    def test_disabled_plan_cannot_accept_payment_proofs(self):
+        plans = dict(self.config.plans)
+        plans["monthly"] = dict(plans["monthly"])
+        plans["monthly"]["active"] = False
+        self.config.plans = plans
+        self.config.save(update_fields=["plans", "updated_at"])
+
+        response = self.submit_payment(transaction_id="RR-DISABLED-PLAN")
+        self.assertEqual(response.status_code, 422)
+        self.assertFalse(SubscriptionPaymentProof.objects.exists())
 
     def test_payment_amount_must_match_server_plan_price(self):
         response = self.submit_payment(amount=1)
