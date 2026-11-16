@@ -5284,7 +5284,7 @@ window.MCQSubscriptions = (() => {
    const fd=new FormData(),plans={},free=adminData?.settings?.free_access||{};
    for(const key of keys){
     const old=adminData?.settings?.plans?.[key]||{};
-    plans[key]={name:settings.elements['name_'+key].value.trim(),amount:Number(settings.elements['amount_'+key].value),period:old.period||'',tagline:settings.elements['tagline_'+key].value.trim(),features:settings.elements['features_'+key].value.split('\\n').map(x=>x.trim()).filter(Boolean),active:settings.elements['active_'+key].checked};
+    plans[key]={name:settings.elements['name_'+key].value.trim(),amount:Number(settings.elements['amount_'+key].value),period:old.period||'',tagline:settings.elements['tagline_'+key].value.trim(),features:settings.elements['features_'+key].value.split('\n').map(x=>x.trim()).filter(Boolean),active:settings.elements['active_'+key].checked};
    }
    const freeOld=adminData?.settings?.plans?.free||{};
    plans.free={name:settings.elements.free_name.value.trim(),amount:0,period:freeOld.period||'/ forever',tagline:settings.elements.free_tagline.value.trim(),features:settings.elements.free_features.value.split('\n').map(x=>x.trim()).filter(Boolean)};
