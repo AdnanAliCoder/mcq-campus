@@ -863,10 +863,15 @@ def visible_mcqs(user):
 
 def mcq_page(user,page=1,page_size=50,filters=None):
     filters=filters or {}; page=max(1,int(page or 1)); country=country_for_user(user)
-    # Admin list endpoints are deliberately capped so a stale URL cannot pull thousands
-    # of full MCQ rows and drive database/network egress. The UI uses 10-row pages;
-    # 50 remains available for the on-demand post-import review page.
-    max_page_size=50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30)
+    track=str(filters.get('track') or '').strip().lower()
+    try:
+        level_number=int(filters.get('level') or 0)
+    except (TypeError,ValueError):
+        level_number=0
+    level_mode=track in {'regular','important','category','past-paper'} and level_number>0
+    # Keep ordinary/admin listing requests capped, but a level is intentionally a
+    # fixed 100-question unit for every visitor type, including guests and admins.
+    max_page_size=100 if level_mode else (50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30))
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
     if country: qs=qs.filter(country__iexact=country)
@@ -951,11 +956,6 @@ def mcq_page(user,page=1,page_size=50,filters=None):
                     qs=qs.filter(pk__in=matching_ids)
             except (TypeError,ValueError):
                 pass
-    try:
-        level_number=int(filters.get('level') or 0)
-    except (TypeError,ValueError):
-        level_number=0
-    level_mode=track in {'regular','important','category','past-paper'} and level_number>0
     premium_required=False
     allowed_free_ids=free_mcq_ids(user, country=country or filters.get('country'))
     if level_mode:
