@@ -4847,18 +4847,61 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
       .replaceAll('__SLOT_LEVEL_ARIA__',esc(aria));
     const holder=document.createElement('template');holder.innerHTML=markup.trim();const card=holder.content.firstElementChild;if(level.premium){const wrap=document.createElement('a');wrap.className='level-premium-wrap';wrap.href='/pricing';wrap.setAttribute('aria-label','Level '+level.level+' is Premium. View pricing plans.');wrap.style.textDecoration='none';wrap.style.color='inherit';const premiumCard=document.createElement('div');premiumCard.className=card.className;premiumCard.innerHTML=card.innerHTML;premiumCard.setAttribute('aria-hidden','true');wrap.appendChild(premiumCard);const label=document.createElement('span');label.className='level-premium-label';label.textContent='Premium';wrap.appendChild(label);return wrap;}return card;
   }
+  const LEVELS_PER_PAGE=12;
+  const levelPageState=new WeakMap();
   function renderTrack(root,name,data){
     const region=root.querySelector('[data-api-region="levels-'+name+'"]');if(!region)return;
-    region.replaceChildren();
     const levels=Array.isArray(data?.levels)?data.levels:[];
+    let state=levelPageState.get(region);
+    if(!state){state={page:1,data};levelPageState.set(region,state);}
+    state.data=data;
+    const totalPages=Math.ceil(levels.length/LEVELS_PER_PAGE);
+    state.page=Math.max(1,Math.min(state.page,totalPages||1));
+    region.replaceChildren();
     if(!levels.length){
       const empty=document.createElement('p');empty.className='muted';
       empty.textContent=name==='category'?'No approved MCQs available in this category yet.':name==='past-paper'?'No approved MCQs are linked to this Past Paper yet.':'No approved '+(name==='important'?'Important':'Regular')+' MCQs available yet.';
       region.appendChild(empty);return;
     }
+    const first=(state.page-1)*LEVELS_PER_PAGE;
     const fragment=document.createDocumentFragment();
-    levels.forEach(level=>{const card=renderCard(name,level);if(card)fragment.appendChild(card);});
+    levels.slice(first,first+LEVELS_PER_PAGE).forEach(level=>{const card=renderCard(name,level);if(card)fragment.appendChild(card);});
     region.appendChild(fragment);
+    if(totalPages>1){
+      const pager=document.createElement('nav');
+      pager.className='pagination level-pagination';
+      pager.setAttribute('aria-label',name+' MCQ levels pages');
+      pager.style.gridColumn='1 / -1';
+      const makeButton=(label,page,{current=false,disabled=false}={})=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='btn sm'+(current?' current primary':'');
+        button.textContent=label;
+        button.disabled=disabled;
+        if(current)button.setAttribute('aria-current','page');
+        button.addEventListener('click',()=>{
+          if(disabled||page===state.page)return;
+          state.page=page;
+          renderTrack(root,name,state.data);
+        });
+        return button;
+      };
+      pager.appendChild(makeButton('Previous',state.page-1,{disabled:state.page===1}));
+      const pageNumbers=document.createElement('div');
+      pageNumbers.className='page-numbers';
+      const firstPage=Math.max(1,Math.min(state.page-1,totalPages-3));
+      const lastPage=Math.min(totalPages,firstPage+3);
+      for(let page=firstPage;page<=lastPage;page++){
+        pageNumbers.appendChild(makeButton(String(page),page,{current:page===state.page}));
+      }
+      pager.appendChild(pageNumbers);
+      pager.appendChild(makeButton('Next',state.page+1,{disabled:state.page===totalPages}));
+      const count=document.createElement('span');
+      count.className='pagination-count muted small';
+      count.textContent='Showing levels '+(first+1)+'–'+Math.min(first+LEVELS_PER_PAGE,levels.length)+' of '+levels.length;
+      pager.appendChild(count);
+      region.appendChild(pager);
+    }
   }
   function activateTab(root,name,scroll=false){
     const track=name==='important'?'important':'regular';
