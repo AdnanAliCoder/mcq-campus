@@ -107,6 +107,8 @@ check(runtime.includes("'signin':'login'") && runtime.includes("'signup':'regist
 check(runtime.includes('data-pricing-retry') && runtime.includes('subscription-unavailable'), 'pricing failures show a retry state instead of empty-price plans');
 check(html.includes('auth-story-points') && css.includes('body.auth-screen .auth-layout > .auth-story'), 'sign-in and sign-up pages have responsive welcome panels');
 check(runtime.includes('function ensureLevelDialog()') && runtime.includes('dialog.showModal()'), 'MCQ level cards open an accessible preview and Start dialog');
+check(runtime.includes('const LEVELS_PER_PAGE=12') && runtime.includes('levelPageState=new WeakMap()'), 'MCQ level cards are paginated twelve levels at a time');
+check(runtime.includes("q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));"), 'MCQ level question requests load ten questions per page');
 check(html.includes('data-api-region="category-level-cards"') && html.includes('id="mcq-category-levels-template"'), 'category pages mount their own MCQ level card grid');
 check(runtime.includes("['mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase)"), 'category pages always request their MCQ list');
 check(runtime.includes("card.dataset.levelUnlocked!=='true'") && runtime.includes("card.classList.contains('is-locked')"), 'locked level cards are blocked from opening the preview');
