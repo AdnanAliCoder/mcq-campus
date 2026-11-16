@@ -114,6 +114,58 @@ class McqLevelAccessTests(TestCase):
         self.assertFalse(levels[0]["premium"])
         self.assertTrue(levels[1]["premium"])
 
+    def test_guest_level_pages_return_100_questions_for_every_track(self):
+        self.make_mcqs(5001, 205, self.category)
+        self.make_mcqs(6001, 100, self.second_category)
+        self.make_mcqs(6101, 100, self.second_category, important=True)
+
+        def load(track, level, category=None):
+            filters = {
+                "public": "1",
+                "country": "Pakistan",
+                "track": track,
+                "level": str(level),
+            }
+            if category is not None:
+                filters["category"] = str(category.id)
+            return mcq_page(
+                AnonymousUser(),
+                page=1,
+                page_size=100,
+                filters=filters,
+            )
+
+        regular_level_one = load("regular", 1)
+        regular_level_two = load("regular", 2)
+        important_level = load("important", 1)
+        category_level = load("category", 1, self.second_category)
+
+        for response in (
+            regular_level_one,
+            regular_level_two,
+            important_level,
+            category_level,
+        ):
+            self.assertEqual(response["pageSize"], 100)
+            self.assertEqual(len(response["items"]), 100)
+
+        self.assertEqual(
+            [row["id"] for row in regular_level_one["items"]],
+            list(range(5001, 5101)),
+        )
+        self.assertEqual(
+            [row["id"] for row in regular_level_two["items"]],
+            list(range(5101, 5201)),
+        )
+        self.assertEqual(
+            [row["id"] for row in important_level["items"]],
+            list(range(6101, 6201)),
+        )
+        self.assertEqual(
+            [row["id"] for row in category_level["items"]],
+            list(range(6001, 6101)),
+        )
+
     def test_past_paper_levels_are_premium_and_direct_api_is_blocked(self):
         self.make_mcqs(3001, 2, self.category, year_ids=[self.year.id])
 
