@@ -869,9 +869,9 @@ def mcq_page(user,page=1,page_size=50,filters=None):
     except (TypeError,ValueError):
         level_number=0
     level_mode=track in {'regular','important','category','past-paper'} and level_number>0
-    # Keep ordinary/admin listing requests capped, but a level is intentionally a
-    # fixed 100-question unit for every visitor type, including guests and admins.
-    max_page_size=100 if level_mode else (50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30))
+    # A level contains 100 questions overall, but learners page through it
+    # ten questions at a time. Keep this API limit consistent for every visitor.
+    max_page_size=10 if level_mode else (50 if is_admin(user) else (100 if user and getattr(user,'is_authenticated',False) else 30))
     page_size=max(1,min(int(page_size or 50),max_page_size))
     qs=MCQ.objects.filter(status='approved') if filters.get('public') else visible_mcqs(user)
     if country: qs=qs.filter(country__iexact=country)
