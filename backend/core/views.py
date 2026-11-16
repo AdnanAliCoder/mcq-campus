@@ -690,6 +690,8 @@ def _payment_file_type(upload, data):
 @login_required_json
 def submit_subscription_payment(request):
     config=get_subscription_config()
+    if not str(config.raast_id or '').strip() and not config.qr_image:
+        return err('Raast payment details are not configured yet. Please contact MCQCampus support.',503)
     plan_key=str(request.POST.get('plan') or '').strip().lower()
     plans=plan_payload(config)
     plan=plans.get(plan_key)
