@@ -5145,7 +5145,8 @@ window.MCQSubscriptions = (() => {
   const monthlyAmount=Number(plans.monthly?.amount||0);
   const cards=['free',...paidPlanKeys].map(key=>{
    const p=plans[key]||{}, isFree=key==='free';
-   const features=(isFree?freeFeatures:paidFeatures).map(item=>'<li><span class="sub-check">✓</span><span>'+esc(item)+'</span></li>').join('');
+   const configuredFeatures=Array.isArray(p.features)?p.features:[];
+   const features=(configuredFeatures.length?configuredFeatures:(isFree?freeFeatures:paidFeatures)).map(item=>'<li><span class="sub-check">✓</span><span>'+esc(item)+'</span></li>').join('');
    const period=p.period||(isFree?'/ forever':key==='monthly'?'/ month':key==='quarterly'?'/ 3 months':'/ year');
    const amount=Number(p.amount||0);
    const saving=key==='quarterly'?Math.max(0,monthlyAmount*3-amount):key==='yearly'?Math.max(0,monthlyAmount*12-amount):0;
@@ -5186,7 +5187,7 @@ window.MCQSubscriptions = (() => {
   const subscriptions=(adminData.active_subscriptions||[]).map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+esc(row.email)+'</td><td>'+esc(row.plan)+'</td><td>'+esc(fmtDate(row.ends_at))+'</td></tr>').join('')||'<tr><td colspan="4">No active paid subscriptions.</td></tr>';
   const planFields=keys.map(key=>{
    const p=plans[key]||{};
-   return '<div class="subscription-setting-plan"><label><span>'+esc(p.name||key)+' price (PKR)</span><input type="number" min="1" max="1000000" step="1" name="amount_'+key+'" value="'+Number(p.amount||0)+'" required></label><label class="subscription-active-toggle"><input type="checkbox" name="active_'+key+'" '+(p.active===false?'':'checked')+'> Available for purchase</label></div>';
+   return '<div class="subscription-setting-plan"><label>Plan name<input type="text" maxlength="100" name="name_'+key+'" value="'+esc(p.name||key)+'" required></label><label>Price (PKR)<input type="number" min="1" max="1000000" step="1" name="amount_'+key+'" value="'+Number(p.amount||0)+'" required></label><label>Tagline<input type="text" maxlength="180" name="tagline_'+key+'" value="'+esc(p.tagline||'')+'"></label><label>Features (one per line)<textarea rows="4" name="features_'+key+'">'+esc((Array.isArray(p.features)?p.features:[]).join('\n'))+'</textarea></label><label class="subscription-active-toggle"><input type="checkbox" name="active_'+key+'" '+(p.active===false?'':'checked')+'> Available for purchase</label></div>';
   }).join('');
   const freeName=plans.free||{};
   const alert=notice?'<div class="notice '+(noticeKind==='error'?'error':noticeKind==='success'?'success':'')+'" role="status">'+esc(notice)+'</div>':'';
@@ -5283,7 +5284,7 @@ window.MCQSubscriptions = (() => {
    const fd=new FormData(),plans={},free=adminData?.settings?.free_access||{};
    for(const key of keys){
     const old=adminData?.settings?.plans?.[key]||{};
-    plans[key]={name:old.name||key,amount:Number(settings.elements['amount_'+key].value),period:old.period||'',tagline:old.tagline||'',features:old.features||[],active:settings.elements['active_'+key].checked};
+    plans[key]={name:settings.elements['name_'+key].value.trim(),amount:Number(settings.elements['amount_'+key].value),period:old.period||'',tagline:settings.elements['tagline_'+key].value.trim(),features:settings.elements['features_'+key].value.split('\\n').map(x=>x.trim()).filter(Boolean),active:settings.elements['active_'+key].checked};
    }
    const freeOld=adminData?.settings?.plans?.free||{};
    plans.free={name:settings.elements.free_name.value.trim(),amount:0,period:freeOld.period||'/ forever',tagline:settings.elements.free_tagline.value.trim(),features:settings.elements.free_features.value.split('\n').map(x=>x.trim()).filter(Boolean)};
