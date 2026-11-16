@@ -3331,7 +3331,7 @@ mountDataDrivenPage(base,id){
    const pagination=region('mcq-pagination');if(pagination){pagination.replaceChildren();pagination.hidden=true;}
    return true;
   }
-  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · '+pageSize+' per page');
   if(list){
    list.classList.add('public-main','public-main-full');
    if(shown.length){
@@ -3356,7 +3356,7 @@ mountDataDrivenPage(base,id){
   if(heading)heading.textContent=topic.name+' MCQs';
   if(description)description.textContent='Practice '+topic.name+' MCQs with correct answers and explanations.';
   setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(category?[[category.name,'category/'+category.id]]:[]),...(subcategory?[[subcategory.name,'subcategory/'+subcategory.id]]:[]),[topic.name]]));
-  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+  setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · '+pageSize+' per page');
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
@@ -3382,7 +3382,7 @@ mountDataDrivenPage(base,id){
     rows=rows.slice((levelNumber-1)*100,levelNumber*100);
    }else if(!levelSelected)rows=[];
   }
-  const pageSize=10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
+  const pageSize=levelSelected?100:10,total=isCategory&&!levelSelected?0:(server?Number(server.total||0):rows.length),page=server?Math.max(1,Number(server.page)||1):Math.max(1,Number(params.page)||1),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const fallbackTitle=isCategory?record.name+' MCQs':record.name;
   const fallbackDescription=isCategory?'Practice '+record.name+' MCQs with correct answers and explanations, and explore related subcategories.':'Practice approved '+record.name+' MCQs with answers and explanations.';
   const pageCopy=isCategory?entityCopy('category',record.id,fallbackTitle,fallbackDescription):{title:fallbackTitle,description:fallbackDescription};
@@ -3395,7 +3395,7 @@ mountDataDrivenPage(base,id){
     const hiddenRegion=region(name);
     if(hiddenRegion){hiddenRegion.replaceChildren();hiddenRegion.hidden=true;}
    }
-   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · '+pageSize+' per page');
    const list=region('mcq-list');
    if(list){
     list.classList.add('public-main','public-main-full');
@@ -3425,7 +3425,7 @@ mountDataDrivenPage(base,id){
    setMarkup('breadcrumbs',UI.crumbs([['Categories','categories'],...(category?[[category.name,'category/'+category.id]]:[]),[record.name]]));
    const children=(data.children||[]).filter(item=>item.active!==false&&Number(item.subcategory_id)===Number(record.id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
    setCategoryContext('TOPICS','Explore '+record.name,children.map(item=>({path:'topic/'+item.id,label:String(item.name||'')})));
-   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · 10 per page');
+   setText('mcq-summary',total.toLocaleString('en-GB')+' MCQs · '+pageSize+' per page');
    const list=region('mcq-list');
    if(list){
     list.classList.add('public-main','public-main-full');
