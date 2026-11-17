@@ -90,7 +90,10 @@ class LoginWallMiddleware:
     """Protect account workspaces while keeping public exam preparation pages accessible."""
     STATIC_PREFIXES=('/assets/',)
     STATIC_PATHS={'/favicon.ico','/favicon.svg','/site.webmanifest','/sw.js'}
-    PUBLIC_API_PATHS={'/api/public/bootstrap','/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal'}
+    PUBLIC_API_PATHS={
+        '/api/public/bootstrap','/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal',
+        '/api/subscription/plans','/api/subscription/qr',
+    }
     AUTH_API_PATHS={
         '/api/auth/session','/api/auth/login','/api/auth/register','/api/auth/forgot',
         '/api/auth/reset','/api/auth/verify','/api/auth/resend-verification','/api/startup',
