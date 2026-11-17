@@ -101,6 +101,20 @@ class SubscriptionPaymentTests(TestCase):
         self.assertEqual(monthly["tagline"], "A custom monthly plan")
         self.assertEqual(monthly["features"], ["Custom feature shown on the pricing page"])
 
+    def test_public_subscription_qr_is_available_without_login(self):
+        self.config.qr_image = PNG_BYTES
+        self.config.qr_content_type = "image/png"
+        self.config.save(update_fields=["qr_image", "qr_content_type", "updated_at"])
+
+        response = self.client.get("/api/subscription/qr")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")
+        self.assertEqual(response.content, PNG_BYTES)
+
+    def test_payment_proof_endpoint_still_requires_login(self):
+        response = self.client.post("/api/subscription/payment-proof", {})
+        self.assertEqual(response.status_code, 401)
+
     def test_super_admin_can_update_prices_plan_copy_and_availability(self):
         plans = {
             key: dict(value)
