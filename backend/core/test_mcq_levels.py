@@ -33,6 +33,16 @@ class McqLevelAccessTests(TestCase):
         self.config.updated_by = self.learner
         self.config.save(update_fields=["free_access", "updated_by"])
 
+    def test_anonymous_visitor_can_load_level_cards_from_public_api(self):
+        response = self.client.get("/api/mcq-levels")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("regular", data)
+        self.assertIn("important", data)
+        self.assertEqual(data["regular"]["total_mcqs"], 0)
+        self.assertEqual(data["important"]["total_mcqs"], 0)
+
     def make_mcqs(self, start, count, category, important=False, year_ids=None):
         MCQ.objects.bulk_create([
             MCQ(
