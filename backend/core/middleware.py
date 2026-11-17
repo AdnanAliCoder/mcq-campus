@@ -92,7 +92,7 @@ class LoginWallMiddleware:
     STATIC_PATHS={'/favicon.ico','/favicon.svg','/site.webmanifest','/sw.js'}
     PUBLIC_API_PATHS={
         '/api/public/bootstrap','/api/public/content','/api/public/resources','/api/public/catalog','/api/public/legal',
-        '/api/subscription/plans','/api/subscription/qr',
+        '/api/subscription/plans','/api/subscription/qr','/api/mcq-levels',
     }
     AUTH_API_PATHS={
         '/api/auth/session','/api/auth/login','/api/auth/register','/api/auth/forgot',
