@@ -1329,7 +1329,6 @@ window.Auth=(()=>{
   if(['home','pdfs','pdf','latest-jobs','latest-job'].includes(workspace)||(workspace==='past-papers'&&section==='pdfs'))wants.push('catalog');
   if(['about','contact','privacy','terms','disclaimer','cookies','advertising'].includes(workspace))wants.push('legal');
   if(['mcqs','important','category','subcategory','topic','year','mcq','practice','search'].includes(resolvedBase))wants.push('public-mcqs');
-  if(['home','category'].includes(resolvedBase)||(resolvedBase==='year'&&!(routeParams.get('track')==='past-paper'&&Number(routeParams.get('level'))>0)))wants.push('mcq-levels');
   if(['categories','papers','paper','job','jobs'].includes(resolvedBase))wants.push('entity-page');
   if(user&&(workspace==='dashboard'||workspace==='profile')){
    wants.push('learner');
@@ -1405,7 +1404,6 @@ window.Auth=(()=>{
    else if(key==='catalog')endpoint='/public/catalog';
    else if(key==='legal')endpoint='/public/legal';
    else if(key==='learner')endpoint='/learner/dashboard';
-   else if(key==='mcq-levels')endpoint='/mcq-levels'+(resolvedBase==='category'&&resolvedId?'?category='+encodeURIComponent(resolvedId):resolvedBase==='year'&&resolvedId?'?year='+encodeURIComponent(resolvedId):'');
    else if(key==='profile')endpoint='/profile';
    else if(key==='workspace-mcqs')endpoint=workspaceEndpoint();
    else if(key==='public-mcqs')endpoint=publicMcqEndpoint();
@@ -1428,7 +1426,6 @@ window.Auth=(()=>{
      if(key==='resources'){MCQ.mergeCore(data);window.MCQCampusApplyOptionalIntegrations?.(data.settings||MCQ.db.settings||{});}
      if(key==='catalog')MCQ.mergeCore(data);
      if(key==='legal')MCQ.mergeCore(data);
-     if(key==='mcq-levels')MCQ.db.mcqLevels=data;
      if(key==='learner'){
       if(Array.isArray(data.attempts))MCQ.db.attempts=data.attempts;
       if(Array.isArray(data.bookmarks))MCQ.db.bookmarks=data.bookmarks;
@@ -1457,7 +1454,17 @@ window.Auth=(()=>{
      }
      loadedSections.add(cacheKey);sectionLoadedAt.set(cacheKey,Date.now());changed=true;
     }catch(error){
-     if(error?.message)console.warn('Lazy route data unavailable:',key);
+     if(error?.message)console.warn('Lazy route data unavailable:',key,error);
+     if(key==='public-mcqs'&&routeKey===location.pathname+location.search){
+      const target=document.querySelector('#app [data-api-region="mcq-list"]');
+      if(target){
+       const notice=document.createElement('p');notice.className='notice error';notice.setAttribute('role','alert');notice.setAttribute('aria-live','polite');
+       notice.textContent='MCQs could not be loaded. Please check your connection and try again.';
+       const retry=document.createElement('button');retry.type='button';retry.className='btn sm';retry.textContent='Retry loading MCQs';
+       retry.addEventListener('click',()=>{retry.disabled=true;retry.textContent='Retrying…';App.render()});
+       target.replaceChildren(notice,retry);target.hidden=false;
+      }
+     }
     }finally{loadingSections.delete(cacheKey)}
    })();
    loadingSections.set(cacheKey,task);await task;return true;
@@ -3532,9 +3539,11 @@ mountDataDrivenPage(base,id){
   setMarkup('home-middle-ad',UI.adSlot('home_middle_ad'));
  }else if(base==='mcqs'||base==='important'){
   const serverPage=data.mcqPage||{},server=serverPage.server===true&&serverPage.scope==='public'&&serverPage.routeKey===location.pathname+location.search?serverPage:null;
-  const params=App.route.params||{},fixed=fixedCountry(),filters=fixed?{page:params.page,country:fixed}:params;
+  const params=App.route.params||{},fixed=fixedCountry(),filters=fixed?{...params,page:params.page,country:fixed}:params;
+  const levelTrack=String(params.track||''),levelNumber=Math.max(0,Number(params.level)||0);
+  const levelSelected=['regular','important'].includes(levelTrack)&&levelNumber>0;
   let rows=MCQ.publicMcqs();
-  const view=base==='important'?'important':String(filters.view||'all');
+  const view=base==='important'||levelTrack==='important'?'important':String(filters.view||'all');
   if(!server){
    if(view==='important')rows=rows.filter(q=>MCQ.isImportant(q));
    if(view==='repeated')rows=rows.filter(q=>MCQ.ids(q.job_years_ids).length>=2);
@@ -3553,11 +3562,12 @@ mountDataDrivenPage(base,id){
   }else rows=MCQ.publicMcqs();
   const total=server?Number(server.total||0):rows.length,pageSize=10,page=server?Math.max(1,Number(server.page||filters.page)||1):App.page(total,pageSize),shown=server?rows:rows.slice((page-1)*pageSize,page*pageSize);
   const heading=shell.querySelector('.page-heading h1'),headingDesc=shell.querySelector('.page-heading p');
-  if(heading)heading.textContent=view==='important'?'Important MCQs':'Practice MCQs';
-  if(headingDesc)headingDesc.textContent='Browse approved practice MCQs with correct answers and explanations.';
+  if(heading)heading.textContent=levelSelected?(view==='important'?'Important':'Regular')+' MCQs · Level '+levelNumber:view==='important'?'Important MCQs':'Practice MCQs';
+  if(headingDesc)headingDesc.textContent=levelSelected?'Practise this 100-question level. Ten MCQs are shown on each page.':'Browse approved practice MCQs with correct answers and explanations.';
+  if(levelSelected)setMarkup('breadcrumbs',UI.crumbs([['MCQ Levels','home'],[view==='important'?'Important MCQs':'Regular MCQs'],['Level '+levelNumber]]));
   const search=shell.querySelector('form[data-form="search"] input[name="q"]');
   if(search)search.value=String(params.q||'');
-  setText('mcq-summary',total.toLocaleString('en-GB')+' total '+(view==='important'?'important MCQs':'MCQs')+' · only 10 load per page');
+  setText('mcq-summary',total.toLocaleString('en-GB')+' '+(view==='important'?'important MCQs':'MCQs')+(levelSelected?' · Level '+levelNumber:'')+' · 10 per page');
   const list=region('mcq-list');
   if(list){
    list.classList.add('public-main','public-main-full');
@@ -3568,7 +3578,8 @@ mountDataDrivenPage(base,id){
      list.append(questionCardFragment(question,false,base==='year'?Number(id)||null:null));
      if(index===4)list.append(this.staticMarkupFragment(UI.adSlot('mcq_inline_ad')));
     });
-   }else list.append(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No matching MCQs are available yet.','Choose another option or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
+   }else if(server?.premium_required)list.append(this.staticMarkupFragment(UI.empty('Premium level','This MCQ level requires a Premium plan to access its questions.',UI.link('pricing','View Premium plans','btn primary'))));
+   else list.append(this.staticMarkupFragment(UI.empty(server?'No MCQs found for this selection.':'No matching MCQs are available yet.','Choose another option or browse all MCQs.',UI.link('mcqs','Browse all MCQs','btn primary'))));
    list.append(this.staticMarkupFragment(UI.adSlot('mcq_bottom_ad')));
    list.hidden=false;
   }
@@ -5008,8 +5019,17 @@ window.MCQCampusLoadPageScript=async function(name){return !!window.MCQCampusPag
         renderTrack(root,'important',data.important||{levels:[]});
       }
     }catch(error){
-      // The static level cards remain usable if progress is temporarily unavailable.
       console.warn('Saved MCQ level progress is temporarily unavailable:',error);
+      if(!root.isConnected)return;
+      const names=categoryId?['category']:yearId?['past-paper']:['regular','important'];
+      names.forEach(name=>{
+        const region=root.querySelector('[data-api-region="levels-'+name+'"]');if(!region)return;
+        const notice=document.createElement('p');notice.className='notice error';notice.setAttribute('role','alert');notice.setAttribute('aria-live','polite');
+        notice.textContent='MCQ levels could not be refreshed. Please retry.';
+        const retry=document.createElement('button');retry.type='button';retry.className='btn sm';retry.textContent='Retry';
+        retry.addEventListener('click',()=>{retry.disabled=true;retry.textContent='Loading…';hydrateProgress(root,categoryId,yearId)});
+        region.replaceChildren(notice,retry);
+      });
     }
   }
   function init(){
