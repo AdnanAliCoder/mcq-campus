@@ -109,6 +109,11 @@ check(runtime.includes('const configuredFeatures=Array.isArray(p.features)?p.fea
 check(runtime.includes("name_'+key+'" ) && runtime.includes("features_'+key+'"), 'Super Admin can edit paid plan names and features');
 check(html.includes('auth-story-points') && css.includes('body.auth-screen .auth-layout > .auth-story'), 'sign-in and sign-up pages have responsive welcome panels');
 check(runtime.includes('function ensureLevelDialog()') && runtime.includes('dialog.showModal()'), 'MCQ level cards open an accessible preview and Start dialog');
+check(runtime.includes("notice.textContent='MCQs could not be loaded. Please check your connection and try again.'") && runtime.includes('Retry loading MCQs'), 'failed public MCQ requests show an accessible retry state');
+check(runtime.includes("notice.textContent='MCQ levels could not be refreshed. Please retry.'") && runtime.includes('hydrateProgress(root,categoryId,yearId)'), 'failed level-card requests show a retry state');
+check(runtime.includes("const levelSelected=['regular','important'].includes(levelTrack)&&levelNumber>0;") && runtime.includes("'Level '+levelNumber"), 'Regular and Important level pages preserve their selected level');
+check(runtime.includes("server?.premium_required") && runtime.includes("'Premium level'"), 'direct links to paid MCQ levels show the Premium access state');
+check(!runtime.includes("wants.push('mcq-levels')"), 'level cards do not issue a duplicate level-count API request');
 check(runtime.includes('const LEVELS_PER_PAGE=12') && runtime.includes('levelPageState=new WeakMap()'), 'MCQ level cards are paginated twelve levels at a time');
 check(runtime.includes("q.set('page_size',String(['mcq','practice'].includes(resolvedBase)?1:10));"), 'MCQ level question requests load ten questions per page');
 check(html.includes('data-api-region="category-level-cards"') && html.includes('id="mcq-category-levels-template"'), 'category pages mount their own MCQ level card grid');
