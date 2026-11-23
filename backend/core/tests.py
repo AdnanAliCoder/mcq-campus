@@ -191,6 +191,16 @@ class IntegrationTests(TestCase):
         self.assertNotIn('logs',data)
         self.assertNotIn('reports',data)
 
+    def test_guest_can_load_mcq_levels_without_opening_private_bootstrap(self):
+        self.client.logout()
+        response = self.client.get('/api/mcq-levels')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('regular', data)
+        self.assertIn('important', data)
+        self.assertEqual(data['regular']['total_mcqs'], 1)
+        self.assertEqual(self.client.get('/api/bootstrap').status_code, 401)
+
     def test_public_pages_and_apis_are_guest_accessible_while_private_apis_require_auth(self):
         self.client.logout()
         page=self.client.get('/')
