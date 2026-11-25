@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from .models import Category, JobYear, MCQ, Paper, Profile, Subscription, SubscriptionConfig
-from .services import mcq_levels_data, mcq_page
+from .services import _entity_mcq_counts, mcq_levels_data, mcq_page
 from .subscriptions import normalized_free_access
 
 
@@ -200,6 +200,98 @@ class McqLevelAccessTests(TestCase):
         )
         self.assertEqual(blocked["items"], [])
         self.assertTrue(blocked["premium_required"])
+
+
+    def test_legacy_scalar_past_paper_ids_load_cards_levels_and_mcqs(self):
+        # A few older imports stored one linked past-paper ID as a JSON scalar
+        # instead of the current array format. That must not break public pages.
+        MCQ.objects.create(
+            id=3501,
+            question="Legacy linked past-paper question?",
+            option1="A",
+            option2="B",
+            option3="C",
+            option4="D",
+            correct_answer="A",
+            category=self.category,
+            paper_ids=self.paper.id,
+            job_year_ids=self.year.id,
+            country="Pakistan",
+            status="approved",
+        )
+
+        # Also cover IDs stored as strings inside a modern JSON array.
+        MCQ.objects.create(
+            id=3502,
+            question="Legacy string-linked past-paper question?",
+            option1="A",
+            option2="B",
+            option3="C",
+            option4="D",
+            correct_answer="A",
+            category=self.category,
+            paper_ids=[str(self.paper.id)],
+            job_year_ids=[str(self.year.id)],
+            country="Pakistan",
+            status="approved",
+        )
+
+        # This powers the Past Paper/year cards shown beneath an organization.
+        self.assertEqual(
+            _entity_mcq_counts(
+                "years", [self.year.id], public_only=True, country="Pakistan"
+            )[self.year.id],
+            2,
+        )
+
+        # Both the public JSON endpoints used by the cards must stay healthy.
+        years_response = self.client.get(
+            f"/api/entities?type=years&scope=public&parent={self.paper.id}",
+            secure=True,
+        )
+        self.assertEqual(years_response.status_code, 200, years_response.content.decode())
+        self.assertEqual(years_response.json()["items"][0]["mcq_count"], 2)
+
+        levels_response = self.client.get(
+            f"/api/mcq-levels?year={self.year.id}", secure=True
+        )
+        self.assertEqual(levels_response.status_code, 200, levels_response.content.decode())
+        self.assertEqual(levels_response.json()["past_paper"]["total_mcqs"], 2)
+
+        # A malformed legacy scalar must not break the regular/important level API.
+        track_response = self.client.get("/api/mcq-levels", secure=True)
+        self.assertEqual(track_response.status_code, 200, track_response.content.decode())
+        self.assertEqual(track_response.json()["regular"]["total_mcqs"], 2)
+
+        # Premium learners must receive all linked questions in the requested level.
+        paid = User.objects.create_user(
+            username="legacy-paper-paid@example.com",
+            email="legacy-paper-paid@example.com",
+            password="LearnerPass123",
+        )
+        Profile.objects.create(user=paid, role="user", country="Pakistan")
+        now = timezone.now()
+        Subscription.objects.create(
+            user=paid,
+            plan="monthly",
+            starts_at=now,
+            ends_at=now + timedelta(days=30),
+            is_active=True,
+        )
+        response = mcq_page(
+            paid,
+            page=1,
+            page_size=10,
+            filters={
+                "public": "1",
+                "country": "Pakistan",
+                "year": str(self.year.id),
+                "track": "past-paper",
+                "level": "1",
+            },
+        )
+        self.assertEqual([row["id"] for row in response["items"]], [3501, 3502])
+        self.assertFalse(response["premium_required"])
 
     def test_paid_subscriber_can_access_past_paper_mcqs(self):
         self.make_mcqs(4001, 2, self.category, year_ids=[self.year.id])

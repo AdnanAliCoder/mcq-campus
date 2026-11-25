@@ -733,9 +733,45 @@ def public_legal_data():
     return cached_value('public-legal',{},_public_legal_data_uncached,timeout=120)
 
 
+def _json_id_values(value):
+    """Treat legacy scalar IDs and modern JSON arrays consistently."""
+    if isinstance(value,(list,tuple,set)):
+        return value
+    if value in (None,''):
+        return ()
+    return (value,)
+
+
 def _json_array_length(qs,field,alias):
-    function='jsonb_array_length' if connection.vendor=='postgresql' else 'json_array_length'
-    return qs.annotate(**{alias:Func(F(field),function=function,output_field=IntegerField())})
+    if connection.vendor=='postgresql':
+        # Older imports can contain a scalar instead of an array. Guard the
+        # PostgreSQL function so one malformed legacy row cannot break every
+        # public MCQ level summary or count.
+        expression=Func(
+            F(field),
+            function='jsonb_array_length',
+            template="CASE WHEN jsonb_typeof(%(expressions)s) = 'array' THEN jsonb_array_length(%(expressions)s) ELSE 0 END",
+            output_field=IntegerField(),
+        )
+    else:
+        expression=Func(F(field),function='json_array_length',output_field=IntegerField())
+    return qs.annotate(**{alias:expression})
+
+
+def _json_array_contains(qs,field,ident):
+    """Match numeric IDs stored as JSON numbers, strings, or a legacy scalar."""
+    if connection.vendor=='postgresql':
+        return qs.filter(
+            Q(**{field+'__contains':[ident]}) |
+            Q(**{field+'__contains':[str(ident)]}) |
+            Q(**{field+'__contains':ident}) |
+            Q(**{field+'__contains':str(ident)})
+        )
+    matching_ids=[
+        row_id for row_id,values in qs.values_list('id',field)
+        if any(str(value).strip()==str(ident) for value in _json_id_values(values))
+    ]
+    return qs.filter(pk__in=matching_ids)
 
 def _approved_public_counts_uncached(country=None):
     approved=MCQ.objects.filter(status='approved')
@@ -782,15 +818,15 @@ def _entity_mcq_counts(kind,ids,public_only=False,country=None):
     field={'papers':'paper_ids','jobs':'job_ids','years':'job_year_ids'}.get(kind)
     if not field: return {}
     if connection.vendor=='postgresql':
-        return {ident:base.filter(**{field+'__contains':[ident]}).count() for ident in ids}
+        return {ident:_json_array_contains(base,field,ident).count() for ident in ids}
     values=list(base.values_list(field,flat=True))
     out={ident:0 for ident in ids}
-    wanted=set(ids)
+    wanted={str(ident):ident for ident in ids}
     for raw in values:
-        for value in raw or []:
-            try: ident=int(value)
+        for value in _json_id_values(raw):
+            try: ident=wanted.get(str(int(value)))
             except (TypeError,ValueError): continue
-            if ident in wanted: out[ident]=out.get(ident,0)+1
+            if ident is not None: out[ident]=out.get(ident,0)+1
     return out
 
 def entity_page_data(user,kind,page=1,page_size=10,filters=None,public_only=False,active_country=None):
@@ -943,17 +979,7 @@ def mcq_page(user,page=1,page_size=50,filters=None):
         if filters.get(key):
             try:
                 ident=int(filters[key])
-                if connection.vendor=='postgresql':
-                    qs=qs.filter(**{field+'__contains':[ident]})
-                else:
-                    matching_ids=[
-                        row_id for row_id,values in qs.values_list('id',field)
-                        if ident in {
-                            int(value) for value in (values or [])
-                            if str(value).isdigit()
-                        }
-                    ]
-                    qs=qs.filter(pk__in=matching_ids)
+                qs=_json_array_contains(qs,field,ident)
             except (TypeError,ValueError):
                 pass
     premium_required=False
@@ -1017,7 +1043,7 @@ def _attach_important_flags(objects):
     """Derive Important MCQs from distinct linked Past Papers, not retired Job IDs."""
     for obj in objects:
         years=set()
-        for value in obj.job_year_ids or []:
+        for value in _json_id_values(obj.job_year_ids):
             try: years.add(int(value))
             except (TypeError,ValueError): pass
         obj._important_value=bool(obj.important) or len(years)>=2
@@ -1046,18 +1072,7 @@ def mcq_levels_data(user,country=None,category_id=None,year_id=None):
             selected_year=int(year_id)
             if selected_year<=0:
                 raise ValueError
-            if connection.vendor=='postgresql':
-                base=base.filter(job_year_ids__contains=[selected_year])
-            else:
-                year_rows=base.values_list('id','job_year_ids')
-                selected_ids=[
-                    ident for ident,linked in year_rows
-                    if selected_year in {
-                        int(value) for value in (linked or [])
-                        if str(value).isdigit()
-                    }
-                ]
-                base=base.filter(pk__in=selected_ids)
+            base=_json_array_contains(base,'job_year_ids',selected_year)
         except (TypeError,ValueError):
             base=base.none()
     if category_scope:

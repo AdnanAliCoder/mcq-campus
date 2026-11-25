@@ -117,6 +117,15 @@ def normalized_free_access(config=None):
     }
 
 
+def _json_id_values(value):
+    """Return JSON-linked IDs as an iterable, including legacy scalar values."""
+    if isinstance(value, (list, tuple, set)):
+        return value
+    if value in (None, ''):
+        return ()
+    return (value,)
+
+
 def free_mcq_ids(user=None, country=None, config=None):
     """IDs covered by the configured free allowance for an unpaid learner."""
     if has_premium_access(user):
@@ -143,7 +152,7 @@ def free_mcq_ids(user=None, country=None, config=None):
         'id', 'category_id', 'important', 'job_year_ids'
     ).iterator(chunk_size=2000):
         linked_years = set()
-        for value in year_ids or []:
+        for value in _json_id_values(year_ids):
             try:
                 linked_years.add(int(value))
             except (TypeError, ValueError):
