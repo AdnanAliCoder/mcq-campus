@@ -220,12 +220,28 @@ class McqLevelAccessTests(TestCase):
             status="approved",
         )
 
+        # Also cover IDs stored as strings inside a modern JSON array.
+        MCQ.objects.create(
+            id=3502,
+            question="Legacy string-linked past-paper question?",
+            option1="A",
+            option2="B",
+            option3="C",
+            option4="D",
+            correct_answer="A",
+            category=self.category,
+            paper_ids=[str(self.paper.id)],
+            job_year_ids=[str(self.year.id)],
+            country="Pakistan",
+            status="approved",
+        )
+
         # This powers the Past Paper/year cards shown beneath an organization.
         self.assertEqual(
             _entity_mcq_counts(
                 "years", [self.year.id], public_only=True, country="Pakistan"
             )[self.year.id],
-            1,
+            2,
         )
 
         # Both the public JSON endpoints used by the cards must stay healthy.
@@ -234,15 +250,20 @@ class McqLevelAccessTests(TestCase):
             secure=True,
         )
         self.assertEqual(years_response.status_code, 200, years_response.content.decode())
-        self.assertEqual(years_response.json()["items"][0]["mcq_count"], 1)
+        self.assertEqual(years_response.json()["items"][0]["mcq_count"], 2)
 
         levels_response = self.client.get(
             f"/api/mcq-levels?year={self.year.id}", secure=True
         )
         self.assertEqual(levels_response.status_code, 200, levels_response.content.decode())
-        self.assertEqual(levels_response.json()["past_paper"]["total_mcqs"], 1)
+        self.assertEqual(levels_response.json()["past_paper"]["total_mcqs"], 2)
 
-        # Premium learners must receive the linked question in the requested level.
+        # A malformed legacy scalar must not break the regular/important level API.
+        track_response = self.client.get("/api/mcq-levels", secure=True)
+        self.assertEqual(track_response.status_code, 200, track_response.content.decode())
+        self.assertEqual(track_response.json()["regular"]["total_mcqs"], 2)
+
+        # Premium learners must receive all linked questions in the requested level.
         paid = User.objects.create_user(
             username="legacy-paper-paid@example.com",
             email="legacy-paper-paid@example.com",
@@ -269,7 +290,7 @@ class McqLevelAccessTests(TestCase):
                 "level": "1",
             },
         )
-        self.assertEqual([row["id"] for row in response["items"]], [3501])
+        self.assertEqual([row["id"] for row in response["items"]], [3501, 3502])
         self.assertFalse(response["premium_required"])
 
     def test_paid_subscriber_can_access_past_paper_mcqs(self):
